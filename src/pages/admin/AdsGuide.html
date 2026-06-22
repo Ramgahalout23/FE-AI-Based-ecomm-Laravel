@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>📢 Ads Section — Complete Visual Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Jost', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+  .guide { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+  .subtitle { color: #666; font-size: 1rem; font-weight: 500; margin-bottom: 2rem; }
+
+  /* Sections */
+  .section { background: white; border-radius: 16px; border: 1px solid #e5e5e5; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .section-title { display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+  .section-title .emoji { font-size: 1.5rem; }
+
+  /* Flow Diagram */
+  .flow { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; padding: 1rem 0; }
+  .flow-step { background: #1a1a1a; color: white; padding: 0.6rem 1.2rem; border-radius: 10px; font-size: 0.8rem; font-weight: 600; text-align: center; min-width: 100px; }
+  .flow-step.green { background: #059669; }
+  .flow-step.purple { background: #7c3aed; }
+  .flow-step.amber { background: #d97706; }
+  .flow-step.blue { background: #2563eb; }
+  .flow-arrow { font-size: 1.2rem; color: #999; }
+
+  /* Platform Cards */
+  .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .platform-card { border-radius: 14px; padding: 1.25rem; color: white; position: relative; overflow: hidden; }
+  .platform-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .platform-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .platform-card .best-for { font-size: 0.7rem; opacity: 0.85; font-weight: 500; margin-bottom: 0.75rem; }
+  .platform-card .desc { font-size: 0.78rem; opacity: 0.9; line-height: 1.5; }
+  .platform-card .badge { position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255,255,255,0.2); padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; }
+  .ig { background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af); }
+  .fb { background: linear-gradient(135deg, #1877f2, #0d65d9); }
+  .goog { background: linear-gradient(135deg, #4285f4, #34a853); }
+  .wa { background: linear-gradient(135deg, #25d366, #128c7e); }
+
+  /* Brand Presets Grid */
+  .preset-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
+  .preset-card { border: 2px solid #eee; border-radius: 12px; padding: 1rem; text-align: center; transition: all 0.2s; cursor: default; }
+  .preset-card:hover { border-color: #d97706; background: #fffbeb; }
+  .preset-card .p-icon { font-size: 1.5rem; margin-bottom: 0.35rem; }
+  .preset-card .p-name { font-size: 0.78rem; font-weight: 700; }
+  .preset-card .p-desc { font-size: 0.65rem; color: #888; margin-top: 0.2rem; }
+  .preset-card .p-plat { font-size: 0.55rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.35rem; }
+
+  /* AI Tools Grid */
+  .ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+  .ai-card { border: 2px solid #eee; border-radius: 12px; padding: 1rem; text-align: center; }
+  .ai-card .ai-icon { font-size: 1.5rem; margin-bottom: 0.35rem; }
+  .ai-card .ai-name { font-size: 0.78rem; font-weight: 700; }
+  .ai-card .ai-desc { font-size: 0.62rem; color: #888; margin-top: 0.2rem; line-height: 1.4; }
+
+  /* Workflow */
+  .workflow { display: flex; flex-direction: column; gap: 1rem; }
+  .wf-step { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem; background: #fafafa; border-radius: 12px; border: 1px solid #eee; }
+  .wf-num { width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; }
+  .wf-content h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .wf-content p { font-size: 0.78rem; color: #666; line-height: 1.5; }
+  .wf-content .hint { font-size: 0.7rem; color: #d97706; font-weight: 600; margin-top: 0.3rem; }
+
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em; }
+  .badge.green { background: #d1fae5; color: #065f46; }
+  .badge.amber { background: #fef3c7; color: #92400e; }
+  .badge.blue { background: #dbeafe; color: #1e40af; }
+  .badge.purple { background: #ede9fe; color: #5b21b6; }
+  .badge.red { background: #fee2e2; color: #991b1b; }
+
+  .tip-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .tip-box strong { color: #92400e; }
+  .tip-box p { font-size: 0.82rem; color: #78350f; margin-top: 0.3rem; line-height: 1.5; }
+
+  hr { border: none; border-top: 1px solid #eee; margin: 1.5rem 0; }
+
+  .step-list { list-style: none; padding: 0; }
+  .step-list li { padding: 0.6rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.82rem; display: flex; gap: 0.75rem; align-items: flex-start; }
+  .step-list li:last-child { border: none; }
+  .step-list .s-num { width: 22px; height: 22px; border-radius: 50%; background: #1a1a1a; color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+  h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+  .highlight { background: #fef3c7; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; }
+  .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 6px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0.15rem; }
+  .tag.blue { background: #dbeafe; color: #1e40af; }
+  .tag.green { background: #d1fae5; color: #065f46; }
+  .tag.purple { background: #ede9fe; color: #5b21b6; }
+  .tag.amber { background: #fef3c7; color: #92400e; }
+  .tag.red { background: #fee2e2; color: #991b1b; }
+
+  .footer-note { text-align: center; padding: 2rem; color: #999; font-size: 0.8rem; }
+</style>
+</head>
+<body>
+<div class="guide">
+
+<!-- Header -->
+<h1>📢 Ads Section — Complete Visual Guide</h1>
+<p class="subtitle">Samajhne ke liye ki kaun sa ad kya karta hai, kaise chalta hai, aur aapko kya karna hai</p>
+
+<!-- ============================ FLOW ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">🔄</span> How It Works — Ek Nazar Mein</div>
+  <div class="flow">
+    <div class="flow-step">1️⃣ Settings मे API Key डालो</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step green">2️⃣ Brand Tab से Preset चुनो</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step purple">3️⃣ AI से Copy / Strategy बनाओ</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step amber">4️⃣ Campaign Create करो</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step blue">5️⃣ Platform पर Push करो 🚀</div>
+  </div>
+</div>
+
+<!-- ============================ PLATFORMS ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">🎯</span> 4 Platforms — Kaun Si Ad Kahan Chalegi?</div>
+  <p style="font-size:0.82rem;color:#666;margin-bottom:1rem;">Har platform ka apna audience, apna format, aur apna purpose hai. Neeche samjhte hain:</p>
+
+  <div class="platform-grid">
+    <div class="platform-card ig">
+      <span class="badge" style="background:rgba(255,255,255,0.2);color:white;position:absolute;top:0.75rem;right:0.75rem;">VISUAL</span>
+      <div class="icon">📸</div>
+      <h3>Instagram Ads</h3>
+      <div class="best-for">Best for: Lifestyle, Fashion, Visual Products</div>
+      <div class="desc">
+        <strong>Kya hota hai?</strong> Photo/Video feed mein, Stories mein, ya Reels ke beech mein dikhta hai.<br>
+        <strong>Kiske liye?</strong> 18-34 age, women-heavy, fashion & beauty ke liye best.<br>
+        <strong>Format:</strong> Square/vertical images ya 15-30sec videos
+      </div>
+    </div>
+
+    <div class="platform-card fb">
+      <span class="badge" style="background:rgba(255,255,255,0.2);color:white;position:absolute;top:0.75rem;right:0.75rem;">TARGETED</span>
+      <div class="icon">👍</div>
+      <h3>Facebook Ads</h3>
+      <div class="best-for">Best for: Broad Targeting, Retargeting, Sales</div>
+      <div class="desc">
+        <strong>Kya hota hai?</strong> News Feed, Marketplace, ya Right Column mein banner dikhta hai.<br>
+        <strong>Kiske liye?</strong> 25-55 age, dono genders, specific interests target kar sakte ho.<br>
+        <strong>Format:</strong> Image, Carousel (multiple images), Video, ya Slideshow
+      </div>
+    </div>
+
+    <div class="platform-card goog">
+      <span class="badge" style="background:rgba(255,255,255,0.2);color:white;position:absolute;top:0.75rem;right:0.75rem;">INTENT</span>
+      <div class="icon">▶️</div>
+      <h3>Google / YouTube Ads</h3>
+      <div class="best-for">Best for: Search Intent, Video Marketing</div>
+      <div class="desc">
+        <strong>Kya hota hai?</strong> Google Search pe top par dikhta hai, ya YouTube video se pehle/middle mein.<br>
+        <strong>Kiske liye?</strong> Jo log already search kar rahe hain — high intent buyers.<br>
+        <strong>Format:</strong> Text (search), Image (display), Video (YouTube)
+      </div>
+    </div>
+
+    <div class="platform-card wa">
+      <span class="badge" style="background:rgba(255,255,255,0.2);color:white;position:absolute;top:0.75rem;right:0.75rem;">DIRECT</span>
+      <div class="icon">💬</div>
+      <h3>WhatsApp Ads</h3>
+      <div class="best-for">Best for: Direct Broadcasts, Personal Outreach</div>
+      <div class="desc">
+        <strong>Kya hota hai?</strong> Subscribers ko direct broadcast bhejna, ya WhatsApp Business pe ad laga kar baat shuru karna.<br>
+        <strong>Kiske liye?</strong> Existing customers, repeat buyers, local audience.<br>
+        <strong>Format:</strong> Message template (text + image + button)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ BRAND ADS TAB ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">🏢</span> Brand Ads Tab — Kya Hai Aur Kaise Use Karein?</div>
+  
+  <div class="tip-box">
+    <strong>💡 एकदम सीधी बात:</strong>
+    <p><strong>Brand Ads tab</strong> = <span class="highlight">"मेरे store के लिए जल्दी-जल्दी ad बनाओ"</span> वाला सेक्शन है।<br>
+    आपको डिज़ाइन टेम्पलेट बनाने की <strong>कोई ज़रूरत नहीं</strong> — सिर्फ एक preset click karo aur campaign form automatically fill ho jayega!</p>
+  </div>
+
+  <div class="section-title" style="font-size:0.95rem;margin-top:1rem;"><span class="emoji">🎨</span> 6 Ready-Made Brand Presets — Bas Click Karo</div>
+
+  <div class="preset-grid">
+    <div class="preset-card"><div class="p-icon">🔥</div><div class="p-name">Flash Sale</div><div class="p-desc">Urgent discount — inventory clear karo</div><div class="p-plat">📸 Instagram</div></div>
+    <div class="preset-card"><div class="p-icon">✨</div><div class="p-name">New Collection</div><div class="p-desc">Naye products launch karo style se</div><div class="p-plat">👍 Facebook</div></div>
+    <div class="preset-card"><div class="p-icon">🏆</div><div class="p-name">Best Sellers</div><div class="p-desc">Top-rated products ko promote karo</div><div class="p-plat">▶️ Google</div></div>
+    <div class="preset-card"><div class="p-icon">🎯</div><div class="p-name">Seasonal Promo</div><div class="p-desc">Festival / holiday special campaign</div><div class="p-plat">📸 Instagram</div></div>
+    <div class="preset-card"><div class="p-icon">📣</div><div class="p-name">Brand Awareness</div><div class="p-desc">Logo + brand identity spread karo</div><div class="p-plat">👍 Facebook</div></div>
+    <div class="preset-card"><div class="p-icon">💬</div><div class="p-name">WhatsApp Broadcast</div><div class="p-desc">Subscribers ko direct message bhejo</div><div class="p-plat">💬 WhatsApp</div></div>
+  </div>
+
+  <hr />
+
+  <div class="section-title" style="font-size:0.95rem;"><span class="emoji">🤔</span> Kya Iske Liye Designed Templates Chahiye?</div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.2rem;margin-bottom:0.3rem;">✅</div>
+      <strong style="font-size:0.85rem;color:#065f46;">Nahi, koi design ki zaroorat nahi!</strong>
+      <p style="font-size:0.75rem;color:#047857;margin-top:0.3rem;line-height:1.5;">
+        Brand Ads tab <strong>khud hi presets provide karta hai</strong>. Aap bas click karo — budget ₹5000 auto-set ho jayega, platform select ho jayega, aur form fill ho jayega. Phir aap sirf creative URL (image/video link) dalo aur campaign ready!
+      </p>
+    </div>
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.2rem;margin-bottom:0.3rem;">🎨</div>
+      <strong style="font-size:0.85rem;color:#92400e;">Lekin creative (image/video) to dalni padegi</strong>
+      <p style="font-size:0.75rem;color:#78350f;margin-top:0.3rem;line-height:1.5;">
+        Preset <strong>campaign ki settings fill karta hai</strong> — name, platform, budget, objective. Lekin <strong>aapko apni product ki photo ya video link deni hogi</strong> jo ad mein dikhegi. Woh aap apne product catalog se le sakte ho ya upload kar sakte ho.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ AI TOOLS ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">🤖</span> AI Tools Tab — ChatGPT Se Ad Copy Generate Karna</div>
+  
+  <div class="tip-box">
+    <strong>⚡ Ye sabse powerful feature hai!</strong>
+    <p>AI Tools tab mein aap <strong>ChatGPT (OpenAI)</strong> ka use karke professional ad copy bana sakte ho — headlines, descriptions, CTAs, hashtags sab kuch. <strong>Pehle Settings → AI mein API key daalni hogi.</strong></p>
+  </div>
+
+  <div class="ai-grid" style="margin-bottom:1rem;">
+    <div class="ai-card" style="border-color:#c084fc;">
+      <div class="ai-icon">✨</div>
+      <div class="ai-name">Generate Copy</div>
+      <div class="ai-desc">Headline + text + CTA + hashtags — ek click mein poori ad copy ready</div>
+    </div>
+    <div class="ai-card" style="border-color:#60a5fa;">
+      <div class="ai-icon">🔀</div>
+      <div class="ai-name">A/B Variants</div>
+      <div class="ai-desc">4 different angles (urgency, social proof, value, emotional) — test karo konsa better hai</div>
+    </div>
+    <div class="ai-card" style="border-color:#34d399;">
+      <div class="ai-icon">🏆</div>
+      <div class="ai-name">Full Strategy</div>
+      <div class="ai-desc">Campaign name + copy + budget + audience + KPIs — puri strategy ek saath</div>
+    </div>
+    <div class="ai-card" style="border-color:#fbbf24;">
+      <div class="ai-icon">👥</div>
+      <div class="ai-name">Audience</div>
+      <div class="ai-desc">Age, gender, interests, locations, best time — ChatGPT suggest karega target audience</div>
+    </div>
+  </div>
+
+  <div style="background:#1a1a1a;color:white;border-radius:12px;padding:1.25rem;">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+      <span style="font-size:1.2rem;">🛠️</span>
+      <strong style="font-size:0.85rem;">AI Tools Use Karne Ka Tarika (Step-by-Step)</strong>
+    </div>
+    <ol style="font-size:0.78rem;color:#ccc;line-height:2;padding-left:1.25rem;">
+      <li><strong style="color:white;">Settings → AI</strong> mein apna OpenAI API key daalo aur save karo</li>
+      <li><strong style="color:white;">Ads → AI Tools</strong> tab mein aao</li>
+      <li><span class="tag amber">Optional</span> Product select karo (taaki AI ko context mile)</li>
+      <li>Platform choose karo (Instagram/Facebook/Google/WhatsApp) aur Tone select karo</li>
+      <li>Koi bhi button click karo — <strong>Generate Copy, A/B Variants, Full Strategy, ya Audience</strong></li>
+      <li>AI ka result aayega — <strong>"Create Campaign"</strong> click karke seedha campaign form mein daal sakte ho!</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============================ COMPLETE WORKFLOW ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">📋</span> Complete Workflow — Ek Campaign Kaise Banega?</div>
+  
+  <div class="workflow">
+    <div class="wf-step">
+      <div class="wf-num">1</div>
+      <div class="wf-content">
+        <h4>Settings mein OpenAI API Key daalo <span class="badge amber">Must-Do</span></h4>
+        <p><strong>Kya karna hai:</strong> Admin → Settings → AI tab → API key paste karo → Save karo</p>
+        <div class="hint">💡 key nahi hai? platform.openai.com se free trial key le lo</div>
+      </div>
+    </div>
+
+    <div class="wf-step">
+      <div class="wf-num">2</div>
+      <div class="wf-content">
+        <h4>Brand Tab se Preset chuno (ya direct Campaign banao)</h4>
+        <p><strong>Kya karna hai:</strong> Ads → Brand Ads → koi preset click karo. Form automatically fill ho jayega. Sirf product ki photo/video dalni hai.</p>
+        <div class="hint">🎯 Ya phir "New" button se khud bhi bana sakte ho</div>
+      </div>
+    </div>
+
+    <div class="wf-step">
+      <div class="wf-num">3</div>
+      <div class="wf-content">
+        <h4>AI Tools se copy generate karo (optional but recommended)</h4>
+        <p><strong>Kya karta hai:</strong> AI Tools tab mein jaake product select karo, platform/tone choose karo, aur "Generate Copy" click karo. AI likh dega headline, description, CTA.</p>
+        <div class="hint">🤖 Phir "Create Campaign" button se seedha form mein bhar sakte ho</div>
+      </div>
+    </div>
+
+    <div class="wf-step">
+      <div class="wf-num">4</div>
+      <div class="wf-content">
+        <h4>Campaign fill karo aur Save karo</h4>
+        <p><strong>Kya bharna hai:</strong> Name, Platform, Objective, Budget (₹), Creative URL (product photo/video link), Landing URL, Start/End date</p>
+        <div class="hint">📸 Creative URL = aapke product ki photo ya video ka link</div>
+      </div>
+    </div>
+
+    <div class="wf-step">
+      <div class="wf-num">5</div>
+      <div class="wf-content">
+        <h4>Platform pe Push karo 🚀</h4>
+        <p><strong>Kya hota hai:</strong> Campaign table mein <span class="tag blue">Upload</span> button hai — usse click karo aur ad actual Instagram/Facebook/Google pe chala jayega.</p>
+        <div class="hint">⚠️ Push karne ke liye pehle <strong>Settings</strong> mein Meta ya Google ki credentials dalni hogi</div>
+      </div>
+    </div>
+
+    <div class="wf-step">
+      <div class="wf-num">6</div>
+      <div class="wf-content">
+        <h4>Analytics Check karo 📊</h4>
+        <p><strong>Kya dekhte hain:</strong> Impressions, Clicks, CTR, Spent, ROAS — Analytics tab mein performance report dekho. Cross-platform comparison bhi available hai.</p>
+        <div class="hint">📈 Purane campaigns ka data bhi dekh sakte ho — "Load Advanced Performance Report" click karo</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ FAQ ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">❓</span> Common Questions (Jo Aap Puchh Rahe Honge)</div>
+
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    <div style="background:#fafafa;border-radius:10px;padding:0.85rem 1rem;">
+      <strong style="font-size:0.82rem;">Q: Kya Brand Ads ke liye alag se designed templates/creatives banane padenge?</strong>
+      <p style="font-size:0.78rem;color:#666;margin-top:0.3rem;">Nahi. Brand Ads tab mein <strong>6 ready-made presets</strong> hain jo sirf click karne se campaign form fill kar dete hain. Aapko sirf apni <strong>product ki photo ya video ka link</strong> dena hai. Baaki sab (name, platform, budget, objective) auto-set ho jata hai.</p>
+    </div>
+
+    <div style="background:#fafafa;border-radius:10px;padding:0.85rem 1rem;">
+      <strong style="font-size:0.82rem;">Q: AI Tools ke liye kya OpenAI API key zaroori hai?</strong>
+      <p style="font-size:0.78rem;color:#666;margin-top:0.3rem;">Haan. <strong>Settings → AI</strong> mein API key daalni padegi. OpenAI se free trial key le sakte ho. Key daalne ke baad server restart karna hoga.</p>
+    </div>
+
+    <div style="background:#fafafa;border-radius:10px;padding:0.85rem 1rem;">
+      <strong style="font-size:0.82rem;">Q: Instagram/Facebook pe actual ad push kaise karein?</strong>
+      <p style="font-size:0.78rem;color:#666;margin-top:0.3rem;">Campaign table mein har campaign ke aage <span class="tag green">Upload</span> aur <span class="tag blue">Sync</span> buttons hain. Upload click karo, ad platform pe push ho jayega. Sync click karo to live stats aajayenge. Lekin pehle <strong>Settings</strong> mein Meta access token aur ad account ID dalni hogi.</p>
+    </div>
+
+    <div style="background:#fafafa;border-radius:10px;padding:0.85rem 1rem;">
+      <strong style="font-size:0.82rem;">Q: Kaunsa platform choose karein?</strong>
+      <p style="font-size:0.78rem;color:#666;margin-top:0.3rem;">
+        <span class="tag purple">Instagram</span> = Fashion, lifestyle, visual products (young audience)<br>
+        <span class="tag blue">Facebook</span> = Broad targeting, all products (older audience bhi)<br>
+        <span class="tag green">Google/YouTube</span> = High-intent buyers (jo search kar rahe hain)<br>
+        <span class="tag amber">WhatsApp</span> = Direct broadcast to existing subscribers<br>
+        <strong>Best strategy:</strong> Ek hi campaign multiple platforms pe banao aur phir Analytics mein compare karo!
+      </p>
+    </div>
+
+    <div style="background:#fafafa;border-radius:10px;padding:0.85rem 1rem;">
+      <strong style="font-size:0.82rem;">Q: Product linking ka kya matlab hai?</strong>
+      <p style="font-size:0.78rem;color:#666;margin-top:0.3px;">Campaign table mein <span class="tag blue">Link2</span> button hai. Usko click karo, product search karo, link karo. Linked products se AI automatically ad creative generate kar sakta hai (product ki photo + description use karke).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SETTINGS REFERENCE ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">⚙️</span> Settings Ki Checklist — Pehle Ye Set Karo</div>
+  <p style="font-size:0.82rem;color:#666;margin-bottom:1rem;">Sabse pehle <strong>Settings → AI</strong> mein OpenAI key dalo. Baaki credentials optional hain jab tak actual platform pe push nahi kar rahe.</p>
+  
+  <table style="width:100%;border-collapse:collapse;font-size:0.78rem;">
+    <thead><tr style="border-bottom:2px solid #1a1a1a;">
+      <th style="text-align:left;padding:0.5rem;font-weight:700;">Feature</th>
+      <th style="text-align:left;padding:0.5rem;font-weight:700;">Kya Dalna Hai</th>
+      <th style="text-align:left;padding:0.5rem;font-weight:700;">Kahan Dalna Hai</th>
+      <th style="text-align:left;padding:0.5rem;font-weight:700;">Zaroori?</th>
+    </tr></thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:0.5rem;">🤖 AI Ad Copy</td>
+        <td style="padding:0.5rem;">OpenAI API Key (sk-...)</td>
+        <td style="padding:0.5rem;"><span class="tag amber">Settings → AI</span></td>
+        <td style="padding:0.5rem;"><span class="badge red">Zaroori</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:0.5rem;">👍 Meta Push</td>
+        <td style="padding:0.5rem;">Access Token + Ad Account ID</td>
+        <td style="padding:0.5rem;"><span class="tag amber">Settings</span></td>
+        <td style="padding:0.5rem;"><span class="badge amber">Optional</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:0.5rem;">▶️ Google Push</td>
+        <td style="padding:0.5rem;">5 Google Ads credentials</td>
+        <td style="padding:0.5rem;"><span class="tag amber">Settings</span></td>
+        <td style="padding:0.5rem;"><span class="badge amber">Optional</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:0.5rem;">💬 WhatsApp</td>
+        <td style="padding:0.5rem;">Access Token + Phone ID</td>
+        <td style="padding:0.5rem;"><span class="tag amber">Settings</span></td>
+        <td style="padding:0.5rem;"><span class="badge amber">Optional</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================ KEY TAKEAWAYS ============================ -->
+<div class="section">
+  <div class="section-title"><span class="emoji">🎯</span> Ekdum Simple Mein — Aapko Kya Karna Hai?</div>
+  
+  <ol class="step-list">
+    <li><span class="s-num">1</span><span><strong>Settings → AI → API Key</strong> daalo (ek baar karna hai)</span></li>
+    <li><span class="s-num">2</span><span><strong>Ads → Brand Ads</strong> mein jao → koi preset click karo (jaise "Flash Sale")</span></li>
+    <li><span class="s-num">3</span><span>Form khulega — bas <strong>apni product ki photo ka link</strong> daalo</span></li>
+    <li><span class="s-num">4</span><span><strong>Save</strong> karo → campaign ban gaya ✅</span></li>
+    <li><span class="s-num">5</span><span>(Optional) AI Tools tab mein <strong>aur copy generate</strong> karo aur campaign mein daalo</span></li>
+    <li><span class="s-num">6</span><span>(Optional) <strong>Upload</strong> button se asli Instagram/Facebook pe push karo</span></li>
+    <li><span class="s-num">7</span><span><strong>Analytics</strong> tab mein performance dekhte raho 📊</span></li>
+  </ol>
+</div>
+
+<div class="footer-note">
+  Made with ❤️ for THREVOLT —<br>
+  <span style="font-size:0.7rem;">Koi sawaal ho toh poochho! Ye guide tumhe ads section ka pura overview dene ke liye hai.</span>
+</div>
+
+</div>
+</body>
+</html>

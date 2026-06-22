@@ -1,0 +1,679 @@
+import { useState, useEffect, useCallback } from 'react';
+import { reelsAPI } from '../../api/reels';
+import toast from '../../utils/toast';
+import ImageUploadZone from '../../components/common/ImageUploadZone';
+import { getImageUrl } from '../../utils/formatters';
+
+const EMPTY_FORM = {
+  title: '',
+  description: '',
+  videoUrl: '',
+  imageUrl: '',
+  linkUrl: '',
+  isActive: true,
+};
+
+export default function ReelsAdminPage() {
+  const [reels, setReels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 20;
+
+  // ── Drag Reorder ──
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const load = async (page = 1) => {
+    setLoading(true);
+    try {
+      const params = { page, limit, search: debouncedSearch || undefined };
+      if (statusFilter !== 'all') {
+        params.is_active = statusFilter === 'active';
+      }
+      const r = await reelsAPI.getAll(params);
+      const data = r.data?.data || r.data;
+      const list = data?.items || data?.data || (Array.isArray(data) ? data : []);
+      setReels(Array.isArray(list) ? list : []);
+      const pag = r.data?.pagination || data?.pagination || {};
+      setCurrentPage(pag.page || page);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalItems(pag.total || list.length);
+    } catch (e) {
+      setError('Failed to load reels');
+      console.warn('Failed to load reels:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      load(1);
+    }
+  }, [debouncedSearch, statusFilter]);
+
+  useEffect(() => {
+    load(currentPage);
+  }, [currentPage]);
+
+  // ── Reorder handlers ──
+  const handleDragStart = useCallback((index) => {
+    setDragIdx(index);
+    setDragOverIdx(null);
+  }, []);
+
+  const handleDragEnter = useCallback((index) => {
+    setDragOverIdx(index);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    const fromIdx = dragIdx;
+    const toIdx = dragOverIdx;
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) {
+      setDragIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+
+    setReels((prevReels) => {
+      const reordered = [...prevReels];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      return reordered.map((r, i) => ({ ...r, display_order: i }));
+    });
+
+    setOrderChanged(true);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, [dragIdx, dragOverIdx]);
+
+  const handleSaveOrder = useCallback(async () => {
+    setSavingOrder(true);
+    try {
+      const payload = reels.map((r) => ({ id: r.id, displayOrder: r.display_order }));
+      await reelsAPI.reorder(payload);
+      toast.success('Order saved');
+      setOrderChanged(false);
+    } catch {
+      toast.error('Failed to save order');
+      await load(currentPage);
+    } finally {
+      setSavingOrder(false);
+    }
+  }, [reels, currentPage]);
+
+  const handleResetOrder = useCallback(async () => {
+    await load(currentPage);
+    setOrderChanged(false);
+  }, [currentPage]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setShowModal(true);
+  };
+
+  const openEdit = (reel) => {
+    setEditing(reel);
+    setForm({
+      title: reel.title || '',
+      description: reel.description || '',
+      videoUrl: reel.video_url || '',
+      imageUrl: reel.image_url || '',
+      linkUrl: reel.link_url || '',
+      isActive: reel.is_active !== undefined ? reel.is_active : true,
+    });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    try {
+      const payload = {
+        title: form.title,
+        description: form.description,
+        videoUrl: form.videoUrl,
+        imageUrl: form.imageUrl,
+        linkUrl: form.linkUrl,
+        isActive: form.isActive,
+      };
+
+      if (editing) {
+        await reelsAPI.update(editing.id, payload);
+      } else {
+        await reelsAPI.create(payload);
+      }
+
+      toast.success(editing ? 'Reel updated' : 'Reel created');
+      await load(currentPage);
+      setShowModal(false);
+    } catch {
+      toast.error('Failed to save');
+    }
+  };
+
+  const handleToggle = async (id) => {
+    try {
+      await reelsAPI.toggleStatus(id);
+      toast.success('Status toggled');
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to toggle status');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this reel?')) return;
+    try {
+      await reelsAPI.delete(id);
+      setReels(reels.filter((r) => r.id !== id));
+      toast.success('Deleted');
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to delete');
+    }
+  };
+
+  return (
+    <div>
+      <div className="admin-header admin-header-row">
+        <div>
+          <h2>🎬 Reels</h2>
+          <p>Manage video reels shown on the homepage slider</p>
+        </div>
+        <button className="btn-dark btn-sm" onClick={openCreate}>
+          + Add Reel
+        </button>
+      </div>
+
+      {error && (
+        <div className="admin-alert danger mb-4">
+          <span className="admin-alert-icon">⚠️</span>
+          <div className="admin-alert-body">
+            <div className="admin-alert-title">Error Loading Data</div>
+            <div>{error}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="table-card">
+        <div className="table-toolbar">
+          <input
+            className="table-search"
+            placeholder="Search reels..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="table-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              marginLeft: '0.5rem',
+              padding: '0.4rem 0.6rem',
+              fontSize: '0.8rem',
+              borderRadius: '6px',
+              border: '1px solid var(--border)',
+              background: 'var(--white)',
+              color: 'var(--charcoal)',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <span className="table-count">{totalItems} reels</span>
+
+          {orderChanged && (
+            <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                ⚠ Order changed
+              </span>
+              <button
+                className="btn-ghost btn-sm"
+                onClick={handleResetOrder}
+                disabled={savingOrder}
+                style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }}
+              >
+                Reset
+              </button>
+              <button
+                className="btn-dark btn-sm"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+                style={{ fontSize: '0.72rem', padding: '0.25rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                {savingOrder ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '💾'}
+                {savingOrder ? 'Saving...' : 'Save Order'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th style={{ width: 32 }}></th>
+              <th>Preview</th>
+              <th>Title</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={7}>
+                  <div className="loading-page" style={{ padding: '2rem' }}>
+                    <div className="spinner" />
+                  </div>
+                </td>
+              </tr>
+            ) : reels.length === 0 ? (
+              <tr>
+                <td colSpan={7}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon">🎬</div>
+                    <h3>No reels yet</h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                      Add your first reel to showcase on the homepage slider.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              reels.map((reel, idx) => (
+                <tr
+                  key={reel.id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragEnter={() => handleDragEnter(idx)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  style={{
+                    cursor: 'default',
+                    opacity: dragIdx === idx ? 0.4 : dragOverIdx === idx ? 0.8 : 1,
+                    background:
+                      dragIdx === idx
+                        ? 'var(--bg-muted, #f0f0f0)'
+                        : dragOverIdx === idx
+                        ? '#fafafa'
+                        : undefined,
+                    borderTop: dragOverIdx === idx ? '2px solid var(--primary)' : undefined,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.4rem 0.25rem' }}>
+                    <span
+                      title="Drag to reorder"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'grab',
+                        color: dragIdx === idx ? 'var(--primary)' : '#bbb',
+                        transition: 'color 0.15s',
+                        lineHeight: 1,
+                        userSelect: 'none',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = dragIdx === idx ? 'var(--primary)' : '#bbb'; }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <circle cx="5" cy="3" r="1.5" />
+                        <circle cx="11" cy="3" r="1.5" />
+                        <circle cx="5" cy="8" r="1.5" />
+                        <circle cx="11" cy="8" r="1.5" />
+                        <circle cx="5" cy="13" r="1.5" />
+                        <circle cx="11" cy="13" r="1.5" />
+                      </svg>
+                    </span>
+                  </td>
+                  <td>
+                    {reel.video_url ? (
+                      <div style={{
+                        width: 60,
+                        height: 80,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        background: '#111',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative',
+                      }}>
+                        <video
+                          src={reel.video_url}
+                          muted
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onMouseEnter={(e) => e.currentTarget.play()}
+                          onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                        />
+                        <span style={{
+                          position: 'absolute',
+                          fontSize: '1.2rem',
+                          color: 'white',
+                          opacity: 0.7,
+                          pointerEvents: 'none',
+                        }}>▶</span>
+                      </div>
+                    ) : reel.image_url ? (
+                      <img
+                        loading="lazy"
+                        src={getImageUrl(reel.image_url)}
+                        alt={reel.title}
+                        style={{
+                          width: 60,
+                          height: 80,
+                          objectFit: 'cover',
+                          borderRadius: 8,
+                          background: '#f5f5f5',
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.78rem',
+                          color: 'var(--muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 60,
+                          height: 80,
+                          borderRadius: 8,
+                          background: '#f5f5f5',
+                        }}
+                      >
+                        🎬
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <strong>{reel.title}</strong>
+                  </td>
+                  <td style={{ color: 'var(--muted)', fontSize: '0.82rem', maxWidth: 280 }}>
+                    {reel.description || <span style={{ fontStyle: 'italic' }}>No description</span>}
+                  </td>
+                  <td>
+                    <span className="status-badge status-info" style={{ fontSize: '0.72rem' }}>
+                      {reel.video_url ? '🎬 Video' : '🖼️ Image'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-badge ${reel.is_active !== false ? 'status-active' : 'status-inactive'}`}>
+                      {reel.is_active !== false ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="btn-edit" onClick={() => openEdit(reel)}>
+                        Edit
+                      </button>
+                      <button
+                        className={reel.is_active !== false ? 'btn-del' : 'btn-approve'}
+                        onClick={() => handleToggle(reel.id)}
+                      >
+                        {reel.is_active !== false ? 'Disable' : 'Enable'}
+                      </button>
+                      <button className="btn-del" onClick={() => handleDelete(reel.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        {totalPages > 1 && (
+          <div
+            className="pagination-container"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              padding: '1rem',
+              borderTop: '1px solid var(--border)',
+            }}
+          >
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} reels)
+            </span>
+            <div style={{ display: 'flex', gap: '0.25rem' }}>
+              <button
+                className="btn-ghost btn-sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              >
+                ◀ Prev
+              </button>
+              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'}
+                  onClick={() => setCurrentPage(p)}
+                  style={{ minWidth: '32px' }}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                className="btn-ghost btn-sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              >
+                Next ▶
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <div
+          className="modal-overlay open"
+          onClick={(e) => e.target === e.currentTarget && setShowModal(false)}
+        >
+          <div className="modal" style={{ maxWidth: '580px' }}>
+            <div className="modal-header">
+              <h3>{editing ? '✏️ Edit Reel' : '➕ New Reel'}</h3>
+              <button className="modal-close" onClick={() => setShowModal(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-grid">
+                {/* Video URL */}
+                <div className="form-group form-full">
+                  <label>Video URL (MP4/WebM)</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      value={form.videoUrl}
+                      onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
+                      placeholder="https://example.com/reel.mp4"
+                      style={{ flex: 1 }}
+                    />
+                    {form.videoUrl && (
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        onClick={() => setForm({ ...form, videoUrl: '' })}
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flexShrink: 0 }}
+                      >
+                        ✕ Clear
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                    Upload a video or paste a direct video URL. MP4 format recommended.
+                  </div>
+                </div>
+
+                {/* OR Upload via ImageUploadZone */}
+                <div className="form-group form-full">
+                  <ImageUploadZone
+                    label="Upload Video Thumbnail / Cover Image"
+                    value={form.imageUrl}
+                    onChange={(url) => setForm({ ...form, imageUrl: url })}
+                    multiple={false}
+                  />
+                </div>
+
+                <div className="form-group form-full">
+                  <label>Or paste cover image URL</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      value={form.imageUrl}
+                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      placeholder="https://images.unsplash.com/photo-..."
+                      style={{ flex: 1 }}
+                    />
+                    {form.imageUrl && (
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        onClick={() => setForm({ ...form, imageUrl: '' })}
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flexShrink: 0 }}
+                      >
+                        ✕ Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    Title <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    placeholder="e.g. Summer Collection 2024"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Link URL (optional)</label>
+                  <input
+                    value={form.linkUrl}
+                    onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
+                    placeholder="/products/summer-collection"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Active</label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      cursor: 'pointer',
+                      fontWeight: 400,
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.isActive}
+                      onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                      style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                    />
+                    {form.isActive ? 'Visible on homepage' : 'Hidden from homepage'}
+                  </label>
+                </div>
+
+                <div className="form-group form-full">
+                  <label>Description</label>
+                  <textarea
+                    rows={2}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="A brief description of this reel..."
+                  />
+                </div>
+
+                {/* Preview */}
+                {(form.videoUrl || form.imageUrl) && (
+                  <div className="form-group form-full">
+                    <label>Preview</label>
+                    <div
+                      style={{
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        border: '1px solid var(--border)',
+                        maxWidth: '240px',
+                        background: '#111',
+                        position: 'relative',
+                      }}
+                    >
+                      {form.videoUrl ? (
+                        <video
+                          src={form.videoUrl}
+                          controls
+                          muted
+                          style={{ width: '100%', maxHeight: 320, display: 'block' }}
+                        />
+                      ) : (
+                        <img
+                          src={getImageUrl(form.imageUrl)}
+                          alt="Preview"
+                          style={{
+                            width: '100%',
+                            maxHeight: 320,
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-dark btn-sm" onClick={handleSave}>
+                {editing ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

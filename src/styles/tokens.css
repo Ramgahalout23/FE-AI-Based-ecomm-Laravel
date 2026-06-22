@@ -1,0 +1,165 @@
+/* ═══════════════════════════════════════════════════
+   LUXE — Design Tokens (Updated for new design)
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  /* ── Primary Colors (Black) ───────────────────── */
+  --primary: #1a1a1a;
+  --primary-container: #333333;
+  --on-primary: #ffffff;
+  --primary-fixed: #e5e5e5;
+  --on-primary-fixed: #1a1a1a;
+  --on-primary-fixed-variant: #4b5563;
+  --surface-tint: #666666;
+
+  /* ── Secondary Colors (Gray) ──────────────────── */
+  --secondary: #6b7280;
+  --secondary-container: #d1d5db;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #1f2937;
+  --secondary-fixed: #f3f4f6;
+  --on-secondary-fixed: #1a1a1a;
+  --on-secondary-fixed-variant: #4b5563;
+  --secondary-fixed-dim: #e5e7eb;
+
+  /* ── Tertiary Colors ───────────────────────────── */
+  --tertiary: #374151;
+  --tertiary-container: #4b5563;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #9ca3af;
+  --tertiary-fixed: #e5e7eb;
+  --on-tertiary-fixed: #111827;
+  --tertiary-fixed-dim: #d1d5db;
+  --on-tertiary-fixed-variant: #4b5563;
+
+  /* ── Surface Colors ────────────────────────────── */
+  --surface: #f8f9fb;
+  --surface-dim: #d9dadc;
+  --surface-bright: #f8f9fb;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f3f4f6;
+  --surface-container: #edeef0;
+  --surface-container-high: #e7e8ea;
+  --surface-container-highest: #e1e2e4;
+  --surface-variant: #e1e2e4;
+  --surface-grey: #F3F4F6;
+  --surface-off-white: #F9FAFB;
+
+  /* ── On Colors ─────────────────────────────────── */
+  --on-surface: #191c1e;
+  --on-surface-variant: #4b5563;
+  --on-background: #191c1e;
+
+  /* ── Outline Colors ────────────────────────────── */
+  --outline: #6b7280;
+  --outline-variant: #d1d5db;
+
+  /* ── Error Colors ─────────────────────────────── */
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+
+  /* ── Inverse Colors ─────────────────────────────── */
+  --inverse-surface: #2e3132;
+  --inverse-on-surface: #f0f1f3;
+  --inverse-primary: #d1d5db;
+
+  /* ── Brand Colors ───────────────────────────────── */
+  --text-main: #111827;
+  --text-muted: #6B7280;
+  --amber-cta: #D97706;
+  --gray-dark: #374151;
+
+  /* ── Legacy Colors (for compatibility) ─────────── */
+  --gold: #C9A96E;
+  --gold-light: #F0DEB4;
+  --gold-dark: #8B6914;
+  --gold-hover: #D4B87E;
+  --charcoal: #1A1A1A;
+  --charcoal-light: #2C2C2C;
+  --off-white: #F8F5F0;
+  --cream: #FAF7F2;
+  --muted: #6B6560;
+  --muted-light: #9B958E;
+  --border: #E8E2D9;
+  --danger: #C0392B;
+  --danger-bg: #FDEDEC;
+  --success: #27AE60;
+  --success-bg: #EAFAF1;
+  --info: #2980B9;
+  --info-bg: #EBF5FB;
+  --warning: #F39C12;
+  --warning-bg: #FEF9E7;
+
+  /* ── Typography ────────────────────────────────── */
+  --font-display: 'Jost', sans-serif;
+  --font-body: 'Jost', sans-serif;
+  --font-headline: 'Jost', sans-serif;
+  --font-label: 'Jost', sans-serif;
+
+  /* ── Font Sizes ─────────────────────────────────── */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 3rem;
+
+  /* ── Spacing ───────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* ── Layout Spacing ─────────────────────────────── */
+  --margin-desktop: 40px;
+  --margin-mobile: 16px;
+  --gutter: 24px;
+  --stack-lg: 48px;
+  --stack-sm: 12px;
+  --stack-md: 24px;
+  --container-max: 1280px;
+
+  /* ── Borders & Radius ───────────────────────────── */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 50%;
+
+  /* ── Shadows ───────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+
+  /* ── Layout ─────────────────────────────────────── */
+  --sidebar-w: 240px;
+  --navbar-h: 60px;
+  --max-width: 1400px;
+  --cart-width: 400px;
+
+  /* ── Transitions ───────────────────────────────── */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 0.15s;
+  --duration-normal: 0.25s;
+  --duration-slow: 0.35s;
+
+  /* ── Z-index ───────────────────────────────────── */
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-drawer: 201;
+  --z-modal: 300;
+  --z-toast: 999;
+}

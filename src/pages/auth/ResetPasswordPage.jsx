@@ -1,0 +1,36 @@
+import { useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { authAPI } from '../../api/auth';
+import toast from '../../utils/toast';
+import './Auth.css';
+
+export default function ResetPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try { await authAPI.resetPassword({ token: searchParams.get('token'), newPassword: password }); toast.success('Password reset!'); navigate('/login'); }
+    catch { toast.error('Reset failed'); }
+  };
+
+  return (
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-surface px-4 py-12">
+      <div className="bg-white border border-border rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-card">
+        <div className="text-center mb-8">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-text-primary mb-2">Reset Password</h1>
+          <p className="text-text-muted">Enter your new password</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">            <div className="flex flex-col gap-1">
+              <label htmlFor="reset-password" className="text-xs font-bold text-text-muted uppercase tracking-wider">New Password</label>
+              <input id="reset-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" className="w-full border-2 border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors" />
+            </div>
+          <button type="submit" className="w-full bg-primary text-white rounded-xl py-3.5 font-bold hover:bg-primary-dark transition-colors shadow-glow-orange mt-6">
+            Reset Password
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

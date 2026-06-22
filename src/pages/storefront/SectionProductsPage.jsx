@@ -1,0 +1,818 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import {
+  ArrowUp, ChevronDown, Package, Loader2, Sparkles, TrendingUp,
+  SlidersHorizontal, X, Filter,
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import SEOHead from '../../components/seo/SEOHead';
+import Breadcrumb from '../../components/common/Breadcrumb';
+import ProductGrid from '../../components/product/ProductGrid';
+import { productsAPI } from '../../api/products';
+import { formatCurrency } from '../../utils/formatters';
+
+/* ── Constants ───────────────────────────────── */
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest', sortBy: '', sortOrder: '' },
+  { value: 'price-low', label: 'Price: Low to High', sortBy: 'price', sortOrder: 'asc' },
+  { value: 'price-high', label: 'Price: High to Low', sortBy: 'price', sortOrder: 'desc' },
+  { value: 'name-asc', label: 'Name: A to Z', sortBy: 'name', sortOrder: 'asc' },
+  { value: 'name-desc', label: 'Name: Z to A', sortBy: 'name', sortOrder: 'desc' },
+];
+
+const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL'];
+const MAX_PRICE = 5000;
+const PAGE_LIMIT = 12;
+
+const SECTION_CONFIG = {
+  'new-arrivals': {
+    title: 'New Arrivals',
+    subtitle: 'The latest drops — fresh styles, premium quality.',
+    label: 'Fresh Drops',
+    icon: Sparkles,
+    badge: 'NEW',
+    fetchFn: (params) => productsAPI.getNewArrivals(params),
+  },
+  'best-sellers': {
+    title: 'Best Sellers',
+    subtitle: 'Our most popular styles — loved by everyone.',
+    label: 'Trending Now',
+    icon: TrendingUp,
+    badge: 'BESTSELLER',
+    fetchFn: (params) => productsAPI.getBestSellers(params),
+  },
+};
+
+/* ═══════════ FILTER SIDEBAR CONTENT ═══════════ */
+
+function FilterContent({
+  priceRange,
+  onPriceRangeChange,
+  selectedSizes,
+  onSizeToggle,
+  onApplyPrice,
+  total,
+}) {
+  return (
+    <div className="space-y-7 md:space-y-8">
+      {/* Price Range */}
+      <div>
+        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+          <span className="w-5 h-px bg-gray-300" /> Price Range
+        </h4>
+        <div className="space-y-4">
+          <input
+            type="range"
+            min="0"
+            max={MAX_PRICE}
+            step="50"
+            value={priceRange[1]}
+            onChange={(e) => onPriceRangeChange([priceRange[0], parseInt(e.target.value)])}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer accent-black"
+            style={{
+              background: `linear-gradient(to right, #1a1a1a ${(priceRange[1] / MAX_PRICE) * 100}%, #e5e7eb ${(priceRange[1] / MAX_PRICE) * 100}%)`,
+            }}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 px-3 py-3 md:py-2.5 bg-surface rounded-lg border border-border text-center">
+              <span className="text-xs text-text-muted">Min</span>
+              <p className="text-sm font-bold text-text-primary">{formatCurrency(priceRange[0])}</p>
+            </div>
+            <span className="text-text-muted text-xs">—</span>
+            <div className="flex-1 px-3 py-3 md:py-2.5 bg-surface rounded-lg border border-border text-center">
+              <span className="text-xs text-text-muted">Max</span>
+              <p className="text-sm font-bold text-text-primary">{formatCurrency(priceRange[1])}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              { label: 'Under ₹500', range: [0, 500] },
+              { label: '₹500 – ₹1K', range: [500, 1000] },
+              { label: '₹1K – ₹1.5K', range: [1000, 1500] },
+              { label: '₹1.5K+', range: [1500, MAX_PRICE] },
+            ].map(({ label, range }) => (
+              <button
+                key={label}
+                onClick={() => onApplyPrice(range)}
+                className={`px-3 py-3 md:py-2 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${
+                  priceRange[0] === range[0] && priceRange[1] === range[1]
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Size */}
+      <div>
+        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+          <span className="w-5 h-px bg-gray-300" /> Size
+        </h4>
+        <div className="flex flex-wrap gap-2.5 md:gap-2">
+          {SIZE_OPTIONS.map((size) => {
+            const isSelected = selectedSizes.includes(size);
+            return (
+              <button
+                key={size}
+                onClick={() => onSizeToggle(size)}
+                className={`w-11 h-11 md:w-10 md:h-10 rounded-xl text-sm font-bold border-2 transition-all active:scale-90 ${
+                  isSelected
+                    ? 'bg-primary text-white border-primary shadow-sm'
+                    : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
+                }`}
+              >
+                {size}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Results summary */}
+      <div className="pt-2 border-t border-border">
+        <p className="text-xs text-text-muted">
+          <strong className="text-text-primary">{total}</strong> {total === 1 ? 'product' : 'products'} found
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ MOBILE FILTER DRAWER ═══════════ */
+
+function MobileFilterDrawer({
+  open,
+  onClose,
+  priceRange,
+  onPriceRangeChange,
+  selectedSizes,
+  onSizeToggle,
+  onApplyPrice,
+  onClearAll,
+  activeCount,
+  total,
+}) {
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      return () => {
+        document.body.style.overflow = prev || '';
+        document.body.style.touchAction = '';
+      };
+    }
+  }, [open]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+            onClick={onClose}
+          />
+
+          {/* Drawer */}
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed inset-x-0 bottom-0 top-[15%] bg-white z-[101] shadow-2xl flex flex-col rounded-t-2xl overflow-hidden"
+            style={{ overscrollBehavior: 'contain' }}
+          >
+            {/* Drag Handle */}
+            <div className="flex justify-center pt-2 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={16} className="text-text-primary" />
+                <h3 className="font-display font-bold text-lg text-text-primary">Filters</h3>
+                {activeCount > 0 && (
+                  <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {activeCount}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="w-11 h-11 rounded-full bg-surface flex items-center justify-center hover:bg-border transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div
+              className="flex-1 overflow-y-auto px-5 py-5"
+              style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
+            >
+              <FilterContent
+                priceRange={priceRange}
+                onPriceRangeChange={onPriceRangeChange}
+                selectedSizes={selectedSizes}
+                onSizeToggle={onSizeToggle}
+                onApplyPrice={onApplyPrice}
+                total={total}
+              />
+            </div>
+
+            {/* Footer */}
+            <div
+              className="px-5 py-4 border-t border-border flex items-center gap-3 flex-shrink-0"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}
+            >
+              <button
+                onClick={() => { onClearAll(); onClose(); }}
+                className="flex-1 py-3.5 rounded-xl border-2 border-border text-sm font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 py-3.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98]"
+              >
+                Show Results
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ═══════════ MAIN PAGE ═══════════ */
+
+export default function SectionProductsPage() {
+  const { section } = useParams();
+  const config = SECTION_CONFIG[section];
+
+  const [products, setProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState('newest');
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
+
+  // Filter state
+  const [priceRange, setPriceRange] = useState([0, MAX_PRICE]);
+  const [selectedSizes, setSelectedSizes] = useState([]);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  const observerRef = useRef(null);
+  const hasMoreRef = useRef(false);
+  hasMoreRef.current = products.length < total;
+
+  const sentinelRef = useCallback(
+    (node) => {
+      if (loading || loadingMore) return;
+      if (observerRef.current) observerRef.current.disconnect();
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasMoreRef.current && !loadingMore) {
+            setLoadingMore(true);
+            setPage((prev) => prev + 1);
+          }
+        },
+        { threshold: 0.1 }
+      );
+
+      if (node) observerRef.current.observe(node);
+    },
+    [loading, loadingMore]
+  );
+
+  const sortOption = SORT_OPTIONS.find((o) => o.value === sortBy) || SORT_OPTIONS[0];
+
+  // Active filters count
+  const activeFiltersCount =
+    (priceRange[0] > 0 || priceRange[1] < MAX_PRICE ? 1 : 0) +
+    selectedSizes.length;
+
+  // Track scroll position
+  useEffect(() => {
+    const handleScroll = () => setShowScrollTop(window.scrollY > 800);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset filters
+  const clearFilters = () => {
+    setPriceRange([0, MAX_PRICE]);
+    setSelectedSizes([]);
+    setProducts([]);
+    setPage(1);
+    setLoading(true);
+  };
+
+  // Not a valid section
+  if (!config) {
+    return (
+      <div className="page-content bg-white flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <Package size={48} className="mx-auto text-gray-300 mb-4" />
+          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">Section not found</h2>
+          <p className="text-gray-500 mb-6">The product section you're looking for doesn't exist.</p>
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Section not found' },
+            ]}
+            variant="light"
+            className="justify-center mb-4"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const Icon = config.icon;
+
+  // Build API params from all filter + sort state
+  const buildApiParams = useCallback(() => {
+    const params = { page, limit: PAGE_LIMIT };
+    if (sortOption.sortBy) {
+      params.sortBy = sortOption.sortBy;
+      params.sortOrder = sortOption.sortOrder;
+    }
+    if (priceRange[0] > 0) params.minPrice = priceRange[0];
+    if (priceRange[1] < MAX_PRICE) params.maxPrice = priceRange[1];
+    if (selectedSizes.length > 0) params.sizes = selectedSizes.join(',');
+    return params;
+  }, [page, sortOption, priceRange, selectedSizes]);
+
+  // Fetch products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (page === 1) setLoading(true);
+      try {
+        const params = buildApiParams();
+        const res = await config.fetchFn(params);
+        const responseData = res.data?.data;
+        const newProducts = Array.isArray(responseData) ? responseData : (responseData?.products || []);
+        const meta = res.data?.pagination || {};
+        const totalCount = meta.total || newProducts.length;
+
+        if (!Array.isArray(newProducts)) return;
+
+        if (page === 1) setProducts(newProducts);
+        else setProducts((prev) => [...prev, ...newProducts]);
+
+        setTotal(totalCount);
+        setError(false);
+      } catch {
+        if (page === 1) setProducts([]);
+        setError(true);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    };
+    fetchProducts();
+  }, [page, section, sortBy, priceRange, selectedSizes, buildApiParams]);
+
+  // Reset when section, sort, price range, or sizes change
+  useEffect(() => {
+    setProducts([]);
+    setPage(1);
+    setTotal(0);
+    setLoading(true);
+    setLoadingMore(false);
+    setError(false);
+  }, [section, sortBy, priceRange, selectedSizes]);
+
+  const handleSizeToggle = (size) => {
+    setSelectedSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
+  };
+
+  const handleApplyPrice = (range) => {
+    setPriceRange(range);
+  };
+
+  return (
+    <div className="page-content bg-white flex-1">
+      <SEOHead
+        title={`${config.title} | Threvolt`}
+        description={config.subtitle || `Browse our ${config.title.toLowerCase()} collection. Shop premium products at Threvolt.`}
+      />
+      {/* Hero Banner */}
+      <div className="relative w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-white/5 blur-2xl" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/' },
+              { label: config.title },
+            ]}
+            variant="dark"
+            className="mb-6"
+          />
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
+                <Icon size={12} />
+                {config.label}
+              </span>
+              <span className="text-white/40 text-xs font-medium">
+                {total} {total === 1 ? 'product' : 'products'}
+              </span>
+            </div>
+
+            <h1 className="text-white font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.1] mb-3">
+              {config.title}
+            </h1>
+            <p className="text-white/60 text-sm md:text-base max-w-xl">
+              {config.subtitle}
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Content area: sidebar + products */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        {/* Sort + Filter bar (mobile) */}
+        <div className="flex items-center justify-between mb-6 gap-3 lg:hidden">
+          <p className="text-sm text-text-muted">
+            {!loading && (
+              <>
+                Showing <strong className="text-text-primary">{products.length}</strong> of{' '}
+                <strong className="text-text-primary">{total}</strong> products
+              </>
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="h-10 pl-3 pr-9 text-xs font-semibold border-2 border-border rounded-xl appearance-none bg-white focus:outline-none focus:border-primary cursor-pointer transition-colors"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+              />
+            </div>
+            <button
+              onClick={() => setShowMobileFilters(true)}
+              className={`h-10 px-3 flex items-center gap-2 border-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                activeFiltersCount > 0
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
+              }`}
+            >
+              <Filter size={15} />
+              {activeFiltersCount > 0 && (
+                <span className="bg-white/20 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Active filter tags (mobile) */}
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-6 lg:hidden">
+            {(priceRange[0] > 0 || priceRange[1] < MAX_PRICE) && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold border border-primary/20">
+                💰 {formatCurrency(priceRange[0])} — {formatCurrency(priceRange[1])}
+                <button
+                  onClick={() => setPriceRange([0, MAX_PRICE])}
+                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {selectedSizes.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold border border-primary/20">
+                📏 Size: {selectedSizes.join(', ')}
+                <button
+                  onClick={() => setSelectedSizes([])}
+                  className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            <button
+              onClick={clearFilters}
+              className="text-xs font-semibold text-text-muted hover:text-primary underline-offset-2 hover:underline transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Desktop: sidebar + products layout */}
+        <div className="flex gap-8">
+          {/* Desktop Sidebar */}
+          <aside className="hidden lg:block w-64 flex-shrink-0">
+            <div className="sticky top-24 space-y-6">
+              {/* Sort */}
+              <div>
+                <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="w-5 h-px bg-gray-300" /> Sort By
+                </h4>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full h-10 pl-3 pr-9 text-xs font-semibold border-2 border-border rounded-xl appearance-none bg-white focus:outline-none focus:border-primary cursor-pointer transition-colors"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* Filters */}
+              <FilterContent
+                priceRange={priceRange}
+                onPriceRangeChange={setPriceRange}
+                selectedSizes={selectedSizes}
+                onSizeToggle={handleSizeToggle}
+                onApplyPrice={handleApplyPrice}
+                total={total}
+              />
+
+              {/* Active filters on desktop */}
+              {activeFiltersCount > 0 && (
+                <div className="pt-2">
+                  <button
+                    onClick={clearFilters}
+                    className="w-full py-2.5 rounded-xl border-2 border-border text-xs font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {/* Products */}
+          <div className="flex-1 min-w-0">
+            {/* Sort bar (desktop) */}
+            <div className="hidden lg:flex items-center justify-between mb-6">
+              <p className="text-sm text-text-muted">
+                {!loading && (
+                  <>
+                    Showing <strong className="text-text-primary">{products.length}</strong> of{' '}
+                    <strong className="text-text-primary">{total}</strong> products
+                  </>
+                )}
+              </p>
+              {activeFiltersCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {(priceRange[0] > 0 || priceRange[1] < MAX_PRICE) && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold border border-primary/20">
+                      💰 {formatCurrency(priceRange[0])} — {formatCurrency(priceRange[1])}
+                      <button
+                        onClick={() => setPriceRange([0, MAX_PRICE])}
+                        className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                  {selectedSizes.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold border border-primary/20">
+                      📏 Size: {selectedSizes.join(', ')}
+                      <button
+                        onClick={() => setSelectedSizes([])}
+                        className="hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Error state */}
+            {error && !loading && (
+              <div className="text-center py-16">
+                <Package size={48} className="mx-auto text-gray-300 mb-4" />
+                <h3 className="font-display font-bold text-xl text-text-primary mb-2">
+                  Failed to load products
+                </h3>
+                <p className="text-text-muted text-sm mb-6">Something went wrong. Please try again.</p>
+                <button
+                  onClick={() => {
+                    setPage(1);
+                    setProducts([]);
+                    setLoading(true);
+                  }}
+                  className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {loading && page === 1 ? (
+              <SectionProductsSkeleton />
+            ) : (
+              <ProductGrid products={products} loading={false} />
+            )}
+
+            {/* Infinite scroll sentinel */}
+            {hasMoreRef.current && !loading && (
+              <div ref={sentinelRef} className="flex justify-center py-10">
+                <div className="flex items-center gap-2 text-sm text-text-muted">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Loading more...</span>
+                </div>
+              </div>
+            )}
+
+            {/* End of list */}
+            {!hasMoreRef.current && products.length > 0 && !loading && (
+              <div className="text-center py-10 border-t border-border mt-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-text-muted text-xs font-medium">
+                  <Package size={14} />
+                  You've seen all {total} products
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Filter Drawer */}
+      <MobileFilterDrawer
+        open={showMobileFilters}
+        onClose={() => setShowMobileFilters(false)}
+        priceRange={priceRange}
+        onPriceRangeChange={setPriceRange}
+        selectedSizes={selectedSizes}
+        onSizeToggle={handleSizeToggle}
+        onApplyPrice={handleApplyPrice}
+        onClearAll={clearFilters}
+        activeCount={activeFiltersCount}
+        total={total}
+      />
+
+      {/* Scroll to Top Button */}
+      <motion.button
+        onClick={scrollToTop}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{
+          opacity: showScrollTop ? 1 : 0,
+          scale: showScrollTop ? 1 : 0.8,
+          pointerEvents: showScrollTop ? 'auto' : 'none',
+        }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 hover:shadow-xl active:scale-95 transition-[background,box-shadow] flex items-center justify-center"
+        aria-label="Scroll to top"
+      >
+        <ArrowUp size={20} />
+      </motion.button>
+    </div>
+  );
+}
+
+/* ═══════════ SKELETON LOADING ═══════════ */
+
+/* Variants for staggered entrance */
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.06,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+const heroItemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: (i) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: i * 0.08 },
+  }),
+};
+
+function Skeleton({ className = '' }) {
+  return <div className={`skeleton ${className}`} />;
+}
+
+function SectionProductsSkeleton() {
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Hero Banner Skeleton */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="relative w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden"
+      >
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <motion.div className="mb-6" custom={0} variants={heroItemVariants}>
+            <Skeleton className="!w-20 !h-3 !rounded-md !bg-white/10" />
+          </motion.div>
+          <div className="space-y-4 max-w-xl">
+            <motion.div custom={1} variants={heroItemVariants}>
+              <Skeleton className="!w-32 !h-5 !rounded-full !bg-white/10" />
+            </motion.div>
+            <motion.div custom={2} variants={heroItemVariants}>
+              <Skeleton className="!w-full !h-12 md:!h-14 !rounded-lg !bg-white/10" />
+            </motion.div>
+            <motion.div custom={3} variants={heroItemVariants}>
+              <Skeleton className="!w-72 !h-4 !rounded-md !bg-white/10" />
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Content skeleton */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        <motion.div className="mb-6" custom={4} variants={heroItemVariants}>
+          <Skeleton className="!w-40 !h-4 !rounded-md" />
+        </motion.div>
+        <motion.div
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
+          variants={containerVariants}
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <motion.div
+              key={i}
+              variants={cardVariants}
+              className="bg-white rounded-2xl overflow-hidden border border-border"
+            >
+              <Skeleton className="!w-full !aspect-[3/4] !rounded-none" />
+              <div className="p-4 space-y-3">
+                <Skeleton className="!w-16 !h-3 !rounded-md" />
+                <Skeleton className="!w-36 !h-4 !rounded-md" />
+                <div className="flex items-center gap-1.5">
+                  <Skeleton className="!w-12 !h-5 !rounded" />
+                  <Skeleton className="!w-14 !h-3 !rounded-md" />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
