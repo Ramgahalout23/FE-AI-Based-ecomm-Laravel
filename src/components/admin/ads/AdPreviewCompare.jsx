@@ -1,5 +1,5 @@
+import { X, Activity, Play, ChevronDown, ChevronUp, MessageCircle, Image, Eye } from 'lucide-react';
 import { useState } from 'react';
-import { X, Target, MessageCircle, Play, Image, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 
 const PLATFORMS = [
   {
@@ -48,7 +48,7 @@ const PLATFORMS = [
   },
 ];
 
-function PlatformPreview({ platform, campaign, imageUrl, headline, primaryText, cta, landingUrl, imgError, onImgError }) {
+function PlatformPreview({ platform, imageUrl, headline, primaryText, cta, landingUrl, imgError, onImgError }) {
   return (
     <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden group hover:shadow-md transition-all">
       {/* Platform Header */}
@@ -66,7 +66,7 @@ function PlatformPreview({ platform, campaign, imageUrl, headline, primaryText, 
           <div className="space-y-2.5">
             <div className={`rounded-xl overflow-hidden bg-gray-200 aspect-square ${imgError ? 'flex items-center justify-center' : ''}`}>
               {imgError ? (
-                <Image size={36} className="text-gray-400" />
+                <Image size={36} />
               ) : (
                 <img src={imageUrl} alt="" className="w-full h-full object-cover" onError={onImgError} />
               )}
@@ -82,7 +82,7 @@ function PlatformPreview({ platform, campaign, imageUrl, headline, primaryText, 
           <div className="space-y-2.5">
             <div className={`rounded-xl overflow-hidden bg-gray-200 aspect-video ${imgError ? 'flex items-center justify-center' : ''}`}>
               {imgError ? (
-                <Image size={36} className="text-gray-400" />
+                <Image size={36} />
               ) : (
                 <img src={imageUrl} alt="" className="w-full h-full object-cover" onError={onImgError} />
               )}
@@ -127,7 +127,7 @@ function PlatformPreview({ platform, campaign, imageUrl, headline, primaryText, 
               <div className="mt-2 px-4 py-2 bg-green-500 text-white text-center rounded-lg text-xs font-bold">{cta}</div>
             </div>
             <div className="flex items-center gap-1.5 text-[9px] text-gray-400">
-              <MessageCircle size={11} className="text-green-500" />
+              <MessageCircle size={11} />
               Delivered via WhatsApp Business
             </div>
           </div>
@@ -206,7 +206,7 @@ export default function AdPreviewCompare({ campaign, copy, onClose }) {
           <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-border shadow-soft">
             <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-border">
               {imgErrors['creative'] ? (
-                <div className="w-full h-full flex items-center justify-center"><Image size={22} className="text-gray-400" /></div>
+                <div className="w-full h-full flex items-center justify-center"><Image size={22} /></div>
               ) : (
                 <img src={imageUrl} alt="" className="w-full h-full object-cover" onError={() => handleImgError('creative')} />
               )}
@@ -239,7 +239,6 @@ export default function AdPreviewCompare({ campaign, copy, onClose }) {
               <PlatformPreview
                 key={platform.id}
                 platform={platform}
-                campaign={campaign}
                 imageUrl={imageUrl}
                 headline={headline}
                 primaryText={primaryText}

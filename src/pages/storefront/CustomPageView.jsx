@@ -1,13 +1,20 @@
+import { ArrowLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { useSettings } from '../../store/useSettings';
+import { formatDate } from '../../utils/formatters';
 import { pagesAPI } from '../../api/pages';
 import { seoAPI } from '../../api/seo';
-import { ArrowLeft } from 'lucide-react';
+;
 import PageContentSkeleton from '../../components/ui/PageContentSkeleton';
 
 export default function CustomPageView() {
+  const { t } = useTranslation();
   const { slug } = useParams();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [page, setPage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,7 +29,7 @@ export default function CustomPageView() {
         const res = await pagesAPI.getBySlug(slug);
         const pageData = res?.data?.data || res?.data || null;
         if (!pageData) {
-          setError('Page not found');
+          setError(t('page_view.not_found'));
         } else {
           setPage(pageData);
 
@@ -37,9 +44,9 @@ export default function CustomPageView() {
         }
       } catch (err) {
         if (err.response?.status === 404) {
-          setError('Page not found');
+          setError(t('page_view.not_found'));
         } else {
-          setError('Failed to load page. Please try again.');
+          setError(t('page_view.not_found_desc'));
         }
       } finally {
         setLoading(false);
@@ -56,14 +63,14 @@ export default function CustomPageView() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] gap-4 px-4">
         <div className="text-6xl">📄</div>
-        <h1 className="text-2xl font-bold text-text-primary">Page Not Found</h1>
-        <p className="text-text-secondary">{error || 'This page does not exist or has been unpublished.'}</p>
+        <h1 className="text-2xl font-bold text-text-primary">{t('page_view.not_found')}</h1>
+        <p className="text-text-secondary">{error || t('page_view.not_found_desc')}</p>
         <Link
           to="/"
           className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-colors"
         >
           <ArrowLeft size={18} />
-          Back to Home
+          {t('page_view.back_home')}
         </Link>
       </div>
     );
@@ -73,7 +80,7 @@ export default function CustomPageView() {
     <div className="flex-1">
       {/* SEO meta tags for custom page */}
       <SEOHead
-        title={pageSeo?.metaTitle || `${page.title} | Threvolt`}
+        title={pageSeo?.metaTitle || `${page.title} | ${storeName}`}
         description={pageSeo?.metaDescription || page.metaDescription || ''}
         keywords={pageSeo?.metaKeywords || ''}
         image={pageSeo?.ogImage || ''}
@@ -88,18 +95,14 @@ export default function CustomPageView() {
             className="inline-flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors mb-6"
           >
             <ArrowLeft size={16} />
-            Back to Home
+            {t('page_view.back_home')}
           </Link>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display tracking-tight">
             {page.title}
           </h1>
           {page.updatedAt && (
             <p className="mt-3 text-sm text-white/50">
-              Last updated: {new Date(page.updatedAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              {t('page_view.last_updated', { date: formatDate(page.updatedAt, { month: 'long' }) })}
             </p>
           )}
         </div>

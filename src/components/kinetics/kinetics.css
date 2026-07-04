@@ -1,0 +1,231 @@
+/* ═══════════════════════════════════════════════════
+   KINETICS — Spring-physics micro-interactions
+   Inspired by kinetics.colorion.co
+   ═══════════════════════════════════════════════════ */
+
+/* ── Spring Easing Curves ─────────────────────────── */
+/* These cubic-bezier values mimic spring physics:
+   - spring(damping, stiffness): higher damping = less bounce
+   - overshoot: animates past target then settles
+   - glide: smooth deceleration without bounce */
+
+:root {
+  --spring-gentle: cubic-bezier(0.34, 1.56, 0.64, 1);    /* Light overshoot */
+  --spring-snappy: cubic-bezier(0.16, 1, 0.3, 1);         /* Fast settle */
+  --spring-bouncy: cubic-bezier(0.18, 1.25, 0.4, 1);      /* Pronounced bounce */
+  --spring-glide: cubic-bezier(0.65, 0, 0.35, 1);          /* Smooth glide */
+  --spring-linear-overshoot: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --duration-ripple: 0.6s;
+  --duration-magnet: 0.15s;
+  --duration-toast: 0.55s;
+  --duration-tab: 0.4s;
+  --duration-accordion: 0.45s;
+  --duration-burst: 0.6s;
+  --duration-drag: 0.5s;
+}
+
+/* ── Ripple Effect ─────────────────────────────────── */
+@keyframes ripple-out {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.kinetics-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0);
+  animation: ripple-out var(--duration-ripple) var(--spring-snappy) forwards;
+  pointer-events: none;
+}
+
+.kinetics-ripple-btn {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Dark ripple for light backgrounds */
+.kinetics-ripple-dark {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ── Magnetic Pull ─────────────────────────────────── */
+.kinetics-magnetic {
+  transition: transform var(--duration-magnet) ease-out;
+  will-change: transform;
+}
+
+/* ── Toast Overshoot ────────────────────────────────── */
+@keyframes toast-overshoot-in {
+  0% {
+    opacity: 0;
+    transform: translateY(140%) scale(0.9);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-8%) scale(1.02);
+  }
+  80% {
+    transform: translateY(3%) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-overshoot-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+}
+
+.kinetics-toast-enter {
+  animation: toast-overshoot-in var(--duration-toast) var(--spring-bouncy) forwards;
+}
+
+.kinetics-toast-exit {
+  animation: toast-overshoot-out 0.25s ease-in forwards;
+}
+
+/* ── Tab Pill Glide ─────────────────────────────────── */
+.kinetics-tab-pill {
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: #1a1a1a;
+  transition:
+    left var(--duration-tab) var(--spring-glide),
+    width var(--duration-tab) var(--spring-glide);
+  pointer-events: none;
+}
+
+.kinetics-tab-btn {
+  position: relative;
+  transition: color var(--duration-tab) ease, background var(--duration-tab) ease;
+  white-space: nowrap;
+}
+
+.kinetics-tab-btn.active {
+  font-weight: 700;
+}
+
+/* ── Accordion Spring ───────────────────────────────── */
+.kinetics-accordion-body {
+  overflow: hidden;
+  transition:
+    max-height var(--duration-accordion) var(--spring-snappy),
+    opacity var(--duration-accordion) ease;
+}
+
+.kinetics-accordion-chevron {
+  transition: transform var(--duration-accordion) var(--spring-gentle);
+}
+
+.kinetics-accordion-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ── Drag to Dismiss ────────────────────────────────── */
+.kinetics-drag-card {
+  touch-action: none;
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+/* ── Like Burst ─────────────────────────────────────── */
+.kinetics-like-burst {
+  --tx: 0px;
+  --ty: 0px;
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+@keyframes burst-fly {
+  to {
+    transform: translate(var(--tx), var(--ty)) scale(0);
+    opacity: 0;
+  }
+}
+
+.kinetics-burst-particle {
+  animation: burst-fly var(--duration-burst) var(--spring-snappy) forwards;
+}
+
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.kinetics-heart-pop {
+  animation: heart-pop 0.4s var(--spring-gentle) forwards;
+}
+
+/* ── Hold to Confirm ────────────────────────────────── */
+.kinetics-hold-btn {
+  position: relative;
+  cursor: pointer;
+}
+
+.kinetics-hold-ring {
+  transform: rotate(-90deg);
+}
+
+.kinetics-hold-progress {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 207;
+  stroke-dashoffset: 207;
+  transition: stroke-dashoffset 0.2s ease-out;
+}
+
+.kinetics-hold-btn.holding .kinetics-hold-progress {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.8s linear;
+}
+
+.kinetics-hold-btn.completed .kinetics-hold-progress {
+  stroke: #22c55e;
+  stroke-dashoffset: 0;
+}
+
+/* ── Counter Bump ───────────────────────────────────── */
+.kinetics-counter-bump {
+  display: inline-block;
+  transition: transform 0.4s var(--spring-gentle);
+}
+
+.kinetics-counter-bump.bump {
+  transform: scale(1.25) translateY(-6px);
+}
+
+/* ── Reduced Motion ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

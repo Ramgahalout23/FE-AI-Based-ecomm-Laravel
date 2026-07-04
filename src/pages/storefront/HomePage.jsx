@@ -1,10 +1,14 @@
+import { ChevronLeft, ChevronRight, ChevronUp, RefreshCw, ArrowRight } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ChevronUp, ArrowRight, Loader2 } from 'lucide-react';
+
+;
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
+import { useSettings } from '../../store/useSettings';
 import { productsAPI } from '../../api/products';
 import { categoriesAPI } from '../../api/categories';
 import { bannersAPI } from '../../api/banners';
@@ -12,13 +16,61 @@ import { seoAPI } from '../../api/seo';
 import { reviewsAPI } from '../../api/reviews';
 import { curatedLooksAPI } from '../../api/curatedLooks';
 import { reelsAPI } from '../../api/reels';
+import { promotionsAPI } from '../../api/promotions';
 import usePullToRefresh from '../../hooks/usePullToRefresh';
 
-import { getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
+import { formatCurrency, formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
 import ReelsSection from '../../components/storefront/ReelsSection';
+import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
+
+/* ═══════════ ANIMATION WRAPPERS — Premium Entrance ═══════════ */
+function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30, scale: 0.98, filter: 'blur(4px)' }}
+      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      viewport={{ once: true, margin }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function AnimatedDivider() {
+  return (
+    <div className="flex items-center justify-center gap-3 py-3 md:py-4">
+      <motion.div
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="h-px w-20 md:w-32 bg-gradient-to-r from-transparent via-gray-200 to-transparent"
+        style={{ transformOrigin: 'left center' }}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
+        className="w-1.5 h-1.5 rounded-full bg-primary/25"
+      />
+      <motion.div
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+        className="h-px w-20 md:w-32 bg-gradient-to-l from-transparent via-gray-200 to-transparent"
+        style={{ transformOrigin: 'right center' }}
+      />
+    </div>
+  );
+}
 
 /* ═══════════ FULL-BLEED HERO BANNER ═══════════ */
 function HeroBanner({ banners }) {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState(0);
   const navigate = useNavigate();
 
@@ -92,8 +144,8 @@ function HeroBanner({ banners }) {
                   onClick={() => navigate(bannerLink || '/products')}
                   className="bg-primary text-white px-10 py-4 rounded-full text-base font-bold hover:bg-primary-dark transition-all shadow-glow-orange hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 group/btn"
                 >
-                  {slide.cta || 'Shop Now'}
-                  <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                  {slide.cta || t('home.shop_now')}
+                  <ArrowRight size={18} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                 </button>
               </motion.div>
             </div>
@@ -255,8 +307,8 @@ function HeroBanner({ banners }) {
                   onClick={() => navigate(bannerLink || '/products')}
                   className="bg-primary text-white px-10 py-4 rounded-full text-base font-bold hover:bg-primary-dark transition-all shadow-glow-orange hover:shadow-xl hover:-translate-y-1 inline-flex items-center gap-2 group/btn"
                 >
-                  {slide.cta || 'Shop Now'}
-                  <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                  {slide.cta || t('home.shop_now')}
+                  <ArrowRight size={18} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                 </button>
               </motion.div>
             </div>
@@ -298,6 +350,7 @@ function HeroBanner({ banners }) {
 
 /* ═══════════ CATEGORIES — Premium Editorial Grid ═══════════ */
 function CategorySection({ categories }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const cats = Array.from(Array.isArray(categories) ? categories : []);
 
@@ -320,18 +373,18 @@ function CategorySection({ categories }) {
         >
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="h-px w-5 bg-gray-200" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">Collections</span>
+            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.collections')}</span>
             <span className="h-px w-5 bg-gray-200" />
           </div>
           <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
-            Shop by Category
+            {t('home.shop_by_category')}
           </h2>
           <button
             onClick={() => navigate('/products')}
             className="hidden md:inline-flex items-center gap-2 text-sm font-bold text-text-primary hover:text-primary transition-colors uppercase tracking-wider group shrink-0 mt-4"
           >
-            Browse All
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            {t('home.browse_all')}
+            <ArrowRight size={15} />
           </button>
         </motion.div>
 
@@ -356,7 +409,7 @@ function CategorySection({ categories }) {
               {/* Name at bottom */}
               <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
                 <span className="text-white/50 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] mb-1 block">
-                  Featured Collection
+                  {t('home.featured_collection')}
                 </span>
                 <h3 className="text-white font-display text-xl md:text-3xl font-extrabold tracking-tight">
                   {hero.name}
@@ -364,7 +417,7 @@ function CategorySection({ categories }) {
               </div>
               {/* Arrow button */}
               <div className="absolute top-5 right-5 w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
-                <ArrowRight size={16} className="text-white" />
+                <ArrowRight size={16} />
               </div>
             </div>
           </motion.button>
@@ -431,15 +484,13 @@ function CategorySection({ categories }) {
           onClick={() => navigate('/products')}
           className="md:hidden w-full mt-6 py-3.5 rounded-xl bg-gray-100 text-text-primary font-bold text-sm uppercase tracking-wider hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
         >
-          Browse All Categories
+          {t('home.browse_all_categories')}
           <ArrowRight size={15} />
         </button>
       </div>
     </section>
   );
 }
-
-
 
 /* ═══════════ PREMIUM PRODUCT SLIDER (Horizontal Carousel) ═══════════ */
 function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
@@ -669,6 +720,7 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
   );
 }
 function NewArrivalsSection({ products }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (!products || products.length === 0) return null;
@@ -686,11 +738,11 @@ function NewArrivalsSection({ products }) {
         >
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="h-px w-5 bg-gray-200" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">Fresh Drops</span>
+            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.fresh_drops')}</span>
             <span className="h-px w-5 bg-gray-200" />
           </div>
           <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
-            New Arrivals
+            {t('home.new_arrivals')}
           </h2>
         </motion.div>
 
@@ -731,11 +783,12 @@ function NewArrivalsSkeleton() {
 
 /* ═══════════ PRODUCT ROW — Editorial Style ═══════════ */
 function ProductRow({ title, products }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (!products || products.length === 0) return null;
 
-  const tagline = title === 'Best Sellers' ? 'Trending Now' : 'Featured';
+  const tagline = title === 'Best Sellers' ? t('home.trending_now') : t('home.featured');
 
   return (
     <section className="py-10 md:py-14 bg-surface">
@@ -765,7 +818,20 @@ function ProductRow({ title, products }) {
 }
 
 /* ═══════════ CURATED LOOKS — Dynamic Gallery (from Admin) ═══════════ */
-function CuratedLooksSection({ looks: curatedLooks = [] }) {
+function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
+  const { t } = useTranslation();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefresh, isRefreshing]);
+
   if (!curatedLooks || curatedLooks.length === 0) return null;
 
   return (
@@ -780,12 +846,25 @@ function CuratedLooksSection({ looks: curatedLooks = [] }) {
         >
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="h-px w-5 bg-gray-200" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">Style Inspiration</span>
+            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.style_inspiration')}</span>
             <span className="h-px w-5 bg-gray-200" />
           </div>
-          <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
-            Curated Looks
-          </h2>
+          <div className="relative inline-block">
+            <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
+              {t('home.curated_looks')}
+            </h2>
+            {onRefresh && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="absolute -right-10 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all disabled:opacity-50 active:scale-90"
+                title="Refresh curated looks"
+                aria-label="Refresh curated looks"
+              >
+                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+              </button>
+            )}
+          </div>
           <p className="text-gray-500 text-sm md:text-base mt-3 max-w-2xl mx-auto font-medium">
             Curated looks designed to bring together effortless styling, modern streetwear aesthetics, and everyday versatility in one complete fit.
           </p>
@@ -837,7 +916,7 @@ function mapReview(review) {
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Customer';
   const avatar = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random&color=fff&size=120`;
   const date = review.created_at
-    ? new Date(review.created_at + 'Z').toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? formatDate(review.created_at)
     : '';
   return {
     id: review.id, name: fullName, location: (user.city || 'IN') + (user.country ? ', ' + user.country : ''),
@@ -847,6 +926,7 @@ function mapReview(review) {
 }
 
 function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
+  const { t } = useTranslation();
   const REVIEWS_DATA = (reviewsProp.length > 0 ? reviewsProp : []).map(mapReview);
 
   const scrollRef = useRef(null);
@@ -998,12 +1078,11 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-white/12" />
-            <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em]">Testimonials</span>
+            <span className="h-px w-5 bg-white/12" />              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.testimonials')}</span>
             <span className="h-px w-5 bg-white/12" />
           </div>
           <h2 className="text-lg md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-white">
-            What Our Customers Say
+            {t('home.what_customers_say')}
           </h2>
           {/* Compact social proof row */}
           <div className="flex items-center justify-center gap-2.5 mt-2.5">
@@ -1134,7 +1213,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
               }}
               className="absolute left-1.5 md:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/8 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/60 hover:bg-white/15 hover:text-white hover:scale-105 transition-all duration-200 active:scale-95"
             >
-              <ChevronLeft size={14} className="md:w-4 md:h-4" />
+              <ChevronLeft size={14} />
             </button>
           )}
           {canScrollRight && (
@@ -1147,7 +1226,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
               }}
               className="absolute right-1.5 md:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/8 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/60 hover:bg-white/15 hover:text-white hover:scale-105 transition-all duration-200 active:scale-95"
             >
-              <ChevronRight size={14} className="md:w-4 md:h-4" />
+              <ChevronRight size={14} />
             </button>
           )}
         </div>
@@ -1180,7 +1259,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
             <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400/40">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            Verified · {REVIEWS_DATA.length} real customers
+            {t('product.verified')} · {REVIEWS_DATA.length} real customers
           </span>
           <span className="h-px w-4 bg-white/8" />
         </div>
@@ -1294,6 +1373,7 @@ function ProductRowSkeleton() {
 
 /* ═══════════ PULL-TO-REFRESH INDICATOR ═══════════ */
 function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
+  const { t } = useTranslation();
   const progress = Math.min(pullDistance / threshold, 1);
   const isPastThreshold = pullDistance >= threshold;
 
@@ -1316,8 +1396,8 @@ function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
       >
         {isRefreshing ? (
           <>
-            <Loader2 size={16} className="animate-spin text-white" />
-            <span className="text-xs font-semibold">Refreshing...</span>
+            <RefreshCw size={16} />
+            <span className="text-xs font-semibold">{t('home.refreshing')}</span>
           </>
         ) : (
           <>
@@ -1336,12 +1416,86 @@ function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
               <path d="M12 5v14M5 12l7-7 7 7" />
             </motion.svg>
             <span className="text-xs font-semibold">
-              {isPastThreshold ? 'Release to refresh' : 'Pull to refresh'}
+              {isPastThreshold ? t('home.release_to_refresh') : t('home.pull_to_refresh')}
             </span>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/* ═══════════ FLASH SALE BANNER ═══════════ */
+function FlashSaleSection({ promotions }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const active = promotions.filter(p => {
+    const now = new Date();
+    const start = p.startDate ? new Date(p.startDate) : null;
+    const end = p.endDate ? new Date(p.endDate) : null;
+    if (start && now < start) return false;
+    if (end && now > end) return false;
+    return p.status === 'ACTIVE' || p.isActive;
+  });
+
+  if (active.length === 0) return null;
+
+  // Show the highest priority one
+  const promo = active[0];
+
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 opacity-20">
+        <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-red-500/20 blur-[80px] animate-pulse" />
+        <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full bg-amber-500/15 blur-[60px] animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Left: Info */}
+          <div className="flex items-center gap-3 md:gap-5">
+            <div className="hidden md:flex w-12 h-12 rounded-full bg-red-500/20 items-center justify-center">
+              <span className="text-2xl">⚡</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="inline-block text-[9px] font-bold text-red-400 bg-red-500/15 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  {t('home.flash_sale')}
+                </span>
+                <span className="text-[10px] font-bold text-amber-400">
+                  {t('product.percent_off', { percent: promo.discount })}
+                </span>
+              </div>
+              <h3 className="text-white font-display font-bold text-sm md:text-lg lg:text-xl tracking-tight">
+                {promo.title}
+              </h3>
+              {promo.description && (
+                <p className="text-white/60 text-[11px] md:text-sm mt-0.5 line-clamp-1">{promo.description}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Countdown + CTA */}
+          <div className="flex items-center gap-4 md:gap-6">
+            {promo.endDate && (
+              <FlashSaleCountdown
+                endDate={promo.endDate}
+                label=""
+                compact
+                className="text-white"
+              />
+            )}
+            <button
+              onClick={() => navigate('/products')}
+              className="shrink-0 bg-red-600 hover:bg-red-500 text-white text-[11px] md:text-xs font-bold px-4 md:px-6 py-2 md:py-2.5 rounded-full transition-all duration-200 hover:shadow-lg hover:shadow-red-500/25 active:scale-[0.97] whitespace-nowrap"
+            >
+              {t('home.shop_sale')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -1364,11 +1518,11 @@ function ScrollToTopButton() {
       <style>{`
         .scroll-top-btn {
           position: fixed;
-          bottom: 32px;
-          right: 32px;
-          z-index: 999;
-          width: 48px;
-          height: 48px;
+          bottom: 160px;
+          right: 20px;
+          z-index: 9999;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
           background: #111;
           color: white;
@@ -1377,26 +1531,32 @@ function ScrollToTopButton() {
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.18);
           transition: all 0.25s ease;
           opacity: 0;
-          transform: translateY(12px);
+          transform: translateY(12px) scale(0.9);
           pointer-events: none;
         }
-        @media (max-width: 639px) {
+        @media (min-width: 1024px) {
           .scroll-top-btn {
-            bottom: 96px;
+            bottom: 88px;
+            right: 24px;
+            width: 46px;
+            height: 46px;
           }
         }
         .scroll-top-btn.visible {
           opacity: 1;
-          transform: translateY(0);
+          transform: translateY(0) scale(1);
           pointer-events: auto;
         }
         .scroll-top-btn:hover {
           background: #000;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+          transform: translateY(-2px) scale(1.05);
+          box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+        }
+        .scroll-top-btn:active {
+          transform: translateY(0) scale(0.95);
         }
       `}</style>
       <button
@@ -1404,7 +1564,7 @@ function ScrollToTopButton() {
         onClick={scrollToTop}
         aria-label="Scroll to top"
       >
-        <ChevronUp size={22} />
+        <ChevronUp size={20} />
       </button>
     </>
   );
@@ -1415,6 +1575,12 @@ export default function HomePage() {
   const navigate = useNavigate();
   const contentRef = useRef(null);
   const queryClient = useQueryClient();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
+  const reviewsEnabled = getSetting('reviewsEnabled', 'true') !== 'false';
+  const bestSellersEnabled = getSetting('bestSellersEnabled', 'true') !== 'false';
+  const newArrivalsEnabled = getSetting('newArrivalsEnabled', 'true') !== 'false';
+  const curatedLooksEnabled = getSetting('curatedLooksEnabled', 'true') !== 'false';
 
   // ── React Query hooks (cached, deduplicated, persisted to localStorage) ──
 
@@ -1495,7 +1661,7 @@ export default function HomePage() {
       const data = res?.data?.data || [];
       return Array.isArray(data) ? data : [];
     },
-    staleTime: 60000,
+    staleTime: 10000,
   });
 
   const { data: curatedLooks = [], isLoading: loadingLooks } = useQuery({
@@ -1506,6 +1672,16 @@ export default function HomePage() {
       return Array.isArray(data) ? data : [];
     },
     staleTime: 120000,
+  });
+
+  const { data: flashSales = [] } = useQuery({
+    queryKey: ['homepage', 'flashSales'],
+    queryFn: async () => {
+      const res = await promotionsAPI.getFlashSales();
+      const data = res?.data?.data || [];
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 15000,
   });
 
   // Combined loading state — true until every query completes at least once
@@ -1523,6 +1699,7 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ['homepage', 'seo'] }),
       queryClient.invalidateQueries({ queryKey: ['homepage', 'reels'] }),
       queryClient.invalidateQueries({ queryKey: ['homepage', 'curatedLooks'] }),
+      queryClient.invalidateQueries({ queryKey: ['homepage', 'flashSales'] }),
     ]);
   }, [queryClient]);
 
@@ -1548,8 +1725,8 @@ export default function HomePage() {
     <div className="flex-1 bg-surface font-body relative">
       {/* SEO meta tags from global settings */}
       <SEOHead
-        title={seoData.title || 'Threvolt — Premium Streetwear'}
-        description={seoData.description || 'Discover premium streetwear fashion at Threvolt. Shop the latest oversized tees, hoodies, accessories and more.'}
+        title={seoData.title || `${storeName} — Premium Streetwear`}
+        description={seoData.description || `Discover premium streetwear fashion at ${storeName}. Shop the latest oversized tees, hoodies, accessories and more.`}
         keywords="streetwear, fashion, premium clothing, oversized t-shirts, hoodies, accessories"
       />
       {/* Pull-to-refresh indicator */}
@@ -1570,29 +1747,76 @@ export default function HomePage() {
             : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* 1. Full Bleed Hero Banner - only render if there are banners */}
-        {banners.length > 0 && <HeroBanner banners={banners} />}
+        {/* ══ 1. Full Bleed Hero Banner ══ */}
+        {banners.length > 0 && (
+          <AnimatedSection delay={0} margin="-40px">
+            <HeroBanner banners={banners} />
+          </AnimatedSection>
+        )}
 
-        {/* 2. New Arrivals (right after hero — top of content) */}
-        <NewArrivalsSection products={newArrivals} />
+        <AnimatedDivider />
 
-        {/* 3. Curated Looks */}
-        <CuratedLooksSection looks={curatedLooks} />
+        {/* ══ 2. Flash Sales Banner ══ */}
+        {flashSales.length > 0 && (
+          <AnimatedSection delay={0.05}>
+            <FlashSaleSection promotions={flashSales} />
+          </AnimatedSection>
+        )}
 
-        {/* 4. Shop by Category */}
-        <CategorySection categories={categories} />
+        {flashSales.length > 0 && newArrivalsEnabled && <AnimatedDivider />}
 
-        {/* 5. Best Sellers / Trending */}
-        <ProductRow
-          title="Best Sellers"
-          products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
-        />
+        {/* ══ 3. New Arrivals ══ */}
+        {newArrivalsEnabled && (
+          <AnimatedSection delay={0.05}>
+            <NewArrivalsSection products={newArrivals} />
+          </AnimatedSection>
+        )}
 
-        {/* 6. Premium Review Slider */}
-        <PremiumReviewSlider reviews={homepageReviews} loading={loadingReviews} />
+        {newArrivalsEnabled && curatedLooksEnabled && <AnimatedDivider />}
 
-        {/* 7. Featured Reels (premium vertical video slider — after reviews) */}
-        <ReelsSection reels={reels} />
+        {/* ══ 4. Curated Looks ══ */}
+        {curatedLooksEnabled && (
+          <AnimatedSection delay={0.05}>
+            <CuratedLooksSection looks={curatedLooks}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'curatedLooks'] })} />
+          </AnimatedSection>
+        )}
+
+        {(curatedLooksEnabled || newArrivalsEnabled) && <AnimatedDivider />}
+
+        {/* ══ 5. Shop by Category ══ */}
+        <AnimatedSection delay={0.05}>
+          <CategorySection categories={categories} />
+        </AnimatedSection>
+
+        <AnimatedDivider />
+
+        {/* ══ 6. Best Sellers / Trending ══ */}
+        {bestSellersEnabled && (
+          <AnimatedSection delay={0.05}>
+            <ProductRow
+              title="Best Sellers"
+              products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
+            />
+          </AnimatedSection>
+        )}
+
+        {bestSellersEnabled && reviewsEnabled && <AnimatedDivider />}
+
+        {/* ══ 7. Premium Review Slider ══ */}
+        {reviewsEnabled && (
+          <AnimatedSection delay={0.05}>
+            <PremiumReviewSlider reviews={homepageReviews} loading={loadingReviews} />
+          </AnimatedSection>
+        )}
+
+        {reviewsEnabled && <AnimatedDivider />}
+
+        {/* ══ 8. Featured Reels ══ */}
+        <AnimatedSection delay={0.05}>
+          <ReelsSection reels={reels} loading={loadingReels}
+            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'reels'] })} />
+        </AnimatedSection>
 
       </div>
 

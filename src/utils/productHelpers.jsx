@@ -1,4 +1,4 @@
-import { Sparkles, Ruler, Droplets, Shirt, Maximize } from 'lucide-react';
+import { Sparkles, Cloud, Grid, Maximize2, ArrowUpDown } from 'lucide-react';
 
 /**
  * Extract product attributes (from Prisma `productattribute` relation) into a key-value map.
@@ -23,20 +23,20 @@ export function buildHighlights(product, compact = false) {
   const highlights = [];
   const s = compact ? 10 : 11;
 
-  if (attrs['fabric']) highlights.push({ icon: <Droplets size={s} />, label: 'Fabric', value: attrs['fabric'] });
-  if (attrs['gsm']) highlights.push({ icon: <Ruler size={s} />, label: 'GSM', value: `${attrs['gsm']} GSM` });
-  if (attrs['fit']) highlights.push({ icon: <Maximize size={s} />, label: 'Fit', value: attrs['fit'] });
+  if (attrs['fabric']) highlights.push({ icon: <Cloud size={s} />, label: 'Fabric', value: attrs['fabric'] });
+  if (attrs['gsm']) highlights.push({ icon: <ArrowUpDown size={s} />, label: 'GSM', value: `${attrs['gsm']} GSM` });
+  if (attrs['fit']) highlights.push({ icon: <Maximize2 size={s} />, label: 'Fit', value: attrs['fit'] });
 
   const desc = ((product.description || '') + ' ' + (product.name || '')).toLowerCase();
 
   if (desc.includes('full sleeve') || desc.includes('long sleeve'))
-    highlights.push({ icon: <Shirt size={s} />, label: 'Sleeve', value: 'Full Sleeve' });
+    highlights.push({ icon: <Grid size={s} />, label: 'Sleeve', value: 'Full Sleeve' });
   else if (desc.includes('drop shoulder'))
-    highlights.push({ icon: <Shirt size={s} />, label: 'Sleeve', value: 'Drop Shoulder' });
+    highlights.push({ icon: <Grid size={s} />, label: 'Sleeve', value: 'Drop Shoulder' });
   else if (desc.includes('roll-up sleeve'))
-    highlights.push({ icon: <Shirt size={s} />, label: 'Sleeve', value: 'Roll-Up' });
+    highlights.push({ icon: <Grid size={s} />, label: 'Sleeve', value: 'Roll-Up' });
   else if (desc.includes('short sleeve') || desc.includes('half sleeve'))
-    highlights.push({ icon: <Shirt size={s} />, label: 'Sleeve', value: 'Short Sleeve' });
+    highlights.push({ icon: <Grid size={s} />, label: 'Sleeve', value: 'Short Sleeve' });
 
   if (desc.includes('henley'))
     highlights.push({ icon: <Sparkles size={s} />, label: 'Neck', value: 'Henley' });

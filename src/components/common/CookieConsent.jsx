@@ -1,7 +1,9 @@
+import { Info, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Cookie, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function CookieConsent() {
+  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -56,7 +58,7 @@ export default function CookieConsent() {
             <div className="p-5 pb-3">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 bg-black rounded-full flex items-center justify-center">
-                  <Cookie className="w-5 h-5 text-white" />
+                  <Info size={20} />
                 </div>
                 <h2 className="font-display text-lg font-bold text-black">We use cookies</h2>
               </div>
@@ -111,8 +113,8 @@ export default function CookieConsent() {
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-display text-lg font-bold text-black">Cookie Settings</h2>
-                <button onClick={() => setShowSettings(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
-                  <X className="w-4 h-4 text-gray-500" />
+                <button onClick={() => setShowSettings(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={20} />
                 </button>
               </div>
 

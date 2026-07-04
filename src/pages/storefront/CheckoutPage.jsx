@@ -35,6 +35,7 @@ export default function CheckoutPage() {
     firstName: '', lastName: '', addressLine1: '', addressLine2: '',
     city: '', state: '', zipCode: '', country: 'India', phone: '', email: ''
   });
+  const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [gatewayRedirect, setGatewayRedirect] = useState(null);
@@ -204,6 +205,7 @@ export default function CheckoutPage() {
         shippingAddress: address,
         paymentMethod,
         couponCode: coupon || undefined,
+        notes: notes || undefined,
         shippingMethod: 'STANDARD',
         createAccount,
         password: createAccount ? password : undefined,
@@ -618,11 +620,16 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-          {/* Left Column - Form */}
-          <div>
-            {/* Back to Cart Link */}
-            <button onClick={() => navigate('/cart')} className="flex items-center gap-2 text-gray-500 hover:text-black mb-6 transition-colors">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+          {/* Back to Cart Link */}
+          <button onClick={() => navigate('/cart')} className="flex items-center gap-2 text-gray-500 hover:text-black mb-0 transition-colors md:hidden -ml-1">
+            <ChevronLeft size={18} /> Back to cart
+          </button>
+
+          {/* ── Shipping Address (1st on mobile, left col on desktop) ── */}
+          <div className="shipping-section order-1 md:col-start-1 md:row-start-1">
+            {/* Back to Cart Link - desktop only */}
+            <button onClick={() => navigate('/cart')} className="hidden md:flex items-center gap-2 text-gray-500 hover:text-black mb-6 transition-colors">
               <ChevronLeft size={18} /> Back to cart
             </button>
 
@@ -641,269 +648,222 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Shipping Section - Always Visible */}
-            <div className="mb-8 shipping-section">
-              <h2 className="font-display text-xl font-bold text-black mb-4">Shipping Address</h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="checkout-firstname" className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                    <input
-                      id="checkout-firstname"
-                      value={address.firstName}
-                      onChange={(e) => setAddress({ ...address, firstName: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="First name"
-                      autoComplete="given-name"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="checkout-lastname" className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                    <input
-                      id="checkout-lastname"
-                      value={address.lastName}
-                      onChange={(e) => setAddress({ ...address, lastName: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="Last name"
-                      autoComplete="family-name"
-                    />
-                  </div>
-                </div>
+            <h2 className="font-display text-xl font-bold text-black mb-4">Shipping Address</h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="checkout-email" className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <label htmlFor="checkout-firstname" className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                   <input
-                    id="checkout-email"
-                    type="email"
-                    value={address.email}
-                    onChange={(e) => setAddress({ ...address, email: e.target.value })}
+                    id="checkout-firstname"
+                    value={address.firstName}
+                    onChange={(e) => setAddress({ ...address, firstName: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                    placeholder="your@email.com"
-                    autoComplete="email"
+                    placeholder="First name"
+                    autoComplete="given-name"
                   />
                 </div>
                 <div>
-                  <label htmlFor="checkout-address1" className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                  <label htmlFor="checkout-lastname" className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
                   <input
-                    id="checkout-address1"
-                    value={address.addressLine1}
-                    onChange={(e) => setAddress({ ...address, addressLine1: e.target.value })}
+                    id="checkout-lastname"
+                    value={address.lastName}
+                    onChange={(e) => setAddress({ ...address, lastName: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                    placeholder="House No., Street, Area"
-                    autoComplete="address-line1"
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="checkout-email" className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  id="checkout-email"
+                  type="email"
+                  value={address.email}
+                  onChange={(e) => setAddress({ ...address, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                  placeholder="your@email.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label htmlFor="checkout-address1" className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+                <input
+                  id="checkout-address1"
+                  value={address.addressLine1}
+                  onChange={(e) => setAddress({ ...address, addressLine1: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                  placeholder="House No., Street, Area"
+                  autoComplete="address-line1"
+                />
+              </div>
+              <div>
+                <label htmlFor="checkout-address2" className="block text-sm font-medium text-gray-700 mb-1">Apartment, suite, etc. (optional)</label>
+                <input
+                  id="checkout-address2"
+                  value={address.addressLine2}
+                  onChange={(e) => setAddress({ ...address, addressLine2: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                  placeholder="Apartment, suite, etc."
+                  autoComplete="address-line2"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                  <input
+                    id="checkout-city"
+                    value={address.city}
+                    onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                    placeholder="City"
+                    autoComplete="address-level2"
                   />
                 </div>
                 <div>
-                  <label htmlFor="checkout-address2" className="block text-sm font-medium text-gray-700 mb-1">Apartment, suite, etc. (optional)</label>
+                  <label htmlFor="checkout-state" className="block text-sm font-medium text-gray-700 mb-1">State *</label>
                   <input
-                    id="checkout-address2"
-                    value={address.addressLine2}
-                    onChange={(e) => setAddress({ ...address, addressLine2: e.target.value })}
+                    id="checkout-state"
+                    value={address.state}
+                    onChange={(e) => setAddress({ ...address, state: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                    placeholder="Apartment, suite, etc."
-                    autoComplete="address-line2"
+                    placeholder="State"
+                    autoComplete="address-level1"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="checkout-city" className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                    <input
-                      id="checkout-city"
-                      value={address.city}
-                      onChange={(e) => setAddress({ ...address, city: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="City"
-                      autoComplete="address-level2"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="checkout-state" className="block text-sm font-medium text-gray-700 mb-1">State *</label>
-                    <input
-                      id="checkout-state"
-                      value={address.state}
-                      onChange={(e) => setAddress({ ...address, state: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="State"
-                      autoComplete="address-level1"
-                    />
-                  </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="checkout-pincode" className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
+                  <input
+                    id="checkout-pincode"
+                    value={address.zipCode}
+                    onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                    placeholder="6-digit PIN"
+                    autoComplete="postal-code"
+                  />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="checkout-pincode" className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
-                    <input
-                      id="checkout-pincode"
-                      value={address.zipCode}
-                      onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="6-digit PIN"
-                      autoComplete="postal-code"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="checkout-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                    <input
-                      id="checkout-phone"
-                      value={address.phone}
-                      onChange={(e) => setAddress({ ...address, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
-                      placeholder="+91 98765 43210"
-                      autoComplete="tel"
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="checkout-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                  <input
+                    id="checkout-phone"
+                    value={address.phone}
+                    onChange={(e) => setAddress({ ...address, phone: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors"
+                    placeholder="+91 98765 43210"
+                    autoComplete="tel"
+                  />
                 </div>
-                {/* Create Account Option — Prominent Card */}
-                {!isAuthenticated && (
-                  <div className={`mt-6 rounded-xl border-2 transition-all duration-200 ${
-                    createAccount
-                      ? 'border-black bg-black/[0.03]'
-                      : 'border-gray-200 bg-gray-50'
-                  }`}>
-                    <label className="flex items-start gap-4 p-4 cursor-pointer select-none">
-                      {/* Hidden native checkbox for functionality + accessibility */}
-                      <input
-                        type="checkbox"
-                        checked={createAccount}
-                        onChange={(e) => setCreateAccount(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      {/* Custom checkbox visual */}
-                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all duration-200 ${
-                        createAccount
-                          ? 'bg-black border-black'
-                          : 'border-gray-300 bg-white'
-                      }`}>
-                        {createAccount && (
-                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              </div>
+              {/* Additional Comments / Order Notes */}
+              <div>
+                <label htmlFor="checkout-notes" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Additional Comments <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  id="checkout-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:border-black transition-colors resize-none text-sm"
+                  placeholder="Special instructions, delivery preferences, etc."
+                />
+              </div>
+
+              {/* Create Account Option — Prominent Card */}
+              {!isAuthenticated && (
+                <div className={`mt-6 rounded-xl border-2 transition-all duration-200 ${
+                  createAccount
+                    ? 'border-black bg-black/[0.03]'
+                    : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <label className="flex items-start gap-4 p-4 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={createAccount}
+                      onChange={(e) => setCreateAccount(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all duration-200 ${
+                      createAccount
+                        ? 'bg-black border-black'
+                        : 'border-gray-300 bg-white'
+                    }`}>
+                      {createAccount && (
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <UserPlus size={18} className="text-black shrink-0" />
+                        <span className="font-semibold text-black">Create an account</span>
+                        <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                          UNLOCK PERKS
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">Save your details for one-click checkout next time</p>
+                      <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+                        <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                          <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <UserPlus size={18} className="text-black shrink-0" />
-                          <span className="font-semibold text-black">Create an account</span>
-                          <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                            UNLOCK PERKS
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">Save your details for one-click checkout next time</p>
-                        <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
-                          <span className="text-xs text-gray-500 flex items-center gap-1.5">
-                            <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Faster checkout
-                          </span>
-                          <span className="text-xs text-gray-500 flex items-center gap-1.5">
-                            <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Track orders
-                          </span>
-                          <span className="text-xs text-gray-500 flex items-center gap-1.5">
-                            <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Exclusive offers
-                          </span>
-                        </div>
-                      </div>
-                    </label>
-
-                    {/* Collapsible password section with smooth animation */}
-                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      createAccount ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
-                    }`}>
-                      <div className="px-4 pb-4 border-t border-gray-200/50 mt-1 pt-3">
-                        <label htmlFor="checkout-password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                          Set a password <span className="text-gray-400 font-normal">(min. 8 chars)</span>
-                        </label>
-                        <div className="relative">
-                          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          Faster checkout
+                        </span>
+                        <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                          <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          <input
-                            id="checkout-password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all bg-white"
-                            placeholder="Create a secure password"
-                            autoComplete="new-password"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
-                          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          Track orders
+                        </span>
+                        <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                          <svg className="w-3 h-3 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          You'll be automatically logged in after checkout
-                        </p>
+                          Exclusive offers
+                        </span>
                       </div>
                     </div>
+                  </label>
+
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    createAccount ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                  }`}>
+                    <div className="px-4 pb-4 border-t border-gray-200/50 mt-1 pt-3">
+                      <label htmlFor="checkout-password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Set a password <span className="text-gray-400 font-normal">(min. 8 chars)</span>
+                      </label>
+                      <div className="relative">
+                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <input
+                          id="checkout-password"
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all bg-white"
+                          placeholder="Create a secure password"
+                          autoComplete="new-password"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        You'll be automatically logged in after checkout
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Payment Section - Always Visible (no button needed) */}
-            <div className="border-t pt-8 payment-section">
-              <h2 className="font-display text-xl font-bold text-black mb-4">Payment Method</h2>
-              <div className="space-y-3">
-                {paymentMethods.map((m) => {
-                  const { icon: IconComponent, bg: iconBg, color: iconColor } = getPaymentIcon(m.id);
-                  const isSelected = paymentMethod === m.id;
-                  return (
-                    <label
-                      key={m.id}
-                      className={`group flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                        isSelected ? 'border-black bg-black/5' : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={isSelected}
-                        onChange={() => setPaymentMethod(m.id)}
-                        className="w-4 h-4 text-black shrink-0"
-                      />
-                      <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${
-                        isSelected ? 'scale-110 shadow-md' : ''
-                      }`}>
-                        <IconComponent size={22} className={`${iconColor} transition-all duration-300 ${
-                          isSelected ? 'scale-110' : ''
-                        }`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-black text-sm">{m.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
-                      </div>
-                    </label>
-                  );
-                })}
-
-              </div>
-
-              {/* Place Order Button — at the end after payment selection */}
-              <div className="border-t pt-6 mt-6">
-                <button
-                  onClick={handleCheckout}
-                  disabled={processing}
-                  className="w-full bg-black text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                >
-                  {processing ? (
-                    'Processing...'
-                  ) : (
-                    <>
-                      <Lock size={18} /> Place Order - {formatCurrency(total)}
-                    </>
-                  )}
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right Column - Order Summary */}
-          <div className="lg:sticky lg:top-8 h-fit order-first md:order-last order-summary">
+          {/* ── Order Summary (2nd on mobile, right col on desktop) ── */}
+          <div className="order-summary order-2 md:col-start-2 md:row-start-1 lg:sticky lg:top-8 h-fit">
             <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
               <h3 className="font-display text-lg font-bold text-black mb-4">Order Summary</h3>
 
@@ -985,7 +945,6 @@ export default function CheckoutPage() {
                       {couponLoading ? 'Applying...' : 'Apply'}
                     </button>
                   </div>
-                  {/* Available coupons — clickable chips */}
                   {!couponsLoading && availableCoupons.length > 0 && (
                     <div className="mb-6">
                       <p className="text-xs text-gray-500 mb-2 font-medium">Available coupons</p>
@@ -1046,11 +1005,11 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Shipping</span>
                   <span className="text-black">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
                 </div>
-                {/* OOS notice */}
                 {items.some(item => {
                   const s = item.variantStock ?? item.productStock;
                   return s !== null && s !== undefined && s <= 0;
-                }) && (                    <div className="flex items-start gap-1.5 pt-1">
+                }) && (
+                  <div className="flex items-start gap-1.5 pt-1">
                     <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-[10px] text-amber-700 leading-relaxed">
                       Out-of-stock items are shown for reference and included in the total above. They will be skipped when your order is placed.
@@ -1063,7 +1022,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Trust Badges — Premium */}
+              {/* Trust Badges */}
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -1076,8 +1035,8 @@ export default function CheckoutPage() {
                     { icon: ShieldCheck, label: 'Secure', sub: 'Payment' },
                     { icon: Truck, label: 'Free', sub: 'Shipping' },
                     { icon: RefreshCw, label: 'Easy', sub: 'Returns' },
-                  ].map((item, i) => {
-                    const IconComponent = item.icon;
+                  ].map((badge, i) => {
+                    const IconComponent = badge.icon;
                     return (
                       <motion.div
                         key={i}
@@ -1092,13 +1051,68 @@ export default function CheckoutPage() {
                           <IconComponent className="relative w-[17px] h-[17px] text-black md:group-hover:scale-110 transition-all duration-500 ease-out" />
                         </div>
                         <p className="text-[10px] text-gray-400 font-medium md:group-hover:text-gray-600 transition-colors duration-300">
-                          {item.label}<br/>{item.sub}
+                          {badge.label}<br/>{badge.sub}
                         </p>
                       </motion.div>
                     );
                   })}
                 </div>
               </motion.div>
+            </div>
+          </div>
+
+          {/* ── Payment Methods (3rd on mobile, left col 2nd row on desktop) ── */}
+          <div className="payment-section order-3 md:col-start-1 md:row-start-2">
+            <h2 className="font-display text-xl font-bold text-black mb-4">Payment Method</h2>
+            <div className="space-y-3">
+              {paymentMethods.map((m) => {
+                const { icon: IconComponent, bg: iconBg, color: iconColor } = getPaymentIcon(m.id);
+                const isSelected = paymentMethod === m.id;
+                return (
+                  <label
+                    key={m.id}
+                    className={`group flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                      isSelected ? 'border-black bg-black/5' : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={isSelected}
+                      onChange={() => setPaymentMethod(m.id)}
+                      className="w-4 h-4 text-black shrink-0"
+                    />
+                    <div className={`w-12 h-12 rounded-xl ${iconBg} flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-105 ${
+                      isSelected ? 'scale-110 shadow-md' : ''
+                    }`}>
+                      <IconComponent size={22} className={`${iconColor} transition-all duration-300 ${
+                        isSelected ? 'scale-110' : ''
+                      }`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-black text-sm">{m.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Place Order Button */}
+            <div className="border-t pt-6 mt-6">
+              <button
+                onClick={handleCheckout}
+                disabled={processing}
+                className="w-full bg-black text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+              >
+                {processing ? (
+                  'Processing...'
+                ) : (
+                  <>
+                    <Lock size={18} /> Place Order - {formatCurrency(total)}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
+import { ChevronRight } from 'lucide-react';
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+;
 
 const Breadcrumb = memo(function Breadcrumb({ items = [], variant = 'light', className = '' }) {
   if (!items.length) return null;
@@ -19,12 +20,7 @@ const Breadcrumb = memo(function Breadcrumb({ items = [], variant = 'light', cla
           <span key={idx} className="flex items-center gap-1.5">
             {/* Separator (skip for first item) */}
             {idx > 0 && (
-              <ChevronRight
-                size={12}
-                className={`flex-shrink-0 ${
-                  isDark ? 'text-white/50' : 'text-text-muted/40'
-                }`}
-              />
+              <ChevronRight size={12} className={`flex-shrink-0 ${ isDark ? 'text-white/50' : 'text-text-muted/40' }`} />
             )}
 
             {/* Item: link or plain text */}

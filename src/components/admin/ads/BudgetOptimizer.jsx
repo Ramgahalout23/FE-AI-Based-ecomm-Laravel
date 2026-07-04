@@ -1,5 +1,7 @@
+import { TrendingUp, DollarSign, AlertTriangle, Lightbulb, Zap, Trophy, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, Clock, AlertTriangle, Lightbulb, Zap, Award } from 'lucide-react';
+
+;
 import { adsAPI } from '../../../api/ads';
 
 export default function BudgetOptimizer({ campaigns, stats }) {
@@ -106,7 +108,7 @@ export default function BudgetOptimizer({ campaigns, stats }) {
       <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-border bg-gradient-to-r from-blue-50 to-indigo-50">
           <h4 className="font-bold flex items-center gap-2">
-            <Lightbulb size={16} className="text-amber-500" /> Budget Recommendations
+            <Lightbulb size={16} /> Budget Recommendations
           </h4>
           <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-600">
             {(apiData?.recommendations || recommendations).length} insights
@@ -115,7 +117,7 @@ export default function BudgetOptimizer({ campaigns, stats }) {
         <div className="p-4 space-y-3">
           {(apiData?.recommendations || recommendations).length === 0 ? (
             <div className="text-center py-6 text-text-muted">
-              <TrendingUp size={32} className="mx-auto mb-2 opacity-30" />
+              <TrendingUp size={32} />
               <p className="text-sm font-semibold">All campaigns look healthy!</p>
               <p className="text-xs mt-1">Add more active campaigns to get optimization insights.</p>
             </div>
@@ -154,7 +156,7 @@ export default function BudgetOptimizer({ campaigns, stats }) {
         <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden">
           <div className="p-4 border-b border-border">
             <h4 className="font-bold text-sm flex items-center gap-2">
-              <Zap size={14} className="text-amber-500" /> Active Campaign Efficiency
+              <Zap size={14} /> Active Campaign Efficiency
             </h4>
           </div>
           <div className="overflow-x-auto">

@@ -1,12 +1,18 @@
+import { CheckCircle, XCircle, Mail, ArrowLeft } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { useSettings } from '../../store/useSettings';
 import { marketingAPI } from '../../api/marketing';
-import { CheckCircle, XCircle, Mail, ArrowLeft } from 'lucide-react';
+;
 
 export default function UnsubscribePage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const email = searchParams.get('email');
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
 
   const [state, setState] = useState('confirming'); // 'confirming' | 'success' | 'error' | 'already'
   const [loading, setLoading] = useState(false);
@@ -36,8 +42,8 @@ export default function UnsubscribePage() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
       <SEOHead
-        title="Unsubscribe | Threvolt"
-        description="Unsubscribe from Threvolt marketing emails. Manage your email preferences."
+        title={`Unsubscribe | ${storeName}`}
+        description={`Unsubscribe from ${storeName} marketing emails. Manage your email preferences.`}
         noIndex={true}
       />
       <div className="w-full max-w-md">
@@ -48,17 +54,17 @@ export default function UnsubscribePage() {
               <XCircle size={32} />
             </div>
             <h1 className="font-display text-2xl font-bold text-text-primary mb-2">
-              Unsubscribe
+              {t('unsubscribe.title')}
             </h1>
             <p className="text-text-muted mb-6">
-              No email address provided. Please use the unsubscribe link from your email.
+              {t('unsubscribe.no_email_desc')}
             </p>
             <Link
               to="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors"
             >
               <ArrowLeft size={16} />
-              Back to Home
+              {t('unsubscribe.back_home')}
             </Link>
           </div>
         )}
@@ -70,11 +76,10 @@ export default function UnsubscribePage() {
               <Mail size={32} />
             </div>
             <h1 className="font-display text-2xl font-bold text-text-primary mb-2">
-              Unsubscribe from Emails?
+              {t('unsubscribe.confirm_title')}
             </h1>
             <p className="text-text-muted mb-6">
-              You're about to unsubscribe <strong className="text-text-primary">{email}</strong> from all marketing emails.
-              You will no longer receive promotional offers, newsletters, or campaign updates.
+              {t('unsubscribe.confirm_desc', { email })}
             </p>
             <div className="flex flex-col gap-3">
               <button
@@ -82,13 +87,13 @@ export default function UnsubscribePage() {
                 onClick={handleUnsubscribe}
                 disabled={loading}
               >
-                {loading ? 'Processing...' : 'Yes, Unsubscribe Me'}
+                {loading ? t('unsubscribe.processing') : t('unsubscribe.yes_unsubscribe')}
               </button>
               <Link
                 to="/"
                 className="w-full px-5 py-3 border border-border rounded-xl text-sm font-semibold text-text-muted hover:border-brand-black/30 hover:text-text-primary transition-colors text-center"
               >
-                No, Keep Me Subscribed
+                {t('unsubscribe.no_keep')}
               </Link>
             </div>
           </div>
@@ -101,20 +106,20 @@ export default function UnsubscribePage() {
               <CheckCircle size={32} />
             </div>
             <h1 className="font-display text-2xl font-bold text-text-primary mb-2">
-              Successfully Unsubscribed
+              {t('unsubscribe.success_title')}
             </h1>
             <p className="text-text-muted mb-2">
-              <strong className="text-text-primary">{email}</strong> has been unsubscribed from our marketing emails.
+              {t('unsubscribe.success_desc', { email })}
             </p>
             <p className="text-text-muted mb-6">
-              You won't receive any more promotional emails from us. You can always resubscribe anytime.
+              {t('unsubscribe.success_note')}
             </p>
             <Link
               to="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors"
             >
               <ArrowLeft size={16} />
-              Back to Home
+              {t('unsubscribe.back_home')}
             </Link>
           </div>
         )}
@@ -126,20 +131,20 @@ export default function UnsubscribePage() {
               <Mail size={32} />
             </div>
             <h1 className="font-display text-2xl font-bold text-text-primary mb-2">
-              Already Unsubscribed
+              {t('unsubscribe.already_title')}
             </h1>
             <p className="text-text-muted mb-2">
-              <strong className="text-text-primary">{email}</strong> is already unsubscribed from our emails.
+              {t('unsubscribe.already_desc', { email })}
             </p>
             <p className="text-text-muted mb-6">
-              No further action is needed. If you'd like to resubscribe, you can sign up again on our website.
+              {t('unsubscribe.already_note')}
             </p>
             <Link
               to="/"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors"
             >
               <ArrowLeft size={16} />
-              Back to Home
+              {t('unsubscribe.back_home')}
             </Link>
           </div>
         )}
@@ -151,23 +156,23 @@ export default function UnsubscribePage() {
               <XCircle size={32} />
             </div>
             <h1 className="font-display text-2xl font-bold text-text-primary mb-2">
-              Something Went Wrong
+              {t('unsubscribe.error_title')}
             </h1>
             <p className="text-text-muted mb-6">
-              We couldn't process your unsubscribe request. Please try again or contact support.
+              {t('unsubscribe.error_desc')}
             </p>
             <div className="flex flex-col gap-3">
               <button
                 className="w-full px-5 py-3 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors"
                 onClick={handleUnsubscribe}
               >
-                Try Again
+                {t('unsubscribe.try_again')}
               </button>
               <Link
                 to="/"
                 className="w-full px-5 py-3 border border-border rounded-xl text-sm font-semibold text-text-muted hover:border-brand-black/30 hover:text-text-primary transition-colors text-center"
               >
-                Back to Home
+                {t('unsubscribe.back_home')}
               </Link>
             </div>
           </div>

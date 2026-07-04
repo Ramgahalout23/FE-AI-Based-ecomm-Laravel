@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useReducer } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend } from 'recharts';
 import { analyticsAPI } from '../../api/analytics';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
@@ -6,64 +6,94 @@ import DateRangePicker, { getDateParams, getDefaultDateRange } from '../../compo
 import RefreshControls from '../../components/common/RefreshControls';
 import useDashboardCache from '../../hooks/useDashboardCache';
 import useInterval from '../../hooks/useInterval';
+import AnalyticsSkeleton from '../../components/analytics/AnalyticsSkeleton';
 
 const COLORS = ['#C9A96E', '#27AE60', '#2980B9', '#C0392B', '#8E44AD', '#F39C12', '#1ABC9C', '#2C3E50'];
 const PIE_COLORS = ['#1a1a1a', '#22c55e', '#888888', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6'];
 
+// ── Module-level defaults (stable reference, prevents stale cache restoration) ──
+const ANALYTICS_DEFAULTS = {
+  sales: null,
+  revenue: [],
+  categories: [],
+  orderStatus: [],
+  topCustomers: [],
+  dashboardSummary: null,
+  dailySales: [],
+  hourlyData: [],
+  revenueComparison: null,
+  customerGrowth: [],
+  conversionMetrics: null,
+  paymentMethodTrends: [],
+  topProducts: [],
+  userAnalytics: null,
+};
+
+const FALLBACK_REVENUE = [
+  { month: 'Jan', revenue: 32000 }, { month: 'Feb', revenue: 38000 }, { month: 'Mar', revenue: 41000 },
+  { month: 'Apr', revenue: 35000 }, { month: 'May', revenue: 48000 }, { month: 'Jun', revenue: 52000 },
+  { month: 'Jul', revenue: 61000 }, { month: 'Aug', revenue: 55000 }, { month: 'Sep', revenue: 67000 },
+  { month: 'Oct', revenue: 72000 }, { month: 'Nov', revenue: 68000 }, { month: 'Dec', revenue: 85000 },
+];
+
+const FALLBACK_CATEGORIES = [
+  { name: 'Fashion', revenue: 145000, orders: 312 }, { name: 'Accessories', revenue: 89000, orders: 215 },
+  { name: 'Jewellery', revenue: 112000, orders: 87 }, { name: 'Beauty', revenue: 56000, orders: 445 },
+  { name: 'Footwear', revenue: 67000, orders: 156 },
+];
+
+const FALLBACK_ORDERS = [
+  { name: 'Processing', value: 40 }, { name: 'Delivered', value: 35 },
+  { name: 'Shipped', value: 15 }, { name: 'Cancelled', value: 7 }, { name: 'Returned', value: 3 },
+];
+
+const FALLBACK_PRODUCTS = [
+  { productName: 'Classic White Tee', unitsSold: 245, revenue: 490000 },
+  { productName: 'Black Crew Neck', unitsSold: 198, revenue: 396000 },
+  { productName: 'Premium Hoodie', unitsSold: 156, revenue: 468000 },
+  { productName: 'Slim Fit Jeans', unitsSold: 134, revenue: 402000 },
+  { productName: 'Leather Jacket', unitsSold: 89, revenue: 445000 },
+  { productName: 'Summer Dress', unitsSold: 212, revenue: 424000 },
+  { productName: 'Sports Shoes', unitsSold: 167, revenue: 501000 },
+  { productName: 'Wool Scarf', unitsSold: 98, revenue: 98000 },
+];
+
+function analyticsReducer(state, action) {
+  switch (action.type) {
+    case 'SET_MULTIPLE':
+      return { ...state, ...action.payload };
+    default:
+      return state;
+  }
+}
+
 export default function AnalyticsAdminPage() {
-  const cache = useDashboardCache(10);
+  const cache = useDashboardCache(10, 'analytics');
   const fetchingRef = useRef(false);
   const [dateRange, setDateRange] = useState(getDefaultDateRange());
   const [refreshInterval, setRefreshInterval] = useState(null);
-  const [sales, setSales] = useState(null);
-  const [revenue, setRevenue] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [orderStatus, setOrderStatus] = useState([]);
-  const [payMethods, setPayMethods] = useState([]);
-  const [topCustomers, setTopCustomers] = useState([]);
-  const [dashboardSummary, setDashboardSummary] = useState(null);
+  const [state, dispatch] = useReducer(analyticsReducer, ANALYTICS_DEFAULTS);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [tab, setTab] = useState('overview');
-  // New state
-  const [dailySales, setDailySales] = useState([]);
-  const [hourlyData, setHourlyData] = useState([]);
-  const [revenueComparison, setRevenueComparison] = useState(null);
-  const [customerGrowth, setCustomerGrowth] = useState([]);
-  const [conversionMetrics, setConversionMetrics] = useState(null);
-  const [paymentMethodTrends, setPaymentMethodTrends] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
-  const [userAnalytics, setUserAnalytics] = useState(null);
 
-  const restoreState = useCallback((snapshot) => {
-    setSales(snapshot.sales);
-    setRevenue(snapshot.revenue);
-    setCategories(snapshot.categories);
-    setOrderStatus(snapshot.orderStatus);
-    setPayMethods(snapshot.payMethods);
-    setTopCustomers(snapshot.topCustomers);
-    setDashboardSummary(snapshot.dashboardSummary);
-    if (snapshot.dailySales) setDailySales(snapshot.dailySales);
-    if (snapshot.hourlyData) setHourlyData(snapshot.hourlyData);
-    if (snapshot.revenueComparison) setRevenueComparison(snapshot.revenueComparison);
-    if (snapshot.customerGrowth) setCustomerGrowth(snapshot.customerGrowth);
-    if (snapshot.conversionMetrics) setConversionMetrics(snapshot.conversionMetrics);
-    if (snapshot.paymentMethodTrends) setPaymentMethodTrends(snapshot.paymentMethodTrends);
-    if (snapshot.topProducts) setTopProducts(snapshot.topProducts);
-    if (snapshot.userAnalytics) setUserAnalytics(snapshot.userAnalytics);
-  }, []);
+  // Destructure all analytics fields from state
+  const {
+    sales, revenue, categories, orderStatus, topCustomers,
+    dashboardSummary, dailySales, hourlyData, revenueComparison,
+    customerGrowth, conversionMetrics, paymentMethodTrends, topProducts, userAnalytics,
+  } = state;
 
+  // ── Cache restore is now a single dispatch ──
   const loadAnalytics = useCallback(async (range, { skipCache = false, isBackground = false } = {}) => {
-    // Prevent concurrent fetches
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
-    // Check cache first (unless forced refresh)
     if (!skipCache) {
       const cached = cache.get(range);
       if (cached) {
         fetchingRef.current = false;
-        restoreState(cached);
+        dispatch({ type: 'SET_MULTIPLE', payload: { ...ANALYTICS_DEFAULTS, ...cached } });
         return;
       }
     }
@@ -71,24 +101,7 @@ export default function AnalyticsAdminPage() {
     if (!isBackground) setLoading(true);
     const dateParams = getDateParams(range);
 
-    // Collect all fetched data into a local object to avoid stale closures when caching
-    const fetched = {
-      sales: null,
-      revenue: [],
-      categories: [],
-      orderStatus: [],
-      payMethods: [],
-      topCustomers: [],
-      dashboardSummary: null,
-      dailySales: [],
-      hourlyData: [],
-      revenueComparison: null,
-      customerGrowth: [],
-      conversionMetrics: null,
-      paymentMethodTrends: [],
-      topProducts: [],
-      userAnalytics: null,
-    };
+    const fetched = { ...ANALYTICS_DEFAULTS };
 
     // ── Fire ALL API calls in parallel using Promise.allSettled ──
     const [
@@ -96,7 +109,6 @@ export default function AnalyticsAdminPage() {
       revenueTrendsRes,
       categoryPerfRes,
       orderStatusRes,
-      payMethodsRes,
       topCustomersRes,
       dashboardSummaryRes,
       dailySalesRes,
@@ -112,7 +124,6 @@ export default function AnalyticsAdminPage() {
       analyticsAPI.getRevenueTrends(dateParams),
       analyticsAPI.getCategoryPerformance(dateParams),
       analyticsAPI.getOrderStatus(dateParams),
-      analyticsAPI.getPaymentMethods(dateParams),
       analyticsAPI.getTopCustomers(dateParams),
       analyticsAPI.getDashboardSummary(dateParams),
       analyticsAPI.getDailySales(dateParams),
@@ -125,21 +136,21 @@ export default function AnalyticsAdminPage() {
       analyticsAPI.getUsers(dateParams),
     ]);
 
-    // ── Process each result ──
+    // ── Process each result (only write to fetched — no individual state setters) ──
 
     if (salesRes.status === 'fulfilled') {
       const data = salesRes.value.data?.data || salesRes.value.data;
-      if (data) { fetched.sales = data; setSales(data); }
+      if (data) { fetched.sales = data; }
     } else { console.warn('Sales API failed:', salesRes.reason); }
 
     if (revenueTrendsRes.status === 'fulfilled') {
       const data = revenueTrendsRes.value.data?.data?.trends || revenueTrendsRes.value.data?.trends || revenueTrendsRes.value.data?.data || [];
-      if (Array.isArray(data)) { fetched.revenue = data; setRevenue(data); }
+      if (Array.isArray(data)) { fetched.revenue = data; }
     } else { console.warn('Revenue trends API failed:', revenueTrendsRes.reason); }
 
     if (categoryPerfRes.status === 'fulfilled') {
       const data = categoryPerfRes.value.data?.data?.categories || categoryPerfRes.value.data?.categories || categoryPerfRes.value.data?.data || [];
-      if (Array.isArray(data)) { fetched.categories = data; setCategories(data); }
+      if (Array.isArray(data)) { fetched.categories = data; }
     } else { console.warn('Category performance API failed:', categoryPerfRes.reason); }
 
     if (orderStatusRes.status === 'fulfilled') {
@@ -147,97 +158,88 @@ export default function AnalyticsAdminPage() {
       if (Array.isArray(data) && data.length > 0) {
         const total = data.reduce((a, b) => a + Number(b.value), 0);
         if (total > 0) {
-          const mapped = data.map(s => ({
+          fetched.orderStatus = data.map(s => ({
             name: s.name,
             value: Math.round((Number(s.value) / total) * 100),
           }));
-          fetched.orderStatus = mapped;
-          setOrderStatus(mapped);
         } else {
-          const fallback = [{ name: 'No Orders', value: 100 }];
-          fetched.orderStatus = fallback;
-          setOrderStatus(fallback);
+          fetched.orderStatus = [{ name: 'No Orders', value: 100 }];
         }
       }
     } else { console.warn('Order status API failed:', orderStatusRes.reason); }
 
-    if (payMethodsRes.status === 'fulfilled') {
-      const data = payMethodsRes.value.data?.data?.methods || payMethodsRes.value.data?.methods || payMethodsRes.value.data?.data || [];
-      if (Array.isArray(data)) { fetched.payMethods = data; setPayMethods(data); }
-    } else { console.warn('Payment methods API failed:', payMethodsRes.reason); }
 
     if (topCustomersRes.status === 'fulfilled') {
       const data = topCustomersRes.value.data?.data?.customers || topCustomersRes.value.data?.customers || topCustomersRes.value.data?.data || [];
-      if (Array.isArray(data)) { fetched.topCustomers = data; setTopCustomers(data); }
+      if (Array.isArray(data)) { fetched.topCustomers = data; }
     } else { console.warn('Top customers API failed:', topCustomersRes.reason); }
 
     if (dashboardSummaryRes.status === 'fulfilled') {
       const data = dashboardSummaryRes.value.data?.data || dashboardSummaryRes.value.data;
-      if (data) { fetched.dashboardSummary = data; setDashboardSummary(data); }
+      if (data) { fetched.dashboardSummary = data; }
     } else { console.warn('Dashboard summary API failed:', dashboardSummaryRes.reason); }
 
     if (dailySalesRes.status === 'fulfilled') {
       const data = dailySalesRes.value.data?.data || dailySalesRes.value.data || [];
-      if (Array.isArray(data)) { fetched.dailySales = data; setDailySales(data); }
+      if (Array.isArray(data)) { fetched.dailySales = data; }
     } else { console.warn('Daily sales API failed:', dailySalesRes.reason); }
 
     if (hourlyDistRes.status === 'fulfilled') {
       const data = hourlyDistRes.value.data?.data || hourlyDistRes.value.data || [];
       if (Array.isArray(data)) {
-        const mapped = data.map(h => ({
+        fetched.hourlyData = data.map(h => ({
           hour: h.hour + ':00',
           orders: h.orders,
           revenue: h.revenue,
         }));
-        fetched.hourlyData = mapped;
-        setHourlyData(mapped);
       }
     } else { console.warn('Hourly distribution API failed:', hourlyDistRes.reason); }
 
     if (revenueCompRes.status === 'fulfilled') {
       const data = revenueCompRes.value.data?.data || revenueCompRes.value.data;
-      if (data) { fetched.revenueComparison = data; setRevenueComparison(data); }
+      if (data) { fetched.revenueComparison = data; }
     } else { console.warn('Revenue comparison API failed:', revenueCompRes.reason); }
 
     if (customerGrowthRes.status === 'fulfilled') {
       const data = customerGrowthRes.value.data?.data || customerGrowthRes.value.data || [];
-      if (Array.isArray(data)) { fetched.customerGrowth = data; setCustomerGrowth(data); }
+      if (Array.isArray(data)) { fetched.customerGrowth = data; }
     } else { console.warn('Customer growth API failed:', customerGrowthRes.reason); }
 
     if (conversionRes.status === 'fulfilled') {
       const data = conversionRes.value.data?.data || conversionRes.value.data;
-      if (data) { fetched.conversionMetrics = data; setConversionMetrics(data); }
+      if (data) { fetched.conversionMetrics = data; }
     } else { console.warn('Conversion metrics API failed:', conversionRes.reason); }
 
     if (paymentTrendsRes.status === 'fulfilled') {
       const data = paymentTrendsRes.value.data?.data || paymentTrendsRes.value.data || [];
-      if (Array.isArray(data)) { fetched.paymentMethodTrends = data; setPaymentMethodTrends(data); }
+      if (Array.isArray(data)) { fetched.paymentMethodTrends = data; }
     } else { console.warn('Payment method trends API failed:', paymentTrendsRes.reason); }
 
     if (productsRes.status === 'fulfilled') {
       const data = productsRes.value.data?.data || productsRes.value.data || [];
-      if (Array.isArray(data)) { fetched.topProducts = data.slice(0, 10); setTopProducts(data.slice(0, 10)); }
+      if (Array.isArray(data)) { fetched.topProducts = data.slice(0, 10); }
     } else { console.warn('Product analytics API failed:', productsRes.reason); }
 
     if (usersRes.status === 'fulfilled') {
       const data = usersRes.value.data?.data || usersRes.value.data;
-      if (data) { fetched.userAnalytics = data; setUserAnalytics(data); }
+      if (data) { fetched.userAnalytics = data; }
     } else { console.warn('User analytics API failed:', usersRes.reason); }
 
     // Log any failures for debugging
-    const failures = [salesRes, revenueTrendsRes, categoryPerfRes, orderStatusRes, payMethodsRes, topCustomersRes, dashboardSummaryRes, dailySalesRes, hourlyDistRes, revenueCompRes, customerGrowthRes, conversionRes, paymentTrendsRes, productsRes, usersRes]
+    const failures = [salesRes, revenueTrendsRes, categoryPerfRes, orderStatusRes, topCustomersRes, dashboardSummaryRes, dailySalesRes, hourlyDistRes, revenueCompRes, customerGrowthRes, conversionRes, paymentTrendsRes, productsRes, usersRes]
       .filter(r => r.status === 'rejected');
     if (failures.length > 0) {
       console.warn(`${failures.length} analytics API(s) failed (non-critical)`);
     }
 
-    // Cache the result — always update cache with fresh data (no stale closure)
+    // Cache the result and dispatch once (React 18+ batches into a single render)
     cache.set(range, fetched);
+    dispatch({ type: 'SET_MULTIPLE', payload: fetched });
 
     setLastRefreshed(new Date());
     if (!isBackground) setLoading(false);
     fetchingRef.current = false;
-  }, [cache, restoreState]);
+  }, [cache]);
 
   // --- Manual refresh (bypasses cache) ---
   const handleManualRefresh = useCallback(() => {
@@ -260,37 +262,8 @@ export default function AnalyticsAdminPage() {
     loadAnalytics(dateRange, { skipCache: true, isBackground: true });
   }, refreshInterval);
 
-  const revenueFallback = [
-    { month: 'Jan', revenue: 32000 }, { month: 'Feb', revenue: 38000 }, { month: 'Mar', revenue: 41000 },
-    { month: 'Apr', revenue: 35000 }, { month: 'May', revenue: 48000 }, { month: 'Jun', revenue: 52000 },
-    { month: 'Jul', revenue: 61000 }, { month: 'Aug', revenue: 55000 }, { month: 'Sep', revenue: 67000 },
-    { month: 'Oct', revenue: 72000 }, { month: 'Nov', revenue: 68000 }, { month: 'Dec', revenue: 85000 },
-  ];
-
-  const catFallback = [
-    { name: 'Fashion', revenue: 145000, orders: 312 }, { name: 'Accessories', revenue: 89000, orders: 215 },
-    { name: 'Jewellery', revenue: 112000, orders: 87 }, { name: 'Beauty', revenue: 56000, orders: 445 },
-    { name: 'Footwear', revenue: 67000, orders: 156 },
-  ];
-
-  const orderFallback = [
-    { name: 'Processing', value: 40 }, { name: 'Delivered', value: 35 },
-    { name: 'Shipped', value: 15 }, { name: 'Cancelled', value: 7 }, { name: 'Returned', value: 3 },
-  ];
-
-  const productFallback = [
-    { productName: 'Classic White Tee', unitsSold: 245, revenue: 490000 },
-    { productName: 'Black Crew Neck', unitsSold: 198, revenue: 396000 },
-    { productName: 'Premium Hoodie', unitsSold: 156, revenue: 468000 },
-    { productName: 'Slim Fit Jeans', unitsSold: 134, revenue: 402000 },
-    { productName: 'Leather Jacket', unitsSold: 89, revenue: 445000 },
-    { productName: 'Summer Dress', unitsSold: 212, revenue: 424000 },
-    { productName: 'Sports Shoes', unitsSold: 167, revenue: 501000 },
-    { productName: 'Wool Scarf', unitsSold: 98, revenue: 98000 },
-  ];
-
-  // Build comparison chart data
-  const comparisonChartData = (() => {
+  // ── Derived data with useMemo (stable references) ──
+  const comparisonChartData = useMemo(() => {
     if (!revenueComparison) return [];
     const currentMap = {};
     (revenueComparison.current || []).forEach(d => { currentMap[d.date] = d.revenue; });
@@ -307,9 +280,12 @@ export default function AnalyticsAdminPage() {
       'Current Period': currentMap[date] || 0,
       'Previous Period': previousMap[date] || 0,
     }));
-  })();
+  }, [revenueComparison]);
 
-  const growthDisplay = customerGrowth.length > 0 ? customerGrowth.slice(-14) : [];
+  const growthDisplay = useMemo(() =>
+    customerGrowth.length > 0 ? customerGrowth.slice(-14) : [],
+    [customerGrowth]
+  );
 
   return (
     <div>
@@ -350,15 +326,19 @@ export default function AnalyticsAdminPage() {
         <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}>Products</button>
         <button className={`admin-tab ${tab === 'payments' ? 'active' : ''}`} onClick={() => setTab('payments')}>Payments</button>
         <button className={`admin-tab ${tab === 'customers' ? 'active' : ''}`} onClick={() => setTab('customers')}>Customers</button>
-      </div>
-
-      {loading && (
-        <div className="flex items-center justify-center gap-3 py-4 mb-4 text-sm text-text-muted bg-white border border-border rounded-2xl shadow-soft">
-          <div className="spinner w-5 h-5" style={{ borderWidth: '2px' }} />
-          <span>Loading analytics data...</span>
+      </div>          {loading && (
+        <div className="mb-4">
+          <div className="flex items-center justify-center gap-3 py-3 mb-4 text-sm text-text-muted bg-white border border-border rounded-2xl shadow-soft">
+            <div className="spinner w-4 h-4" style={{ borderWidth: '2px' }} />
+            <span>Loading analytics data...</span>
+          </div>
+          <AnalyticsSkeleton />
         </div>
       )}
 
+      {/* Tab content with fade-in when skeleton disappears */}
+      {!loading && (
+      <div className="dashboard-content-enter">
       {/* ========== OVERVIEW TAB ========== */}
       {tab === 'overview' && (
         <>
@@ -394,8 +374,9 @@ export default function AnalyticsAdminPage() {
           <div className="chart-grid">
             <div className="chart-card">
               <div className="chart-title">Revenue Trend (Monthly)</div>
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={revenue.length ? revenue : revenueFallback}>
+              <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={revenue.length ? revenue : FALLBACK_REVENUE} isAnimationActive={false}>
                   <defs><linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C9A96E" stopOpacity={0.3} /><stop offset="100%" stopColor="#C9A96E" stopOpacity={0} /></linearGradient></defs>
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -403,18 +384,21 @@ export default function AnalyticsAdminPage() {
                   <Area type="monotone" dataKey="revenue" stroke="#C9A96E" strokeWidth={2} fill="url(#goldFill)" />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
             </div>
             <div className="chart-card">
               <div className="chart-title">Order Distribution</div>
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={orderStatus.length ? orderStatus : orderFallback} innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3} strokeWidth={0}>
-                    {(orderStatus.length ? orderStatus : orderFallback).map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+              <div style={{ width: '100%', height: 180, minWidth: '1px', minHeight: '1px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart isAnimationActive={false}>
+                  <Pie data={orderStatus.length ? orderStatus : FALLBACK_ORDERS} innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3} strokeWidth={0}>
+                    {(orderStatus.length ? orderStatus : FALLBACK_ORDERS).map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
+              </div>
               <div style={{ padding: '0 0.5rem' }}>
-                {(orderStatus.length ? orderStatus : orderFallback).map((s, i) => (
+                {(orderStatus.length ? orderStatus : FALLBACK_ORDERS).map((s, i) => (
                   <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS[i] }} />
                     <span style={{ flex: 1, color: 'var(--muted)' }}>{s.name}</span><strong>{s.value}%</strong>
@@ -432,8 +416,9 @@ export default function AnalyticsAdminPage() {
                 <>Change: <span style={{ color: revenueComparison.changePercent >= 0 ? '#27AE60' : '#E74C3C', fontWeight: 700 }}>{(revenueComparison.changePercent ?? 0) >= 0 ? '+' : ''}{(revenueComparison.changePercent ?? 0).toFixed(1)}%</span> &middot; Current: {formatCurrency(revenueComparison.currentTotal)} vs Previous: {formatCurrency(revenueComparison.previousTotal)}</>
               ) : 'Comparing revenue across two equal-length periods'}
             </p>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={comparisonChartData}>
+            <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={comparisonChartData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => '₹' + v/1000 + 'k'} />
@@ -443,13 +428,15 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="Previous Period" fill="#C9A96E" radius={[4, 4, 0, 0]} maxBarSize={16} opacity={0.7} />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Customer Growth */}
           <div className="chart-card" style={{ marginTop: '1.5rem' }}>
             <div className="chart-title">Customer Growth</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={growthDisplay}>
+            <div style={{ width: '100%', height: 220, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={growthDisplay} isAnimationActive={false}>
                 <defs><linearGradient id="custGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2980B9" stopOpacity={0.2} /><stop offset="100%" stopColor="#2980B9" stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? v.slice(5) : ''} />
@@ -459,6 +446,7 @@ export default function AnalyticsAdminPage() {
                 <Legend wrapperStyle={{ fontSize: '11px' }} />
               </AreaChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </>
       )}
@@ -476,8 +464,9 @@ export default function AnalyticsAdminPage() {
           {/* Daily Sales Trend */}
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Daily Sales</div>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={dailySales}>
+            <div style={{ width: '100%', height: 280, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={dailySales} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? v.slice(5) : ''} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => '₹' + v/1000 + 'k'} />
@@ -487,13 +476,15 @@ export default function AnalyticsAdminPage() {
                 <Line type="monotone" dataKey="aov" stroke="#C9A96E" strokeWidth={1.5} dot={{ r: 2 }} name="AOV" />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Hourly Distribution */}
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Hourly Order Distribution</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={hourlyData}>
+            <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={hourlyData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -503,6 +494,7 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="revenue" fill="#C9A96E" radius={[3, 3, 0, 0]} maxBarSize={14} name="Revenue" opacity={0.7} />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Conversion Metrics */}
@@ -537,8 +529,9 @@ export default function AnalyticsAdminPage() {
         <>
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Top Products by Revenue</div>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={(topProducts.length ? topProducts : productFallback).slice(0, 8)} layout="vertical" margin={{ left: 100, right: 20 }}>
+            <div style={{ width: '100%', height: 350, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(topProducts.length ? topProducts : FALLBACK_PRODUCTS).slice(0, 8)} layout="vertical" margin={{ left: 100, right: 20 }} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => '₹' + v/1000 + 'k'} />
                 <YAxis dataKey="productName" type="category" tick={{ fontSize: 11, width: 100 }} axisLine={false} tickLine={false} />
@@ -546,12 +539,14 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="revenue" fill="#C9A96E" radius={[0, 4, 4, 0]} maxBarSize={24} name="Revenue" />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Top Products by Units Sold</div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={(topProducts.length ? topProducts : productFallback).slice(0, 8)} layout="vertical" margin={{ left: 100, right: 20 }}>
+            <div style={{ width: '100%', height: 300, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={(topProducts.length ? topProducts : FALLBACK_PRODUCTS).slice(0, 8)} layout="vertical" margin={{ left: 100, right: 20 }} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis dataKey="productName" type="category" tick={{ fontSize: 11, width: 100 }} axisLine={false} tickLine={false} />
@@ -559,13 +554,15 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="unitsSold" fill="#2980B9" radius={[0, 4, 4, 0]} maxBarSize={24} name="Units Sold" />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Category Performance */}
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Category Performance</div>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={categories.length ? categories : catFallback}>
+            <div style={{ width: '100%', height: 280, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={categories.length ? categories : FALLBACK_CATEGORIES} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -575,6 +572,7 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="orders" fill="#27AE60" radius={[4, 4, 0, 0]} name="Orders" />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="table-card">
@@ -582,7 +580,7 @@ export default function AnalyticsAdminPage() {
             <table className="admin-table">
               <thead><tr><th>#</th><th>Product / Category</th><th>Revenue</th><th>Units Sold</th><th>Unit Price</th></tr></thead>
               <tbody>
-                {(topProducts.length ? topProducts : productFallback).slice(0, 8).map((p, i) => (
+                {(topProducts.length ? topProducts : FALLBACK_PRODUCTS).slice(0, 8).map((p, i) => (
                   <tr key={p.productId || i}>
                     <td><span style={{ width: 24, height: 24, borderRadius: '50%', background: i === 0 ? 'var(--gold)' : 'var(--off-white)', color: i === 0 ? '#fff' : 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>{i + 1}</span></td>
                     <td><strong>{p.productName || p.name}</strong></td>
@@ -606,8 +604,9 @@ export default function AnalyticsAdminPage() {
           <div className="chart-grid" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-card">
               <div className="chart-title">Payment Methods Distribution</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
+              <div style={{ width: '100%', height: 220, minWidth: '1px', minHeight: '1px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart isAnimationActive={false}>
                   <Pie data={paymentMethodTrends.length > 0 ? paymentMethodTrends.map(p => ({ name: p.method, value: p.percentage })) : [{ name: 'Razorpay', value: 60 }, { name: 'COD', value: 25 }, { name: 'Wallet', value: 15 }]}
                     innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} strokeWidth={0}>
                     {(paymentMethodTrends.length > 0 ? paymentMethodTrends : [{ method: 'Razorpay' }, { method: 'COD' }, { method: 'Wallet' }]).map((_, i) => (
@@ -617,15 +616,17 @@ export default function AnalyticsAdminPage() {
                   <Tooltip formatter={(v) => (v ?? 0).toFixed(1) + '%'} contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} />
                 </PieChart>
               </ResponsiveContainer>
+              </div>
             </div>
             <div className="chart-card">
               <div className="chart-title">Payment Methods by Revenue</div>
-              <ResponsiveContainer width="100%" height={220}>
+              <div style={{ width: '100%', height: 220, minWidth: '1px', minHeight: '1px' }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={paymentMethodTrends.length > 0 ? paymentMethodTrends : [
                   { method: 'Razorpay', revenue: 245000, count: 312 },
                   { method: 'COD', revenue: 98000, count: 145 },
                   { method: 'Wallet', revenue: 45000, count: 78 },
-                ]} layout="vertical" margin={{ left: 60, right: 10 }}>
+                ]} layout="vertical" margin={{ left: 60, right: 10 }} isAnimationActive={false}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => '₹' + v/1000 + 'k'} />
                   <YAxis dataKey="method" type="category" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -633,6 +634,7 @@ export default function AnalyticsAdminPage() {
                   <Bar dataKey="revenue" fill="#C9A96E" radius={[0, 4, 4, 0]} maxBarSize={20} name="Revenue" />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -660,8 +662,9 @@ export default function AnalyticsAdminPage() {
           {/* Hourly Sales for Payments tab */}
           <div className="chart-card">
             <div className="chart-title">Hourly Sales (Order Volume)</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={hourlyData}>
+            <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={hourlyData} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="hour" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -671,6 +674,7 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="orders" fill="#1a1a1a" radius={[3, 3, 0, 0]} maxBarSize={12} name="Orders" />
               </BarChart>
             </ResponsiveContainer>
+            </div>
           </div>
         </>
       )}
@@ -688,8 +692,9 @@ export default function AnalyticsAdminPage() {
           {/* Customer Growth Chart */}
           <div className="chart-card" style={{ marginBottom: '1.5rem' }}>
             <div className="chart-title">Customer Growth Trend</div>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={growthDisplay}>
+            <div style={{ width: '100%', height: 280, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={growthDisplay} isAnimationActive={false}>
                 <defs><linearGradient id="custGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2980B9" stopOpacity={0.3} /><stop offset="100%" stopColor="#2980B9" stopOpacity={0} /></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v ? v.slice(5) : ''} />
@@ -700,6 +705,7 @@ export default function AnalyticsAdminPage() {
                 <Bar dataKey="newUsers" fill="#93c5fd" radius={[3, 3, 0, 0]} maxBarSize={8} name="New Users" opacity={0.7} />
               </AreaChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Top Customers Table */}
@@ -723,6 +729,8 @@ export default function AnalyticsAdminPage() {
             </table>
           </div>
         </>
+      )}
+      </div>
       )}
     </div>
   );

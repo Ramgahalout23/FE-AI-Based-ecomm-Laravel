@@ -1,9 +1,6 @@
 /* ═══ Component Styles — Veirdo Brand ═══ */
 
 /* ── Buttons ─────────────────── */
-.btn-primary{background:#1a1a1a;color:#fff;border:none;padding:0.85rem 2.5rem;font-weight:600;font-size:0.9rem;letter-spacing:0.02em;cursor:pointer;border-radius:12px;transition:all 0.3s ease;box-shadow:0 4px 14px rgba(26,26,26,0.3)}
-.btn-primary:hover{background:#000000;transform:translateY(-2px);box-shadow:0 6px 20px rgba(26,26,26,0.4)}
-.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
 .btn-outline{background:none;border:2px solid #e5e5ea;color:#1a1a2e;padding:0.85rem 2rem;font-weight:600;font-size:0.9rem;cursor:pointer;border-radius:12px;transition:all 0.3s ease}
 .btn-outline:hover{border-color:#1a1a1a;color:#1a1a1a}
 .btn-dark{background:#1a1a2e;color:#fff;border:none;padding:0.5rem 1rem;font-size:0.85rem;border-radius:8px;font-weight:600;transition:all 0.3s ease}
@@ -34,53 +31,6 @@
 .form-full{grid-column:1/-1}
 .form-actions{display:flex;justify-content:flex-end;gap:0.75rem;padding-top:1rem;border-top:1px solid #e5e5ea}
 .form-error{font-size:0.72rem;color:#ef4444;margin-top:0.2rem}
-
-/* ── Product Grid ────────────── */
-.product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
-
-.product-card{position:relative;cursor:pointer;transition:all 0.35s ease}
-.product-card:hover{transform:translateY(-4px)}
-
-/* Premium hover crossfade: multi-image layer stacking (inspired by selektt.com) */
-.product-img-stack{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
-.product-img-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1;will-change:opacity,transform;transition:opacity 0.35s cubic-bezier(0.25,0.46,0.45,0.94),transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)}
-.product-img-layer.active{z-index:2;opacity:1}
-.product-card:hover .product-img-layer.active{transform:scale(1.04)}
-
-/* Image indicator dots */
-.product-img-dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:5px;pointer-events:none;opacity:0;transition:opacity 0.25s ease}
-.product-card:hover .product-img-dots{opacity:1}
-.product-img-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.4);transition:all 0.25s cubic-bezier(0.16,1,0.3,1)}
-.product-img-dot.active{background:#fff;width:16px;border-radius:3px}
-
-.product-img{aspect-ratio:3/4;background:#f0f0f5;display:flex;align-items:center;justify-content:center;font-size:3rem;position:relative;overflow:hidden}
-.product-badge{position:absolute;top:10px;left:10px;z-index:2;background:#232323;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;letter-spacing:1px;text-transform:uppercase}
-.product-badge.sale-badge{background:#e95144}
-.product-wishlist{position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.9);border:none;cursor:pointer;padding:6px;border-radius:50%;font-size:0.85rem;transition:all 0.3s ease}
-.product-wishlist:hover{background:#1a1a1a;color:#fff;transform:scale(1.1)}
-.product-wishlist.active{color:#ef4444;background:rgba(255,255,255,0.95)}
-.product-info{padding:1rem}
-.product-cat{font-size:0.7rem;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem;font-weight:600}
-.product-name{font-family:'Jost',sans-serif;font-size:1rem;font-weight:600;margin-bottom:0.5rem;color:#1a1a2e;line-height:1.3}
-.product-card .price{font-size:0.95rem;font-weight:600;color:#232323}
-.product-card .price .original{font-size:0.8rem;font-weight:400;color:#868686;text-decoration:line-through;margin-left:6px}
-.product-card .unit-price{font-size:0.7rem;color:#868686;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
-.stars{font-size:0.75rem;color:#888888;margin-top:0.3rem}
-
-/* ── Category Grid ───────────── */
-.cat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
-.cat-card{background:#fff;border:2px solid #e5e5ea;border-radius:16px;padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all 0.3s ease}
-.cat-card:hover{border-color:#1a1a1a;transform:translateY(-2px);box-shadow:0 8px 24px rgba(26,26,26,0.1)}
-.cat-icon{font-size:2rem;margin-bottom:0.75rem}
-.cat-name{font-size:0.85rem;font-weight:600;color:#1a1a2e;letter-spacing:0.02em}
-.cat-count{font-size:0.72rem;color:#8a8a9a;margin-top:0.2rem}
-
-/* ── Search ──────────────────── */
-.search-bar{display:flex;gap:0.75rem;margin-bottom:2rem;flex-wrap:wrap}
-.search-input{flex:1;padding:0.75rem 1rem;border:2px solid #e5e5ea;border-radius:12px;font-size:0.9rem;background:#fafafa;outline:none;transition:border-color 0.3s}
-.search-input:focus{border-color:#1a1a1a}
-.filter-btn{padding:0.75rem 1.25rem;background:#fff;border:2px solid #e5e5ea;border-radius:12px;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:0.4rem;color:#8a8a9a;transition:all 0.3s ease;font-weight:500}
-.filter-btn:hover{border-color:#1a1a1a;color:#1a1a1a}
 
 /* ── Modal ───────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(26,26,46,0.5);backdrop-filter:blur(4px);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;padding:20px}
@@ -120,30 +70,22 @@
 .chart-title{font-family:'Jost',sans-serif;font-size:1rem;font-weight:700;margin-bottom:1.5rem}
 
 /* ── Loading ─────────────────── */
-.spinner{width:40px;height:40px;border:3px solid #e5e5ea;border-top-color:#1a1a1a;border-radius:50%;animation:spin 0.8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-page{display:flex;align-items:center;justify-content:center;min-height:400px;flex-direction:column;gap:1rem}
 .skeleton{background:linear-gradient(90deg,#f0f0f5 25%,#e5e5ea 50%,#f0f0f5 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-@keyframes fadeIn{0%{opacity:0}100%{opacity:1}}
 .animate-fadeIn{animation:fadeIn 0.2s ease-out}
+
+/* ── Dashboard Content Fade-in ── */
+.dashboard-content-enter{animation:fadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1)}
+
+/* ── Barcode Scanner ─────────── */
+@keyframes scanLine{0%,100%{top:0}50%{top:calc(100% - 3px)}}
+.scan-line{position:absolute;top:0;left:0;right:0;height:3px;background:#22c55e;animation:scanLine 1.5s ease-in-out infinite;border-radius:2px;box-shadow:0 0 8px rgba(34,197,94,0.6)}
 
 /* ── Empty State ─────────────── */
 .empty-state{text-align:center;padding:4rem 2rem;color:#8a8a9a}
 .empty-state-icon{font-size:4rem;margin-bottom:1rem;opacity:0.5}
 .empty-state h3{font-family:'Jost',sans-serif;font-size:1.3rem;color:#1a1a2e;margin-bottom:0.5rem;font-weight:700}
 
-/* ── Pagination ──────────────── */
-.pagination{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:2rem 0}
-.page-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:2px solid #e5e5ea;border-radius:10px;background:#fff;font-size:0.85rem;font-weight:600;transition:all 0.3s ease}
-.page-btn:hover,.page-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
-
-@media(max-width:1024px){.stats-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.product-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:768px){.stats-grid{grid-template-columns:1fr 1fr}.cat-grid{grid-template-columns:repeat(3,1fr)}.form-grid{grid-template-columns:1fr}.product-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.cat-grid{grid-template-columns:repeat(2,1fr)}}
-
-/* ── Specific Layouts ────────────────────────────── */
-.product-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; padding: 3rem 2rem; }
-@media(max-width: 768px) {
-  .product-detail-grid { grid-template-columns: 1fr; padding: 1.5rem 1rem; gap: 1.5rem; }
-}
+@media(max-width:1024px){.stats-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}}
+@media(max-width:768px){.form-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr}}

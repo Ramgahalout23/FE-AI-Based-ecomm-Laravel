@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { onSocketEvent, connectSocket } from '../services/socketService';
+import { onRealtimeEvent, connectRealtime, isRealtimeConnected } from '../services/realtimeService';
 
 /**
  * Subscribe to a socket event and call the handler when it fires.
@@ -22,7 +22,7 @@ export function useSocketEvent(event, handler, deps) {
   const stableHandler = useCallback(handler, deps || [handler]);
 
   useEffect(() => {
-    const unsubscribe = onSocketEvent(event, stableHandler);
+    const unsubscribe = onRealtimeEvent(event, stableHandler);
     return () => unsubscribe();
   }, [event, stableHandler]);
 }
@@ -58,11 +58,6 @@ export function useOrderCreated(onCreated, deps = []) {
 }
 
 /**
- * Reactively track the WebSocket connection state.
- * Returns true when connected, false otherwise.
- * Re-renders the component on connect/disconnect.
- */
-/**
  * Subscribe to review created events (for admin badge updates).
  *
  * @param {function} onCreated - Called with { reviewId, productId, userId, rating, title, timestamp }
@@ -73,41 +68,21 @@ export function useReviewCreated(onCreated, deps = []) {
 }
 
 /**
- * Reactively track the WebSocket connection state.
+ * Reactively track the realtime connection state.
  * Returns true when connected, false otherwise.
- * Re-renders the component on connect/disconnect.
  */
 export function useSocketConnection() {
   const [connected, setConnected] = useState(() => {
-    const socket = connectSocket();
-    return socket?.connected || false;
+    const socket = connectRealtime();
+    return isRealtimeConnected();
   });
 
   useEffect(() => {
-    const socket = connectSocket();
-    if (!socket) {
-      setConnected(false);
-      return;
-    }
-
-    setConnected(socket.connected);
-
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-    const onConnectError = () => setConnected(false);
-    const onReconnect = () => setConnected(true);
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
-    socket.on('reconnect', onReconnect);
-
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
-      socket.off('reconnect', onReconnect);
-    };
+    connectRealtime();
+    const interval = setInterval(() => {
+      setConnected(isRealtimeConnected());
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   return connected;

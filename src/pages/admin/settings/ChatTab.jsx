@@ -1,5 +1,8 @@
+import { X, Minus, Send, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
-import { MessageCircle, X, Minus, Send } from 'lucide-react';
+import { formatTime } from '../../../utils/formatters';
+
+;
 
 export default function ChatTab({ settings, setSettings, loading, handleSaveSettings }) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -198,7 +201,7 @@ export default function ChatTab({ settings, setSettings, loading, handleSaveSett
                     </div>
                     <div>{settings.chatWelcomeMessage || 'Hi there! How can we help you today?'}</div>
                     <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '4px', textAlign: 'right' }}>
-                      {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatTime(new Date())}
                     </div>
                   </div>
                 </div>

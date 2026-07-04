@@ -119,4 +119,14 @@ export const aiAPI = {
 
   // ── Page / CMS AI ──
   generatePageContent: (data) => adminClient.post('/admin/ai/generate-page-content', data),
+
+  // ── Translation AI ──
+  /**
+   * Translate a batch of translation keys using AI.
+   * @param {string} sourceLanguage - Source language code (e.g. 'en')
+   * @param {string} targetLanguage - Target language code (e.g. 'hi', 'fr')
+   * @param {string} targetLanguageName - Display name of target language (e.g. 'Hindi', 'French')
+   * @param {Object} translations - { key: value } pairs to translate
+   */
+  translateWithAI: (data) => adminClient.post('/admin/ai/translate', data),
 };

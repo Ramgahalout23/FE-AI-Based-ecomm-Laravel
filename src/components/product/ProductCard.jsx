@@ -1,8 +1,11 @@
+import { ShoppingBag, Plus, Minus, X, Heart } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ShoppingBag, Plus, Minus, X } from 'lucide-react';
+
+;
+import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
 import { formatCurrency, slugify, getImageUrl, getProductImage } from '../../utils/formatters';
@@ -15,6 +18,7 @@ import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
 function ProductCard({ product }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
@@ -96,11 +100,11 @@ function ProductCard({ product }) {
       if (inWishlist) {
         await wishlistAPI.remove(product.id);
         removeFromWL(product.id);
-        toast.success('Removed from wishlist');
+        toast.success(t('product.removed_wishlist'));
       } else {
         await wishlistAPI.add({ productId: product.id });
         addToWL(product);
-        toast.success('Added to wishlist ❤️');
+        toast.success(t('product.added_wishlist'));
       }
     } catch {
       inWishlist ? removeFromWL(product.id) : addToWL(product);
@@ -261,13 +265,13 @@ function ProductCard({ product }) {
   // Badge priority: Out of Stock > Low Stock > Sale (discount) > New > custom badge
   let topLeftBadge = null;
   if (isOutOfStock) {
-    topLeftBadge = { label: 'Out of Stock', className: 'bg-red-500 text-white' };
+    topLeftBadge = { label: t('product.out_of_stock'), className: 'bg-red-500 text-white' };
   } else if (isLowStock) {
-    topLeftBadge = { label: 'Low Stock', className: 'bg-amber-500 text-white' };
+    topLeftBadge = { label: t('product.low_stock'), className: 'bg-amber-500 text-white' };
   } else if (discount) {
-    topLeftBadge = { label: 'Sale', className: 'bg-red-500 text-white' };
+    topLeftBadge = { label: t('product.sale_badge'), className: 'bg-red-500 text-white' };
   } else if (isNew) {
-    topLeftBadge = { label: 'New', className: 'bg-emerald-600 text-white' };
+    topLeftBadge = { label: t('product.new_badge'), className: 'bg-emerald-600 text-white' };
   } else if (product.badge) {
     const badgeClass = (product.badge === 'Bestseller' || product.badge === 'Hot' || product.badge === 'Trending')
       ? 'bg-black text-white'
@@ -296,13 +300,13 @@ function ProductCard({ product }) {
           {/* Wishlist */}
           <button
             onClick={handleWishlist}
-            className={`absolute top-2 right-2 z-10 w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
               inWishlist
                 ? 'bg-danger text-white shadow-md'
                 : 'bg-white/90 backdrop-blur-sm text-text-muted hover:text-danger hover:bg-white shadow-soft'
             }`}
           >
-            <Heart size={14} fill={inWishlist ? 'currentColor' : 'none'} />
+            <Heart size={16} fill={inWishlist ? 'currentColor' : 'none'} />
           </button>
 
           {/* Product Image */}
@@ -326,7 +330,7 @@ function ProductCard({ product }) {
           {isOutOfStock && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10">
               <div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
-                Sold Out
+                {t('product.sold_out')}
               </div>
             </div>
           )}
@@ -355,11 +359,11 @@ function ProductCard({ product }) {
                 {/* Header */}
                 <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 shrink-0">
                   <div className="flex items-center gap-2">
-                    <ShoppingBag size={13} className="text-gray-700" />
-                    <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">Quick Add</span>
+                    <ShoppingBag size={13} />
+                    <span className="text-[11px] font-bold text-gray-800 uppercase tracking-wider">{t('product.quick_add')}</span>
                   </div>
                   <button onClick={closePanel} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-150 active:scale-[0.85]">
-                    <X size={13} className="text-gray-500" />
+                    <X size={13} />
                   </button>
                 </div>
 
@@ -490,7 +494,7 @@ function ProductCard({ product }) {
                             className="inline-flex items-center gap-1.5 whitespace-nowrap"
                           >
                             <ShoppingBag size={11} />
-                            <span>Add · {formatCurrency(displayPrice * qty)}</span>
+                            <span>{t('product.add_price', { price: formatCurrency(displayPrice * qty) })}</span>
                           </motion.span>
                         </AnimatePresence>
                       )}
@@ -507,7 +511,7 @@ function ProductCard({ product }) {
           {isOutOfStock ? (
             <div className="absolute bottom-0 inset-x-0 z-20 h-9 flex items-center justify-center gap-1.5 bg-gray-800/80 text-gray-300 text-[10px] max-sm:text-[8px] font-bold uppercase tracking-wider">
               <X size={11} />
-              <span>Out of Stock</span>
+              <span>{t('product.out_of_stock')}</span>
             </div>
           ) : (
             !showQuickAdd && (
@@ -518,7 +522,7 @@ function ProductCard({ product }) {
                 {isAdding ? (
                   <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
                 ) : (
-                  <><ShoppingBag size={11} /><span>Quick Add</span></>
+                  <><ShoppingBag size={11} /><span>{t('product.quick_add')}</span></>
                 )}
               </button>
             )
@@ -581,15 +585,15 @@ function ProductCard({ product }) {
                   <div className="flex items-center justify-between px-4 pb-2 shrink-0">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center">
-                        <ShoppingBag size={14} className="text-white" />
+                        <ShoppingBag size={14} />
                       </div>
-                      <span className="text-sm font-bold text-gray-900">Quick Add</span>
+                      <span className="text-sm font-bold text-gray-900">{t('product.quick_add')}</span>
                     </div>
                     <button
                       onClick={closePanel}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-150 active:scale-[0.85]"
                     >
-                      <X size={15} className="text-gray-500" />
+                      <X size={15} />
                     </button>
                   </div>
 
@@ -735,7 +739,7 @@ function ProductCard({ product }) {
                               className="inline-flex items-center gap-1.5 whitespace-nowrap"
                             >
                               <ShoppingBag size={13} />
-                              <span>Add · {formatCurrency(displayPrice * qty)}</span>
+                              <span>{t('product.add_price', { price: formatCurrency(displayPrice * qty) })}</span>
                             </motion.span>
                           </AnimatePresence>
                         )}

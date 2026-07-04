@@ -1,12 +1,160 @@
+import { Search, X, Download } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+;
+import Pagination from '../../components/admin/Pagination';
 import { adminAPI } from '../../api/admin';
 import { productsAPI } from '../../api/products';
 import { aiAPI } from '../../api/ai';
+import { inventoryAPI } from '../../api/inventory';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
+import { downloadBlob } from '../../utils/download';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 
 const EMPTY = { sku: '', price: '', stock: '', color: '', size: '', images: '', description: '', productId: '' };
+
+/* ── Premium Searchable Product Filter for Table Toolbar ── */
+function ProductFilter({ value, onChange, products }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await adminAPI.getProducts({ search: query, limit: 8 });
+        const list = res.data?.data?.products || res.data?.products || res.data?.data || [];
+        setResults(Array.isArray(list) ? list : []);
+      } catch { setResults([]); } finally { setLoading(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const selectedProduct = value ? products.find(p => p.id === value) : null;
+
+  return (
+    <div style={{ position: 'relative', minWidth: 220, maxWidth: 300 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.45rem 0.65rem',
+        borderRadius: 'var(--radius-md)',
+        border: `1.5px solid ${value ? 'var(--gold)' : 'var(--border)'}`,
+        background: 'var(--surface)',
+        transition: 'all 0.2s ease',
+        boxShadow: value ? '0 0 0 3px rgba(201,169,110,0.08)' : 'none',
+      }}>
+        <Search size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        <input
+          placeholder={selectedProduct ? selectedProduct.name : 'Filter by product...'}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          style={{
+            border: 'none',
+            outline: 'none',
+            flex: 1,
+            fontSize: '0.78rem',
+            background: 'transparent',
+            color: 'var(--charcoal)',
+            minWidth: 0,
+            fontWeight: selectedProduct ? 500 : 400,
+          }}
+          autoComplete="off"
+        />
+        {value && (
+          <button
+            onClick={e => { e.stopPropagation(); onChange(''); setQuery(''); }}
+            title="Clear product filter"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', padding: '0.15rem', display: 'flex',
+              flexShrink: 0, borderRadius: '50%',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent'; }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {open && (query || results.length > 0) && (
+        <>
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            marginTop: 4, background: '#fff',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            zIndex: 100, maxHeight: 280, overflow: 'auto',
+            padding: '0.25rem 0',
+          }}>
+            {loading ? (
+              <div style={{ padding: '1rem', textAlign: 'center' }}>
+                <div className="spinner" style={{ width: 16, height: 16, margin: '0 auto' }} />
+              </div>
+            ) : results.length === 0 ? (
+              <div style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.75rem' }}>
+                No products found
+              </div>
+            ) : results.map(p => (
+              <button
+                key={p.id}
+                onClick={() => { onChange(p.id); setQuery(''); setOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  width: '100%', textAlign: 'left',
+                  padding: '0.5rem 0.75rem',
+                  border: 'none',
+                  borderLeft: `3px solid ${value === p.id ? 'var(--gold)' : 'transparent'}`,
+                  background: value === p.id ? 'rgba(201,169,110,0.08)' : '#fff',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  transition: 'all 0.1s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f5f5f0'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = value === p.id ? 'rgba(201,169,110,0.08)' : '#fff'; }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontWeight: 600, fontSize: '0.8rem', color: 'var(--charcoal)',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {p.name}
+                  </div>
+                  {p.sku && (
+                    <div style={{ fontSize: '0.62rem', color: 'var(--muted)', fontFamily: 'monospace', marginTop: 1 }}>
+                      {p.sku}
+                    </div>
+                  )}
+                </div>
+                {p.category?.name && (
+                  <span style={{
+                    fontSize: '0.6rem', color: 'var(--muted)',
+                    background: '#f3f4f6', padding: '0.1rem 0.45rem',
+                    borderRadius: 4, flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {p.category.name}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+        </>
+      )}
+    </div>
+  );
+}
 
 /* ── Inline Product Selector for create modal ── */
 function ProductSelector({ value, onChange }) {
@@ -69,6 +217,17 @@ function ProductSelector({ value, onChange }) {
   );
 }
 
+const VARIANT_COLUMNS = [
+  { key: 'productName', label: 'Product' },
+  { key: 'variantName', label: 'Variant' },
+  { key: 'sku', label: 'SKU' },
+  { key: 'price', label: 'Price' },
+  { key: 'stock', label: 'Stock' },
+  { key: 'color', label: 'Color' },
+  { key: 'size', label: 'Size' },
+  { key: 'createdAt', label: 'Created Date' },
+];
+
 export default function VariantsAdminPage() {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +237,19 @@ export default function VariantsAdminPage() {
   const [form, setForm] = useState(EMPTY);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const [products, setProducts] = useState([]);
+
+  // Load product list for filter dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminAPI.getProducts({ limit: 200, page: 1 });
+        const list = res.data?.data?.products || res.data?.products || res.data?.data || [];
+        setProducts(Array.isArray(list) ? list : []);
+      } catch { /* non-critical */ }
+    })();
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -86,19 +258,114 @@ export default function VariantsAdminPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
+  // CSV export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  // Batch barcode selection
+  const [selectedVariantIds, setSelectedVariantIds] = useState(new Set());
+  const [batchBarcoding, setBatchBarcoding] = useState(false);
+  const [barcodeProgress, setBarcodeProgress] = useState({ attempts: 0, maxAttempts: 30 });
+
+  const toggleVariantSelection = (variantId) => {
+    setSelectedVariantIds(prev => {
+      const next = new Set(prev);
+      if (next.has(variantId)) next.delete(variantId);
+      else next.add(variantId);
+      return next;
+    });
+  };
+
+  const toggleAllVariants = () => {
+    const allIds = new Set(variants.map(v => v.id));
+    setSelectedVariantIds(prev => prev.size === allIds.size ? new Set() : allIds);
+  };
+
+  const handleBatchBarcodeDownload = async () => {
+    if (selectedVariantIds.size === 0) {
+      toast.error('Select at least one variant');
+      return;
+    }
+    setBatchBarcoding(true);
+    try {
+      // 1. Dispatch background job
+      const dispatchRes = await inventoryAPI.dispatchBatchBarcodeLabels([...selectedVariantIds]);
+      const { batch_id, variant_count } = dispatchRes.data?.data || {};
+      if (!batch_id) {
+        toast.error('Failed to start barcode generation');
+        setBatchBarcoding(false);
+        return;
+      }
+
+      toast('⏳ Generating barcodes in background...');
+
+      // 2. Poll for completion (max 60 seconds)
+      let attempts = 0;
+      const maxAttempts = 30;
+      let ready = false;
+      setBarcodeProgress({ attempts: 0, maxAttempts });
+
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 2000));
+        attempts++;
+        setBarcodeProgress({ attempts, maxAttempts });
+
+        try {
+          const statusRes = await inventoryAPI.getBarcodeBatchStatus(batch_id);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'ready') {
+            ready = true;
+            break;
+          }
+          if (status === 'failed') {
+            toast.error('Barcode generation failed');
+            setBatchBarcoding(false);
+            setBarcodeProgress({ attempts: 0, maxAttempts });
+            return;
+          }
+        } catch {
+          // Continue polling on transient errors
+        }
+      }
+
+      if (!ready) {
+        toast.error('Barcode generation timed out. Check the queue worker is running.');
+        setBatchBarcoding(false);
+        setBarcodeProgress({ attempts: 0, maxAttempts: 30 });
+        return;
+      }
+
+      // 3. Download the completed PDF
+      const downloadRes = await inventoryAPI.downloadBarcodeBatch(batch_id);
+      downloadBlob(downloadRes, `barcode-variants-${variant_count}-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success(`Downloaded barcodes for ${variant_count} variant(s)`);
+      setSelectedVariantIds(new Set());
+    } catch (err) {
+      toast.error('Failed to download batch barcodes');
+    } finally {
+      setBatchBarcoding(false);
+      setBarcodeProgress({ attempts: 0, maxAttempts: 30 });
+    }
+  };
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   const load = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
         page,
-        limit,
-        search: debouncedSearch || undefined
+        limit: pageSize,
+        search: debouncedSearch || undefined,
+        product_id: productFilter || undefined
       };
       const r = await adminAPI.getAllVariants(params);
       const body = r.data || {};
@@ -107,15 +374,15 @@ export default function VariantsAdminPage() {
       setVariants(Array.isArray(list) ? list : []);
       const pag = data || {};
       setCurrentPage(pag.current_page || page);
-      setTotalPages(pag.last_page || Math.ceil((pag.total || 0) / limit) || 1);
+      setTotalPages(pag.last_page || Math.ceil((pag.total || 0) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load variants'); console.warn('Failed to load variants:', e); } finally { setLoading(false); }
   };
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search, product filter, or page size changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, productFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
@@ -166,7 +433,7 @@ export default function VariantsAdminPage() {
     imageUrlMapRef.current = {};
     try {
       const productId = form.productId || editing?.productId;
-      const productName = editing?.productName || 'Product';
+      const productName = editing?.product?.name || editing?.productName || 'Product';
 
       // 1. Generate description (non-streaming)
       const descPromise = aiAPI.generateVariantDescription({
@@ -285,14 +552,19 @@ export default function VariantsAdminPage() {
 
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Product Variants</h2><p>Manage sizes, colors, stock, and color-specific images for variants</p></div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn-dark btn-sm" onClick={openCreate}>+ New Variant</button>
-          <button className="btn-dark btn-sm" onClick={handleBulkUpdate}>🔄 Bulk Restock</button>
-        </div>
-      </div>
-
+      <AdminPageShell
+        title="Product Variants"
+        subtitle="Manage sizes, colors, stock, and color-specific images for variants"
+        loading={loading}
+        error={error}
+        page="variants"
+        actions={
+          <>
+            <button className="btn-dark btn-sm" onClick={openCreate}>+ New Variant</button>
+            <button className="btn-dark btn-sm" onClick={handleBulkUpdate}>🔄 Bulk Restock</button>
+          </>
+        }
+      >
       {variants.filter(v => (v.quantity || 0) < 5).length > 0 && (
         <div className="admin-alert warning">
           <span className="admin-alert-icon">⚠️</span>
@@ -302,22 +574,126 @@ export default function VariantsAdminPage() {
           </div>
         </div>
       )}
-
-      {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
       <div className="table-card">
-        <div className="table-toolbar">
-          <input className="table-search" placeholder="Search variants..." value={search} onChange={e => setSearch(e.target.value)} autoComplete="off" />
-          <span className="table-count">{totalItems} variants</span>
+        <div className="table-toolbar" style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 200 }}>
+            <Search size={15} style={{ color: 'var(--muted)', flexShrink: 0, marginLeft: '0.15rem' }} />
+            <input
+              className="table-search"
+              placeholder="Search by SKU, name, color..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Active filter indicator pill */}
+          {productFilter && (
+            <span style={{
+              fontSize: '0.6rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--gold)',
+              background: 'rgba(201,169,110,0.1)',
+              padding: '0.15rem 0.5rem',
+              borderRadius: 10,
+              border: '1px solid rgba(201,169,110,0.2)',
+              whiteSpace: 'nowrap',
+            }}>
+              Product
+            </span>
+          )}
+
+          <ProductFilter
+            value={productFilter}
+            onChange={setProductFilter}
+            products={products}
+          />
+
+          {productFilter && (
+            <button
+              onClick={() => setProductFilter('')}
+              title="Clear all filters"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                cursor: 'pointer',
+                fontSize: '0.72rem',
+                color: 'var(--muted)',
+                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.borderColor = 'rgba(192,57,43,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+
+          <div style={{
+            width: 1, height: 24, background: 'var(--border)',
+            margin: '0 0.15rem', flexShrink: 0,
+          }} />
+
+          <span className="table-count" style={{ fontWeight: 500 }}>
+            {totalItems} variant{totalItems !== 1 ? 's' : ''}
+          </span>
+
+          {/* Export button */}
+          <button
+            onClick={() => setShowExportModal(true)}
+            title="Export variants as CSV"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid rgba(39,174,96,0.3)',
+              background: '#f0fdf4',
+              color: '#16a34a',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              fontFamily: 'inherit',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; e.currentTarget.style.borderColor = '#16a34a'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; e.currentTarget.style.borderColor = 'rgba(39,174,96,0.3)'; }}
+          >
+            <Download size={13} /> Export
+          </button>
         </div>
         <table className="admin-table">
-          <thead><tr><th>Image</th><th>Product</th><th>Variant</th><th>SKU</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr>
+            <th style={{ textAlign: 'center', width: 32 }}>
+              <input
+                type="checkbox"
+                checked={selectedVariantIds.size > 0 && variants.length > 0 && variants.every(v => selectedVariantIds.has(v.id))}
+                onChange={toggleAllVariants}
+                title="Select all variants on this page"
+                style={{ cursor: 'pointer' }}
+              />
+            </th>
+            <th>Image</th><th>Product</th><th>Variant</th><th>SKU</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th>
+          </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={8}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr> :
-            variants.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><div className="empty-state-icon">🎨</div><h3>No variants found</h3></div></td></tr> :
+            {variants.length === 0 ? <tr><td colSpan={9}><div className="empty-state"><div className="empty-state-icon">🎨</div><h3>No variants found</h3></div></td></tr> :
             variants.map(v => {
               const firstImg = Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null;
               return (
-              <tr key={v.id}>
+              <tr key={v.id} style={{ background: selectedVariantIds.has(v.id) ? '#eef2ff' : 'transparent' }}>
+                <td style={{ textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedVariantIds.has(v.id)}
+                    onChange={() => toggleVariantSelection(v.id)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </td>
                 <td>
                   <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {firstImg ? (
@@ -327,7 +703,7 @@ export default function VariantsAdminPage() {
                     )}
                   </div>
                 </td>
-                <td><strong>{v.productName || '—'}</strong></td>
+                <td><strong>{v.product?.name || '—'}</strong></td>
                 <td>{v.name || `${v.color || ''} ${v.size || ''}`.trim() || '—'}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{v.sku || '—'}</td>
                 <td><strong>{formatCurrency(v.price)}</strong></td>
@@ -336,6 +712,58 @@ export default function VariantsAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(v)}>Edit</button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await inventoryAPI.getVariantBarcodeLabel(v.id);
+                          downloadBlob(res, `barcode-${v.sku || v.id}.pdf`);
+                          toast.success('Barcode label downloaded');
+                        } catch {
+                          toast.error('Failed to download barcode');
+                        }
+                      }}
+                      style={{
+                        fontSize: '0.76rem',
+                        padding: '0.4rem 0.65rem',
+                        color: '#1a1a2e',
+                        border: '1px solid rgba(26,26,46,0.3)',
+                        borderRadius: 6,
+                        background: '#f8f9fc',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#1a1a2e'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#f8f9fc'; e.currentTarget.style.color = '#1a1a2e'; }}
+                      title="Download Barcode Label"
+                    >
+                      🏷️
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await inventoryAPI.printVariantBarcodeLabel(v.id);
+                        } catch { toast.error('Failed to open for printing'); }
+                      }}
+                      style={{
+                        fontSize: '0.76rem',
+                        padding: '0.4rem 0.65rem',
+                        color: '#2563eb',
+                        border: '1px solid rgba(37,99,235,0.3)',
+                        borderRadius: 6,
+                        background: '#eff6ff',
+                        cursor: 'pointer',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.color = '#2563eb'; }}
+                      title="Open Barcode in New Tab for Printing"
+                    >
+                      🖨️
+                    </button>
                     <button className="btn-del" onClick={() => handleDelete(v.id)}>Delete</button>
                   </div>
                 </td>
@@ -344,19 +772,172 @@ export default function VariantsAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} variants)</span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>◀ Prev</button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map(p => (
-                <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-              ))}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Next ▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          itemLabel="variant"
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      </AdminPageShell>
+
+      {/* Batch Barcode Download Bar */}
+      {selectedVariantIds.size > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#1a1a2e',
+          color: '#fff',
+          padding: '0.75rem 1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '1rem',
+          zIndex: 1000,
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.3)',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: '0.85rem' }}>
+            <strong>{selectedVariantIds.size}</strong> variant{selectedVariantIds.size !== 1 ? 's' : ''} selected
+          </span>
+
+          {/* Progress bar during generation */}
+          {batchBarcoding && (
+            <div style={{
+              flex: '1 1 100%',
+              maxWidth: 400,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+            }}>
+              <div style={{
+                flex: 1,
+                height: 6,
+                borderRadius: 3,
+                background: '#374151',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min((barcodeProgress.attempts / barcodeProgress.maxAttempts) * 100, 100)}%`,
+                  borderRadius: 3,
+                  background: 'linear-gradient(90deg, #22c55e, #16a34a)',
+                  transition: 'width 0.4s ease',
+                }} />
+              </div>
+              <span style={{ fontSize: '0.72rem', color: '#9ca3af', whiteSpace: 'nowrap', minWidth: 140, textAlign: 'right' }}>
+                {(() => {
+                  const remaining = Math.round((barcodeProgress.maxAttempts - barcodeProgress.attempts) * 2);
+                  return `${barcodeProgress.attempts}/${barcodeProgress.maxAttempts} — ~${remaining}s left`;
+                })()}
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={handleBatchBarcodeDownload}
+            disabled={batchBarcoding}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: 8,
+              background: '#22c55e',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              cursor: batchBarcoding ? 'not-allowed' : 'pointer',
+              opacity: batchBarcoding ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+            }}
+          >
+            {batchBarcoding ? (
+              <><span className="spinner" style={{ width: 12, height: 12 }} /> Waiting...</>
+            ) : (
+              <><span>🏷️</span> Download</>
+            )}
+          </button>
+          <button
+            onClick={async () => {
+              if (selectedVariantIds.size === 0) return;
+              setBatchBarcoding(true);
+              try {
+                const dispatchRes = await inventoryAPI.dispatchBatchBarcodeLabels([...selectedVariantIds]);
+                const { batch_id } = dispatchRes.data?.data || {};
+                if (!batch_id) { toast.error('Failed to start'); setBatchBarcoding(false); setBarcodeProgress({ attempts: 0, maxAttempts: 30 }); return; }
+                toast('⏳ Opening for printing...');
+                let attempts = 0;
+                const maxAttempts = 30;
+                setBarcodeProgress({ attempts: 0, maxAttempts });
+                while (attempts < maxAttempts) {
+                  await new Promise(r => setTimeout(r, 2000));
+                  attempts++;
+                  setBarcodeProgress({ attempts, maxAttempts });
+                  try {
+                    const statusRes = await inventoryAPI.getBarcodeBatchStatus(batch_id);
+                    const status = statusRes.data?.data?.status;
+                    if (status === 'ready') {
+                      const downloadRes = await inventoryAPI.downloadBarcodeBatch(batch_id);
+                      const blobUrl = URL.createObjectURL(downloadRes.data);
+                      window.open(blobUrl, '_blank');
+                      setSelectedVariantIds(new Set());
+                      break;
+                    }
+                    if (status === 'failed') { toast.error('Generation failed'); break; }
+                  } catch {}
+                }
+              } catch { toast.error('Failed'); }
+              setBarcodeProgress({ attempts: 0, maxAttempts: 30 });
+              setBatchBarcoding(false);
+            }}
+            disabled={batchBarcoding}
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: 8,
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              cursor: batchBarcoding ? 'not-allowed' : 'pointer',
+              opacity: batchBarcoding ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+            }}
+          >
+            {batchBarcoding ? (
+              <><span className="spinner" style={{ width: 12, height: 12 }} /> Waiting...</>
+            ) : (
+              <><span>🖨️</span> Print</>
+            )}
+          </button>
+          <button
+            onClick={() => setSelectedVariantIds(new Set())}
+            style={{
+              padding: '0.5rem 0.75rem',
+              borderRadius: 8,
+              background: 'transparent',
+              color: '#9ca3af',
+              border: '1px solid #4b5563',
+              fontWeight: 500,
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#6b7280'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.borderColor = '#4b5563'; }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
@@ -448,12 +1029,7 @@ export default function VariantsAdminPage() {
                   <p style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.5rem', lineHeight: 1.4 }}>
                     Upload a product photo showing the style you want — AI will analyze its pose, lighting, composition, and background, then generate all variant images in the same style.
                   </p>
-                  <ImageUploadZone
-                    label=""
-                    value={referenceImageUrl}
-                    onChange={setReferenceImageUrl}
-                    multiple={false}
-                  />
+                  <Image UploadZone label="" value={referenceImageUrl} onChange={setReferenceImageUrl} multiple={false} />
                   {referenceImageUrl && (
                     <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <span>📎 Reference set</span>

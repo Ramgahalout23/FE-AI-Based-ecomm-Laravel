@@ -1,11 +1,11 @@
+import { Trophy, BarChart3, Globe, RefreshCw, TrendingUp, Minus, AlertTriangle, Search, Zap, Settings, FileText, Pencil, CheckCircle, XCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
-import { Award, BarChart3, Globe, FileText, GitBranch, Edit3, RefreshCw,
-  TrendingUp, TrendingDown, Minus, CheckCircle, AlertTriangle, XCircle,
-  Search, ArrowRight, Zap, ExternalLink, Loader, Settings,
-} from 'lucide-react';
+import { formatDate, formatTime } from '../../utils/formatters';
+
+;
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, sub, color, onClick }) {
@@ -77,11 +77,6 @@ function ScoreDistChart({ distribution }) {
       </div>
     </div>
   );
-}
-
-function formatDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function timeAgo(date) {
@@ -164,7 +159,7 @@ export default function SEODashboardPage() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <Loader size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 0.75rem' }} />
+          <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 0.75rem' }} />
           <p>Loading SEO Dashboard...</p>
         </div>
       </div>
@@ -223,7 +218,7 @@ export default function SEODashboardPage() {
           </button>
           <span style={{ fontSize: '0.68rem', color: 'var(--muted)', opacity: 0.7, whiteSpace: 'nowrap' }}>
             {lastRefreshed
-              ? `${timeAgo(lastRefreshed)} · ${lastRefreshed.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+              ? `${timeAgo(lastRefreshed)} · ${formatTime(lastRefreshed, { hour: 'numeric', hour12: true })}`
               : '—'}
           </span>
           <button className="btn-dark btn-sm" onClick={() => navigate('/admin/seo?tab=global')}>
@@ -262,8 +257,9 @@ export default function SEODashboardPage() {
           </h3>
         </div>
         {trendDaily.length > 0 ? (
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={trendDaily} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <div style={{ width: '100%', height: 220, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendDaily} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} isAnimationActive={false}>
               <defs>
                 <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#c9a96e" stopOpacity={0.3} />
@@ -304,7 +300,8 @@ export default function SEODashboardPage() {
                 activeDot={{ r: 5, fill: '#c9a96e', stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.78rem' }}>
             <TrendingUp size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
@@ -328,7 +325,7 @@ export default function SEODashboardPage() {
           </div>
           <div style={{ marginTop: '0.75rem' }}>
             <button className="btn-ghost btn-sm" onClick={() => navigate('/admin/seo?tab=entity')} style={{ fontSize: '0.75rem' }}>
-              <Edit3 size={12} /> Manage Entity SEO <ArrowRight size={12} />
+              <Pencil size={12} /> Manage Entity SEO <ArrowRight size={12} />
             </button>
           </div>
         </div>
@@ -339,7 +336,7 @@ export default function SEODashboardPage() {
           <ScoreDistChart distribution={scores.distribution} />
           <div style={{ marginTop: '0.75rem' }}>
             <button className="btn-ghost btn-sm" onClick={() => navigate('/admin/seo?tab=audit')} style={{ fontSize: '0.75rem' }}>
-              <Award size={12} /> Run Full Audit <ArrowRight size={12} />
+              <Trophy size={12} /> Run Full Audit <ArrowRight size={12} />
             </button>
           </div>
         </div>
@@ -399,7 +396,7 @@ export default function SEODashboardPage() {
             </div>
           ) : (
             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.78rem' }}>
-              <Edit3 size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
+              <Pencil size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} />
               <p>No SEO updates yet. Start by editing entity SEO metadata.</p>
             </div>
           )}

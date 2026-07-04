@@ -1,0 +1,25 @@
+/* ═══════════════════════════════════════════
+   Settings — Footer Tab (FooterTab.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Footer Section Divider ── */
+.footer-section {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+.footer-section-title {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+.footer-section-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+/* ── JSON Textarea ── */
+.json-textarea {
+  font-family: monospace;
+  font-size: 0.8rem;
+}

@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import '../../styles/order-detail.css';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { formatCurrency, formatDate, formatDateTime, getImageUrl, getProductImage } from '../../utils/formatters';
 import { ORDER_STATUSES } from '../../utils/constants';
 import '../../styles/shipping-label.css';
 import toast from '../../utils/toast';
+import { showSuccess, showError } from '../../utils/toast';
 import { useOrderStatusUpdates } from '../../hooks/useSocket';
 
 function Code39Barcode({ value }) {
@@ -62,15 +64,23 @@ export default function OrderDetailAdminPage() {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLabel, setShowLabel] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editItems, setEditItems] = useState([]);
+  const [editTotals, setEditTotals] = useState({ subtotal: 0, discount: 0, shipping_cost: 0, tax: 0 });
+  const [showProductSearch, setShowProductSearch] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState({ 'order-info': true, items: true, pricing: true });
 
   const [labelSettings, setLabelSettings] = useState({
-    storeName: 'THREVOLT',
-    shippingPickupAddress: 'THREVOLT Warehouse, 456 Industrial Way, Suite A, New York, NY 10002',
-    shippingReturnAddress: 'THREVOLT Returns, 123 Fashion Ave, New York, NY 10001',
+    storeName: '',
+    shippingPickupAddress: '',
+    shippingReturnAddress: '',
     shippingQueryMobile: '+1 (555) 019-2834',
     shippingQueryEmail: 'support@threvolt.com',
-    shippingLabelNote: 'Thank you for shopping at THREVOLT! For returns, please contact our support email.',
+    shippingLabelNote: '',
   });
 
   const toggleSection = (key) => {
@@ -159,7 +169,7 @@ export default function OrderDetailAdminPage() {
   const downloadInvoice = async (orderId, orderNumber) => {
     try {
       const token = localStorage.getItem('authToken');
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
       const res = await fetch(`${API_BASE}/orders/${orderId}/invoice`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -192,6 +202,126 @@ export default function OrderDetailAdminPage() {
     ].filter(Boolean);
     return parts.join('\n');
   };
+
+  // ── Edit Order Handlers ──
+
+  const handleToggleEdit = useCallback(() => {
+    if (editing) {
+      // Exiting edit mode — reset state
+      setEditing(false);
+      setEditItems([]);
+      setEditTotals({ subtotal: 0, discount: 0, shipping_cost: 0, tax: 0 });
+    } else {
+      // Entering edit mode — copy current items/totals
+      const items = (detail.items || []).map(item => ({
+        product_id: item.product_id || item.productId,
+        name: item.product?.name || item.name || item.productName || 'Product',
+        sku: item.product?.sku || item.sku || '',
+        image: getProductImage(item.product),
+        quantity: Number(item.quantity ?? 1),
+        price: Number(item.price) || 0,
+        variant_id: item.variant_id || item.variantId || null,
+        discount: Number(item.discount) || 0,
+      }));
+      setEditItems(items);
+      setEditTotals({
+        subtotal: Number(detail.subtotal) || 0,
+        discount: Number(detail.discount) || 0,
+        shipping_cost: Number(detail.shippingCost || detail.shipping_cost) || 0,
+        tax: Number(detail.tax) || 0,
+      });
+      setEditing(true);
+    }
+  }, [editing, detail]);
+
+  const handleEditItemChange = useCallback((index, field, value) => {
+    setEditItems(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: field === 'price' || field === 'quantity' ? Number(value) || 0 : value };
+      return updated;
+    });
+  }, []);
+
+  const handleRemoveEditItem = useCallback((index) => {
+    setEditItems(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleTotalsChange = useCallback((field, value) => {
+    setEditTotals(prev => ({ ...prev, [field]: Number(value) || 0 }));
+  }, []);
+
+  const handleProductSearch = useCallback(async (query) => {
+    if (!query || query.length < 2) {
+      setProductSearchResults([]);
+      return;
+    }
+    setProductSearchLoading(true);
+    try {
+      const res = await adminAPI.getProducts({ search: query, limit: 10 });
+      const products = res.data?.data?.products || res.data?.data || [];
+      setProductSearchResults(Array.isArray(products) ? products : []);
+    } catch {
+      setProductSearchResults([]);
+    } finally {
+      setProductSearchLoading(false);
+    }
+  }, []);
+
+  const handleAddProduct = useCallback((product) => {
+    setEditItems(prev => [...prev, {
+      product_id: product.id,
+      name: product.name,
+      sku: product.sku || '',
+      image: getProductImage(product),
+      quantity: 1,
+      price: Number(product.price) || 0,
+      variant_id: null,
+      discount: 0,
+    }]);
+    setShowProductSearch(false);
+    setProductSearchQuery('');
+    setProductSearchResults([]);
+  }, []);
+
+  const handleSaveEdit = async () => {
+    if (editItems.length === 0) {
+      showError('Order must have at least one item');
+      return;
+    }
+    setEditLoading(true);
+    try {
+      const payload = {
+        items: editItems.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          variant_id: item.variant_id || undefined,
+        })),
+        subtotal: editTotals.subtotal,
+        discount: editTotals.discount,
+        shipping_cost: editTotals.shipping_cost,
+        tax: editTotals.tax,
+      };
+      const res = await adminAPI.editOrder(detail.id, payload);
+      setDetail(res.data?.data || res.data);
+      setEditing(false);
+      setEditItems([]);
+      showSuccess('Order updated successfully');
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to update order';
+      showError(msg);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // ── Add product search debounce ──
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (productSearchQuery) handleProductSearch(productSearchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [productSearchQuery, handleProductSearch]);
 
   if (loading) {
     return (
@@ -310,6 +440,14 @@ export default function OrderDetailAdminPage() {
           >
             📄 Invoice
           </button>
+          <button
+            className={`btn-sm ${editing ? 'btn-ghost' : 'btn-dark'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+            onClick={handleToggleEdit}
+            title={editing ? 'Cancel editing' : 'Edit order items and pricing'}
+          >
+            {editing ? '✕ Cancel Edit' : '✏️ Edit Order'}
+          </button>
         </div>
       </div>
 
@@ -342,10 +480,19 @@ export default function OrderDetailAdminPage() {
               background: expandedSections[s.id] ? 'var(--primary)' : '#f9fafb',
               color: expandedSections[s.id] ? 'white' : 'var(--text)',
               cursor: 'pointer', transition: 'all 0.15s ease',
-              fontFamily: 'inherit'
+              fontFamily: 'inherit',
+              position: 'relative'
             }}
           >
             {s.icon} {s.title}
+            {s.id === 'notes' && detail.notes && (
+              <span style={{
+                position: 'absolute', top: '-4px', right: '-4px',
+                width: '8px', height: '8px', borderRadius: '50%',
+                background: '#f59e0b',
+                boxShadow: '0 0 0 2px white'
+              }} />
+            )}
           </button>
         ))}
       </div>
@@ -408,13 +555,66 @@ export default function OrderDetailAdminPage() {
         {/* ── PRICE BREAKDOWN ── */}
         <div id="order-section-pricing">
           <CollapsibleSection id="pricing" title="Pricing" icon="💰" defaultExpanded={true}>
-            <div className="price-breakdown">
-              <div className="pb-row"><span>Subtotal</span><span>{formatCurrency(detail.subtotal != null ? detail.subtotal : (detail.total ?? 0))}</span></div>
-              <div className="pb-row"><span>Tax</span><span>{formatCurrency(detail.tax || 0)}</span></div>
-              <div className="pb-row"><span>Shipping Cost</span><span>{formatCurrency(detail.shippingCost || 0)}</span></div>
-              <div className="pb-row"><span>Discount</span><span style={{ color: 'var(--success)' }}>-{formatCurrency(detail.discount || 0)}</span></div>
-              <div className="pb-row pb-total"><span>Total</span><span>{formatCurrency(detail.total ?? detail.totalAmount ?? 0)}</span></div>
-            </div>
+            {editing ? (
+              <div className="edit-pricing-grid">
+                <div className="edit-pricing-field">
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#666', marginBottom: '4px', display: 'block' }}>Subtotal</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editTotals.subtotal}
+                    onChange={e => handleTotalsChange('subtotal', e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="edit-pricing-field">
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#666', marginBottom: '4px', display: 'block' }}>Tax</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editTotals.tax}
+                    onChange={e => handleTotalsChange('tax', e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="edit-pricing-field">
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#666', marginBottom: '4px', display: 'block' }}>Shipping Cost</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editTotals.shipping_cost}
+                    onChange={e => handleTotalsChange('shipping_cost', e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="edit-pricing-field">
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#666', marginBottom: '4px', display: 'block' }}>Discount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editTotals.discount}
+                    onChange={e => handleTotalsChange('discount', e.target.value)}
+                    className="edit-input"
+                  />
+                </div>
+                <div className="edit-pricing-total">
+                  <span>Calculated Total</span>
+                  <strong>{formatCurrency(Math.max(0, editTotals.subtotal + editTotals.tax + editTotals.shipping_cost - editTotals.discount))}</strong>
+                </div>
+              </div>
+            ) : (
+              <div className="price-breakdown">
+                <div className="pb-row"><span>Subtotal</span><span>{formatCurrency(detail.subtotal != null ? detail.subtotal : (detail.total ?? 0))}</span></div>
+                <div className="pb-row"><span>Tax</span><span>{formatCurrency(detail.tax || 0)}</span></div>
+                <div className="pb-row"><span>Shipping Cost</span><span>{formatCurrency(detail.shippingCost || 0)}</span></div>
+                <div className="pb-row"><span>Discount</span><span style={{ color: 'var(--success)' }}>-{formatCurrency(detail.discount || 0)}</span></div>
+                <div className="pb-row pb-total"><span>Total</span><span>{formatCurrency(detail.total ?? detail.totalAmount ?? 0)}</span></div>
+              </div>
+            )}
             {detail.couponId && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--muted)' }}>🎟️ Coupon ID: <span style={{ fontFamily: 'monospace' }}>{detail.couponId}</span></div>}
           </CollapsibleSection>
         </div>
@@ -436,51 +636,85 @@ export default function OrderDetailAdminPage() {
         </div>
 
         {/* ── ORDER ITEMS ── */}
-        {detail.items?.length > 0 && (
+        {(editing || detail.items?.length > 0) && (
           <div id="order-section-items">
-            <CollapsibleSection id="items" title={`Items (${detail.items.length})`} icon="📦" defaultExpanded={true}>
-              <div className="items-table">
+            <CollapsibleSection id="items" title={`Items (${editing ? editItems.length : detail.items?.length || 0})`} icon="📦" defaultExpanded={true}>
+              <div className={`items-table ${editing ? 'items-table-editing' : ''}`}>
                 <div className="items-table-header">
                   <span className="it-col-product">Product</span>
                   <span className="it-col-price">Unit Price</span>
                   <span className="it-col-qty">Qty</span>
-                  <span className="it-col-discount">Discount</span>
                   <span className="it-col-total">Total</span>
+                  {editing && <span className="it-col-actions" style={{ width: '40px' }} />}
                 </div>
-                {detail.items.map((item, i) => {
-                  const productName = item.product?.name || item.name || item.productName || `Product #${item.productId?.slice(0, 8)}`;
-                  const productSku = item.product?.sku || item.sku || '\u2014';
-                  const productImage = getProductImage(item.product);
-                  const unitPrice = Number(item.price) || 0;
-                  const qty = Number(item.quantity ?? 1);
-                  const discount = Number(item.discount) || 0;
-                  const itemTotal = item.total != null ? Number(item.total) : (unitPrice * qty) - discount;
+                {(editing ? editItems : detail.items).map((item, i) => {
+                  const productName = item.name || item.product?.name || item.productName || `Product #${(item.product_id || item.productId || '').slice(0, 8)}`;
+                  const productSku = item.sku || item.product?.sku || '';
+                  const productImage = item.image || getProductImage(item.product);
+                  const unitPrice = editing ? Number(item.price) || 0 : (Number(item.price) || 0);
+                  const qty = editing ? Number(item.quantity) || 1 : (Number(item.quantity ?? 1));
+                  const itemTotal = unitPrice * qty;
                   return (
                     <div key={i} className="items-table-row">
                       <div className="it-col-product">
                         {productImage ? (
-                          <img loading="lazy" src={getImageUrl(productImage)} alt={productName} className="it-product-img" />
+                          <img loading="lazy" src={getImageUrl(productImage)} alt={productName} title={productName} className="it-product-img" />
                         ) : (
-                          <div className="it-product-img-placeholder">📦</div>
+                          <div className="it-product-img-placeholder" title={productName}>📦</div>
                         )}
                         <div className="it-product-info">
                           <div className="it-product-name">{productName}</div>
-                          <div className="it-product-meta">
-                            SKU: <span style={{ fontFamily: 'monospace' }}>{productSku}</span>
-                            {item.variantId && <> · Variant: <span style={{ fontFamily: 'monospace' }}>{item.variantId?.slice(0, 8)}</span></>}
-                          </div>
-                          {item.size && <div className="it-product-meta">Size: {item.size}</div>}
-                          {item.color && <div className="it-product-meta">Color: {item.color}</div>}
+                          {productSku && <div className="it-product-meta">SKU: <span style={{ fontFamily: 'monospace' }}>{productSku}</span></div>}
                         </div>
                       </div>
-                      <div className="it-col-price">{formatCurrency(unitPrice)}</div>
-                      <div className="it-col-qty">{qty}</div>
-                      <div className="it-col-discount">{discount > 0 ? `-${formatCurrency(discount)}` : '\u2014'}</div>
+                      <div className="it-col-price">
+                        {editing ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={item.price}
+                            onChange={e => handleEditItemChange(i, 'price', e.target.value)}
+                            className="edit-input edit-input-sm"
+                          />
+                        ) : formatCurrency(unitPrice)}
+                      </div>
+                      <div className="it-col-qty">
+                        {editing ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={e => handleEditItemChange(i, 'quantity', e.target.value)}
+                            className="edit-input edit-input-sm edit-input-qty"
+                          />
+                        ) : qty}
+                      </div>
                       <div className="it-col-total"><strong>{formatCurrency(itemTotal)}</strong></div>
+                      {editing && (
+                        <div className="it-col-actions" style={{ width: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleRemoveEditItem(i)}
+                            className="edit-remove-btn"
+                            title="Remove item"
+                          >✕</button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
+              {editing && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <button
+                    onClick={() => setShowProductSearch(true)}
+                    className="btn-sm btn-ghost"
+                    style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    + Add Item
+                  </button>
+                </div>
+              )}
             </CollapsibleSection>
           </div>
         )}
@@ -488,17 +722,19 @@ export default function OrderDetailAdminPage() {
         {/* ── NOTES ── */}
         {(detail.notes || detail.adminNotes) && (
           <div id="order-section-notes">
-            <CollapsibleSection id="notes" title="Notes" icon="📝" defaultExpanded={false}>
+            <CollapsibleSection id="notes" title="Notes" icon="📝" defaultExpanded={!!detail.notes}>
               {detail.notes && (
-                <div className="note-block">
-                  <div className="note-label">Customer Notes</div>
-                  <div className="note-text">{detail.notes}</div>
+                <div className="note-block" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                  <div className="note-label" style={{ color: '#92400e', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>📝 Additional Comments from Customer</span>
+                  </div>
+                  <div className="note-text" style={{ color: '#78350f', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{detail.notes}</div>
                 </div>
               )}
               {detail.adminNotes && (
-                <div className="note-block">
-                  <div className="note-label">Admin Notes</div>
-                  <div className="note-text">{detail.adminNotes}</div>
+                <div className="note-block" style={{ marginTop: detail.notes ? '0.75rem' : 0 }}>
+                  <div className="note-label" style={{ color: '#666', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>Admin Notes</div>
+                  <div className="note-text" style={{ color: '#374151', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{detail.adminNotes}</div>
                 </div>
               )}
             </CollapsibleSection>
@@ -560,6 +796,40 @@ export default function OrderDetailAdminPage() {
           </CollapsibleSection>
         </div>
 
+        {/* ── SAVE/CANCEL (edit mode) ── */}
+        {editing && (
+          <div style={{
+            marginTop: '1rem', padding: '1rem',
+            background: '#f9fafb', borderRadius: '10px',
+            border: '1px solid #e5e7eb',
+            display: 'flex', alignItems: 'center', gap: '0.75rem'
+          }}>
+            <button
+              className="btn-dark"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', padding: '0.55rem 1.25rem' }}
+              onClick={handleSaveEdit}
+              disabled={editLoading}
+            >
+              {editLoading ? (
+                <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving...</>
+              ) : (
+                '💾 Save Changes'
+              )}
+            </button>
+            <button
+              className="btn-ghost"
+              style={{ fontSize: '0.85rem', padding: '0.55rem 1.25rem' }}
+              onClick={handleToggleEdit}
+              disabled={editLoading}
+            >
+              Cancel
+            </button>
+            <span style={{ fontSize: '0.72rem', color: '#999', marginLeft: 'auto' }}>
+              Editing items will adjust stock automatically
+            </span>
+          </div>
+        )}
+
         {/* ── BOTTOM BACK LINK ── */}
         <div style={{ marginTop: '1.5rem', padding: '1rem 0', borderTop: '1px solid var(--border)' }}>
           <button
@@ -571,6 +841,87 @@ export default function OrderDetailAdminPage() {
           </button>
         </div>
       </div>
+
+      {/* ── PRODUCT SEARCH MODAL ── */}
+      {showProductSearch && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center',
+          alignItems: 'center', zIndex: 1000, padding: '1rem', overflowY: 'auto'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '12px', width: '100%', maxWidth: '520px',
+            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Add Product to Order</h3>
+              <button style={{
+                background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--muted)'
+              }} onClick={() => { setShowProductSearch(false); setProductSearchQuery(''); setProductSearchResults([]); }}>✕</button>
+            </div>
+            <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
+              <input
+                type="text"
+                placeholder="Search products by name or SKU..."
+                value={productSearchQuery}
+                onChange={e => setProductSearchQuery(e.target.value)}
+                autoFocus
+                style={{
+                  width: '100%', padding: '0.6rem 0.85rem', fontSize: '0.85rem',
+                  borderRadius: '8px', border: '1px solid #d1d5db',
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0', minHeight: '100px' }}>
+              {productSearchLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                  <span className="spinner" style={{ width: 24, height: 24, borderWidth: 3 }} />
+                </div>
+              ) : productSearchResults.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#999', fontSize: '0.82rem' }}>
+                  {productSearchQuery.length < 2 ? 'Type at least 2 characters to search' : 'No products found'}
+                </div>
+              ) : (
+                productSearchResults.map(product => (
+                  <div
+                    key={product.id}
+                    onClick={() => handleAddProduct(product)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                      padding: '0.6rem 1.25rem', cursor: 'pointer',
+                      transition: 'background 0.15s ease',
+                      borderBottom: '1px solid #f3f4f6'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: '6px', background: '#f3f4f6', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {getProductImage(product) ? (
+                        <img loading="lazy" src={getImageUrl(getProductImage(product))} alt={product.name} title={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span title={product.name}>📦</span>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#232323', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#999', fontFamily: 'monospace' }}>
+                        {product.sku || 'No SKU'} · {formatCurrency(product.price || 0)}
+                      </div>
+                    </div>
+                    <button className="btn-sm btn-dark" style={{ fontSize: '0.7rem', flexShrink: 0 }}>+ Add</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SHIPPING LABEL MODAL ── */}
       {showLabel && detail && (
@@ -604,7 +955,7 @@ export default function OrderDetailAdminPage() {
                       />
                     ) : (
                       <>
-                        <div className="label-brand-name">{labelSettings?.storeName || 'THREVOLT'}</div>
+                        <div className="label-brand-name">{labelSettings?.storeName || 'Store'}</div>
                         <div className="label-brand-sub">PREMIUM DELIVERY SERVICE</div>
                       </>
                     )}
@@ -614,7 +965,7 @@ export default function OrderDetailAdminPage() {
                 <div className="address-section">
                   <div className="address-box">
                     <div className="address-label">📍 FROM</div>
-                    <div className="address-name--from">{labelSettings?.storeName || 'THREVOLT'}</div>
+                    <div className="address-name--from">{labelSettings?.storeName || 'Store'}</div>
                     <div className="address-detail--from">{labelSettings?.shippingPickupAddress || '456 Industrial Way, Suite A, New York, NY 10002'}</div>
                   </div>
                   <div className="address-divider" />
@@ -690,7 +1041,7 @@ export default function OrderDetailAdminPage() {
                 <div className="footer-section">
                   <div className="footer-box">
                     <div className="footer-title">↩️ RETURN TO</div>
-                    <div className="footer-text">{labelSettings?.shippingReturnAddress || 'THREVOLT Returns, 123 Fashion Ave, New York, NY 10001'}</div>
+                    <div className="footer-text">{labelSettings?.shippingReturnAddress || 'Store Returns Center'}</div>
                   </div>
                   <div className="footer-divider" />
                   <div className="footer-box">

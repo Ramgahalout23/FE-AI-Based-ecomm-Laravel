@@ -4,21 +4,14 @@ function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setSchedu
   if (!show) return null;
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999,
-    }}>
-      <div className="detail-panel" style={{
-        width: '90%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: 'var(--shadow-xl)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', margin: 'auto',
-      }}>
-        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="modal-overlay">
+      <div className="modal-panel">
+        <div className="detail-header">
           <h3>{editingSchedule ? 'Edit Schedule' : 'Create Maintenance Schedule'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--muted)' }}>&times;</button>
+          <button onClick={onClose} className="modal-close-btn">&times;</button>
         </div>
 
-        <div className="form-grid" style={{ marginTop: '1rem' }}>
+        <div className="form-grid form-grid-top-spacing">
           <div className="form-group form-full">
             <label>Title *</label>
             <input value={scheduleForm.title} onChange={e => setScheduleForm({ ...scheduleForm, title: e.target.value })} placeholder="e.g. Weekly Database Maintenance" />
@@ -28,11 +21,11 @@ function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setSchedu
             <textarea rows={2} value={scheduleForm.message} onChange={e => setScheduleForm({ ...scheduleForm, message: e.target.value })} placeholder="We are performing scheduled maintenance..." />
           </div>
           <div className="form-group form-full">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <label className="checkbox-label">
               <input type="checkbox" checked={scheduleForm.isRecurring} onChange={e => setScheduleForm({ ...scheduleForm, isRecurring: e.target.checked })} />
               <strong>Recurring Schedule</strong>
             </label>
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Recurring schedules run automatically on the selected days/times without manual intervention.</span>
+            <span className="field-note">Recurring schedules run automatically on the selected days/times without manual intervention.</span>
           </div>
           {scheduleForm.isRecurring ? (
             <>
@@ -46,13 +39,7 @@ function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setSchedu
                         const days = scheduleForm.recurringDays.split(',').map(d => d.trim()).filter(Boolean);
                         const updated = selected ? days.filter(d => d !== day) : [...days, day];
                         setScheduleForm({ ...scheduleForm, recurringDays: updated.join(',') });
-                      }} style={{
-                        padding: '0.35rem 0.65rem', borderRadius: '6px',
-                        border: selected ? '2px solid var(--charcoal)' : '1px solid var(--border)',
-                        background: selected ? 'var(--charcoal)' : 'var(--off-white)',
-                        color: selected ? 'white' : 'var(--charcoal)', cursor: 'pointer',
-                        fontSize: '0.78rem', fontWeight: selected ? 600 : 400,
-                      }}>{day.slice(0, 3)}</button>
+                      }} className={`day-btn ${selected ? 'day-btn-selected' : 'day-btn-unselected'}`}>{day.slice(0, 3)}</button>
                     );
                   })}
                 </div>
@@ -63,12 +50,12 @@ function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setSchedu
           ) : (
             <>
               <div className="form-group"><label>Start Date & Time</label><input type="datetime-local" value={scheduleForm.startsAt} onChange={e => setScheduleForm({ ...scheduleForm, startsAt: e.target.value })} /></div>
-              <div className="form-group"><label>End Date & Time</label><input type="datetime-local" value={scheduleForm.endsAt} onChange={e => setScheduleForm({ ...scheduleForm, endsAt: e.target.value })} /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Leave empty for indefinite maintenance (turn off manually)</span></div>
+              <div className="form-group"><label>End Date & Time</label><input type="datetime-local" value={scheduleForm.endsAt} onChange={e => setScheduleForm({ ...scheduleForm, endsAt: e.target.value })} />            <span className="field-note">Leave empty for indefinite maintenance (turn off manually)</span></div>
             </>
           )}
         </div>
 
-        <div className="form-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+        <div className="form-actions form-actions-bordered">
           <button className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn-dark btn-sm" onClick={editingSchedule ? handleUpdateSchedule : handleCreateSchedule} disabled={loading || !scheduleForm.title.trim()}>
             {loading ? 'Saving...' : editingSchedule ? 'Update Schedule' : 'Create Schedule'}
@@ -89,19 +76,19 @@ export default function MaintenanceTab({
   return (
     <div>
       <div className="detail-panel">
-        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="detail-header">
+          <div className="detail-header-left">
             <h3>Maintenance Mode</h3>
             <span className={`status-badge ${settings.maintenanceMode === 'true' ? 'status-active' : 'status-pending'}`}>
               {settings.maintenanceMode === 'true' ? 'Active' : 'Disabled'}
             </span>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+          <label className="checkbox-label">
             <input type="checkbox" checked={settings.maintenanceMode === 'true'} onChange={e => setSettings({ ...settings, maintenanceMode: e.target.checked ? 'true' : 'false' })} />
             <strong>Enable Maintenance Mode</strong>
           </label>
         </div>
-        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
+        <p className="field-hint">
           When enabled, only admin users and allowed IPs can access the storefront. All other visitors will see a maintenance page.
         </p>
         <div className="form-grid">
@@ -111,7 +98,7 @@ export default function MaintenanceTab({
               onChange={e => setSettings({ ...settings, maintenanceMessage: e.target.value })}
               placeholder="We are currently under maintenance. Please check back soon."
               disabled={settings.maintenanceMode !== 'true'} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>This message will be shown to visitors when maintenance mode is active.</span>
+            <span className="field-note">This message will be shown to visitors when maintenance mode is active.</span>
           </div>
           <div className="form-group form-full">
             <label>Allowed IP Addresses (Bypass Maintenance)</label>
@@ -119,32 +106,28 @@ export default function MaintenanceTab({
               onChange={e => setSettings({ ...settings, maintenanceAllowedIPs: e.target.value })}
               placeholder="127.0.0.1,203.0.113.1"
               disabled={settings.maintenanceMode !== 'true'} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Comma-separated list of IP addresses that can bypass maintenance mode.</span>
+            <span className="field-note">Comma-separated list of IP addresses that can bypass maintenance mode.</span>
           </div>
         </div>
-        <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <strong style={{ fontSize: '0.85rem' }}>Maintenance Page Preview</strong>
-            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Non-admin users will see this page</span>
+        <div className="maintenance-preview-section">
+          <div className="maintenance-preview-header">
+            <strong className="preview-title">Maintenance Page Preview</strong>
+            <span className="preview-note">Non-admin users will see this page</span>
           </div>
-          <div style={{
-            background: '#f8f6f3', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
-            padding: '2rem', textAlign: 'center',
-            opacity: settings.maintenanceMode === 'true' ? 1 : 0.5, transition: 'opacity 0.3s ease',
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛠️</div>
-            <div style={{ display: 'inline-block', background: 'rgba(234,179,8,0.1)', color: '#ca8a04', fontSize: '0.7rem', fontWeight: 'bold', padding: '0.25rem 1rem', borderRadius: '9999px', marginBottom: '1rem', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+          <div className={`maintenance-preview ${settings.maintenanceMode === 'true' ? 'active' : 'inactive'}`}>
+            <div className="maintenance-preview-icon">🛠️</div>
+            <div className="maintenance-preview-badge">
               We'll Be Back Soon
             </div>
-            <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>Site Under Maintenance</h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', maxWidth: '400px', margin: '0 auto' }}>
+            <h4 className="maintenance-preview-title">Site Under Maintenance</h4>
+            <p className="maintenance-preview-msg">
               {settings.maintenanceMode === 'true'
                 ? (settings.maintenanceMessage || 'We are currently under maintenance. Please check back soon.')
                 : 'Preview will appear once maintenance mode is enabled.'}
             </p>
           </div>
         </div>
-        <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+        <div className="form-actions form-actions-top-spacing">
           <button className="btn-ghost btn-sm" onClick={() => {
             setSettings({ ...settings, maintenanceMode: 'false', maintenanceMessage: 'We are currently under maintenance. Please check back soon.', maintenanceAllowedIPs: '' });
           }} disabled={loading}>Reset to Defaults</button>
@@ -154,24 +137,23 @@ export default function MaintenanceTab({
 
       {/* Quick Actions */}
       <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
-        <div className="detail-header"><h3>Quick Actions</h3></div>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛡️</div>
+        <div className="detail-header"><h3>Quick Actions</h3></div>          <div className="quick-actions-grid">
+          <div className="quick-action-card">
+            <div className="quick-action-icon">🛡️</div>
             {settings.maintenanceMode === 'true' ? (
-              <><strong>Disable Maintenance</strong><p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Bring the site back online</p><button className="btn-ghost btn-sm" onClick={() => handleQuickToggleMaintenance(false)} disabled={loading}>Disable Now</button></>
+              <><strong>Disable Maintenance</strong><p className="quick-action-desc">Bring the site back online</p><button className="btn-ghost btn-sm" onClick={() => handleQuickToggleMaintenance(false)} disabled={loading}>Disable Now</button></>
             ) : (
-              <><strong>Enable Maintenance</strong><p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Take the site down for updates</p><button className="btn-dark btn-sm" onClick={() => handleQuickToggleMaintenance(true)} disabled={loading}>Enable Now</button></>
+              <><strong>Enable Maintenance</strong><p className="quick-action-desc">Take the site down for updates</p><button className="btn-dark btn-sm" onClick={() => handleQuickToggleMaintenance(true)} disabled={loading}>Enable Now</button></>
             )}
           </div>
-          <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
-            <strong>Test Maintenance Mode</strong><p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Open the storefront in incognito to verify</p>
+          <div className="quick-action-card">
+            <div className="quick-action-icon">🔍</div>
+            <strong>Test Maintenance Mode</strong><p className="quick-action-desc">Open the storefront in incognito to verify</p>
             <button className="btn-ghost btn-sm" onClick={() => window.open('/', '_blank')}>Open Storefront</button>
           </div>
-          <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📋</div>
-            <strong>Check Status</strong><p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>View the current site status endpoint</p>
+          <div className="quick-action-card">
+            <div className="quick-action-icon">📋</div>
+            <strong>Check Status</strong><p className="quick-action-desc">View the current site status endpoint</p>
             <button className="btn-ghost btn-sm" onClick={async () => {
               try {
                 const res = await settingsAPI.getMaintenanceStatus();

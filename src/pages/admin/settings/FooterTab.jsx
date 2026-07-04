@@ -2,12 +2,12 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
   return (
     <div className="detail-panel">
       <div className="detail-header"><h3>Footer Configuration</h3></div>
-      <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
+      <p className="field-hint">
         Customize the footer content — brand tagline, newsletter signup, navigation links, and trust badges. Changes apply instantly.
       </p>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Brand Tagline</h4>
+      <div className="footer-section">
+        <h4 className="footer-section-title">Brand Tagline</h4>
         <div className="form-grid">
           <div className="form-group form-full">
             <textarea
@@ -20,12 +20,12 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
         </div>
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h4 style={{ fontSize: '0.95rem', margin: 0 }}>Newsletter Signup</h4>
+      <div className="footer-section">
+        <div className="detail-header detail-header-inline">
+          <h4 className="footer-section-title" style={{ margin: 0 }}>Newsletter Signup</h4>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={settings.footerNewsletterEnabled !== 'false'} onChange={e => setSettings({ ...settings, footerNewsletterEnabled: e.target.checked ? 'true' : 'false' })} />
-            <strong style={{ fontSize: '0.85rem' }}>Show Newsletter</strong>
+            <strong className="newsletter-label">Show Newsletter</strong>
           </label>
         </div>
         <div className="form-grid">
@@ -44,9 +44,9 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
         </div>
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Shop Links</h4>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+      <div className="footer-section">
+        <h4 className="footer-section-title">Shop Links</h4>
+        <p className="footer-section-hint">
           JSON array of link objects: <code>{`[{ "label": "Oversized Tees", "to": "/products?category=oversized" }]`}</code>
         </p>
         <div className="form-group form-full">
@@ -60,9 +60,9 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
         </div>
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Help Links</h4>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+      <div className="footer-section">
+        <h4 className="footer-section-title">Help Links</h4>
+        <p className="footer-section-hint">
           JSON array of link objects. Use <code>{"to: \"\""}</code> for non-link items (plain text).
         </p>
         <div className="form-group form-full">
@@ -76,9 +76,9 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
         </div>
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Bottom Bar Links</h4>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+      <div className="footer-section">
+        <h4 className="footer-section-title">Bottom Bar Links</h4>
+        <p className="footer-section-hint">
           JSON array of link label objects: <code>{`[{ "label": "Privacy Policy" }]`}</code>
         </p>
         <div className="form-group form-full">
@@ -92,9 +92,9 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
         </div>
       </div>
 
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Trust Badges</h4>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+      <div className="footer-section">
+        <h4 className="footer-section-title">Trust Badges</h4>
+        <p className="footer-section-hint">
           JSON array of badge objects: <code>{`[{ "title": "Free Shipping", "desc": "On orders over ₹499" }]`}</code>
         </p>
         <div className="form-group form-full">
@@ -103,7 +103,7 @@ export default function FooterTab({ settings, setSettings, loading, handleSaveSe
             value={settings.footerTrustBadges || ''}
             onChange={e => setSettings({ ...settings, footerTrustBadges: e.target.value })}
             placeholder='[{ "title": "Free Shipping", "desc": "On orders over ₹499" }, ...]'
-            style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+            className="json-textarea"
           />
         </div>
       </div>

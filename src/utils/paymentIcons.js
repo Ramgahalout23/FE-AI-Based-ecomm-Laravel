@@ -1,4 +1,6 @@
-import { CreditCard, Banknote, Globe } from 'lucide-react';
+import { Globe, CreditCard, Banknote } from 'lucide-react';
+
+;
 
 /**
  * Payment method icon mapping.

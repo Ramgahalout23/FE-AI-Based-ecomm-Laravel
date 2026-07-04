@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+;
+import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { pagesAPI } from '../../api/pages';
+import { useSettings } from '../../store/useSettings';
 import PageContentSkeleton from '../../components/ui/PageContentSkeleton';
 
 export default function AboutPage() {
+  const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,11 +25,10 @@ export default function AboutPage() {
         if (page && page.content) {
           setContent(page);
         } else {
-          setError('Page not found');
+          setError(t('about.content_not_found'));
         }
       } catch (err) {
-        console.error('Failed to load about page:', err);
-        setError('Failed to load content');
+        console.error('Failed to load about page:', err);          setError(t('about.content_not_found'));
       } finally {
         setLoading(false);
       }
@@ -39,9 +44,9 @@ export default function AboutPage() {
     return (
       <div className="flex-1 bg-surface flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Page Not Available</h2>
-          <p className="text-gray-500 mb-4">{error || 'Content not found'}</p>
-          <a href="/" className="text-primary hover:underline">Go to Home</a>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('about.page_not_available')}</h2>
+          <p className="text-gray-500 mb-4">{error || t('about.content_not_found')}</p>
+          <a href="/" className="text-primary hover:underline">{t('about.go_home')}</a>
         </div>
       </div>
     );
@@ -51,8 +56,8 @@ export default function AboutPage() {
     <div className="page-content bg-white">
       {/* SEO meta tags */}
       <SEOHead
-        title={`${content.title || 'About Us'} | Threvolt`}
-        description={content.metaDescription || content.seoDescription || pageSeo?.metaDescription || `Learn about ${content.title || 'Threvolt'} — our story, mission, and commitment to premium streetwear fashion.`}
+        title={`${content.title || 'About Us'} | ${storeName}`}
+        description={content.metaDescription || content.seoDescription || pageSeo?.metaDescription || `Learn about ${content.title || storeName} — our story, mission, and commitment to premium streetwear fashion.`}
         keywords="about us, streetwear brand, premium fashion, our story"
       />
 
@@ -83,10 +88,10 @@ export default function AboutPage() {
 
       {/* CTA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <h2 className="font-display text-3xl font-bold text-black mb-4">Ready to Make a Statement?</h2>
-        <p className="text-gray-600 mb-8">Explore our latest collection and find your perfect tee.</p>
+        <h2 className="font-display text-3xl font-bold text-black mb-4">{t('about.ready_make_statement')}</h2>
+        <p className="text-gray-600 mb-8">{t('about.explore_collection')}</p>
         <a href="/products" className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors">
-          Shop Now <ArrowRight size={20} />
+          {t('about.shop_now')} <ArrowRight size={20} />
         </a>
       </div>
     </div>

@@ -1,12 +1,15 @@
+import { Minus, Plus, Star, ChevronDown, Check, RefreshCw, ArrowUp, Share2, X, ChevronLeft, ChevronRight, Zap, Heart, ShieldCheck, Truck, MessageCircle, Image, Pencil } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Heart, Star, ChevronDown, Check, ShieldCheck, Truck, RefreshCw, ArrowUp, Share2 } from 'lucide-react';
+
+;
 import { trackProductView, trackAddToCart } from '../../services/tracker';
 import { motion, AnimatePresence } from 'framer-motion';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import SEOHead from '../../components/seo/SEOHead';
 import { productsAPI } from '../../api/products';
+import { recentlyViewedAPI } from '../../api/recentlyViewed';
 import { seoAPI } from '../../api/seo';
 import { reviewsAPI } from '../../api/reviews';
 import useCartStore from '../../store/cartStore';
@@ -16,9 +19,13 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import SizeGuideModal from '../../components/product/SizeGuideModal';
 import ReviewFormModal from '../../components/product/ReviewFormModal';
-import { formatCurrency, getImageUrl, getProductImages } from '../../utils/formatters';
+import { formatCurrency, formatDate, getImageUrl, getProductImages } from '../../utils/formatters';
+import { useTranslation } from 'react-i18next';
+import { useSettings } from '../../store/useSettings';
 import useFlyToCart from '../../hooks/useFlyToCart';
 import { getColorHex } from '../../utils/constants';
+import { promotionsAPI } from '../../api/promotions';
+import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import ProductGrid from '../../components/product/ProductGrid';
 import ProductCard from '../../components/product/ProductCard';
 import { addedToCart, removedFromWishlist, addedToWishlist, wishlistError, linkCopied } from '../../utils/toast';
@@ -41,6 +48,10 @@ export default function ProductDetailPage() {
   // Accordion state
   const [openAccordion, setOpenAccordion] = useState('details'); // 'details', 'shipping', 'care'
 
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
+  const freeShippingThreshold = getSetting('freeShippingThreshold', 499);
+  const { t } = useTranslation();
   const { addItem } = useCartStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
   const { isAuthenticated } = useAuthStore();
@@ -66,7 +77,10 @@ export default function ProductDetailPage() {
   // ── React Query: Reviews ──
   const { data: reviews = [] } = useQuery({
     queryKey: ['product-reviews', product?.id],
-    queryFn: () => reviewsAPI.getByProduct(product.id).then(r => r.data?.data?.reviews || r.data?.data || []),
+    queryFn: () => reviewsAPI.getByProduct(product.id).then(r => {
+      const raw = r.data?.data?.reviews || r.data?.data || [];
+      return Array.isArray(raw) ? raw.map(mapProductReview) : [];
+    }),
     enabled: !!product?.id,
     staleTime: 120000,
   });
@@ -82,6 +96,45 @@ export default function ProductDetailPage() {
     enabled: !!product?.id,
     staleTime: 300000,
   });
+
+  // ── Flash Sale Check ──
+  const { data: flashPromotions = [] } = useQuery({
+    queryKey: ['product-flash-sales', product?.id],
+    queryFn: async () => {
+      const res = await promotionsAPI.getFlashSales();
+      const data = res?.data?.data || [];
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!product?.id,
+    staleTime: 15000,
+  });
+
+  // Find an active flash sale that applies to this product
+  const activeFlashSale = (() => {
+    if (!flashPromotions.length || !product) return null;
+    const now = new Date();
+    return flashPromotions.find(p => {
+      const start = p.startDate ? new Date(p.startDate) : null;
+      const end = p.endDate ? new Date(p.endDate) : null;
+      if (start && now < start) return false;
+      if (end && now > end) return false;
+      if (p.status !== 'ACTIVE' && !p.isActive) return false;
+
+      // Check if product is in the promotion's linked products
+      const productIds = p.productIds || p.products?.map(pr => pr.id) || [];
+      if (productIds.length > 0) {
+        return productIds.includes(product.id);
+      }
+      // Check if product's category is in the promotion's linked categories
+      const categoryIds = p.categoryIds || p.categories?.map(c => c.id) || [];
+      if (categoryIds.length > 0) {
+        const catId = typeof product.category === 'object' ? product.category?.id : product.categoryId;
+        return categoryIds.includes(catId);
+      }
+      // No linked products/categories = applies to all
+      return true;
+    });
+  })();
 
   // ── React Query: Recommended (same category) ──
   const { data: recommended = [] } = useQuery({
@@ -105,13 +158,18 @@ export default function ProductDetailPage() {
     if (product.colors?.length === 1) setSelectedColor(product.colors[0]);
     if (product.sizes?.length === 1) setSelectedSize(product.sizes[0]);
 
-    // Recently viewed
+    // Recently viewed — localStorage for guests, server-sync for authenticated users
     let viewed = JSON.parse(localStorage.getItem('luxe_recently_viewed') || '[]');
     viewed = viewed.filter(v => v.id !== product.id);
     viewed.unshift(product);
     viewed = viewed.slice(0, 5);
     localStorage.setItem('luxe_recently_viewed', JSON.stringify(viewed));
     setRecentlyViewed(viewed.filter(v => v.id !== product.id));
+
+    // Server-side tracking for logged-in users
+    if (isAuthenticated && product.id) {
+      recentlyViewedAPI.trackView(product.id).catch(() => {});
+    }
   }, [product]);
 
   // ── Wishlist server sync on mount — ensures heart icon matches server state ──
@@ -275,7 +333,7 @@ export default function ProductDetailPage() {
     const title = product?.name || 'Check this out';
     if (navigator.share) {
       try {
-        await navigator.share({ title, url, text: `Check out ${title} at Threvolt` });
+        await navigator.share({ title, url, text: `Check out ${title} at ${storeName}` });
       } catch {}
     } else {
       try {
@@ -416,15 +474,15 @@ export default function ProductDetailPage() {
               <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /><line x1="8" y1="11" x2="14" y2="11" />
             </svg>
           </div>
-          <h2 className="text-2xl font-display font-extrabold text-black mb-2">Product Not Found</h2>
+          <h2 className="text-2xl font-display font-extrabold text-black mb-2">{t('product.not_found')}</h2>
           <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-            This product may have been removed or the link is incorrect. Browse our collection to find what you're looking for.
+            {t('product.not_found_desc')}
           </p>
           <button
             onClick={() => navigate('/products')}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-black text-white text-sm font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] shadow-md hover:shadow-lg"
           >
-            Browse Products
+            {t('product.browse')}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
             </svg>
@@ -577,7 +635,7 @@ export default function ProductDetailPage() {
       
       {/* SEO meta tags — prefer custom SEO from backend, fall back to product data */}
       <SEOHead
-        title={seoMeta?.metaTitle || `${product.name} — ${product.seoTitle || ''}` || `${product.name} — Threvolt`}
+        title={seoMeta?.metaTitle || `${product.name} — ${product.seoTitle || ''}` || `${product.name} — ${storeName}`}
         description={seoMeta?.metaDescription || product.seoDescription || product.shortDescription || product.description}
         keywords={seoMeta?.metaKeywords || product.seoKeywords || ''}
         image={seoMeta?.ogImage || getImageUrl(getProductImages(product)[0]) || ''}
@@ -678,23 +736,55 @@ export default function ProductDetailPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 text-[11px] font-bold px-3 py-1.5 rounded-full border border-red-200/60">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      Currently Unavailable
+                      {t('product.currently_unavailable')}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex items-center gap-0.5">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={13} className={i < Math.floor(product.rating || 5) ? "text-amber-500 fill-amber-500" : "text-gray-200 fill-gray-200"} />
+                      <Star size={13} key={i} className={i < Math.floor(product.rating || 5) ? "text-amber-500 fill-amber-500" : "text-gray-200 fill-gray-200"} />
                     ))}
                   </div>
                   <span className="h-3 w-px bg-gray-200" />
-                  <span className="text-xs md:text-sm text-gray-500 font-medium">{product.reviewCount || 100} Reviews</span>
+                  <span className="text-xs md:text-sm text-gray-500 font-medium">{t('product.reviews', { count: product.reviewCount || 100 })}</span>
                   <span className="h-3 w-px bg-gray-200" />
-                  <span className="text-xs md:text-sm text-gray-500 font-medium">{product.soldCount || '2.5K'}+ Sold</span>
+                  <span className="text-xs md:text-sm text-gray-500 font-medium">{t('product.sold', { count: product.soldCount || '2.5K' })}</span>
                 </div>
 
               </div>
+
+              {/* Flash Sale Badge with Countdown */}
+              {activeFlashSale && activeFlashSale.endDate && (
+                <div className="flex items-center gap-2 md:gap-3 bg-red-50/80 border border-red-200/60 rounded-xl px-3 md:px-4 py-2.5 md:py-3 -mt-2">
+                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <Zap size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] md:text-xs font-bold text-red-700 uppercase tracking-wider">
+                        {t('product.flash_sale')}
+                      </span>
+                      {activeFlashSale.discount && (
+                        <span className="text-[10px] md:text-xs font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">
+                          {t('product.percent_off', { percent: activeFlashSale.discount })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] md:text-xs text-red-600 font-semibold mt-0.5 truncate">
+                      {activeFlashSale.title}
+                    </p>
+                  </div>
+                  <div className="shrink-0">
+                    <FlashSaleCountdown
+                      endDate={activeFlashSale.endDate}
+                      label=""
+                      compact
+                      className="text-red-700"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Price & Sale Timer */}
               <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
@@ -713,7 +803,7 @@ export default function ProductDetailPage() {
                     )}
                     {discount && (
                       <span className="bg-black text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                        {discount}% Off
+                        {t('product.percent_off', { percent: discount })}
                       </span>
                     )}
                   </>
@@ -724,13 +814,13 @@ export default function ProductDetailPage() {
               {product.colors && product.colors.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-bold text-black uppercase tracking-wider">Color <span className="text-gray-400 font-normal normal-case">— {selectedColor || 'Select'}</span></span>
+                    <span className="text-sm font-bold text-black uppercase tracking-wider">{t('product.color')} <span className="text-gray-400 font-normal normal-case">— {selectedColor || t('product.select')}</span></span>
                     {selectedColor && (
                       <button
                         onClick={() => setSelectedColor('')}
                         className="text-xs text-gray-400 hover:text-black underline-offset-2 hover:underline transition-colors"
                       >
-                        Clear
+                        {t('product.clear')}
                       </button>
                     )}
                   </div>
@@ -757,7 +847,7 @@ export default function ProductDetailPage() {
                                 ? 'scale-105'
                                 : 'hover:scale-110 hover:-translate-y-0.5'
                             }`}
-                            title={isOOS ? `${color} - Out of Stock` : isLow ? `${color} - Only ${stockCount} left` : color}
+                            title={isOOS ? `${color} - ${t('product.out_of_stock')}` : isLow ? `${color} - ${t('product.only_left', { count: stockCount })}` : color}
                           >
                             {/* Selection ring */}
                             <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
@@ -791,7 +881,7 @@ export default function ProductDetailPage() {
                           </span>
                           {isLow && !isOOS && (
                             <span className="text-[9px] font-semibold text-amber-600 leading-none whitespace-nowrap">
-                              {stockCount} left
+                              {t('product.only_left', { count: stockCount })}
                             </span>
                           )}
                         </div>
@@ -806,9 +896,9 @@ export default function ProductDetailPage() {
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-black uppercase tracking-wider">Size <span className="text-gray-400 font-normal normal-case">— {selectedSize || 'Select'}</span></span>
+                      <span className="text-sm font-bold text-black uppercase tracking-wider">{t('product.size')} <span className="text-gray-400 font-normal normal-case">— {selectedSize || t('product.select')}</span></span>
                     </div>
-                    <button onClick={() => setShowSizeGuide(true)} className="text-xs font-bold text-black underline-offset-2 hover:underline transition-colors">Size Guide</button>
+                    <button onClick={() => setShowSizeGuide(true)} className="text-xs font-bold text-black underline-offset-2 hover:underline transition-colors">{t('product.size_guide')}</button>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     {product.sizes.map(size => {
@@ -847,7 +937,7 @@ export default function ProductDetailPage() {
                           </span>
                           {isOOS && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-bold px-1 rounded leading-tight">
-                              OOS
+                              {t('product.oos')}
                             </span>
                           )}
                           {isLow && !isOOS && selectedSize !== size && (
@@ -868,14 +958,14 @@ export default function ProductDetailPage() {
                     return (
                       <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50/80 border border-amber-200/60 px-4 py-2.5 rounded-xl">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-                        <span>Only <strong>{product.quantity}</strong> left — Order soon</span>
+                        <span>{t('product.low_stock', { count: product.quantity })}</span>
                       </div>
                     );
                   }
                   return (
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-4 py-2.5 rounded-xl">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                      <span>In Stock &amp; Ready to Ship</span>
+                      <span>{t('product.in_stock')}</span>
                     </div>
                   );
                 }
@@ -884,14 +974,14 @@ export default function ProductDetailPage() {
                     return (
                       <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50/80 border border-amber-200/60 px-4 py-2.5 rounded-xl">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-                        <span>Only <strong>{matchedVariant.quantity}</strong> left — Order soon</span>
+                        <span>{t('product.low_stock', { count: matchedVariant.quantity })}</span>
                       </div>
                     );
                   }
                   return (
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-4 py-2.5 rounded-xl">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                      <span>In Stock &amp; Ready to Ship</span>
+                      <span>{t('product.in_stock')}</span>
                     </div>
                   );
                 }
@@ -901,15 +991,15 @@ export default function ProductDetailPage() {
               {!isSimpleProduct && variantNotFound && hasAllSelections && (
                 <div className="px-4 py-3 rounded-xl bg-red-50/80 text-red-700 text-sm font-semibold flex items-center gap-2.5 border border-red-200/60">
                   <span className="w-5 h-5 rounded-full bg-red-200 flex items-center justify-center">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></svg>
+                    <X size={10} />
                   </span>
-                  This combination is currently unavailable
+                  {t('product.combination_unavailable')}
                 </div>
               )}
               {/* Variant loading */}
               {!isSimpleProduct && variantLoading && (
                 <div className="px-4 py-3 rounded-xl bg-gray-50 text-sm text-gray-500 font-medium flex items-center gap-2.5 border border-gray-200/60">
-                  <div className="spinner w-4 h-4" /> Checking availability...
+                  <div className="spinner w-4 h-4" /> {t('product.checking_availability')}
                 </div>
               )}
 
@@ -934,7 +1024,7 @@ export default function ProductDetailPage() {
                           ? 'text-gray-200 cursor-not-allowed'
                           : 'text-gray-400 hover:text-black'
                       }`}
-                      title={qty >= maxQty ? 'Maximum quantity reached' : 'Increase quantity'}
+                      title={qty >= maxQty ? t('product.max_qty_reached') : t('product.increase_qty')}
                     >
                       <Plus size={18} />
                     </button>
@@ -953,17 +1043,17 @@ export default function ProductDetailPage() {
                     }`}
                   >
                     {isAddingToCart ? (
-                      <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Adding...</>
+                      <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> {t('product.adding')}...</>
                     ) : isStockUnavailable ? (
-                      <><span>✕</span> Out of Stock</>
+                      <><span>✕</span> {t('product.out_of_stock')}</>
                     ) : variantLoading ? (
-                      <><div className="spinner w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full" /> Checking</>
+                      <><div className="spinner w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full" /> {t('product.checking')}</>
                     ) : variantUnavailable ? (
-                      <><span>✕</span> Unavailable</>
+                      <><span>✕</span> {t('product.unavailable')}</>
                     ) : !hasAllSelections ? (
-                      'Select Options'
+                      t('product.select_options')
                     ) : (
-                      'Add to Bag'
+                      t('product.add_to_bag')
                     )}
                   </button>
 
@@ -981,8 +1071,8 @@ export default function ProductDetailPage() {
                   <button
                     onClick={handleShare}
                     className="w-12 h-12 md:w-14 md:h-14 rounded-xl border-2 border-gray-200 flex items-center justify-center text-gray-400 transition-all duration-200 flex-shrink-0 active:scale-90 hover:shadow-sm hover:border-gray-400 hover:text-gray-600 hover:bg-gray-50"
-                    title="Share this product"
-                  >
+                  title={t('product.share_title')}
+                >
                     <Share2 size={20} />
                   </button>
                 </div>
@@ -1020,7 +1110,7 @@ export default function ProductDetailPage() {
                         : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-100'
                     }`}
                   >
-                    {isAddingToCart ? 'Adding...' : isStockUnavailable ? 'Out of Stock' : 'Buy it Now'}
+                    {isAddingToCart ? `${t('product.adding')}...` : isStockUnavailable ? t('product.out_of_stock') : t('product.buy_now')}
                   </button>
                 </div>
               </div>
@@ -1034,9 +1124,9 @@ export default function ProductDetailPage() {
                 className="grid grid-cols-3 gap-2 py-5 border-y border-gray-100 my-2"
               >
                 {[
-                  { icon: Truck, label: 'Free Shipping', sub: 'Above ₹499' },
-                  { icon: RefreshCw, label: 'Easy Returns', sub: '7 Days' },
-                  { icon: ShieldCheck, label: 'Secure', sub: 'Checkout' },
+                  { icon: Truck, label: t('product.free_shipping'), sub: `${t('product.above_amount', { amount: formatCurrency(Number(freeShippingThreshold)) })}` },
+                  { icon: RefreshCw, label: t('product.easy_returns'), sub: t('product.days', { count: 7 }) },
+                  { icon: ShieldCheck, label: t('product.secure'), sub: t('product.checkout') },
                 ].map((item, i) => {
                   const IconComponent = item.icon;
                   return (
@@ -1072,7 +1162,7 @@ export default function ProductDetailPage() {
                     onClick={() => toggleAccordion('details')}
                     className="flex items-center justify-between w-full py-3 md:py-3.5 text-sm font-bold text-black text-left group"
                   >
-                    <span className="transition-colors">Product Details</span>
+                    <span className="transition-colors">{t('product.details')}</span>
                     <ChevronDown size={15} className={`text-gray-300 transition-all duration-300 ${openAccordion === 'details' ? 'rotate-180 text-black' : ''}`} />
                   </button>
                   <AnimatePresence initial={false}>
@@ -1105,7 +1195,7 @@ export default function ProductDetailPage() {
                     onClick={() => toggleAccordion('care')}
                     className="flex items-center justify-between w-full py-3 md:py-3.5 text-sm font-bold text-black text-left group"
                   >
-                    <span className="transition-colors">Material &amp; Care</span>
+                    <span className="transition-colors">{t('product.material_care')}</span>
                     <ChevronDown size={15} className={`text-gray-300 transition-all duration-300 ${openAccordion === 'care' ? 'rotate-180 text-black' : ''}`} />
                   </button>
                   <AnimatePresence initial={false}>
@@ -1120,19 +1210,19 @@ export default function ProductDetailPage() {
                       >
                         <div className="text-sm text-gray-600 leading-relaxed pb-4 space-y-2.5">
                           <div className="flex items-start gap-2.5">
-                            <Check size={14} className="mt-0.5 text-emerald-500 shrink-0" />
+                            <Check size={14} />
                             <span>100% Super Combed Cotton</span>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Check size={14} className="mt-0.5 text-emerald-500 shrink-0" />
+                            <Check size={14} />
                             <span>Machine wash cold, inside out</span>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Check size={14} className="mt-0.5 text-emerald-500 shrink-0" />
+                            <Check size={14} />
                             <span>Do not iron directly on print</span>
                           </div>
                           <div className="flex items-start gap-2.5">
-                            <Check size={14} className="mt-0.5 text-emerald-500 shrink-0" />
+                            <Check size={14} />
                             <span>Dry in shade</span>
                           </div>
                         </div>
@@ -1147,7 +1237,7 @@ export default function ProductDetailPage() {
                     onClick={() => toggleAccordion('shipping')}
                     className="flex items-center justify-between w-full py-3 md:py-3.5 text-sm font-bold text-black text-left group"
                   >
-                    <span className="transition-colors">Shipping &amp; Returns</span>
+                    <span className="transition-colors">{t('product.shipping_returns')}</span>
                     <ChevronDown size={15} className={`text-gray-300 transition-all duration-300 ${openAccordion === 'shipping' ? 'rotate-180 text-black' : ''}`} />
                   </button>
                   <AnimatePresence initial={false}>
@@ -1163,7 +1253,7 @@ export default function ProductDetailPage() {
                         <div className="text-sm text-gray-600 leading-relaxed pb-4 space-y-3">
                           <div>
                             <p className="font-semibold text-gray-700 mb-1">Shipping</p>
-                            <p>Free standard shipping on all orders over ₹499. Orders are dispatched within 24 hours.</p>
+                            <p>Free standard shipping on all orders over {formatCurrency(Number(freeShippingThreshold))}. Orders are dispatched within 24 hours.</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700 mb-1">Returns</p>
@@ -1182,9 +1272,8 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* ── Premium Mobile Reviews ── */}
-      {reviews.length > 0 && (
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-12 md:mt-16 pt-10 md:pt-16 border-t border-gray-200/80">
+      {/* ── Premium Reviews Section ── */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-12 md:mt-16 pt-10 md:pt-16 border-t border-gray-200/80">
           {/* ── Summary Header: compact row on mobile ── */}
           <div className="flex flex-col md:flex-row md:items-start gap-6 md:gap-10 mb-8 md:mb-12">
             {/* Rating + CTA integrated */}
@@ -1199,7 +1288,7 @@ export default function ProductDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-xl md:text-2xl lg:text-3xl font-display font-extrabold text-black tracking-tight mb-3 md:mb-4">
-                    Customer Reviews
+                    {t('product.customer_reviews')}
                   </h2>
                   <div className="flex items-center gap-3">
                     <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-extrabold text-black leading-none tracking-tight">
@@ -1208,10 +1297,10 @@ export default function ProductDetailPage() {
                     <div className="flex flex-col gap-0.5">
                       <div className="flex text-amber-400 gap-0.5">
                         {[1,2,3,4,5].map(i => (
-                          <Star key={i} size={14} fill="currentColor" className={i < Math.floor(product?.rating || 5) ? 'text-amber-400' : 'text-gray-200'} />
+                          <Star size={14} key={i} className={i < Math.floor(product?.rating || 5) ? 'text-amber-400' : 'text-gray-200'} />
                         ))}
                       </div>
-                      <span className="text-[11px] md:text-sm text-gray-500 font-medium whitespace-nowrap">{reviews.length} review{reviews.length !== 1 ? 's' : ''}</span>
+                      <span className="text-[11px] md:text-sm text-gray-500 font-medium whitespace-nowrap">{t('product.reviews', { count: reviews.length })}</span>
                     </div>
                   </div>
                 </div>
@@ -1224,8 +1313,8 @@ export default function ProductDetailPage() {
                     }}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-black text-white text-[11px] font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.95] shadow-sm"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-                    Write
+                    <MessageCircle size={12} />
+                    {t('product.write')}
                   </button>
                 </div>
               </div>
@@ -1239,7 +1328,7 @@ export default function ProductDetailPage() {
                     <div key={star} className="flex flex-col items-center gap-1 group/bar">
                       <div className="flex items-center gap-0.5">
                         <span className="text-[10px] font-bold text-gray-500 tabular-nums">{star}</span>
-                        <Star size={8} fill="currentColor" className="text-amber-400" />
+                        <Star size={8} />
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
                         <motion.div
@@ -1267,12 +1356,10 @@ export default function ProductDetailPage() {
               className="hidden md:flex flex-col items-start justify-center bg-white rounded-2xl p-5 lg:p-7 border border-gray-200/80 shadow-sm shrink-0 w-[240px] lg:w-[260px]"
             >
               <div className="w-10 h-10 rounded-full bg-black/5 flex items-center justify-center mb-2.5">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-black">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
-                </svg>
+                <MessageCircle size={16} />
               </div>
-              <h4 className="text-sm font-bold text-black mb-1">Share your thoughts</h4>
-              <p className="text-[11px] text-gray-500 mb-3.5 leading-relaxed">Help others with your experience.</p>
+              <h4 className="text-sm font-bold text-black mb-1">{t('product.share_thoughts')}</h4>
+              <p className="text-[11px] text-gray-500 mb-3.5 leading-relaxed">{t('product.help_others')}</p>
               <button
                 onClick={() => {
                   if (!isAuthenticated) { navigate('/login'); return; }
@@ -1280,63 +1367,39 @@ export default function ProductDetailPage() {
                 }}
                 className="px-4 py-2 rounded-xl border-2 border-gray-200 text-[11px] font-bold text-black hover:border-black hover:bg-black/5 transition-all duration-200 active:scale-[0.97] w-full text-center"
               >
-                Write a Review
+                {t('product.write_review')}
               </button>
             </motion.div>
           </div>
 
-          {/* ── Reviews Grid — mobile-first cards ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
-            {reviews.map((r, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-30px' }}
-                transition={{ duration: 0.4, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                className="bg-white rounded-xl md:rounded-2xl p-3.5 sm:p-4 md:p-6 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col gap-2.5 group/review"
+          {/* ── Reviews Grid with Premium Photo Cards ── */}
+          {reviews.length > 0 ? (
+            <ReviewCardsWithImages reviews={reviews} />
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col items-center justify-center py-12 md:py-16 text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <MessageCircle size={28} />
+              </div>
+              <h3 className="text-lg font-display font-extrabold text-black mb-1.5">{t('product.no_reviews_yet')}</h3>
+              <p className="text-sm text-gray-500 mb-5 max-w-sm">{t('product.no_reviews_desc')}</p>
+              <button
+                onClick={() => {
+                  if (!isAuthenticated) { navigate('/login'); return; }
+                  setShowReviewModal(true);
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] shadow-md"
               >
-                {/* Top: stars + verified badge */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-amber-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={12}
-                        className={i < Math.floor(r.rating || 5) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'}
-                      />
-                    ))}
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-full border border-emerald-200/50">
-                    <svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    Verified
-                  </span>
-                </div>
-                {/* Comment */}
-                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-3">
-                  "{r.comment || 'The material is very premium and comfortable. I highly recommend this product.'}"
-                </p>
-                {/* User info */}
-                <div className="flex items-center gap-2.5 pt-2 border-t border-gray-100 mt-auto">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 flex items-center justify-center font-bold text-[10px] shrink-0">
-                    {(r.userName || r.user || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-black truncate">{r.userName || r.user || 'Verified Customer'}</span>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-[9px] text-gray-400">Verified Purchase</span>
-                      {r.createdAt && (
-                        <>
-                          <span className="text-[7px] text-gray-300">·</span>
-                          <span className="text-[9px] text-gray-400">{new Date(r.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                <Pencil size={16} />
+                {t('product.be_first_review')}
+              </button>
+            </motion.div>
+          )}
 
           {/* View More Reviews */}
           {reviews.length >= 4 && (
@@ -1348,15 +1411,12 @@ export default function ProductDetailPage() {
               className="flex justify-center mt-6 md:mt-8"
             >
               <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 text-xs font-bold text-black hover:border-black hover:bg-black/5 transition-all duration-200 active:scale-[0.96]">
-                View All {reviews.length} Reviews
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                {t('product.view_all_reviews', { count: reviews.length })}
+                <ChevronDown size={12} />
               </button>
             </motion.div>
           )}
         </div>
-      )}
 
       {/* Bottom Grids */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mt-24 flex flex-col gap-16">
@@ -1365,7 +1425,7 @@ export default function ProductDetailPage() {
         {recommended.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl md:text-3xl font-display font-extrabold text-black tracking-tight">Complete The Look</h2>
+              <h2 className="text-2xl md:text-3xl font-display font-extrabold text-black tracking-tight">{t('product.complete_look')}</h2>
             </div>
             <ProductGrid products={recommended} />
           </div>
@@ -1401,7 +1461,7 @@ export default function ProductDetailPage() {
             {product.oldPrice && (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-gray-500 line-through">{formatCurrency(product.oldPrice)}</span>
-                {discount && <span className="text-[10px] font-bold text-red-600">{discount}% off</span>}
+                {discount && <span className="text-[10px] font-bold text-red-600">{t('product.percent_off', { percent: discount })}</span>}
               </div>
             )}
           </div>
@@ -1417,17 +1477,17 @@ export default function ProductDetailPage() {
             }`}
           >
             {isAddingToCart ? (
-              <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> Adding</>
+              <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> {t('product.adding')}</>
             ) : isStockUnavailable ? (
-              'Out of Stock'
+              t('product.out_of_stock')
             ) : variantLoading ? (
-              'Checking'
+              t('product.checking')
             ) : variantUnavailable ? (
-              'Unavailable'
+              t('product.unavailable')
             ) : !hasAllSelections ? (
-              'Select Options'
+              t('product.select_options')
             ) : (
-              'Add to Bag'
+              t('product.add_to_bag')
             )}
           </button>
         </div>
@@ -1452,8 +1512,283 @@ export default function ProductDetailPage() {
   );
 }
 
+/* ════════════════════════════════════════ */
+/* ── Map API review data to component format ── */
+/* ════════════════════════════════════════ */
+
+function mapProductReview(review) {
+  const user = review.user || {};
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Customer';
+  
+  // Parse images — could be JSON string or array
+  let images = [];
+  try {
+    if (typeof review.images === 'string') images = JSON.parse(review.images);
+    else if (Array.isArray(review.images)) images = review.images;
+  } catch { images = []; }
+  
+  return {
+    ...review,
+    userName,
+    created_at: review.created_at || review.createdAt,
+    images,
+  };
+}
+
+/* ════════════════════════════════════════ */
+/* ── Review Cards with Premium Photo Gallery ── */
+/* ════════════════════════════════════════ */
+
+function ReviewCardsWithImages({ reviews = [] }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const openLightbox = (images, idx) => {
+    setLightboxImages(images);
+    setLightboxIndex(idx);
+    setLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+    setLightboxImages([]);
+  };
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+        {reviews.map((r, idx) => {
+          // Parse images — could be JSON string or array
+          let reviewImages = [];
+          try {
+            if (typeof r.images === 'string') reviewImages = JSON.parse(r.images);
+            else if (Array.isArray(r.images)) reviewImages = r.images;
+          } catch { reviewImages = []; }
+          reviewImages = reviewImages.filter(Boolean);
+
+          return (
+            <motion.div
+              key={r.id || idx}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.4, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-xl md:rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col overflow-hidden group/review"
+            >
+              {/* Review Images — premium horizontal strip */}
+              {reviewImages.length > 0 && (
+                <div className="relative">
+                  <div className="flex gap-1 overflow-x-auto no-scrollbar px-3.5 sm:px-4 pt-3.5 sm:pt-4 pb-2" style={{ scrollbarWidth: 'none' }}>
+                    {reviewImages.slice(0, 5).map((img, imgIdx) => (
+                      <button
+                        key={imgIdx}
+                        onClick={() => openLightbox(reviewImages, imgIdx)}
+                        className="relative w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-lg overflow-hidden shrink-0 border border-gray-100 hover:border-gray-300 hover:shadow-md transition-all duration-200 group/img"
+                      >
+                        <img
+                          src={getImageUrl(img)}
+                          alt={`Review photo ${imgIdx + 1}`}
+                          className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/5 transition-colors duration-200" />
+                      </button>
+                    ))}
+                    {reviewImages.length > 5 && (
+                      <button
+                        onClick={() => openLightbox(reviewImages, 5)}
+                        className="w-[72px] h-[72px] sm:w-[80px] sm:h-[80px] rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0 hover:bg-gray-200 transition-colors"
+                      >
+                        <span className="text-xs font-bold text-gray-500">+{reviewImages.length - 5}</span>
+                      </button>
+                    )}
+                  </div>
+                  {/* Gradient fade on edges */}
+                  {reviewImages.length > 3 && (
+                    <>
+                      <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white to-transparent pointer-events-none" />
+                      <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white to-transparent pointer-events-none" />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Content area */}
+              <div className="p-3.5 sm:p-4 md:p-6 flex flex-col gap-2.5">
+                {/* Top: stars + verified badge */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star size={12} key={i} className={i < Math.floor(r.rating || 5) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'} />
+                    ))}
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-full border border-emerald-200/50">
+                    <Check size={6} />
+                    {t('product.verified')}
+                  </span>
+                </div>
+
+                {/* Title */}
+                {r.title && (
+                  <h4 className="text-xs sm:text-sm font-bold text-black leading-tight">{r.title}</h4>
+                )}
+
+                {/* Comment */}
+                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-3">
+                  &ldquo;{r.comment || ''}&rdquo;
+                </p>
+
+                {/* Image count badge */}
+                {reviewImages.length > 0 && (
+                  <div className="flex items-center gap-1 text-[10px] text-gray-400 font-medium">
+                    <Image size={12} />
+                    {reviewImages.length} {reviewImages.length === 1 ? t('product.photo') : t('product.photos')}
+                  </div>
+                )}
+
+                {/* User info */}
+                <div className="flex items-center gap-2.5 pt-2 border-t border-gray-100 mt-auto">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 flex items-center justify-center font-bold text-[10px] shrink-0">
+                    {(r.userName || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-black truncate">{r.userName || t('product.verified_customer')}</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[9px] text-gray-400">{t('product.verified_purchase')}</span>
+                      {r.created_at && (
+                        <>
+                          <span className="text-[7px] text-gray-300">·</span>
+                          <span className="text-[9px] text-gray-400">{formatDate(r.created_at)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxOpen && lightboxImages.length > 0 && (
+          <ReviewImageLightbox
+            images={lightboxImages}
+            initialIndex={lightboxIndex}
+            onClose={closeLightbox}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+/* ── Review Image Lightbox ── */
+function ReviewImageLightbox({ images = [], initialIndex = 0, onClose }) {
+  const [currentIdx, setCurrentIdx] = useState(initialIndex);
+
+  const goNext = useCallback(() => {
+    setCurrentIdx(prev => (prev + 1) % images.length);
+  }, [images.length]);
+
+  const goPrev = useCallback(() => {
+    setCurrentIdx(prev => (prev - 1 + images.length) % images.length);
+  }, [images.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'ArrowLeft') goPrev();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose, goNext, goPrev]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200"
+      >
+        <X size={20} />
+      </button>
+
+      {/* Counter */}
+      <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-xs font-medium">
+        {currentIdx + 1} / {images.length}
+      </div>
+
+      {/* Prev button */}
+      {images.length > 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); goPrev(); }}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 active:scale-90"
+        >
+          <ChevronLeft size={24} />
+        </button>
+      )}
+
+      {/* Image */}
+      <motion.div
+        key={currentIdx}
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-[90vw] max-h-[85vh] flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img
+          src={getImageUrl(images[currentIdx])}
+          alt={`Review photo ${currentIdx + 1}`}
+          className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+        />
+      </motion.div>
+
+      {/* Next button */}
+      {images.length > 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); goNext(); }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 active:scale-90"
+        >
+          <ChevronRight size={24} />
+        </button>
+      )}
+
+      {/* Thumbnails strip at bottom */}
+      {images.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 max-w-[80vw] overflow-x-auto no-scrollbar px-2 py-2" style={{ scrollbarWidth: 'none' }}>
+          {images.map((img, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => { e.stopPropagation(); setCurrentIdx(idx); }}
+              className={`w-10 h-10 rounded-lg overflow-hidden shrink-0 border-2 transition-all duration-200 ${
+                idx === currentIdx ? 'border-white opacity-100 scale-110 shadow-lg' : 'border-transparent opacity-50 hover:opacity-80'
+              }`}
+            >
+              <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 /* ── Recently Viewed — Horizontal Scroll Carousel ── */
 function RecentlyViewedCarousel({ products = [] }) {
+  const { t } = useTranslation();
   const scrollRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -1490,10 +1825,10 @@ function RecentlyViewedCarousel({ products = [] }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl md:text-3xl font-display font-extrabold text-black tracking-tight">
-          Recently Viewed
+          {t('product.recently_viewed')}
         </h2>
         <span className="hidden sm:block text-xs text-gray-400 font-medium">
-          Swipe or scroll
+          {t('product.swipe_scroll')}
         </span>
       </div>
 
@@ -1521,11 +1856,9 @@ function RecentlyViewedCarousel({ products = [] }) {
               ? 'opacity-0 md:group-hover/carousel:opacity-100'
               : 'opacity-0 pointer-events-none'
           }`}
-          aria-label="Scroll left"
+          aria-label={t('product.scroll_left')}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
+          <ChevronLeft size={18} />
         </button>
 
         {/* Right Arrow */}
@@ -1536,11 +1869,9 @@ function RecentlyViewedCarousel({ products = [] }) {
               ? 'opacity-0 md:group-hover/carousel:opacity-100'
               : 'opacity-0 pointer-events-none'
           }`}
-          aria-label="Scroll right"
+          aria-label={t('product.scroll_right')}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+          <ChevronRight size={18} />
         </button>
 
         {/* Scrollable Track */}

@@ -1,6 +1,4 @@
-/* Google Fonts — Jost + Material Symbols */
-@import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+/* Google Fonts loaded via <link> in index.html with preconnect — NOT via CSS @import (which is render-blocking) */
 
 @tailwind base;
 @tailwind components;
@@ -26,10 +24,22 @@
 
   a { text-decoration: none; color: inherit; }
   button { cursor: pointer; font-family: 'Jost', sans-serif; }
-  img { max-width: 100%; display: block; }
+  img { max-width: 100%; display: block; height: auto; }
   input, select, textarea { font-family: 'Jost', sans-serif; font-size: 16px; }
 
   /* Material Symbols */
+  /* ── Anti-CLS: reserve space for lazy images ── */
+  /* Fallback for lazy images without explicit width/height — use 4:5 (standard product ratio) */
+  img[loading="lazy"]:not([width]):not([height]) {
+    aspect-ratio: 4 / 5;
+  }
+  /* Images with object-cover should let Tailwind handle dimensions; just reset aspect-ratio
+     so the default 4/5 fallback doesn't interfere with the cover behavior */
+  img[loading="lazy"].object-cover,
+  img[loading="lazy"][class*="object-cover"] {
+    aspect-ratio: auto;
+  }
+
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     font-family: 'Material Symbols Outlined';
@@ -104,8 +114,12 @@
   .btn-primary {
     background: #1a1a1a;
     color: white;
+    border: none;
     font-weight: 600;
-    padding: 12px 28px;
+    padding: 0.85rem 2.5rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
     border-radius: 12px;
     transition: all 0.3s ease;
     box-shadow: 0 4px 14px rgba(26, 26, 26, 0.3);
@@ -117,6 +131,11 @@
   }
   .btn-primary:active {
     transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
   }
 
   /* Card hover effect */
@@ -188,12 +207,6 @@
   .section-title { font-size: 1.5rem; }
 }
 
-/* ── Mobile: disable horizontal overflow on sections ── */
-@media (max-width: 640px) {
-  .page-content {
-    overflow-x: hidden;
-  }
-}
 
 /* ── Fly-to-Cart Animation ──────────────────────── */
 
@@ -315,7 +328,14 @@
 
 /* Prevent iOS zoom on input focus (requires font-size ≥ 16px) */
 @media screen and (max-width: 768px) {
-  input, select, textarea {
+  input, select, textarea,
+  [contenteditable],
+  [role="textbox"],
+  [role="combobox"],
+  [role="searchbox"],
+  [role="spinbutton"],
+  [class*="input"],
+  [class*="Input"] {
     font-size: 16px !important;
   }
 }
@@ -361,4 +381,76 @@
 
 .animate-scale-in {
   animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Premium Reveal Entrance ──────────────────── */
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes revealIn {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulseSubtle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.92; transform: scale(1.02); }
+}
+
+@keyframes shimmerSlow {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes lineGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-reveal-up {
+  animation: revealUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-reveal-in {
+  animation: revealIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-pulse-subtle {
+  animation: pulseSubtle 2.5s ease-in-out infinite;
+}
+
+.animate-line-grow {
+  animation: lineGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: left center;
+}
+
+.animate-line-grow-center {
+  animation: lineGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center;
 }

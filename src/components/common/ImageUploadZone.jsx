@@ -1,5 +1,6 @@
+import { Upload, X, RefreshCw } from 'lucide-react';
 import { useState, useRef } from 'react';
-import { Upload, X, Loader2 } from 'lucide-react';
+;
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
 import { getImageUrl } from '../../utils/formatters';
@@ -124,9 +125,9 @@ export default function ImageUploadZone({
                   e.stopPropagation();
                   handleRemove(imgUrl);
                 }}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center shadow transition-colors"
+                className="absolute top-1 right-1 w-8 h-8 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center shadow transition-colors"
               >
-                <X size={10} />
+                <X size={14} />
               </button>
             </div>
           ))}

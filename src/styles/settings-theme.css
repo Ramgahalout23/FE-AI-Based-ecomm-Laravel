@@ -1,0 +1,173 @@
+/* ═══════════════════════════════════════════
+   Settings — Theme Tab (ThemeTab.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Theme Layout ── */
+.theme-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+}
+.theme-settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.theme-preview-col {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+
+/* ── Color Picker Row ── */
+.color-picker-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.color-swatch {
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.color-hex-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+
+/* ── Theme Preview Card ── */
+.theme-preview-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.theme-preview-header {
+  padding: 1rem 1.25rem;
+}
+.theme-preview-store-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 0.15rem;
+}
+.theme-preview-store-title {
+  font-size: 1rem;
+  font-weight: 800;
+}
+.theme-preview-body {
+  padding: 1rem 1.25rem;
+}
+.theme-preview-product-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  transition: all 0.3s ease;
+}
+.theme-preview-product-img {
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.theme-preview-product-info {
+  padding: 0.65rem;
+}
+.theme-preview-product-name {
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+.theme-preview-product-price {
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin-top: 0.2rem;
+}
+.theme-preview-sizes {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+}
+.theme-preview-size {
+  padding: 0.15rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  border-radius: var(--radius-lg);
+}
+.theme-preview-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.theme-preview-btn-primary {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.theme-preview-btn-secondary {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+}
+.theme-preview-badges {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+.theme-preview-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+.theme-preview-footer {
+  padding: 0.65rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+}
+
+/* ── Font Preview Panel ── */
+.font-preview-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-lg);
+}
+.font-preview-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+.font-preview-display {
+  font-size: 1rem;
+  font-weight: 800;
+}
+.font-preview-headline {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-top: 0.3rem;
+}
+.font-preview-body {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin-top: 0.3rem;
+}
+
+/* ── Layout & Radius Options Layout ── */
+.theme-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}

@@ -5,6 +5,10 @@ import { formatCurrency, getImageUrl, getProductImage, getProductImages } from '
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { aiAPI } from '../../api/ai';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import Pagination from '../../components/admin/Pagination';
+import { downloadBlob } from '../../utils/download';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 
 const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '' };
 const EMPTY_VARIANT = { sku: '', price: '', stock: '', color: '', size: '', images: '', description: '' };
@@ -31,10 +35,102 @@ export default function ProductsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [limit] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   // Search debouncing
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // CSV Export state (async job-based)
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const PRODUCT_COLUMNS = [
+    { key: 'name', label: 'Product Name' },
+    { key: 'sku', label: 'SKU' },
+    { key: 'category', label: 'Category' },
+    { key: 'price', label: 'Price' },
+    { key: 'oldPrice', label: 'Old Price' },
+    { key: 'cost', label: 'Cost' },
+    { key: 'stock', label: 'Stock' },
+    { key: 'status', label: 'Status' },
+    { key: 'rating', label: 'Rating' },
+    { key: 'badge', label: 'Badge' },
+    { key: 'description', label: 'Description' },
+    { key: 'shortDescription', label: 'Short Description' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
+  const handleExport = async (selectedColumns) => {
+    setExporting(true);
+    setExportStatus('dispatching');
+    setExportError(null);
+    try {
+      // 1. Dispatch the export job
+      const filters = {
+        search: debouncedSearch || undefined,
+        status: filter !== 'ALL' ? filter : undefined,
+      };
+      // Clean undefined values
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+
+      const dispatchRes = await adminAPI.dispatchExport({
+        type: 'products',
+        filters,
+        columns: selectedColumns,
+      });
+
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+
+      setExportStatus('processing');
+
+      // 2. Poll for completion
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'completed') {
+            // 3. Download the completed file
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Products exported successfully');
+            setTimeout(() => {
+              setShowExportModal(false);
+              setExportStatus(null);
+            }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            // Still processing — poll again after 1.5s
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          // Catch poll/download errors to avoid unhandled promise rejections
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed');
+            setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed');
+      setExportError(err.response?.data?.message || err.message || 'Failed to export products');
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -56,7 +152,7 @@ export default function ProductsAdminPage() {
 
       const params = {
         page,
-        per_page: limit,
+        per_page: pageSize,
         search: debouncedSearch || undefined
       };
 
@@ -86,12 +182,12 @@ export default function ProductsAdminPage() {
       const pag = responseData.pagination;
       if (pag) {
         setCurrentPage(pag.page || pag.current_page || page);
-        setTotalPages(pag.pages || pag.last_page || Math.ceil((pag.total || prod.length) / limit) || 1);
+        setTotalPages(pag.pages || pag.last_page || Math.ceil((pag.total || prod.length) / pageSize) || 1);
         setTotalItems(pag.total || prod.length);
       } else {
         // Fallback if no pagination key — extract from raw response fields
         setCurrentPage(responseData.current_page || page);
-        setTotalPages(responseData.last_page || Math.ceil((responseData.total || prod.length) / limit) || 1);
+        setTotalPages(responseData.last_page || Math.ceil((responseData.total || prod.length) / pageSize) || 1);
         setTotalItems(responseData.total || prod.length);
       }
     } catch (err) {
@@ -102,14 +198,14 @@ export default function ProductsAdminPage() {
     }
   };
 
-  // Reset page to 1 when search or filter change
+  // Reset page to 1 when search, filter, or page size change
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     } else {
       load(1);
     }
-  }, [debouncedSearch, filter]);
+  }, [debouncedSearch, filter, pageSize]);
 
   // Load when current page changes
   useEffect(() => {
@@ -408,12 +504,20 @@ export default function ProductsAdminPage() {
   };
 
   return (
-    <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Products</h2><p>Manage your product catalog ({totalItems} items)</p></div>
-        <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Product</button>
-      </div>
-
+      <AdminPageShell
+        title="Products"
+        subtitle={`Manage your product catalog (${totalItems} items)`}
+        loading={loading}
+        page="products"
+        actions={
+          <>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              📥 Export CSV
+            </button>
+            <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Product</button>
+          </>
+        }
+      >
       {/* Detail Panel */}
       {detail && (
         <div className="detail-panel">
@@ -428,7 +532,7 @@ export default function ProductsAdminPage() {
             <div className="detail-item"><span className="label">Price</span><span className="value">{formatCurrency(detail.price)}</span></div>
             <div className="detail-item"><span className="label">Old Price</span><span className="value">{detail.oldPrice ? formatCurrency(detail.oldPrice) : '—'}</span></div>
             <div className="detail-item"><span className="label">Category</span><span className="value">{detail.category?.name || detail.categoryName || '—'}</span></div>
-            <div className="detail-item"><span className="label">Rating</span><span className="value" style={{ color: 'var(--gold)' }}>{'★'.repeat(Math.floor(detail.rating || 0))} ({detail.reviewCount || 0} reviews)</span></div>
+            <div className="detail-item"><span className="label">Rating</span><span className="value" style={{ color: 'var(--warning)' }}>{'★'.repeat(Math.floor(detail.rating || 0))} ({detail.reviewCount || 0} reviews)</span></div>
             <div className="detail-item"><span className="label">Status</span><span className="value"><span className={`status-badge ${detail.status === 'ARCHIVED' ? 'status-archived' : 'status-active'}`}>{detail.status || 'Active'}</span></span></div>
             <div className="detail-item"><span className="label">SKU</span><span className="value" style={{ fontFamily: 'monospace' }}>{detail.sku || '—'}</span></div>
             <div className="detail-item" style={{ gridColumn: '1/-1' }}><span className="label">Description</span><span className="value">{detail.description || 'No description available'}</span></div>
@@ -458,9 +562,7 @@ export default function ProductsAdminPage() {
         <table className="admin-table">
           <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-            ) : products.length === 0 ? (
+            {products.length === 0 ? (
               <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No products found</h3><p>Try adjusting your search or filters.</p></div></td></tr>
             ) : products.map(p => {
               const imgUrl = getProductImage(p) || p.image;
@@ -477,7 +579,7 @@ export default function ProductsAdminPage() {
                   ) : (
                     <strong>{formatCurrency(p.price)}</strong>
                   )}</td>
-                <td><span style={{ color: 'var(--gold)', fontSize: '0.8rem' }}>{'★'.repeat(Math.floor(p.rating || 0))}</span><span style={{ fontSize: '0.72rem', color: 'var(--muted)', marginLeft: 4 }}>{p.rating || '—'}</span></td>
+                <td><span style={{ color: 'var(--warning)', fontSize: '0.8rem' }}>{'★'.repeat(Math.floor(p.rating || 0))}</span><span style={{ fontSize: '0.72rem', color: 'var(--muted)', marginLeft: 4 }}>{p.rating || '—'}</span></td>
                 <td><span className={`status-badge ${(p.status || 'ACTIVE') === 'ARCHIVED' ? 'status-archived' : (p.status || 'ACTIVE') === 'PUBLISHED' ? 'status-active' : 'status-active'}`}>{p.status || 'Active'}</span></td>
                 <td>
                   <div className="row-actions">
@@ -494,42 +596,16 @@ export default function ProductsAdminPage() {
           </tbody>
         </table>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Showing page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} products total)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage <= 1} 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{ opacity: currentPage <= 1 ? 0.5 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
-              >
-                ◀ Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button 
-                  key={p} 
-                  className={p === currentPage ? "btn-dark btn-sm" : "btn-ghost btn-sm"}
-                  onClick={() => setCurrentPage(p)}
-                  style={{ minWidth: '32px' }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage >= totalPages} 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{ opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
-              >
-                Next ▶
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          itemLabel="product"
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
 
       {/* Create/Edit Modal */}
@@ -855,6 +931,18 @@ export default function ProductsAdminPage() {
           </div>
         </div>
       )}
-    </div>
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={PRODUCT_COLUMNS}
+        onExport={handleExport}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`products-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
+      </AdminPageShell>
   );
 }

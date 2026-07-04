@@ -1,24 +1,25 @@
+import { ArrowUp, ChevronDown, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Filter, Package } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  ArrowUp, ChevronDown, Package, Loader2, Sparkles, TrendingUp,
-  SlidersHorizontal, X, Filter,
-} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+;
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import { useSettings } from '../../store/useSettings';
 import ProductGrid from '../../components/product/ProductGrid';
 import { productsAPI } from '../../api/products';
 import { formatCurrency } from '../../utils/formatters';
 
 /* ── Constants ───────────────────────────────── */
 
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest', sortBy: '', sortOrder: '' },
-  { value: 'price-low', label: 'Price: Low to High', sortBy: 'price', sortOrder: 'asc' },
-  { value: 'price-high', label: 'Price: High to Low', sortBy: 'price', sortOrder: 'desc' },
-  { value: 'name-asc', label: 'Name: A to Z', sortBy: 'name', sortOrder: 'asc' },
-  { value: 'name-desc', label: 'Name: Z to A', sortBy: 'name', sortOrder: 'desc' },
+const SORT_OPTIONS = (t) => [
+  { value: 'newest', label: t('products.newest'), sortBy: '', sortOrder: '' },
+  { value: 'price-low', label: t('products.price_low_high'), sortBy: 'price', sortOrder: 'asc' },
+  { value: 'price-high', label: t('products.price_high_low'), sortBy: 'price', sortOrder: 'desc' },
+  { value: 'name-asc', label: t('products.name_az'), sortBy: 'name', sortOrder: 'asc' },
+  { value: 'name-desc', label: t('products.name_za'), sortBy: 'name', sortOrder: 'desc' },
 ];
 
 const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL'];
@@ -27,17 +28,17 @@ const PAGE_LIMIT = 12;
 
 const SECTION_CONFIG = {
   'new-arrivals': {
-    title: 'New Arrivals',
-    subtitle: 'The latest drops — fresh styles, premium quality.',
-    label: 'Fresh Drops',
+    title: 'home.new_arrivals',
+    subtitle: 'products.section_new_subtitle',
+    label: 'home.fresh_drops',
     icon: Sparkles,
     badge: 'NEW',
     fetchFn: (params) => productsAPI.getNewArrivals(params),
   },
   'best-sellers': {
-    title: 'Best Sellers',
-    subtitle: 'Our most popular styles — loved by everyone.',
-    label: 'Trending Now',
+    title: 'home.best_sellers',
+    subtitle: 'products.section_bestseller_subtitle',
+    label: 'home.trending_now',
     icon: TrendingUp,
     badge: 'BESTSELLER',
     fetchFn: (params) => productsAPI.getBestSellers(params),
@@ -54,12 +55,13 @@ function FilterContent({
   onApplyPrice,
   total,
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-7 md:space-y-8">
       {/* Price Range */}
       <div>
         <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-          <span className="w-5 h-px bg-gray-300" /> Price Range
+          <span className="w-5 h-px bg-gray-300" /> {t('products.price_range')}
         </h4>
         <div className="space-y-4">
           <input
@@ -76,12 +78,12 @@ function FilterContent({
           />
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 px-3 py-3 md:py-2.5 bg-surface rounded-lg border border-border text-center">
-              <span className="text-xs text-text-muted">Min</span>
+              <span className="text-xs text-text-muted">{t('products.min')}</span>
               <p className="text-sm font-bold text-text-primary">{formatCurrency(priceRange[0])}</p>
             </div>
             <span className="text-text-muted text-xs">—</span>
             <div className="flex-1 px-3 py-3 md:py-2.5 bg-surface rounded-lg border border-border text-center">
-              <span className="text-xs text-text-muted">Max</span>
+              <span className="text-xs text-text-muted">{t('products.max')}</span>
               <p className="text-sm font-bold text-text-primary">{formatCurrency(priceRange[1])}</p>
             </div>
           </div>
@@ -111,7 +113,7 @@ function FilterContent({
       {/* Size */}
       <div>
         <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-          <span className="w-5 h-px bg-gray-300" /> Size
+          <span className="w-5 h-px bg-gray-300" /> {t('products.size')}
         </h4>
         <div className="flex flex-wrap gap-2.5 md:gap-2">
           {SIZE_OPTIONS.map((size) => {
@@ -136,7 +138,7 @@ function FilterContent({
       {/* Results summary */}
       <div className="pt-2 border-t border-border">
         <p className="text-xs text-text-muted">
-          <strong className="text-text-primary">{total}</strong> {total === 1 ? 'product' : 'products'} found
+          <strong className="text-text-primary">{total}</strong> {total === 1 ? t('products.product') : t('products.products')} {t('products.found')}
         </p>
       </div>
     </div>
@@ -157,6 +159,7 @@ function MobileFilterDrawer({
   activeCount,
   total,
 }) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -200,8 +203,8 @@ function MobileFilterDrawer({
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-text-primary" />
-                <h3 className="font-display font-bold text-lg text-text-primary">Filters</h3>
+                <SlidersHorizontal size={16} />
+                <h3 className="font-display font-bold text-lg text-text-primary">{t('products.filters')}</h3>
                 {activeCount > 0 && (
                   <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {activeCount}
@@ -221,14 +224,7 @@ function MobileFilterDrawer({
               className="flex-1 overflow-y-auto px-5 py-5"
               style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
             >
-              <FilterContent
-                priceRange={priceRange}
-                onPriceRangeChange={onPriceRangeChange}
-                selectedSizes={selectedSizes}
-                onSizeToggle={onSizeToggle}
-                onApplyPrice={onApplyPrice}
-                total={total}
-              />
+              <Filter Content priceRange={priceRange} onPriceRangeChange={onPriceRangeChange} selectedSizes={selectedSizes} onSizeToggle={onSizeToggle} onApplyPrice={onApplyPrice} total={total} />
             </div>
 
             {/* Footer */}
@@ -240,13 +236,13 @@ function MobileFilterDrawer({
                 onClick={() => { onClearAll(); onClose(); }}
                 className="flex-1 py-3.5 rounded-xl border-2 border-border text-sm font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
               >
-                Clear All
+                {t('products.clear_all')}
               </button>
               <button
                 onClick={onClose}
                 className="flex-1 py-3.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98]"
               >
-                Show Results
+                {t('products.show_results')}
               </button>
             </div>
           </motion.div>
@@ -259,7 +255,10 @@ function MobileFilterDrawer({
 /* ═══════════ MAIN PAGE ═══════════ */
 
 export default function SectionProductsPage() {
+  const { t } = useTranslation();
   const { section } = useParams();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const config = SECTION_CONFIG[section];
 
   const [products, setProducts] = useState([]);
@@ -300,7 +299,8 @@ export default function SectionProductsPage() {
     [loading, loadingMore]
   );
 
-  const sortOption = SORT_OPTIONS.find((o) => o.value === sortBy) || SORT_OPTIONS[0];
+  const sortOptions = SORT_OPTIONS(t);
+  const sortOption = sortOptions.find((o) => o.value === sortBy) || sortOptions[0];
 
   // Active filters count
   const activeFiltersCount =
@@ -332,13 +332,13 @@ export default function SectionProductsPage() {
     return (
       <div className="page-content bg-white flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <Package size={48} className="mx-auto text-gray-300 mb-4" />
-          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">Section not found</h2>
-          <p className="text-gray-500 mb-6">The product section you're looking for doesn't exist.</p>
+          <Package size={48} />
+          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">{t('products.section_not_found')}</h2>
+          <p className="text-gray-500 mb-6">{t('products.section_not_found_desc')}</p>
           <Breadcrumb
             items={[
-              { label: 'Home', href: '/' },
-              { label: 'Section not found' },
+              { label: t('nav.home'), href: '/' },
+              { label: t('products.section_not_found') },
             ]}
             variant="light"
             className="justify-center mb-4"
@@ -348,7 +348,13 @@ export default function SectionProductsPage() {
     );
   }
 
-  const Icon = config.icon;
+  const configT = {
+    ...config,
+    title: t(config.title),
+    subtitle: t(config.subtitle),
+    label: t(config.label),
+  };
+  const Icon = configT.icon || config.icon;
 
   // Build API params from all filter + sort state
   const buildApiParams = useCallback(() => {
@@ -416,8 +422,8 @@ export default function SectionProductsPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`${config.title} | Threvolt`}
-        description={config.subtitle || `Browse our ${config.title.toLowerCase()} collection. Shop premium products at Threvolt.`}
+        title={`${configT.title} | ${storeName}`}
+        description={configT.subtitle || `Browse our ${configT.title.toLowerCase()} collection. Shop premium products at ${storeName}.`}
       />
       {/* Hero Banner */}
       <div className="relative w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
@@ -427,8 +433,8 @@ export default function SectionProductsPage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
           <Breadcrumb
             items={[
-              { label: 'Home', href: '/' },
-              { label: config.title },
+              { label: t('nav.home'), href: '/' },
+              { label: configT.title },
             ]}
             variant="dark"
             className="mb-6"
@@ -442,18 +448,18 @@ export default function SectionProductsPage() {
             <div className="flex items-center gap-3 mb-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
                 <Icon size={12} />
-                {config.label}
+                {configT.label}
               </span>
               <span className="text-white/40 text-xs font-medium">
-                {total} {total === 1 ? 'product' : 'products'}
+                {total} {total === 1 ? t('products.product') : t('products.products')}
               </span>
             </div>
 
             <h1 className="text-white font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.1] mb-3">
-              {config.title}
+              {configT.title}
             </h1>
             <p className="text-white/60 text-sm md:text-base max-w-xl">
-              {config.subtitle}
+              {configT.subtitle}
             </p>
           </motion.div>
         </div>
@@ -466,8 +472,8 @@ export default function SectionProductsPage() {
           <p className="text-sm text-text-muted">
             {!loading && (
               <>
-                Showing <strong className="text-text-primary">{products.length}</strong> of{' '}
-                <strong className="text-text-primary">{total}</strong> products
+                {t('products.showing')} <strong className="text-text-primary">{products.length}</strong> {t('products.of')}{' '}
+                <strong className="text-text-primary">{total}</strong> {t('products.products')}
               </>
             )}
           </p>
@@ -478,16 +484,13 @@ export default function SectionProductsPage() {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="h-10 pl-3 pr-9 text-xs font-semibold border-2 border-border rounded-xl appearance-none bg-white focus:outline-none focus:border-primary cursor-pointer transition-colors"
               >
-                {SORT_OPTIONS.map((opt) => (
+                {sortOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}
               </select>
-              <ChevronDown
-                size={14}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-              />
+              <ChevronDown size={14} />
             </div>
             <button
               onClick={() => setShowMobileFilters(true)}
@@ -536,7 +539,7 @@ export default function SectionProductsPage() {
               onClick={clearFilters}
               className="text-xs font-semibold text-text-muted hover:text-primary underline-offset-2 hover:underline transition-colors"
             >
-              Clear all
+              {t('products.clear_all')}
             </button>
           </div>
         )}
@@ -549,7 +552,7 @@ export default function SectionProductsPage() {
               {/* Sort */}
               <div>
                 <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <span className="w-5 h-px bg-gray-300" /> Sort By
+                  <span className="w-5 h-px bg-gray-300" /> {t('products.sort_by')}
                 </h4>
                 <div className="relative">
                   <select
@@ -557,28 +560,18 @@ export default function SectionProductsPage() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="w-full h-10 pl-3 pr-9 text-xs font-semibold border-2 border-border rounded-xl appearance-none bg-white focus:outline-none focus:border-primary cursor-pointer transition-colors"
                   >
-                    {SORT_OPTIONS.map((opt) => (
+                    {SORT_OPTIONS(t).map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown
-                    size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-                  />
+                  <ChevronDown size={14} />
                 </div>
               </div>
 
               {/* Filters */}
-              <FilterContent
-                priceRange={priceRange}
-                onPriceRangeChange={setPriceRange}
-                selectedSizes={selectedSizes}
-                onSizeToggle={handleSizeToggle}
-                onApplyPrice={handleApplyPrice}
-                total={total}
-              />
+              <Filter Content priceRange={priceRange} onPriceRangeChange={setPriceRange} selectedSizes={selectedSizes} onSizeToggle={handleSizeToggle} onApplyPrice={handleApplyPrice} total={total} />
 
               {/* Active filters on desktop */}
               {activeFiltersCount > 0 && (
@@ -587,7 +580,7 @@ export default function SectionProductsPage() {
                     onClick={clearFilters}
                     className="w-full py-2.5 rounded-xl border-2 border-border text-xs font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
                   >
-                    Clear All Filters
+                    {t('products.clear_filters')}
                   </button>
                 </div>
               )}
@@ -601,8 +594,8 @@ export default function SectionProductsPage() {
               <p className="text-sm text-text-muted">
                 {!loading && (
                   <>
-                    Showing <strong className="text-text-primary">{products.length}</strong> of{' '}
-                    <strong className="text-text-primary">{total}</strong> products
+                    {t('products.showing')} <strong className="text-text-primary">{products.length}</strong> {t('products.of')}{' '}
+                    <strong className="text-text-primary">{total}</strong> {t('products.products')}
                   </>
                 )}
               </p>
@@ -637,11 +630,11 @@ export default function SectionProductsPage() {
             {/* Error state */}
             {error && !loading && (
               <div className="text-center py-16">
-                <Package size={48} className="mx-auto text-gray-300 mb-4" />
+                <Package size={48} />
                 <h3 className="font-display font-bold text-xl text-text-primary mb-2">
-                  Failed to load products
+                  {t('products.failed_to_load')}
                 </h3>
-                <p className="text-text-muted text-sm mb-6">Something went wrong. Please try again.</p>
+                <p className="text-text-muted text-sm mb-6">{t('products.something_wrong')}</p>
                 <button
                   onClick={() => {
                     setPage(1);
@@ -650,7 +643,7 @@ export default function SectionProductsPage() {
                   }}
                   className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors"
                 >
-                  Retry
+                  {t('products.retry')}
                 </button>
               </div>
             )}
@@ -665,8 +658,8 @@ export default function SectionProductsPage() {
             {hasMoreRef.current && !loading && (
               <div ref={sentinelRef} className="flex justify-center py-10">
                 <div className="flex items-center gap-2 text-sm text-text-muted">
-                  <Loader2 size={16} className="animate-spin" />
-                  <span>Loading more...</span>
+                  <RefreshCw size={16} />
+                  <span>{t('products.loading_more')}</span>
                 </div>
               </div>
             )}
@@ -676,7 +669,7 @@ export default function SectionProductsPage() {
               <div className="text-center py-10 border-t border-border mt-6">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-text-muted text-xs font-medium">
                   <Package size={14} />
-                  You've seen all {total} products
+                  {t('products.youve_seen_all', { count: total })}
                 </div>
               </div>
             )}
@@ -708,8 +701,8 @@ export default function SectionProductsPage() {
           pointerEvents: showScrollTop ? 'auto' : 'none',
         }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 hover:shadow-xl active:scale-95 transition-[background,box-shadow] flex items-center justify-center"
-        aria-label="Scroll to top"
+        className="fixed bottom-[160px] lg:bottom-8 right-6 z-50 w-12 h-12 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 hover:shadow-xl active:scale-95 transition-[background,box-shadow] flex items-center justify-center"
+        aria-label={t('products.sort_by')}
       >
         <ArrowUp size={20} />
       </motion.button>

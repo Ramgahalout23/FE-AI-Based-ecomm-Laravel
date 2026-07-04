@@ -57,7 +57,7 @@ export function SettingsProvider({ children }) {
     const moduleSettings = {};
     const moduleKeyMap = {
       FOOTER: ['footerBrandTagline', 'footerNewsletterEnabled', 'footerNewsletterTitle', 'footerNewsletterSubtitle', 'footerNewsletterBtnText', 'footerShopLinks', 'footerHelpLinks', 'footerBottomLinks', 'footerTrustBadges'],
-      SITE: ['storeName', 'contactEmail', 'storeAddress', 'maintenanceMode', 'maintenanceMessage', 'custom404Enabled', 'custom404Title', 'custom404Message', 'custom404ShowHeader', 'custom404ShowFooter', 'announcementEnabled', 'announcementText'],
+      SITE: ['storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'storeAddress', 'maintenanceMode', 'maintenanceMessage', 'custom404Enabled', 'custom404Title', 'custom404Message', 'custom404ShowHeader', 'custom404ShowFooter', 'announcementEnabled', 'announcementText'],
       SHIPPING: ['shippingPickupAddress', 'shippingReturnAddress', 'shippingQueryMobile', 'shippingQueryEmail', 'shippingLabelLogo', 'shippingLabelNote', 'freeShippingThreshold', 'shippingFlatRate'],
       TAX: ['taxRate', 'taxCalculation'],
       CURRENCY: ['currency', 'timezone'],
@@ -88,7 +88,8 @@ export function SettingsProvider({ children }) {
       const response = await settingsAPI.updateSettings(updates);
       // API returns { success, message, data: {...updated settings} }
       const serverData = response.data?.data || response.data || updates;
-      setSettings(prev => ({ ...prev, ...serverData }));
+      // Update React Query cache directly (useQuery manages the state)
+      queryClient.setQueryData(['settings'], prev => ({ ...(prev || {}), ...serverData }));
       toast.success('Settings updated successfully');
       return serverData;
     } catch (err) {
@@ -103,8 +104,8 @@ export function SettingsProvider({ children }) {
       const response = await settingsAPI.updateSetting(key, value);
       // API returns { success, message, data: { key, value } }
       const serverData = response.data?.data || { [key]: value };
-      setSettings(prev => ({
-        ...prev,
+      queryClient.setQueryData(['settings'], prev => ({
+        ...(prev || {}),
         [serverData.key || key]: serverData.value || value
       }));
       toast.success('Setting updated successfully');
@@ -138,18 +139,21 @@ export function SettingsProvider({ children }) {
 
  
 function getDefaultSettings() {
+  const DEFAULT_STORE_NAME = 'THREVOLT';
   return {
-    storeName: 'THREVOLT',
+    storeName: DEFAULT_STORE_NAME,
+    brandTagline: 'Premium Fashion & Lifestyle', // used in invoices — matches InvoiceService PHP fallback
     contactEmail: 'support@threvolt.com',
+    storeEmail: 'support@threvolt.com',
     currency: 'INR',
     timezone: 'IST',
-    storeAddress: 'THREVOLT Headquarters, Bangalore, Karnataka, India',
-    shippingPickupAddress: 'THREVOLT Fulfillment Center, Bangalore, Karnataka, India',
-    shippingReturnAddress: 'THREVOLT Returns, Bangalore, Karnataka, India',
+    storeAddress: `${DEFAULT_STORE_NAME} Headquarters, Bangalore, Karnataka, India`,
+    shippingPickupAddress: `${DEFAULT_STORE_NAME} Fulfillment Center, Bangalore, Karnataka, India`,
+    shippingReturnAddress: `${DEFAULT_STORE_NAME} Returns, Bangalore, Karnataka, India`,
     shippingQueryMobile: '+91 98765 43210',
     shippingQueryEmail: 'support@threvolt.com',
     shippingLabelLogo: '',
-    shippingLabelNote: 'Thank you for shopping at THREVOLT! For returns or support, please email support@threvolt.com.',
+    shippingLabelNote: `Thank you for shopping at ${DEFAULT_STORE_NAME}! For returns or support, please email support@threvolt.com`,
     taxRate: '18.0',
     taxCalculation: 'inclusive',
     freeShippingThreshold: '499',
@@ -186,6 +190,11 @@ function getDefaultSettings() {
     twilioAuthToken: '',
     twilioPhoneNumber: '',
     // Announcement Bar
+    // Homepage Sections (master toggles)
+    reviewsEnabled: 'true',
+    bestSellersEnabled: 'true',
+    newArrivalsEnabled: 'true',
+    curatedLooksEnabled: 'true',
     // Social Login
     googleLoginEnabled: 'true',
     facebookLoginEnabled: 'true',
@@ -194,8 +203,14 @@ function getDefaultSettings() {
     facebookAppId: '',
     facebookAppSecret: '',
     announcementEnabled: 'true',
-    announcementText: 'THREVOLT  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499',
+    announcementText: `${DEFAULT_STORE_NAME}  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499`,
+    // WhatsApp Button
+    whatsappButtonEnabled: 'false',
+    whatsappButtonNumber: '',
     // Chatbot / Live Chat
+    // Navbar Options
+    languageSwitcherEnabled: 'true',
+    currencySwitcherEnabled: 'true',
     chatbotEnabled: 'true',
     chatWelcomeMessage: '👋 Hi there! How can we help you today?',
     chatOfflineMessage: 'We are currently offline. Please leave a message and we will get back to you during business hours.',

@@ -1,5 +1,6 @@
+import { Hammer, Mail, ArrowRight, Clock, ThumbsUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Mail, Clock, Hammer, ArrowRight, ThumbsUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
 import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
@@ -27,6 +28,7 @@ function AnimatedBackground() {
 }
 
 function StatusIndicator() {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 mb-10">
       <div className="relative flex items-center justify-center">
@@ -34,7 +36,7 @@ function StatusIndicator() {
         <div className="absolute inset-0 w-3 h-3 rounded-full bg-amber-500 animate-ping opacity-40" style={{ animationDuration: '2s' }} />
       </div>
       <span className="text-amber-400/80 text-xs font-semibold tracking-[0.2em] uppercase">
-        Scheduled Maintenance in Progress
+        {t('maintenance.scheduled')} {t('maintenance.in_progress')}
       </span>
     </div>
   );
@@ -70,6 +72,7 @@ function AnimatedIcon() {
 }
 
 function ProgressBar() {
+  const { t } = useTranslation();
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -85,7 +88,7 @@ function ProgressBar() {
   return (
     <div className="w-full max-w-xs mx-auto mb-8">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-white/40 text-[11px] font-semibold tracking-wider uppercase">Progress</span>
+        <span className="text-white/40 text-[11px] font-semibold tracking-wider uppercase">{t('maintenance.progress')}</span>
         <span className="text-white/50 text-[11px] font-mono">{Math.min(Math.round(progress), 100)}%</span>
       </div>
       <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
@@ -95,27 +98,28 @@ function ProgressBar() {
         />
       </div>
       <p className="text-white/25 text-[10px] text-center mt-2 tracking-wider">
-        Optimizing your experience
+        {t('maintenance.optimizing')}
       </p>
     </div>
   );
 }
 
 function ContactCard({ contactEmail }) {
+  const { t } = useTranslation();
   return (
     <div className="relative group">
       <div className="absolute -inset-[1px] bg-gradient-to-b from-white/[0.06] to-white/[0.02] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="relative bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] rounded-2xl p-6 md:p-7 text-center transition-all duration-300 group-hover:bg-white/[0.05] group-hover:border-white/[0.1]">
         <p className="text-white/40 text-xs font-medium tracking-wider uppercase mb-4">
-          Need Urgent Assistance?
+          {t('maintenance.urgent_assistance')}
         </p>
         <a
           href={`mailto:${contactEmail}`}
           className="inline-flex items-center justify-center gap-2.5 text-amber-400/80 hover:text-amber-300 font-semibold text-sm transition-all duration-300 group/link"
         >
-          <Mail size={16} className="transition-transform duration-300 group-hover/link:-translate-y-0.5" />
+          <Mail size={16} />
           <span>{contactEmail}</span>
-          <ArrowRight size={14} className="transition-all duration-300 opacity-0 -translate-x-2 group-hover/link:opacity-100 group-hover/link:translate-x-0" />
+          <ArrowRight size={14} />
         </a>
       </div>
     </div>
@@ -123,11 +127,12 @@ function ContactCard({ contactEmail }) {
 }
 
 function FooterNote() {
+  const { t } = useTranslation();
   return (
     <div className="mt-12 text-center">
       <div className="flex items-center justify-center gap-3 text-white/20 text-[11px] tracking-wider">
         <span className="h-px w-8 bg-white/[0.08]" />
-        <span>Thank you for your patience</span>
+        <span>{t('maintenance.thank_you')}</span>
         <span className="h-px w-8 bg-white/[0.08]" />
       </div>
     </div>
@@ -135,6 +140,7 @@ function FooterNote() {
 }
 
 export default function MaintenancePage({ embedded = false }) {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState(null);
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
@@ -175,10 +181,10 @@ export default function MaintenancePage({ embedded = false }) {
 
         {/* Heading */}
         <h1 className="text-white font-display text-3xl md:text-4xl lg:text-5xl font-extrabold mb-4 leading-[1.1] tracking-tight">
-          Enhancing Your
+          {t('maintenance.enhancing')}
           <br />
           <span className="bg-gradient-to-r from-white/90 via-white/70 to-white/50 bg-clip-text text-transparent">
-            Shopping Experience
+            {t('maintenance.shopping_experience')}
           </span>
         </h1>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence } from 'framer-motion';
@@ -25,81 +25,119 @@ import PageTransition from './components/common/PageTransition';
 import SessionTimeoutModal from './components/common/SessionTimeoutModal';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { initTracker, trackPageView } from './services/tracker';
+import { setDefaultCurrency, setDefaultTimezone } from './utils/formatters';
+import { initI18nSync, loadApiTranslations } from './utils/i18n';
+
+// Initialize i18n synchronously with English defaults BEFORE the first React render.
+// This prevents a flash of raw translation keys in the Navbar on initial page load.
+initI18nSync();
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
+import ThemeInjector from './components/common/ThemeInjector';
 import LiveChatWidget from './components/chat/LiveChatWidget';
+import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
 
 import { settingsAPI } from './api/settings';
 
-// Storefront pages
-import HomePage from './pages/storefront/HomePage';
-import ProductsPage from './pages/storefront/ProductsPage';
-import ProductDetailPage from './pages/storefront/ProductDetailPage';
-import WishlistPage from './pages/storefront/WishlistPage';
-import OrdersPage from './pages/storefront/OrdersPage';
-import OrderDetailPage from './pages/storefront/OrderDetailPage';
-import OrderThankYouPage from './pages/storefront/OrderThankYouPage';
-import CheckoutPage from './pages/storefront/CheckoutPage';
-import ProfilePage from './pages/storefront/ProfilePage';
-import AddressesPage from './pages/storefront/AddressesPage';
-import NotificationsPage from './pages/storefront/NotificationsPage';
-import AboutPage from './pages/storefront/AboutPage';
-import ContactPage from './pages/storefront/ContactPage';
-import PrivacyPage from './pages/storefront/PrivacyPage';
-import ReturnPolicyPage from './pages/storefront/ReturnPolicyPage';
-import CustomPageView from './pages/storefront/CustomPageView';
-import SectionProductsPage from './pages/storefront/SectionProductsPage';
-import CartPage from './pages/storefront/CartPage';
-import TrackOrderPage from './pages/storefront/TrackOrderPage';
-import NotFoundPage from './pages/storefront/NotFoundPage';
-import MaintenancePage from './pages/storefront/MaintenancePage';
-import UnsubscribePage from './pages/storefront/UnsubscribePage';
+// ── Route-level Code Splitting (React.lazy) ──
+// Pages are loaded on-demand, reducing the initial JS bundle significantly.
 
+// Storefront pages
+const HomePage = lazy(() => import('./pages/storefront/HomePage'));
+const ProductsPage = lazy(() => import('./pages/storefront/ProductsPage'));
+const ProductDetailPage = lazy(() => import('./pages/storefront/ProductDetailPage'));
+const WishlistPage = lazy(() => import('./pages/storefront/WishlistPage'));
+const OrdersPage = lazy(() => import('./pages/storefront/OrdersPage'));
+const OrderDetailPage = lazy(() => import('./pages/storefront/OrderDetailPage'));
+const OrderThankYouPage = lazy(() => import('./pages/storefront/OrderThankYouPage'));
+const CheckoutPage = lazy(() => import('./pages/storefront/CheckoutPage'));
+const ProfilePage = lazy(() => import('./pages/storefront/ProfilePage'));
+const AddressesPage = lazy(() => import('./pages/storefront/AddressesPage'));
+const NotificationsPage = lazy(() => import('./pages/storefront/NotificationsPage'));
+const AboutPage = lazy(() => import('./pages/storefront/AboutPage'));
+const ContactPage = lazy(() => import('./pages/storefront/ContactPage'));
+const PrivacyPage = lazy(() => import('./pages/storefront/PrivacyPage'));
+const ReturnPolicyPage = lazy(() => import('./pages/storefront/ReturnPolicyPage'));
+const CustomPageView = lazy(() => import('./pages/storefront/CustomPageView'));
+const SectionProductsPage = lazy(() => import('./pages/storefront/SectionProductsPage'));
+const SalesPage = lazy(() => import('./pages/storefront/SalesPage'));
+const CartPage = lazy(() => import('./pages/storefront/CartPage'));
+const TrackOrderPage = lazy(() => import('./pages/storefront/TrackOrderPage'));
+const NotFoundPage = lazy(() => import('./pages/storefront/NotFoundPage'));
+// MaintenancePage is eagerly imported — used in MaintenanceWrapper (no Suspense boundary there)
+import MaintenancePage from './pages/storefront/MaintenancePage';
+const UnsubscribePage = lazy(() => import('./pages/storefront/UnsubscribePage'));
+const ReturnsPage = lazy(() => import('./pages/storefront/ReturnsPage'));
+
+// MaintenancePage kept as static import — used eagerly in MaintenanceWrapper (outside Suspense)
 // Auth pages
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
 
 // Admin pages
-import DashboardPage from './pages/admin/DashboardPage';
-import ProductsAdminPage from './pages/admin/ProductsAdminPage';
-import OrdersAdminPage from './pages/admin/OrdersAdminPage';
-import OrderDetailAdminPage from './pages/admin/OrderDetailAdminPage';
-import UsersAdminPage from './pages/admin/UsersAdminPage';
-import CategoriesAdminPage from './pages/admin/CategoriesAdminPage';
-import InventoryAdminPage from './pages/admin/InventoryAdminPage';
-import CouponsAdminPage from './pages/admin/CouponsAdminPage';
-import ReviewsAdminPage from './pages/admin/ReviewsAdminPage';
-import PaymentsAdminPage from './pages/admin/PaymentsAdminPage';
-import ShippingAdminPage from './pages/admin/ShippingAdminPage';
-import NotificationsAdminPage from './pages/admin/NotificationsAdminPage';
-import BannersAdminPage from './pages/admin/BannersAdminPage';
-import VariantsAdminPage from './pages/admin/VariantsAdminPage';
-import AnalyticsAdminPage from './pages/admin/AnalyticsAdminPage';
-import SettingsAdminPage from './pages/admin/SettingsAdminPage';
-import SEOAdminPage from './pages/admin/SEOAdminPage';
-import SEODashboardPage from './pages/admin/SEODashboardPage';
-import EmailTemplatesAdminPage from './pages/admin/EmailTemplatesAdminPage';
-import BrandsAdminPage from './pages/admin/BrandsAdminPage';
+const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
+const ProductsAdminPage = lazy(() => import('./pages/admin/ProductsAdminPage'));
+const OrdersAdminPage = lazy(() => import('./pages/admin/OrdersAdminPage'));
+const OrderDetailAdminPage = lazy(() => import('./pages/admin/OrderDetailAdminPage'));
+const UsersAdminPage = lazy(() => import('./pages/admin/UsersAdminPage'));
+const CategoriesAdminPage = lazy(() => import('./pages/admin/CategoriesAdminPage'));
+const InventoryAdminPage = lazy(() => import('./pages/admin/InventoryAdminPage'));
+const CouponsAdminPage = lazy(() => import('./pages/admin/CouponsAdminPage'));
+const ReviewsAdminPage = lazy(() => import('./pages/admin/ReviewsAdminPage'));
+const PaymentsAdminPage = lazy(() => import('./pages/admin/PaymentsAdminPage'));
+const ShippingAdminPage = lazy(() => import('./pages/admin/ShippingAdminPage'));
+const NotificationsAdminPage = lazy(() => import('./pages/admin/NotificationsAdminPage'));
+const BannersAdminPage = lazy(() => import('./pages/admin/BannersAdminPage'));
+const VariantsAdminPage = lazy(() => import('./pages/admin/VariantsAdminPage'));
+const AnalyticsAdminPage = lazy(() => import('./pages/admin/AnalyticsAdminPage'));
+const SettingsAdminPage = lazy(() => import('./pages/admin/SettingsAdminPage'));
+const SEOAdminPage = lazy(() => import('./pages/admin/SEOAdminPage'));
+const SEODashboardPage = lazy(() => import('./pages/admin/SEODashboardPage'));
+const EmailTemplatesAdminPage = lazy(() => import('./pages/admin/EmailTemplatesAdminPage'));
+const NotificationTemplatesAdminPage = lazy(() => import('./pages/admin/NotificationTemplatesAdminPage'));
+const BrandsAdminPage = lazy(() => import('./pages/admin/BrandsAdminPage'));
 
-import SupportAdminPage from './pages/admin/SupportAdminPage';
-import AbandonedCartsAdminPage from './pages/admin/AbandonedCartsAdminPage';
-import PagesAdminPage from './pages/admin/PagesAdminPage';
-import PromotionsAdminPage from './pages/admin/PromotionsAdminPage';
-import StaffAdminPage from './pages/admin/StaffAdminPage';
-import AdminLoginPage from './pages/admin/AdminLoginPage';
-import MarketingAdminPage from './pages/admin/MarketingAdminPage';
-import AdsAdminPage from './pages/admin/AdsAdminPage';
-import TrackingAdminPage from './pages/admin/TrackingAdminPage';
-import ProductImportAdminPage from './pages/admin/ProductImportAdminPage';
-import AuditLogAdminPage from './pages/admin/AuditLogAdminPage';
-import CuratedLooksAdminPage from './pages/admin/CuratedLooksAdminPage';
-import ReelsAdminPage from './pages/admin/ReelsAdminPage';
+const SupportAdminPage = lazy(() => import('./pages/admin/SupportAdminPage'));
+const AbandonedCartsAdminPage = lazy(() => import('./pages/admin/AbandonedCartsAdminPage'));
+const PagesAdminPage = lazy(() => import('./pages/admin/PagesAdminPage'));
+const PromotionsAdminPage = lazy(() => import('./pages/admin/PromotionsAdminPage'));
+const StaffAdminPage = lazy(() => import('./pages/admin/StaffAdminPage'));
+const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
+const MarketingAdminPage = lazy(() => import('./pages/admin/MarketingAdminPage'));
+const AdsAdminPage = lazy(() => import('./pages/admin/AdsAdminPage'));
+const TrackingAdminPage = lazy(() => import('./pages/admin/TrackingAdminPage'));
+const ProductImportAdminPage = lazy(() => import('./pages/admin/ProductImportAdminPage'));
+const AuditLogAdminPage = lazy(() => import('./pages/admin/AuditLogAdminPage'));
+const LogViewerAdminPage = lazy(() => import('./pages/admin/LogViewerAdminPage'));
+const CuratedLooksAdminPage = lazy(() => import('./pages/admin/CuratedLooksAdminPage'));
+const ReelsAdminPage = lazy(() => import('./pages/admin/ReelsAdminPage'));
+const TranslationsAdminPage = lazy(() => import('./pages/admin/TranslationsAdminPage'));
+const CampaignTemplatesAdminPage = lazy(() => import('./pages/admin/CampaignTemplatesAdminPage'));
+const CurrencyAdminPage = lazy(() => import('./pages/admin/CurrencyAdminPage'));
+const ReturnsAdminPage = lazy(() => import('./pages/admin/ReturnsAdminPage'));
+const TaxAdminPage = lazy(() => import('./pages/admin/TaxAdminPage'));
+const SmsAdminPage = lazy(() => import('./pages/admin/SmsAdminPage'));
+const WebhooksAdminPage = lazy(() => import('./pages/admin/WebhooksAdminPage'));
+const QueueMonitorAdminPage = lazy(() => import('./pages/admin/QueueMonitorAdminPage'));
+const BackupsAdminPage = lazy(() => import('./pages/admin/BackupsAdminPage'));
+
+// ── Route Loading Fallback ──
+function RouteFallback() {
+  return (
+    <div className="loading-page" style={{ minHeight: '60vh' }}>
+      <div className="spinner" />
+    </div>
+  );
+}
 
 /* ── Cache version bump — increment to clear all persisted query caches ── */
-const CACHE_VERSION = 3;
-const CACHE_VERSION_KEY = 'THREVOLT_CACHE_VERSION';
+const CACHE_VERSION = 4;
+const STORAGE_PREFIX = 'THREVOLT';
+const CACHE_VERSION_KEY = `${STORAGE_PREFIX}_CACHE_VERSION`;
+const QUERY_CACHE_KEY = `${STORAGE_PREFIX}_QUERY_CACHE`;
+const DEFAULT_LOADING_NAME = 'THREVOLT';
 
 // On boot, clear persisted query cache if the version has changed.
 // This ensures returning visitors don't see stale data after cache-invalidating updates.
@@ -107,7 +145,7 @@ const CACHE_VERSION_KEY = 'THREVOLT_CACHE_VERSION';
   try {
     const storedVersion = parseInt(localStorage.getItem(CACHE_VERSION_KEY), 10);
     if (storedVersion !== CACHE_VERSION) {
-      localStorage.removeItem('THREVOLT_QUERY_CACHE');
+      localStorage.removeItem(QUERY_CACHE_KEY);
       localStorage.setItem(CACHE_VERSION_KEY, String(CACHE_VERSION));
     }
   } catch {
@@ -128,7 +166,7 @@ const queryClient = new QueryClient({
 
 const localStoragePersister = createSyncStoragePersister({
   storage: window.localStorage,
-  key: 'THREVOLT_QUERY_CACHE',
+  key: QUERY_CACHE_KEY,
   throttleTime: 1000,
 });
 
@@ -187,7 +225,9 @@ function StorefrontLayout() {
       <main className="flex-1 flex flex-col pb-20">
         <AnimatePresence mode="wait">
           <PageTransition key={location.pathname}>
-            <Outlet />
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
           </PageTransition>
         </AnimatePresence>
       </main>
@@ -199,6 +239,35 @@ function StorefrontLayout() {
 }
 
 function AdminLayout() {
+  // ── Responsive Table Labels ──
+  // Reads <th> headers from table.admin-table and injects data-label
+  // into matching <td> cells so mobile card CSS can show column labels.
+  // useRef guard skips re-processing if table count hasn't changed.
+  const tableCountRef = useRef(0);
+  useEffect(() => {
+    const tables = document.querySelectorAll('table.admin-table');
+    if (!tables.length) return;
+    const count = tables.length;
+    if (count === tableCountRef.current) return;
+    tableCountRef.current = count;
+
+    tables.forEach(table => {
+      const headerCells = table.querySelectorAll('thead th');
+      if (!headerCells.length) return;
+      const rows = table.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        cells.forEach((cell, idx) => {
+          if (cell.hasAttribute('colspan')) return;
+          if (cell.hasAttribute('data-label')) return;
+          const header = headerCells[idx];
+          if (header) {
+            cell.setAttribute('data-label', header.textContent.trim());
+          }
+        });
+      });
+    });
+  });
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const { logout } = useAuthStore();
 
@@ -211,11 +280,6 @@ function AdminLayout() {
     logout();
   }, [logout]);
 
-  const handleStayLoggedIn = useCallback(() => {
-    setShowTimeoutWarning(false);
-    resetTimer();
-  }, []);
-
   const { resetTimer } = useIdleTimer({
     idleTimeout: 30 * 60 * 1000,    // 30 min → auto-logout
     warningTimeout: 25 * 60 * 1000,  // 25 min → warning modal
@@ -224,12 +288,21 @@ function AdminLayout() {
     enabled: true,
   });
 
+  const handleStayLoggedIn = useCallback(() => {
+    setShowTimeoutWarning(false);
+    resetTimer();
+  }, [resetTimer]);
+
   return (
     <div className="flex flex-col min-h-[100dvh]">
       <Navbar />
       <div className="flex flex-col md:flex-row flex-1">
         <AdminSidebar />
-        <main className="flex-1 bg-cream p-4 md:p-8"><Outlet /></main>
+        <main className="flex-1 bg-cream p-4 md:p-8">
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </main>
       </div>
       <SessionTimeoutModal
         open={showTimeoutWarning}
@@ -242,12 +315,24 @@ function AdminLayout() {
 function AppContent() {
   const { settings: appSettings } = useSettings();
   const { isAuthenticated } = useAuthStore();
+  const tokenVersion = useAuthStore((s) => s._tokenVersion);
 
-  // Dynamic title/favicon from settings
+  // Load API translations asynchronously after the first render
+  useEffect(() => {
+    loadApiTranslations().catch(() => {
+      // Silently fail — app already has default English translations
+    });
+  }, [loadApiTranslations]);
+
+  // Dynamic title/favicon/currency from settings
   useEffect(() => {
     const name = appSettings.storeName;
     const favicon = appSettings.faviconUrl;
+    const currency = appSettings.currency;
+    const timezone = appSettings.timezone;
     if (name) document.title = name;
+    if (currency) setDefaultCurrency(currency);
+    if (timezone) setDefaultTimezone(timezone);
     if (favicon) {
       let link = document.querySelector("link[rel~='icon']");
       if (!link) {
@@ -257,9 +342,11 @@ function AppContent() {
       }
       link.href = favicon;
     }
-  }, [appSettings]);
+  }, [appSettings, setDefaultCurrency, setDefaultTimezone]);
 
-  // Connect/disconnect WebSocket based on auth state
+  // Connect/disconnect WebSocket based on auth state and token version
+  // The tokenVersion dependency ensures the socket reconnects with a fresh
+  // JWT when the token is silently refreshed (e.g. OAuth redirect, refresh flow).
   useEffect(() => {
     if (isAuthenticated || localStorage.getItem('authToken')) {
       connectSocket();
@@ -267,13 +354,9 @@ function AppContent() {
     return () => {
       disconnectSocket();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, tokenVersion, connectSocket, disconnectSocket]);
 
   // ── Sync wishlist from server on auth state change ──
-  // When the user logs in (or returns with a valid token), replace the local
-  // wishlist with the server wishlist (server is the source of truth for
-  // authenticated users). Always calls setItems even when empty so guest
-  // items from before login don't linger.
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -283,10 +366,11 @@ function AppContent() {
     }).catch(() => {
       // Server sync failure is silent — local wishlist state remains
     });
-  }, [isAuthenticated]);
+  }, [isAuthenticated, wishlistAPI, useWishlistStore]);
 
   return (
     <BrowserRouter>
+      <ThemeInjector />
       <Toaster
         position="bottom-center"
         gutter={16}
@@ -357,6 +441,8 @@ function AppContent() {
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+          <Route path="/returns" element={<ProtectedRoute><ReturnsPage /></ProtectedRoute>} />
+          <Route path="/sales" element={<SalesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy-policy" element={<PrivacyPage />} />
@@ -376,7 +462,7 @@ function AppContent() {
         {/* Admin */}
         <Route element={<ProtectedRoute adminOnly><AdminLayout /></ProtectedRoute>}>
           <Route path="/admin" element={<ErrorBoundary title="Dashboard Error" description="The admin dashboard encountered an error. Try refreshing or check the console for details."><DashboardPage /></ErrorBoundary>} />
-          <Route path="/admin/analytics" element={<AnalyticsAdminPage />} />
+          <Route path="/admin/analytics" element={<ErrorBoundary title="Analytics Error" description="The analytics page encountered an error. Try refreshing or check the console for details."><AnalyticsAdminPage /></ErrorBoundary>} />
           <Route path="/admin/products" element={<ProductsAdminPage />} />
           <Route path="/admin/products/import" element={<ProductImportAdminPage />} />
           <Route path="/admin/orders" element={<OrdersAdminPage />} />
@@ -401,13 +487,24 @@ function AppContent() {
           <Route path="/admin/settings" element={<SettingsAdminPage />} />
           <Route path="/admin/seo" element={<SEOAdminPage />} />
           <Route path="/admin/seo/dashboard" element={<SEODashboardPage />} />
+          <Route path="/admin/notification-templates" element={<NotificationTemplatesAdminPage />} />
           <Route path="/admin/email-templates" element={<EmailTemplatesAdminPage />} />
           <Route path="/admin/marketing" element={<MarketingAdminPage />} />
           <Route path="/admin/ads" element={<AdsAdminPage />} />
           <Route path="/admin/tracking" element={<TrackingAdminPage />} />
           <Route path="/admin/curated-looks" element={<CuratedLooksAdminPage />} />
           <Route path="/admin/reels" element={<ReelsAdminPage />} />
+          <Route path="/admin/returns" element={<ReturnsAdminPage />} />
+          <Route path="/admin/campaign-templates" element={<CampaignTemplatesAdminPage />} />
+          <Route path="/admin/currencies" element={<CurrencyAdminPage />} />
+          <Route path="/admin/translations" element={<TranslationsAdminPage />} />
+          <Route path="/admin/tax" element={<TaxAdminPage />} />
+          <Route path="/admin/sms" element={<SmsAdminPage />} />
+          <Route path="/admin/backups" element={<BackupsAdminPage />} />
+          <Route path="/admin/queue" element={<QueueMonitorAdminPage />} />
+          <Route path="/admin/webhooks" element={<WebhooksAdminPage />} />
           <Route path="/admin/audit-logs" element={<AuditLogAdminPage />} />
+          <Route path="/admin/logs" element={<LogViewerAdminPage />} />
         </Route>
 
         {/* 404 Catch-all */}
@@ -444,7 +541,7 @@ export default function App() {
         wasHidden = true;
         originalTitle = document.title;
         originalFavicon = faviconEl ? faviconEl.href : null;
-        document.title = `🔙 Come back to ${originalTitle}!`;
+        document.title = `\u{1F519} Come back to ${originalTitle}!`;
         if (faviconEl) {
           faviconEl.href = 'data:image/svg+xml,' + encodeURIComponent(comebackFaviconSvg);
         }
@@ -469,7 +566,7 @@ export default function App() {
   }, []);
 
   if (loading) {
-    return <div className="loading-page"><div className="spinner" /><p style={{ color: '#8a8a9a', fontFamily: 'Jost, sans-serif', fontWeight: 600 }}>Loading THREVOLT...</p></div>;
+    return <div className="loading-page"><div className="spinner" /><p style={{ color: '#8a8a9a', fontFamily: 'Jost, sans-serif', fontWeight: 600 }}>Loading {DEFAULT_LOADING_NAME}...</p></div>;
   }
 
   return (
@@ -490,7 +587,9 @@ export default function App() {
         }}
       >
         <SettingsProvider>
-          <AppContent />
+          <CurrencyProvider>
+            <AppContent />
+          </CurrencyProvider>
         </SettingsProvider>
       </PersistQueryClientProvider>
     </HelmetProvider>

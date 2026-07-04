@@ -1,8 +1,14 @@
+import { Star, Search, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { reviewsAPI } from '../../api/reviews';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import { getStars, formatDate } from '../../utils/formatters';
 import toast from '../../utils/toast';
-import { Star, CheckCircle, XCircle, AlertCircle, Search, Trash2 } from 'lucide-react';
+import { downloadBlob } from '../../utils/download';
+
+;
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
 
 const TABS = [
   { key: 'all', label: 'All Reviews', icon: Star },
@@ -21,7 +27,69 @@ export default function ReviewsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 15;
+  // CSV Export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const REVIEW_COLUMNS = [
+    { key: 'customerName', label: 'Customer' },
+    { key: 'customerEmail', label: 'Email' },
+    { key: 'productName', label: 'Product' },
+    { key: 'rating', label: 'Rating' },
+    { key: 'title', label: 'Title' },
+    { key: 'comment', label: 'Comment' },
+    { key: 'isVerified', label: 'Verified Purchase' },
+    { key: 'isModerated', label: 'Moderated' },
+    { key: 'isFlagged', label: 'Flagged' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true); setExportStatus('dispatching'); setExportError(null);
+    try {
+      const filters = { search: debouncedSearch || undefined };
+      if (activeTab !== 'all') filters.status = activeTab;
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+      const dispatchRes = await adminAPI.dispatchExport({ type: 'reviews', filters, columns: selectedColumns });
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+      setExportStatus('processing');
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `reviews-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Reviews exported successfully');
+            setTimeout(() => { setShowExportModal(false); setExportStatus(null); }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed'); setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed'); setExportError(err.response?.data?.message || err.message || 'Failed to export reviews');
+      toast.error('Export failed');
+    } finally { setExporting(false); }
+  };
+
+  const [pageSize, setPageSize] = useState(15);
+  const pageSizeOptions = [10, 15, 25, 50];
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 400);
@@ -30,14 +98,14 @@ export default function ReviewsAdminPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, debouncedSearch]);
+  }, [activeTab, debouncedSearch, pageSize]);
 
   const loadReviews = useCallback(async (page = 1) => {
     setLoading(true);
     setError(null);
     try {
       let r;
-      const params = { page, limit, search: debouncedSearch || undefined };
+      const params = { page, limit: pageSize, search: debouncedSearch || undefined };
 
       if (activeTab === 'pending') {
         r = await reviewsAPI.getPending(params);
@@ -51,7 +119,7 @@ export default function ReviewsAdminPage() {
       setReviews(Array.isArray(list) ? list : []);
       const pag = data?.pagination || data || {};
       setCurrentPage(pag.current_page || pag.page || page);
-      setTotalPages(pag.last_page || pag.pages || pag.totalPages || Math.ceil((pag.total || 0) / limit) || 1);
+      setTotalPages(pag.last_page || pag.pages || pag.totalPages || Math.ceil((pag.total || 0) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) {
       setError('Failed to load reviews');
@@ -144,17 +212,23 @@ export default function ReviewsAdminPage() {
 
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div>
-          <h2>Reviews</h2>
-          <p>Manage all customer reviews — approve, reject, or delete</p>
-        </div>
-        {activeTab === 'pending' && pendingCount > 0 && (
-          <button className="btn-dark btn-sm" onClick={handleBulkApprove}>
-            <CheckCircle size={14} /> Approve All ({pendingCount})
-          </button>
-        )}
-      </div>
+      <AdminPageShell
+        title="Reviews"
+        subtitle="Manage all customer reviews — approve, reject, or delete"
+        loading={loading}
+        error={error}
+        page="reviews"
+        actions={
+          <>
+            {activeTab === 'pending' && pendingCount > 0 && (
+              <button className="btn-dark btn-sm" onClick={handleBulkApprove}>
+                <CheckCircle size={14} /> Approve All ({pendingCount})
+              </button>
+            )}
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+          </>
+        }
+      >
 
       {/* Tab Navigation */}
       <div className="admin-tabs-wrap" style={{
@@ -172,9 +246,9 @@ export default function ReviewsAdminPage() {
                 display: 'flex', alignItems: 'center', gap: '0.4rem',
                 padding: '0.65rem 1.2rem', fontSize: '0.85rem',
                 fontWeight: isActive ? 700 : 500,
-                color: isActive ? 'var(--accent, #C8A97E)' : 'var(--muted, #888)',
+                color: isActive ? 'var(--primary)' : 'var(--muted, #888)',
                 background: 'transparent', border: 'none',
-                borderBottom: isActive ? '2px solid var(--accent, #C8A97E)' : '2px solid transparent',
+                borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
                 marginBottom: '-2px', cursor: 'pointer', transition: 'all 0.2s',
                 whiteSpace: 'nowrap', opacity: isActive ? 1 : 0.6,
               }}
@@ -185,16 +259,6 @@ export default function ReviewsAdminPage() {
           );
         })}
       </div>
-
-      {error && (
-        <div className="admin-alert danger mb-4">
-          <span className="admin-alert-icon">⚠️</span>
-          <div className="admin-alert-body">
-            <div className="admin-alert-title">Error Loading Data</div>
-            <div>{error}</div>
-          </div>
-        </div>
-      )}
 
       <div className="table-card">
         <div className="table-toolbar">
@@ -220,16 +284,7 @@ export default function ReviewsAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7}>
-                    <div className="loading-page" style={{ padding: '3rem' }}>
-                      <div className="spinner" />
-                      <p style={{ marginTop: '0.75rem', color: '#999', fontSize: '0.85rem' }}>Loading reviews...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : reviews.length === 0 ? (
+              {reviews.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
                     <div className="empty-state" style={{ padding: '3rem' }}>
@@ -268,7 +323,7 @@ export default function ReviewsAdminPage() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <span style={{ color: 'var(--gold, #ffb342)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
                         {getStars(r.rating)}
                       </span>
                       <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#666' }}>{r.rating}/5</span>
@@ -315,35 +370,28 @@ export default function ReviewsAdminPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '0.85rem 1rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: '0.5rem',
-          }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} reviews)
-            </span>
-            <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} style={{ minWidth: 32 }}>◀</button>
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 7) pageNum = i + 1;
-                else if (currentPage <= 4) pageNum = i + 1;
-                else if (currentPage >= totalPages - 3) pageNum = totalPages - 6 + i;
-                else pageNum = currentPage - 3 + i;
-                return (
-                  <button key={pageNum}
-                    className={pageNum === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'}
-                    onClick={() => setCurrentPage(pageNum)} style={{ minWidth: '32px' }}>{pageNum}</button>
-                );
-              })}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} style={{ minWidth: 32 }}>▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      </AdminPageShell>
+
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={REVIEW_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`reviews-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
     </div>
   );
 }

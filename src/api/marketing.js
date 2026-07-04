@@ -1,8 +1,11 @@
-import { adminClient } from './client';
+import client, { adminClient } from './client';
 
 export const marketingAPI = {
   // ── CSV Import ──
   importSubscribersCSV: (formData) => adminClient.post('/admin/marketing/subscribers/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  previewImportSubscribersCSV: (formData) => adminClient.post('/admin/marketing/subscribers/import/preview', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
 
@@ -35,8 +38,8 @@ export const marketingAPI = {
   exportCampaignRecipientsCSV: (id) => adminClient.get(`/admin/marketing/campaigns/${id}/recipients/export`, { responseType: 'blob' }),
 
   // ── Public Subscribe (no auth) ──
-  subscribe: (data) => adminClient.post('/marketing/subscribe', data),
+  subscribe: (data) => client.post('/marketing/subscribe', data),
 
   // ── Public Unsubscribe (no auth) ──
-  unsubscribe: (email) => adminClient.post('/marketing/unsubscribe', { email }),
+  unsubscribe: (email) => client.post('/marketing/unsubscribe', { email }),
 };

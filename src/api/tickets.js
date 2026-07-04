@@ -1,4 +1,4 @@
-import client from './client';
+import client, { adminClient } from './client';
 
 export const ticketsAPI = {
   // Get user's tickets
@@ -31,13 +31,13 @@ export const chatAPI = {
 
   /** Admin: get active conversations */
   getAdminConversations: (params) =>
-    client.get('/chat/admin/conversations', { params }),
+    adminClient.get('/admin/chat/conversations', { params }),
 
   /** Admin: update chat status */
   updateChatStatus: (ticketId, status) =>
-    client.patch(`/chat/admin/${ticketId}/status`, { status }),
+    adminClient.patch(`/admin/chat/${ticketId}/status`, { status }),
 
   /** Admin: get chat stats */
   getChatStats: () =>
-    client.get('/chat/admin/stats'),
+    adminClient.get('/admin/chat/stats'),
 };

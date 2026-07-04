@@ -1,6 +1,7 @@
 import { adminClient } from './client';
 
 export const analyticsAPI = {
+  getFullAnalytics: (params) => adminClient.get('/admin/analytics/full', { params }),
   getSales: (params) => adminClient.get('/admin/analytics/sales', { params }),
   getProducts: (params) => adminClient.get('/admin/analytics/products', { params }),
   getUsers: (params) => adminClient.get('/admin/analytics/users', { params }),

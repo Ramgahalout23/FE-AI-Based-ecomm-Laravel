@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { chatAPI } from '../api/tickets';
-import { onSocketEvent, isConnected } from '../services/socketService';
+import { onRealtimeEvent, isRealtimeConnected as isConnected } from '../services/realtimeService';
 
 export default function useChat() {
   const [chat, setChat] = useState(null);           // Current chat ticket
@@ -88,9 +88,9 @@ export default function useChat() {
 
   /** Subscribe to socket events */
   useEffect(() => {
-    const unsubMessage = onSocketEvent('chat:message', handleIncomingMessage);
-    const unsubTyping = onSocketEvent('chat:typing', handleTyping);
-    const unsubAdminTyping = onSocketEvent('chat:admin:typing', handleTyping);
+    const unsubMessage = onRealtimeEvent('chat:message', handleIncomingMessage);
+    const unsubTyping = onRealtimeEvent('chat:typing', handleTyping);
+    const unsubAdminTyping = onRealtimeEvent('chat:admin:typing', handleTyping);
 
     return () => {
       unsubMessage();

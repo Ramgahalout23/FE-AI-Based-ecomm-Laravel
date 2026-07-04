@@ -1,6 +1,8 @@
+import { RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+
+;
 import { adminAPI } from '../../api/admin';
 import useAuthStore from '../../store/authStore';
 
@@ -31,6 +33,8 @@ export default function AdminLoginPage() {
       const user = res.data?.data?.user;
 
       if (token) {
+        // ! XSS NOTE — adminToken stored in localStorage. For production,
+        // migrate to httpOnly cookies via Laravel Sanctum SPA auth.
         localStorage.setItem('adminToken', token);
         localStorage.setItem('authToken', token);
         if (user) {
@@ -106,7 +110,7 @@ export default function AdminLoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? <Eye size={20} Off /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
@@ -116,7 +120,7 @@ export default function AdminLoginPage() {
               disabled={loading}
               className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : 'Sign In'}
+              {loading ? <RefreshCw size={20} /> : 'Sign In'}
             </button>
           </form>
 

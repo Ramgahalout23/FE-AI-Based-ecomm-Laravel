@@ -1,5 +1,3 @@
-import { X, Target, MessageCircle, Play, Image, Eye } from 'lucide-react';
-
 const PLATFORM_STYLES = {
   INSTAGRAM: {
     name: 'Instagram',
@@ -35,6 +33,7 @@ const PLATFORM_STYLES = {
   },
 };
 
+import { X, Activity, Play, MessageCircle, Image, Eye } from 'lucide-react';
 import { useState } from 'react';
 
 export default function AdPreviewMockup({ campaign, copy, platform, onClose }) {
@@ -69,7 +68,7 @@ export default function AdPreviewMockup({ campaign, copy, platform, onClose }) {
               <div className="space-y-3">
                 <div className={`rounded-xl overflow-hidden bg-gray-200 ${plat.mockup === 'square' ? 'aspect-square max-w-sm mx-auto' : 'aspect-video'} ${imgError ? 'flex items-center justify-center' : ''}`}>
                   {imgError ? (
-                    <Image size={48} className="text-gray-400" />
+                    <Image size={48} />
                   ) : (
                     <img src={imageUrl} alt="Ad creative" className="w-full h-full object-cover"
                       onError={() => setImgError(true)} />
@@ -115,7 +114,7 @@ export default function AdPreviewMockup({ campaign, copy, platform, onClose }) {
                   {imageUrl && (
                     <div className="rounded-xl overflow-hidden mb-2 w-48 h-48 bg-gray-100 flex items-center justify-center">
                       {imgError ? (
-                        <Image size={32} className="text-gray-400" />
+                        <Image size={32} />
                       ) : (
                         <img src={imageUrl} alt="" className="w-full h-full object-cover"
                           onError={() => setImgError(true)} />
@@ -129,7 +128,7 @@ export default function AdPreviewMockup({ campaign, copy, platform, onClose }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                  <MessageCircle size={12} className="text-green-500" />
+                  <MessageCircle size={12} />
                   Delivered via WhatsApp Business
                 </div>
               </div>

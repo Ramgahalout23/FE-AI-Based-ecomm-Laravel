@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { formatDate } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 
 export default function SupportAdminPage() {
@@ -17,7 +20,8 @@ export default function SupportAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -26,12 +30,71 @@ export default function SupportAdminPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
+  // CSV Export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const TICKET_COLUMNS = [
+    { key: 'ticketNumber', label: 'Ticket #' },
+    { key: 'customerName', label: 'Customer' },
+    { key: 'customerEmail', label: 'Email' },
+    { key: 'subject', label: 'Subject' },
+    { key: 'description', label: 'Description' },
+    { key: 'category', label: 'Category' },
+    { key: 'priority', label: 'Priority' },
+    { key: 'status', label: 'Status' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true); setExportStatus('dispatching'); setExportError(null);
+    try {
+      const filters = { search: debouncedSearch || undefined, status: statusFilter !== 'ALL' ? statusFilter : undefined };
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+      const dispatchRes = await adminAPI.dispatchExport({ type: 'tickets', filters, columns: selectedColumns });
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+      setExportStatus('processing');
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Tickets exported successfully');
+            setTimeout(() => { setShowExportModal(false); setExportStatus(null); }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed'); setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed'); setExportError(err.response?.data?.message || err.message || 'Failed to export tickets');
+      toast.error('Export failed');
+    } finally { setExporting(false); }
+  };
+
   const load = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         search: debouncedSearch || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined
       };
@@ -41,7 +104,7 @@ export default function SupportAdminPage() {
       setTickets(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || (data?.total !== undefined ? { page: data.page, pages: data.total_pages, total: data.total, per_page: data.limit } : {});
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load support tickets'); console.warn('Failed to load support tickets:', e); } finally { setLoading(false); }
   };
@@ -53,7 +116,7 @@ export default function SupportAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
@@ -91,6 +154,7 @@ export default function SupportAdminPage() {
             <option value="ANSWERED">Answered</option>
             <option value="RESOLVED">Resolved</option>
           </select>
+          <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
           <span className="table-count">{totalItems} tickets</span>
         </div>
         <table className="admin-table">
@@ -121,19 +185,27 @@ export default function SupportAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} tickets)</span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>◀ Prev</button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map(p => (
-                <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-              ))}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Next ▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={TICKET_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`tickets-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
 
       {replyModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setReplyModal(null)}>

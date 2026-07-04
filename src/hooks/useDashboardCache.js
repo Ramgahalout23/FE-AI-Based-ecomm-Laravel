@@ -1,11 +1,55 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 
 /**
  * A lightweight cache for dashboard/analytics data keyed by date range.
  * Stores a snapshot of all dashboard state per range key.
  * Automatically evicts oldest entries when exceeding maxEntries.
+ * Persists to sessionStorage so data survives page refreshes (instant back navigation).
+ *
+ * # Cache Versioning
+ * Increment CACHE_VERSION whenever the cached data shape changes
+ * (e.g., adding/removing/renaming fields). Old entries are silently
+ * discarded, forcing a fresh fetch from the API.
  */
-export default function useDashboardCache(maxEntries = 10) {
+const CACHE_VERSION = 2;
+
+function loadFromStorage(prefix, key) {
+  try {
+    const raw = sessionStorage.getItem(prefix + key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Check version — discard if data shape has changed
+      if (parsed.v !== CACHE_VERSION) return null;
+      // Check freshness — expire after 5 minutes
+      if (parsed.ts && Date.now() - parsed.ts < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveToStorage(prefix, key, data) {
+  try {
+    sessionStorage.setItem(prefix + key, JSON.stringify({ v: CACHE_VERSION, ts: Date.now(), data }));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+function removeFromStorage(prefix, key) {
+  try {
+    sessionStorage.removeItem(prefix + key);
+  } catch { /* ignore */ }
+}
+
+function clearAllStorage(prefix) {
+  try {
+    const keys = Object.keys(sessionStorage).filter(k => k.startsWith(prefix));
+    keys.forEach(k => sessionStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
+
+export default function useDashboardCache(maxEntries = 10, namespace = 'default') {
+  const STORAGE_KEY_PREFIX = 'dash_cache_' + namespace + '_';
   const cacheRef = useRef(new Map());
   const orderRef = useRef([]); // insertion order for LRU eviction
 
@@ -25,15 +69,29 @@ export default function useDashboardCache(maxEntries = 10) {
 
   /**
    * Retrieve cached data for a range. Returns null if not cached.
+   * Checks memory cache first, then sessionStorage.
    */
   const get = useCallback((range) => {
     const key = buildKey(range);
-    return cacheRef.current.get(key) ?? null;
+    // Check memory cache first
+    const mem = cacheRef.current.get(key);
+    if (mem) return mem;
+    // Fall back to sessionStorage (survives page refreshes)
+    const stored = loadFromStorage(STORAGE_KEY_PREFIX, key);
+    if (stored) {
+      // Restore into memory cache and update LRU order
+      cacheRef.current.set(key, stored);
+      if (!orderRef.current.includes(key)) {
+        orderRef.current.push(key);
+      }
+      return stored;
+    }
+    return null;
   }, [buildKey]);
 
   /**
    * Store data snapshot for a range.
-   * Moves entry to the end of the LRU order on re-set.
+   * Persists to both memory cache AND sessionStorage.
    */
   const set = useCallback((range, data) => {
     const key = buildKey(range);
@@ -47,10 +105,14 @@ export default function useDashboardCache(maxEntries = 10) {
     cacheRef.current.set(key, data);
     orderRef.current.push(key);
 
-    // Evict oldest if over limit
+    // Persist to sessionStorage
+    saveToStorage(STORAGE_KEY_PREFIX, key, data);
+
+    // Evict oldest if over limit (both memory and storage)
     if (orderRef.current.length > maxEntries) {
       const oldest = orderRef.current.shift();
       cacheRef.current.delete(oldest);
+      removeFromStorage(STORAGE_KEY_PREFIX, oldest);
     }
   }, [buildKey, maxEntries]);
 
@@ -58,16 +120,20 @@ export default function useDashboardCache(maxEntries = 10) {
    * Check if a range has cached data.
    */
   const has = useCallback((range) => {
-    return cacheRef.current.has(buildKey(range));
+    const key = buildKey(range);
+    return cacheRef.current.has(key) || loadFromStorage(STORAGE_KEY_PREFIX, key) !== null;
   }, [buildKey]);
 
   /**
-   * Clear the entire cache.
+   * Clear the entire cache (memory + sessionStorage).
    */
   const clear = useCallback(() => {
     cacheRef.current.clear();
     orderRef.current = [];
+    clearAllStorage(STORAGE_KEY_PREFIX);
   }, []);
 
-  return { get, set, has, clear };
+  // Stable object reference — prevents cascading re-renders in consuming components
+  // (DashboardPage depends on this via useCallback(fn, [cache]) -> useEffect -> fetch -> dispatch -> re-render)
+  return useMemo(() => ({ get, set, has, clear }), [get, set, has, clear]);
 }

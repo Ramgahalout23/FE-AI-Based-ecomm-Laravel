@@ -1,0 +1,4 @@
+/* ── Pagination ──────────────── */
+.pagination{display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:2rem 0}
+.page-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border:2px solid #e5e5ea;border-radius:10px;background:#fff;font-size:0.85rem;font-weight:600;transition:all 0.3s ease}
+.page-btn:hover,.page-btn.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}

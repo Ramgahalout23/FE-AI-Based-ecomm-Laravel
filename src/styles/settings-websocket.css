@@ -1,0 +1,67 @@
+/* ═══════════════════════════════════════════
+   Settings — WebSocket Tab (WebSocketTab.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Driver Selection Radio Cards ── */
+.driver-select-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.driver-select-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+.driver-select-card:not(.selected) {
+  background: transparent;
+}
+.driver-select-card label {
+  cursor: pointer;
+}
+
+/* ── Connection Test Button ── */
+.test-connection-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  background: transparent;
+}
+
+/* ── Driver Select List ── */
+.driver-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.driver-radio {
+  accent-color: var(--primary);
+}
+.driver-select-label {
+  font-size: 0.9rem;
+}
+.driver-select-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 2px 0 0 0;
+}
+
+/* ── WebSocket Form Actions ── */
+.ws-form-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* ── Settings Subsection ── */
+.settings-subsection-title {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}

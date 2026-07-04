@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
 import toast from '../../utils/toast';
+import { downloadBlob } from '../../utils/download';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl, getCategoryImage } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 
 const EMPTY = { name: '', description: '', parentId: '', image: '' };
 
@@ -19,7 +23,8 @@ export default function CategoriesAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [limit] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   // Search/Filters states
   const [search, setSearch] = useState('');
@@ -54,7 +59,7 @@ export default function CategoriesAdminPage() {
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         search: debouncedSearch || undefined
       };
       if (filter === 'ACTIVE') params.isActive = true;
@@ -66,7 +71,7 @@ export default function CategoriesAdminPage() {
 
       const pag = r.data?.pagination || r.data?.data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (err) {
       console.error('Failed to load categories:', err);
@@ -87,12 +92,70 @@ export default function CategoriesAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch, filter]);
+  }, [debouncedSearch, filter, pageSize]);
 
   // Load when currentPage changes
   useEffect(() => {
     load(currentPage);
   }, [currentPage]);
+
+  // CSV Export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const CATEGORY_COLUMNS = [
+    { key: 'name', label: 'Category Name' },
+    { key: 'slug', label: 'Slug' },
+    { key: 'description', label: 'Description' },
+    { key: 'parent', label: 'Parent Category' },
+    { key: 'isActive', label: 'Active' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true); setExportStatus('dispatching'); setExportError(null);
+    try {
+      const filters = { search: debouncedSearch || undefined };
+      if (filter === 'ACTIVE') filters.isActive = true;
+      else if (filter === 'INACTIVE') filters.isActive = false;
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+      const dispatchRes = await adminAPI.dispatchExport({ type: 'categories', filters, columns: selectedColumns });
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+      setExportStatus('processing');
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `categories-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Categories exported successfully');
+            setTimeout(() => { setShowExportModal(false); setExportStatus(null); }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed'); setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed'); setExportError(err.response?.data?.message || err.message || 'Failed to export categories');
+      toast.error('Export failed');
+    } finally { setExporting(false); }
+  };
 
   const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
   const openEdit = (c) => { setEditing(c); setForm({ name: c.name || '', description: c.description || '', parentId: c.parentId || '', image: getCategoryImage(c) || '' }); setShowModal(true); };
@@ -176,11 +239,18 @@ export default function CategoriesAdminPage() {
 
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Categories</h2><p>Manage product categories and hierarchy ({totalItems} total)</p></div>
-        <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Category</button>
-      </div>
-
+      <AdminPageShell
+        title="Categories"
+        subtitle={`Manage product categories and hierarchy (${totalItems} total)`}
+        loading={loading}
+        page="categories"
+        actions={
+          <>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+            <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Category</button>
+          </>
+        }
+      >
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search categories..." value={search} onChange={e => setSearch(e.target.value)} autoComplete="off" />
@@ -194,9 +264,7 @@ export default function CategoriesAdminPage() {
         <table className="admin-table">
           <thead><tr><th>Image</th><th>Category</th><th>Description</th><th>Products</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-            ) : categories.length === 0 ? (
+            {categories.length === 0 ? (
               <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">📂</div><h3>No categories yet</h3><p>Create your first category to organize products.</p></div></td></tr>
             ) : categories.map(c => (
               <tr key={c.id}>
@@ -216,43 +284,27 @@ export default function CategoriesAdminPage() {
           </tbody>
         </table>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Showing page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} categories total)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage <= 1} 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{ opacity: currentPage <= 1 ? 0.5 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
-              >
-                ◀ Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button 
-                  key={p} 
-                  className={p === currentPage ? "btn-dark btn-sm" : "btn-ghost btn-sm"}
-                  onClick={() => setCurrentPage(p)}
-                  style={{ minWidth: '32px' }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage >= totalPages} 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{ opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
-              >
-                Next ▶
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={CATEGORY_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`categories-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
+      </AdminPageShell>
 
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>

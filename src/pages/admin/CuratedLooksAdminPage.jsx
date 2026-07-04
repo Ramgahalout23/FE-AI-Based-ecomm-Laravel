@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { curatedLooksAPI } from '../../api/curatedLooks';
+import { settingsAPI } from '../../api/settings';
 import { adminAPI } from '../../api/admin';
+import { PageSkeleton } from '../../components/admin/pageSkeletonConfig';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 
 const EMPTY_FORM = {
   name: '',
@@ -12,10 +17,21 @@ const EMPTY_FORM = {
   isActive: true,
 };
 
+const CURATED_LOOK_COLUMNS = [
+  { key: 'name', label: 'Name' },
+  { key: 'slug', label: 'Slug' },
+  { key: 'description', label: 'Description' },
+  { key: 'displayOrder', label: 'Display Order' },
+  { key: 'isActive', label: 'Active' },
+  { key: 'createdAt', label: 'Created Date' },
+];
+
 export default function CuratedLooksAdminPage() {
   const [looks, setLooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [looksEnabled, setLooksEnabled] = useState(true);
+  const [togglingSection, setTogglingSection] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -27,7 +43,8 @@ export default function CuratedLooksAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 20;
+  const [pageSize, setPageSize] = useState(20);
+  const pageSizeOptions = [10, 20, 50, 100];
 
   // ── Product Picker ──
   const [availableProducts, setAvailableProducts] = useState([]);
@@ -52,7 +69,7 @@ export default function CuratedLooksAdminPage() {
   const load = async (page = 1) => {
     setLoading(true);
     try {
-      const params = { page, limit, search: debouncedSearch || undefined };
+      const params = { page, limit: pageSize, search: debouncedSearch || undefined };
       if (statusFilter !== 'all') {
         params.is_active = statusFilter === 'active';
       }
@@ -62,7 +79,7 @@ export default function CuratedLooksAdminPage() {
       setLooks(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) {
       setError('Failed to load curated looks');
@@ -79,11 +96,44 @@ export default function CuratedLooksAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, pageSize]);
+
+  // ── CSV Export State ──
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
 
   useEffect(() => {
     load(currentPage);
   }, [currentPage]);
+
+  // ── Load looksEnabled setting ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await settingsAPI.getSetting('curatedLooksEnabled');
+        const val = r?.data?.data?.value;
+        setLooksEnabled(val !== 'false' && val !== '0');
+      } catch {
+        // default to enabled
+      }
+    })();
+  }, []);
+
+  // ── Master toggle for entire curated looks section ──
+  const handleToggleSection = async () => {
+    setTogglingSection(true);
+    const newState = !looksEnabled;
+    try {
+      await settingsAPI.updateSetting('curatedLooksEnabled', newState ? 'true' : 'false');
+      setLooksEnabled(newState);
+      toast.success(newState ? 'Curated looks section enabled on homepage' : 'Curated looks section disabled on homepage');
+    } catch {
+      toast.error('Failed to toggle curated looks section');
+    }
+    setTogglingSection(false);
+  };
 
   // ── Reorder handlers ──
   const handleDragStart = useCallback((index) => {
@@ -253,10 +303,51 @@ export default function CuratedLooksAdminPage() {
           <h2>Curated Looks</h2>
           <p>Manage curated collections shown on the homepage</p>
         </div>
-        <button className="btn-dark btn-sm" onClick={openCreate}>
-          + Add Look
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button
+            className={`btn-sm ${looksEnabled ? 'btn-ghost' : 'btn-dark'}`}
+            onClick={handleToggleSection}
+            disabled={togglingSection}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              fontSize: '0.78rem',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '0.5rem',
+              border: looksEnabled ? '1px solid var(--border)' : 'none',
+              background: looksEnabled ? 'transparent' : '#ef4444',
+              color: looksEnabled ? 'var(--text-muted)' : 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { if (looksEnabled) e.currentTarget.style.background = '#fee2e2'; }}
+            onMouseLeave={(e) => { if (looksEnabled) e.currentTarget.style.background = 'transparent'; }}
+          >
+            {togglingSection ? (
+              <span className="spinner" style={{ width: 12, height: 12, borderColor: looksEnabled ? '#ef4444' : '#fff', borderTopColor: 'transparent' }} />
+            ) : looksEnabled ? (
+              <span style={{ fontSize: '1rem' }}>👁️</span>
+            ) : (
+              <span style={{ fontSize: '1rem' }}>🚫</span>
+            )}
+            {looksEnabled ? 'Disable Section' : 'Enable Section'}
+          </button>
+          <button className="btn-dark btn-sm" onClick={openCreate}>
+            + Add Look
+          </button>
+          <button className="btn-dark btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+        </div>
       </div>
+
+      {!looksEnabled && (
+        <div className="admin-alert warning mb-4">
+          <span className="admin-alert-icon">💡</span>
+          <div className="admin-alert-body">
+            <div>The curated looks section is currently <strong>hidden</strong> from the homepage. Click <strong>"Enable Section"</strong> above to show it.</div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="admin-alert danger mb-4">
@@ -268,6 +359,7 @@ export default function CuratedLooksAdminPage() {
         </div>
       )}
 
+      {loading ? <PageSkeleton page="curated-looks" /> : (
       <div className="table-card">
         <div className="table-toolbar">
           <input
@@ -336,15 +428,7 @@ export default function CuratedLooksAdminPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7}>
-                  <div className="loading-page" style={{ padding: '2rem' }}>
-                    <div className="spinner" />
-                  </div>
-                </td>
-              </tr>
-            ) : looks.length === 0 ? (
+            {looks.length === 0 ? (
               <tr>
                 <td colSpan={7}>
                   <div className="empty-state">
@@ -481,51 +565,17 @@ export default function CuratedLooksAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div
-            className="pagination-container"
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '0.75rem',
-              padding: '1rem',
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} looks)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button
-                className="btn-ghost btn-sm"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              >
-                ◀ Prev
-              </button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'}
-                  onClick={() => setCurrentPage(p)}
-                  style={{ minWidth: '32px' }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                className="btn-ghost btn-sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              >
-                Next ▶
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      )}
 
       {showModal && (
         <div
@@ -783,6 +833,59 @@ export default function CuratedLooksAdminPage() {
           </div>
         </div>
       )}
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={CURATED_LOOK_COLUMNS}
+        onExport={async (selectedColumns) => {
+          setExporting(true);
+          setExportStatus('dispatching');
+          setExportError(null);
+          try {
+            const res = await adminAPI.dispatchExport({
+              type: 'curated-looks',
+              columns: selectedColumns,
+              filters: { search: debouncedSearch || undefined },
+            });
+            const exportId = res.data?.data?.id || res.data?.id;
+            if (!exportId) { throw new Error('No export ID returned'); }
+            setExportStatus('processing');
+            const poll = async () => {
+              try {
+                const statusRes = await adminAPI.checkExportStatus(exportId);
+                const status = statusRes.data?.data?.status;
+                if (status === 'completed') {
+                  setExportStatus('completed');
+                  const dlRes = await adminAPI.downloadExport(exportId);
+                  downloadBlob(dlRes, `curated-looks-export-${new Date().toISOString().split('T')[0]}.csv`);
+                  setTimeout(() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }, 1500);
+                } else if (status === 'failed') {
+                  setExportStatus('failed');
+                  setExportError(statusRes.data?.data?.error_message || 'Export failed');
+                } else {
+                  setTimeout(poll, 1500);
+                }
+              } catch (e) {
+                if (!exportStatus || exportStatus === 'processing') {
+                  setExportStatus('failed');
+                  setExportError(e.response?.data?.message || 'Export failed');
+                }
+              }
+            };
+            setTimeout(poll, 1500);
+          } catch (err) {
+            setExportStatus('failed');
+            setExportError(err.response?.data?.message || 'Failed to start export');
+          } finally {
+            setExporting(false);
+          }
+        }}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+      />
     </div>
   );
 }

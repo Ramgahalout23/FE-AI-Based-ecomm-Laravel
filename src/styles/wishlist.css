@@ -641,6 +641,164 @@
   pointer-events: none;
 }
 
+/* ── Share Button ──────────────────────────────── */
+
+.wishlist-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.wishlist-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 0.45rem 1rem;
+  border-radius: 100px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.wishlist-share-btn:hover {
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 26, 26, 0.25);
+}
+
+.wishlist-share-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Share Banner ──────────────────────────────── */
+
+.wishlist-share-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 0.85rem 1.25rem;
+  background: linear-gradient(135deg, #f8f5f0 0%, #f0ece6 100%);
+  border: 1px solid #e5e0d8;
+  border-radius: 14px;
+  animation: wishlistSlideDown 0.3s ease;
+}
+
+.wishlist-share-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+  min-width: 0;
+  color: #666;
+}
+
+.wishlist-share-banner-text {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wishlist-share-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.wishlist-share-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wishlist-share-copy-btn:hover {
+  background: #000;
+}
+
+.wishlist-share-revoke-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wishlist-share-revoke-btn:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+/* ── Shared Wishlist Page ──────────────────────── */
+
+.shared-wishlist-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+  animation: wishlistFadeIn 0.4s ease;
+}
+
+.shared-wishlist-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #aaa;
+}
+
+@media (max-width: 768px) {
+  .wishlist-share-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .wishlist-share-banner-actions {
+    width: 100%;
+  }
+
+  .wishlist-share-copy-btn,
+  .wishlist-share-revoke-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .shared-wishlist-page {
+    padding: 1.5rem 1rem 3rem;
+  }
+}
+
 /* ── Slide-out animation for removed items ──────── */
 
 .wishlist-item.removing {
@@ -719,7 +877,18 @@
 
 @media (max-width: 480px) {
   .wishlist-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .wishlist-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .wishlist-item-name {
+    font-size: 0.9rem;
   }
 }

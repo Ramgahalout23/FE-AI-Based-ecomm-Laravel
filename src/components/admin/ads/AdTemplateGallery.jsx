@@ -1,5 +1,6 @@
+import { Sparkles, Zap, Trophy, Megaphone, Activity, Play, Search, Tag, MessageCircle, ArrowRight } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
-import { Sparkles, Zap, Crown, Tag, Megaphone, MessageCircle, Target, Play, ArrowRight, Search } from 'lucide-react';
+
 import toast from '../../../utils/toast';
 import { adsAPI } from '../../../api/ads';
 
@@ -150,7 +151,7 @@ export default function AdTemplateGallery({ onApplyTemplate }) {
       {/* Header & Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <Search size={15} />
           <input className="w-full pl-9 pr-4 py-2 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
             placeholder="Search templates..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>

@@ -1,9 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { Users, Activity, MousePointerClick, Globe, Search, TrendingUp, AlertTriangle, RefreshCw, Eye, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { trackingAPI } from '../../api/tracking';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend, LineChart, Line } from 'recharts';
-import { Eye, Users, Activity, MousePointerClick, Globe, Search, Clock, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react';
+
+;
 
 const COLORS = ['#1a1a1a', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+// ── Stable recharts config constants (stable references prevent re-render loops) ──
+const TRACKING_TICK_11 = { fontSize: 11 };
+const TRACKING_TICK_10_W80 = { fontSize: 10, width: 80 };
+const TRACKING_TICK_10_W100 = { fontSize: 10, width: 100 };
+const TRACKING_TOOLTIP_STYLE = { borderRadius: 8, fontSize: '0.8rem' };
+const TRACKING_BAR_RADIUS = [0, 4, 4, 0];
+const TRACKING_MARGIN_L80 = { left: 80, right: 20 };
+const TRACKING_MARGIN_L100 = { left: 100, right: 20 };
 
 export default function TrackingAdminPage() {
   const [tab, setTab] = useState('overview');
@@ -38,15 +49,21 @@ export default function TrackingAdminPage() {
   const eventStats = dashboard?.eventStats || { totalEvents: 0 };
 
   // Prepare event chart data
-  const eventChartData = Array.isArray(events) ? events.slice(0, 10).map((e) => ({
-    name: e.eventName || e.eventType,
-    count: e._count?.id || e.count || 0,
-  })) : [];
+  const eventChartData = useMemo(() =>
+    Array.isArray(events) ? events.slice(0, 10).map((e) => ({
+      name: e.eventName || e.eventType,
+      count: e._count?.id || e.count || 0,
+    })) : [],
+    [events]
+  );
 
-  const pageViewChartData = Array.isArray(pageViews) ? pageViews.slice(0, 8).map((p) => ({
-    name: p.url ? (p.url.length > 30 ? p.url.substring(0, 30) + '...' : p.url) : 'Unknown',
-    views: p._count?.url || p.count || 0,
-  })) : [];
+  const pageViewChartData = useMemo(() =>
+    Array.isArray(pageViews) ? pageViews.slice(0, 8).map((p) => ({
+      name: p.url ? (p.url.length > 30 ? p.url.substring(0, 30) + '...' : p.url) : 'Unknown',
+      views: p._count?.url || p.count || 0,
+    })) : [],
+    [pageViews]
+  );
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -69,7 +86,7 @@ export default function TrackingAdminPage() {
         </div>
         <div className="bg-white p-5 rounded-2xl border border-border shadow-soft">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center"><Users size={18} /></div>
+            <div className="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center"><User size={18} s /></div>
             <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Unique Visitors</div>
           </div>
           <div className="text-2xl font-bold text-text-primary font-display">{(stats.uniqueVisitors || 0).toLocaleString()}</div>
@@ -115,17 +132,17 @@ export default function TrackingAdminPage() {
           <div className="h-[280px]">
             {pageViewChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={pageViewChartData} layout="vertical" margin={{ left: 80, right: 20 }}>
+                <BarChart data={pageViewChartData} layout="vertical" margin={TRACKING_MARGIN_L80} isAnimationActive={false}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, width: 80 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} />
-                  <Bar dataKey="views" fill="#1a1a1a" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                  <X Axis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={TRACKING_TICK_10_W80} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={TRACKING_TOOLTIP_STYLE} />
+                  <Bar dataKey="views" fill="#1a1a1a" radius={TRACKING_BAR_RADIUS} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-text-muted text-sm">
-                <div className="text-center"><Eye size={32} className="mx-auto mb-2 opacity-30" /><p>No page view data yet</p></div>
+                <div className="text-center"><Eye size={32} /><p>No page view data yet</p></div>
               </div>
             )}
           </div>
@@ -137,17 +154,17 @@ export default function TrackingAdminPage() {
           <div className="h-[280px]">
             {eventChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={eventChartData} layout="vertical" margin={{ left: 100, right: 20 }}>
+                <BarChart data={eventChartData} layout="vertical" margin={TRACKING_MARGIN_L100} isAnimationActive={false}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, width: 100 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: '0.8rem' }} />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                  <X Axis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={TRACKING_TICK_10_W100} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={TRACKING_TOOLTIP_STYLE} />
+                  <Bar dataKey="count" fill="#8b5cf6" radius={TRACKING_BAR_RADIUS} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-text-muted text-sm">
-                <div className="text-center"><Activity size={32} className="mx-auto mb-2 opacity-30" /><p>No event data recorded yet</p></div>
+                <div className="text-center"><Activity size={32} /><p>No event data recorded yet</p></div>
               </div>
             )}
           </div>
@@ -189,7 +206,7 @@ export default function TrackingAdminPage() {
             </table>
           </div>
         ) : (
-          <div className="p-6 text-center text-text-muted text-sm"><Users size={24} className="mx-auto mb-2 opacity-30" /><p>No active sessions. When users visit the store, their sessions will appear here.</p></div>
+          <div className="p-6 text-center text-text-muted text-sm"><User size={24} s /><p>No active sessions. When users visit the store, their sessions will appear here.</p></div>
         )}
       </div>
 

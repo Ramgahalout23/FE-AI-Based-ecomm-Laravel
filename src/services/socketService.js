@@ -46,14 +46,16 @@ export function connectSocket() {
   if (!token) return null;
 
   try {
+    // Suppress socket.io-client's internal debug logging
+    // Use polling first, then websocket — avoids raw WS error spam in console
     socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 10000,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 3000,
+      reconnectionDelayMax: 10000,
+      timeout: 5000,
     });
 
     socket.on('connect', () => {
@@ -61,11 +63,13 @@ export function connectSocket() {
     });
 
     socket.on('disconnect', (reason) => {
-      console.debug('[Socket] Disconnected:', reason);
+      if (reason !== 'transport close') {
+        console.debug('[Socket] Disconnected:', reason);
+      }
     });
 
-    socket.on('connect_error', (error) => {
-      console.warn('[Socket] Connection error:', error.message);
+    socket.on('connect_error', () => {
+      // Silently handled — no console noise
     });
 
     socket.on('reconnect', (attempt) => {

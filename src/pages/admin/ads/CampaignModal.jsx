@@ -1,5 +1,7 @@
+import { X, Upload, Check, Image, Video } from 'lucide-react';
 import { useState, useRef } from 'react';
-import { X, Upload, Image, Video, Check } from 'lucide-react';
+
+;
 import { adminAPI } from '../../../api/admin';
 import toast from '../../../utils/toast';
 
@@ -265,19 +267,12 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
   const isVideo = form.creativeType === 'VIDEO';
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-      backgroundColor: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999,
-    }}>
-      <div className="detail-panel" style={{
-        width: '90%', maxWidth: '720px', maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: 'var(--shadow-xl)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
-      }}>
+    <div className="modal-overlay">
+      <div className="detail-panel campaign-modal-panel">
         {/* Header */}
-        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="detail-header">
           <h3>{editing ? 'Edit Campaign' : 'New Campaign'}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20} /></button>
+          <button onClick={onClose} className="modal-close-btn-icon"><X size={20} /></button>
         </div>
 
         <div className="form-grid" style={{ marginTop: '1rem' }}>
@@ -370,7 +365,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                     >
                       {carouselImgErrors[idx] ? (
                           <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                            <Image size={18} className="text-gray-400" />
+                            <Image size={18} />
                           </div>
                         ) : (
                           <img src={item.url} alt={`Card ${idx + 1}`} className="w-full h-full object-cover"
@@ -380,9 +375,9 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                         {idx + 1}
                       </div>
                       <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                        <button className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
                           onClick={(e) => { e.stopPropagation(); removeCarouselCard(idx); }} title="Remove">
-                          <X size={10} />
+                          <X size={14} />
                         </button>
                       </div>
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
@@ -403,7 +398,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                         <div className="spinner w-5 h-5 border-2 border-gray-300 border-t-brand-black rounded-full" />
                       ) : (
                         <>
-                          <Upload size={18} className="text-text-muted" />
+                          <Upload size={18} />
                           <span className="text-[9px] font-semibold text-text-muted mt-1">Add</span>
                         </>
                       )}
@@ -419,15 +414,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onClick={() => carouselInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${dragOver ? 'var(--brand-black)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '1.5rem 1rem',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: dragOver ? 'rgba(0,0,0,0.03)' : 'var(--surface)',
-                    transition: 'all 0.2s',
-                  }}
+                  className={`upload-dropzone ${dragOver ? 'drag-over' : ''}`}
                 >
                   {carouselUploading ? (
                     <div>
@@ -436,8 +423,8 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                     </div>
                   ) : (
                     <div>
-                      <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.5rem' }}>
-                        <Image size={20} className="text-text-muted" />
+                      <div className="upload-dropzone-icon-box">
+                        <Image size={20} />
                       </div>
                       <p className="text-sm font-semibold">Drop images here or click to add carousel cards</p>
                       <p className="text-xs text-text-muted mt-0.5">
@@ -478,17 +465,8 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                 <div
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${dragOver ? 'var(--brand-black)' : 'var(--border)'}`,
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '2rem 1rem',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: dragOver ? 'rgba(0,0,0,0.03)' : 'var(--surface)',
-                    transition: 'all 0.2s',
-                  }}
+                  onDragLeave={handleDragLeave}                    onClick={() => fileInputRef.current?.click()}
+                  className={`upload-dropzone upload-dropzone-lg ${dragOver ? 'drag-over' : ''}`}
                 >
                   {uploading ? (
                     <div>
@@ -497,8 +475,8 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                     </div>
                   ) : (
                     <div>
-                      <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-                        <Upload size={22} className="text-text-muted" />
+                      <div className="upload-dropzone-large-icon-box">
+                        <Upload size={22} />
                       </div>
                       <p className="text-sm font-semibold">Drop image/video here or click to browse</p>
                       <p className="text-xs text-text-muted mt-1">
@@ -525,7 +503,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                         <video src={form.creativeUrl} className="w-full h-full object-cover" controls />
                       ) : previewImgError ? (
                         <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-[11px] font-semibold">
-                          <Image size={22} className="mb-1" />
+                          <Image size={22} />
                           <span>No preview</span>
                         </div>
                       ) : (
@@ -535,7 +513,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-sm font-semibold">
-                        <Check size={16} className="text-green-500" />
+                        <Check size={16} />
                         {form.creativeFileName || 'Creative uploaded'}
                       </div>
                       <p className="text-xs text-text-muted mt-1 break-all">{form.creativeUrl}</p>
@@ -558,10 +536,10 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
               )}
 
               {/* ── URL input fallback ── */}
-              <div style={{ marginTop: '0.5rem' }}>
-                <label style={{ fontSize: '11px', opacity: 0.7 }}>Or paste a URL directly</label>
+              <div className="creative-url-section">
+                <label className="creative-url-label">Or paste a URL directly</label>
                 <input value={form.creativeUrl} onChange={e => setForm({ ...form, creativeUrl: e.target.value })}
-                  placeholder="https://example.com/ad-creative.jpg" style={{ fontSize: '12px', padding: '0.5rem 0.75rem' }} />
+                  placeholder="https://example.com/ad-creative.jpg" className="creative-url-input" />
               </div>
             </div>
           )}
@@ -580,7 +558,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
         </div>
 
         {/* Footer */}
-        <div className="form-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+        <div className="form-actions form-actions-bordered">
           <button className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button className="btn-dark btn-sm" onClick={handleSave} disabled={loading || !form.name}>
             {loading ? 'Saving...' : editing ? 'Update Campaign' : 'Create Campaign'}

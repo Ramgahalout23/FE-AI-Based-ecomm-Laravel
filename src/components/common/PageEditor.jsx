@@ -3,11 +3,17 @@ import './PageEditor.css';
 
 export default function PageEditor({ value, onChange, placeholder = '<h1>Your content here</h1>' }) {
   const [activeTab, setActiveTab] = useState('visual');
+  const [previewDevice, setPreviewDevice] = useState('desktop');
+  const [inlineMode, setInlineMode] = useState(false);
   const editorRef = useRef(null);
+  const previewRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
-  const applyFormat = (command, value = null) => {
-    document.execCommand(command, false, value);
+  const applyFormat = (command, cmdValue = null) => {
+    document.execCommand(command, false, cmdValue);
     editorRef.current?.focus();
+    syncFromVisual();
   };
 
   const insertLink = () => {
@@ -20,16 +26,14 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
     if (url) applyFormat('insertImage', url);
   };
 
-  const getHTMLContent = () => {
-    return editorRef.current?.innerHTML || '';
-  };
+  const getHTMLContent = () => editorRef.current?.innerHTML || '';
 
   const syncFromVisual = () => {
-    onChange(getHTMLContent());
+    onChangeRef.current(getHTMLContent());
   };
 
   const syncFromHTML = (e) => {
-    onChange(e.target.value);
+    onChangeRef.current(e.target.value);
   };
 
   const loadToVisual = () => {
@@ -38,31 +42,51 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
     }
   };
 
+  // Sync preview content back to parent
+  const syncPreviewContent = () => {
+    if (previewRef.current) {
+      onChangeRef.current(previewRef.current.innerHTML);
+    }
+  };
+
+  const enterInlineMode = () => {
+    // Load current value into preview
+    if (previewRef.current) {
+      previewRef.current.innerHTML = value || '';
+    }
+    setInlineMode(true);
+  };
+
+  const exitInlineMode = () => {
+    syncPreviewContent();
+    setInlineMode(false);
+  };
+
   return (
     <div className="page-editor">
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div className="editor-tabs">
         <button 
           className={`tab-btn ${activeTab === 'visual' ? 'active' : ''}`}
-          onClick={() => { syncFromVisual(); setActiveTab('visual'); loadToVisual(); }}
+          onClick={() => { if (inlineMode) exitInlineMode(); syncFromVisual(); setActiveTab('visual'); setTimeout(loadToVisual, 0); }}
         >
           🎨 Visual Editor
         </button>
         <button 
           className={`tab-btn ${activeTab === 'html' ? 'active' : ''}`}
-          onClick={() => { syncFromVisual(); setActiveTab('html'); }}
+          onClick={() => { if (inlineMode) exitInlineMode(); syncFromVisual(); setActiveTab('html'); }}
         >
           &lt;/&gt; HTML Code
         </button>
         <button 
           className={`tab-btn ${activeTab === 'preview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('preview')}
+          onClick={() => { syncFromVisual(); setActiveTab('preview'); }}
         >
           👁️ Preview
         </button>
       </div>
 
-      {/* Visual Editor */}
+      {/* ── Visual Editor ── */}
       {activeTab === 'visual' && (
         <div className="editor-panel">
           {/* Toolbar */}
@@ -81,8 +105,8 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
             </div>
 
             <div className="toolbar-group">
-              <select onChange={(e) => applyFormat('formatBlock', e.target.value)} defaultValue="p" className="toolbar-select">
-                <option value="p">Paragraph</option>
+              <select onChange={(e) => { if (e.target.value) { applyFormat('formatBlock', e.target.value); e.target.value = ''; } }} defaultValue="" className="toolbar-select">
+                <option value="">Paragraph</option>
                 <option value="h1">Heading 1</option>
                 <option value="h2">Heading 2</option>
                 <option value="h3">Heading 3</option>
@@ -142,13 +166,12 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
             suppressContentEditableWarning
             className="editor-content"
             onBlur={syncFromVisual}
-            defaultValue={value}
             dangerouslySetInnerHTML={{ __html: value || '' }}
           />
         </div>
       )}
 
-      {/* HTML Editor */}
+      {/* ── HTML Editor ── */}
       {activeTab === 'html' && (
         <div className="editor-panel">
           <textarea
@@ -161,12 +184,105 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
         </div>
       )}
 
-      {/* Preview */}
+      {/* ── Preview ── */}
       {activeTab === 'preview' && (
         <div className="editor-panel">
-          <div className="preview-container">
-            <div className="preview-content" dangerouslySetInnerHTML={{ __html: value || '<p>No content</p>' }} />
+          {/* Preview Toolbar */}
+          <div className="editor-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button 
+                className={`toolbar-btn ${inlineMode ? 'active' : ''}`}
+                onClick={() => inlineMode ? exitInlineMode() : enterInlineMode()}
+                title={inlineMode ? 'Exit inline editing' : 'Enable inline editing (double-click text)'}
+                style={inlineMode ? { background: '#1a1a1a', color: 'white', borderColor: '#1a1a1a' } : {}}
+              >
+                ✏️ {inlineMode ? 'Editing...' : 'Inline Edit'}
+              </button>
+              <div className="toolbar-sep" />
+              <span style={{ fontSize: 10, color: '#8a8a9a', fontWeight: 600 }}>View:</span>
+              <button 
+                className={`toolbar-btn ${previewDevice === 'desktop' ? 'active' : ''}`}
+                onClick={() => setPreviewDevice('desktop')}
+                style={previewDevice === 'desktop' ? { background: '#1a1a1a', color: 'white', borderColor: '#1a1a1a' } : {}}
+              >
+                🖥 Desktop
+              </button>
+              <button 
+                className={`toolbar-btn ${previewDevice === 'tablet' ? 'active' : ''}`}
+                onClick={() => setPreviewDevice('tablet')}
+                style={previewDevice === 'tablet' ? { background: '#1a1a1a', color: 'white', borderColor: '#1a1a1a' } : {}}
+              >
+                📱 Tablet
+              </button>
+              <button 
+                className={`toolbar-btn ${previewDevice === 'mobile' ? 'active' : ''}`}
+                onClick={() => setPreviewDevice('mobile')}
+                style={previewDevice === 'mobile' ? { background: '#1a1a1a', color: 'white', borderColor: '#1a1a1a' } : {}}
+              >
+                📱 Mobile
+              </button>
+            </div>
           </div>
+
+          {/* Undo/Redo Toast */}
+          {undoToast && <div className="undo-toast">{undoToast}</div>}
+
+          {/* Preview Content */}
+          <div className="preview-container" style={{ display: 'flex', justifyContent: 'center', background: '#f0f0f5' }}>
+            <div 
+              style={{
+                maxWidth: previewDevice === 'mobile' ? '375px' : previewDevice === 'tablet' ? '768px' : '100%',
+                width: '100%',
+                background: '#ffffff',
+                borderRadius: previewDevice !== 'desktop' ? '12px' : '0',
+                boxShadow: previewDevice !== 'desktop' ? '0 10px 40px rgba(0,0,0,0.15)' : 'none',
+                minHeight: '100%',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <div 
+                ref={previewRef}
+                className="preview-content"
+                contentEditable={inlineMode}
+                suppressContentEditableWarning
+                onBlur={() => { if (inlineMode) syncPreviewContent(); }}
+                dangerouslySetInnerHTML={{ __html: value || '' }}
+              />
+              {!value && !inlineMode && (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: '#8a8a9a', fontSize: 14 }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+                  <p>No content yet — start editing!</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {inlineMode && (
+            <div style={{
+              padding: '8px 12px',
+              background: '#eef2ff',
+              borderTop: '1px solid #e5e5ea',
+              fontSize: 11,
+              color: '#6366f1',
+              fontWeight: 600,
+              textAlign: 'center',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 16,
+            }}>
+              <span>✏️ Double-click text to edit</span>
+              <span>⏎ Enter to save</span>
+              <span>⎋ Escape to cancel</span>
+              <span>Click "Save" when done</span>
+              <button 
+                className="toolbar-btn"
+                onClick={exitInlineMode}
+                style={{ padding: '2px 12px', fontSize: 11, background: '#6366f1', color: 'white', border: 'none' }}
+              >
+                Done Editing ✕
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

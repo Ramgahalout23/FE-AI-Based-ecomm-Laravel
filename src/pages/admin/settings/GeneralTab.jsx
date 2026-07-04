@@ -5,8 +5,42 @@ export default function GeneralTab({ settings, setSettings, loading, handleSaveS
       <div className="form-grid">
         <div className="form-group"><label>Store Name</label><input value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} /></div>
         <div className="form-group"><label>Contact Email</label><input value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} /></div>
-        <div className="form-group"><label>Currency</label><select value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})}><option>USD</option><option>EUR</option><option>GBP</option><option>INR</option></select></div>
-        <div className="form-group"><label>Timezone</label><select value={settings.timezone} onChange={e => setSettings({...settings, timezone: e.target.value})}><option>UTC</option><option>EST</option><option>PST</option><option>IST</option></select></div>
+        <div className="form-group"><label>Currency</label><select value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})}>
+              <option value="USD">USD ($) — US Dollar</option>
+              <option value="EUR">EUR (€) — Euro</option>
+              <option value="GBP">GBP (£) — British Pound</option>
+              <option value="INR">INR (₹) — Indian Rupee</option>
+              <option value="CAD">CAD (CA$) — Canadian Dollar</option>
+              <option value="AUD">AUD (A$) — Australian Dollar</option>
+              <option value="JPY">JPY (¥) — Japanese Yen</option>
+              <option value="AED">AED (AED) — UAE Dirham</option>
+              <option value="SAR">SAR (SR) — Saudi Riyal</option>
+            </select></div>
+        <div className="form-group"><label>Timezone</label><select value={settings.timezone} onChange={e => setSettings({...settings, timezone: e.target.value})}>
+              <option value="UTC">UTC (Coordinated Universal Time)</option>
+              <option value="GMT">GMT (Greenwich Mean Time)</option>
+              <option value="IST">IST (Indian Standard Time)</option>
+              <option value="EST">EST (Eastern Standard Time)</option>
+              <option value="CST">CST (Central Standard Time)</option>
+              <option value="MST">MST (Mountain Standard Time)</option>
+              <option value="PST">PST (Pacific Standard Time)</option>
+              <option value="AST">AST (Atlantic Standard Time)</option>
+              <option value="NST">NST (Newfoundland Standard Time)</option>
+              <option value="AKST">AKST (Alaska Standard Time)</option>
+              <option value="HST">HST (Hawaii Standard Time)</option>
+              <option value="BST">BST (British Summer Time)</option>
+              <option value="CET">CET (Central European Time)</option>
+              <option value="EET">EET (Eastern European Time)</option>
+              <option value="GST">GST (Gulf Standard Time)</option>
+              <option value="CST_CN">CST (China Standard Time)</option>
+              <option value="HKT">HKT (Hong Kong Time)</option>
+              <option value="SGT">SGT (Singapore Time)</option>
+              <option value="JST">JST (Japan Standard Time)</option>
+              <option value="KST">KST (Korea Standard Time)</option>
+              <option value="AEST">AEST (Australian Eastern Standard Time)</option>
+              <option value="AEDT">AEDT (Australian Eastern Daylight Time)</option>
+              <option value="NZST">NZST (New Zealand Standard Time)</option>
+            </select></div>
         <div className="form-group form-full"><label>Store Address</label><input value={settings.storeAddress} onChange={e => setSettings({...settings, storeAddress: e.target.value})} /></div>
       </div>
       <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button></div>
@@ -33,7 +67,7 @@ export default function GeneralTab({ settings, setSettings, loading, handleSaveS
             <label>Announcement Message</label>
             <textarea
               rows={2}
-              value={settings.announcementText || 'THREVOLT  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499'}
+              value={settings.announcementText || `${settings.storeName || 'THREVOLT'}  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499`}
               onChange={e => setSettings({ ...settings, announcementText: e.target.value })}
               placeholder="Separate items with  ✦  (star symbol)"
             />
@@ -73,7 +107,7 @@ export default function GeneralTab({ settings, setSettings, loading, handleSaveS
             padding: '0.35rem 0',
           }}>
             {(() => {
-              const previewItems = (settings.announcementText || 'THREVOLT  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499').split('✦').filter(Boolean);
+              const previewItems = (settings.announcementText || `${settings.storeName || 'THREVOLT'}  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499`).split('✦').filter(Boolean);
               const renderRow = (key) => (
                 <span key={key}>
                   {previewItems.map((item, idx) => (

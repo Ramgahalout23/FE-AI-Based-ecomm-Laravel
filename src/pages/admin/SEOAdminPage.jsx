@@ -1,12 +1,10 @@
+import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
-import {
-  Search, RefreshCw, Globe, FileText, GitBranch as SitemapIcon, Edit3,
-  Trash2, ExternalLink, AlertTriangle, CheckCircle, Loader, Share2,
-  BarChart3, Settings, Code, Award, Languages, Link, Zap,
-  Twitter, Facebook,
-} from 'lucide-react';
+import { formatDate, formatDateTime } from '../../utils/formatters';
+
+;
 
 const truncate = (str, len) => (str || '').length > len ? str.slice(0, len) + '…' : str;
 
@@ -45,7 +43,7 @@ function ScoreBadge({ score }) {
   const color = pct >= 80 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, background: color + '20', color }}>
-      <Award size={12} /> {pct}/100
+      <Trophy size={12} /> {pct}/100
     </span>
   );
 }
@@ -55,7 +53,7 @@ function JSONCodeBlock({ data, label }) {
   return (
     <div style={{ marginBottom: '0.75rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-        <Code size={14} /><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</span>
+        <Code2 size={14} /><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{label}</span>
         <button className="btn-ghost btn-sm" onClick={() => setCollapsed(!collapsed)} style={{ fontSize: '0.7rem' }}>{collapsed ? 'Show' : 'Hide'} JSON-LD</button>
       </div>
       {!collapsed && (
@@ -76,17 +74,15 @@ const readField = (obj, ...keys) => {
   return '';
 };
 
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
-
 export default function SEOAdminPage() {
   const [tab, setTab] = useState('global');
   const [loading, setLoading] = useState(false);
   const tabs = [
     { id: 'global', label: 'Global SEO', icon: Globe },
-    { id: 'entity', label: 'Entity SEO', icon: Edit3 },
-    { id: 'structured', label: 'Structured Data', icon: Code },
-    { id: 'audit', label: 'SEO Audit', icon: Award },
-    { id: 'sitemap', label: 'Sitemap', icon: SitemapIcon },
+    { id: 'entity', label: 'Entity SEO', icon: Pencil },
+    { id: 'structured', label: 'Structured Data', icon: Code2 },
+    { id: 'audit', label: 'SEO Audit', icon: Trophy },
+    { id: 'sitemap', label: 'Sitemap', icon: Sitemap },
     { id: 'robots', label: 'Robots.txt', icon: FileText },
     { id: 'advanced', label: 'Advanced', icon: Settings },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -380,10 +376,10 @@ export default function SEOAdminPage() {
                 </div>
               </div>
               <button className="btn-dark btn-sm" onClick={() => loadEntityList(entitySearch, 1)} disabled={entityLoading}>
-                {entityLoading ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} />} Search
+                {entityLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={14} />} Search
               </button>
               <button className="btn-ghost btn-sm" onClick={handleBulkAudit} disabled={bulkAuditLoading}>
-                {bulkAuditLoading ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Award size={14} />} Bulk Audit
+                {bulkAuditLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trophy size={14} />} Bulk Audit
               </button>
             </div>
             {/* Entity list, form, audit results - same as main copy */}
@@ -407,7 +403,7 @@ export default function SEOAdminPage() {
             </button>
           </div>
           {schemaLoading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading schemas...</p></div>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading schemas...</p></div>
           ) : (
             <>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
@@ -447,7 +443,7 @@ export default function SEOAdminPage() {
               </select>
             </div>
             <button className="btn-dark btn-sm" onClick={handleBulkAudit} disabled={bulkAuditLoading}>
-              {bulkAuditLoading ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Award size={14} />} Run Bulk Audit
+              {bulkAuditLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trophy size={14} />} Run Bulk Audit
             </button>
           </div>
           {bulkAuditResults ? (
@@ -473,7 +469,7 @@ export default function SEOAdminPage() {
             </>
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>
-              <Award size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
+              <Trophy size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
               <p>Run a bulk audit to see SEO scores for all your {entityType}s.</p>
             </div>
           )}
@@ -498,7 +494,7 @@ export default function SEOAdminPage() {
         <div className="detail-panel">
           <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div><h3>Robots.txt</h3><p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>Instructions for search engine crawlers</p></div>
-            {robotsUpdatedAt && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Last updated: {new Date(robotsUpdatedAt).toLocaleString()}</span>}
+            {robotsUpdatedAt && <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Last updated: {formatDateTime(robotsUpdatedAt)}</span>}
           </div>
           {renderRobotsContent()}
         </div>
@@ -509,7 +505,7 @@ export default function SEOAdminPage() {
         <div className="detail-panel">
           <div className="detail-header"><h3>Advanced SEO Settings</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Organization info, analytics IDs, hreflang, IndexNow</span></div>
           {advSettingsLoading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>
           ) : advSettings ? (
             <>
               <div className="form-grid">
@@ -538,6 +534,7 @@ export default function SEOAdminPage() {
                 </div>
                 <div className="form-group"><label>Google Analytics ID</label><input value={advSettings.google_analytics_id || ''} onChange={e => setAdvSettings({ ...advSettings, google_analytics_id: e.target.value })} placeholder="G-XXXXXXXXXX" /></div>
                 <div className="form-group"><label>Google Tag Manager ID</label><input value={advSettings.google_tag_manager_id || ''} onChange={e => setAdvSettings({ ...advSettings, google_tag_manager_id: e.target.value })} placeholder="GTM-XXXXXXX" /></div>
+                <div className="form-group form-full"><label>Google Search Console Verification</label><input value={advSettings.google_site_verification || ''} onChange={e => setAdvSettings({ ...advSettings, google_site_verification: e.target.value })} placeholder="1234567890abcdef" /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Paste the <code>content</code> value from the meta tag Google gives you. <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer">Open Search Console →</a></span></div>
                 <div className="form-group form-full"><label>Facebook Pixel ID</label><input value={advSettings.facebook_pixel_id || ''} onChange={e => setAdvSettings({ ...advSettings, facebook_pixel_id: e.target.value })} placeholder="1234567890" /></div>
                 <div className="form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Languages size={14} /> International & Automation</h4>
@@ -545,6 +542,7 @@ export default function SEOAdminPage() {
                 <div className="form-group"><label>Hreflang Default</label><input value={advSettings.hreflang_default || 'en'} onChange={e => setAdvSettings({ ...advSettings, hreflang_default: e.target.value })} maxLength={5} /></div>
                 <div className="form-group"><label>Auto Schema</label><select value={advSettings.enable_auto_schema || 'true'} onChange={e => setAdvSettings({ ...advSettings, enable_auto_schema: e.target.value })}><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
                 <div className="form-group"><label>IndexNow</label><select value={advSettings.enable_indexnow || 'false'} onChange={e => setAdvSettings({ ...advSettings, enable_indexnow: e.target.value })}><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+                <div className="form-group form-full"><label>IndexNow API Key</label><input value={advSettings.indexnow_key || ''} onChange={e => setAdvSettings({ ...advSettings, indexnow_key: e.target.value })} placeholder="abc123... (8-128 chars, alphanumeric + dashes)" maxLength={128} /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Generate a key on <a href="https://www.indexnow.org" target="_blank" rel="noopener noreferrer">IndexNow.org</a> and paste it here. A <code>/{'{key}'}.txt</code> verification file will be served automatically.</span></div>
                 <div className="form-group"><label>Audit Schedule</label><select value={advSettings.audit_schedule || 'weekly'} onChange={e => setAdvSettings({ ...advSettings, audit_schedule: e.target.value })}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
               </div>
               <div className="form-actions" style={{ marginTop: '1.5rem' }}>
@@ -562,7 +560,7 @@ export default function SEOAdminPage() {
         <div className="detail-panel">
           <div className="detail-header"><h3>SEO Performance & Analytics</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Configure tracking codes</span></div>
           {advSettingsLoading ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>
           ) : (
             <>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
@@ -605,7 +603,7 @@ export default function SEOAdminPage() {
   // ── Helper render functions ──
 
   function renderEntityList() {
-    if (entityLoading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
+    if (entityLoading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
     if (entityList.length === 0) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><p>No {entityType}s found.</p></div>;
     return (
       <>
@@ -648,10 +646,10 @@ export default function SEOAdminPage() {
     return (
       <div className="detail-panel">
         <div className="detail-header">
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Edit3 size={16} /> SEO for: {selectedEntity.name || selectedEntity.title}</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Pencil size={16} /> SEO for: {selectedEntity.name || selectedEntity.title}</h3>
         </div>
         {seoFormLoading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading SEO data...</p></div>
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading SEO data...</p></div>
         ) : (
           <>
             <div className="form-grid">
@@ -682,13 +680,13 @@ export default function SEOAdminPage() {
             <div className="form-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button className="btn-dark btn-sm" onClick={handleSaveEntitySEO} disabled={loading || seoFormLoading}>{loading ? 'Saving...' : 'Save Entity SEO'}</button>
               <button className="btn-ghost btn-sm" onClick={handleAutoGenerateEntitySchemas} disabled={loading}><Zap size={14} /> Generate JSON-LD</button>
-              <button className="btn-ghost btn-sm" onClick={handleRunAudit} disabled={auditLoading}><Award size={14} /> Run SEO Audit</button>
+              <button className="btn-ghost btn-sm" onClick={handleRunAudit} disabled={auditLoading}><Trophy size={14} /> Run SEO Audit</button>
               <button className="btn-ghost btn-sm" onClick={handleDeleteEntitySEO} disabled={loading} style={{ color: '#ef4444' }}><Trash2 size={14} /> Delete</button>
             </div>
             {auditData && (
               <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)' }}>
                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                  <Award size={16} /> SEO Audit: <ScoreBadge score={auditData.percentage} />
+                  <Trophy size={16} /> SEO Audit: <ScoreBadge score={auditData.percentage} />
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
                   {auditData.breakdown && Object.entries(auditData.breakdown).map(([key, val]) => (
@@ -733,7 +731,7 @@ export default function SEOAdminPage() {
 
   function renderSitemapContent() {
     if (sitemapLoading && sitemapData.entries.length === 0)
-      return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
+      return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
     return (
       <>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
@@ -756,14 +754,14 @@ export default function SEOAdminPage() {
             </table>
           </div>
         ) : (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><SitemapIcon size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} /><p>No sitemap entries yet.</p></div>
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Sitemap size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} /><p>No sitemap entries yet.</p></div>
         )}
       </>
     );
   }
 
   function renderRobotsContent() {
-    if (robotsLoading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Loader size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
+    if (robotsLoading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>;
     return (
       <>
         <div className="form-group form-full">

@@ -5,6 +5,7 @@
  */
 
 import { trackingAPI } from '../api/tracking';
+import useAuthStore from '../store/authStore';
 
 const TRACKING_ENABLED_KEY = '_trk_enabled';
 const SESSION_KEY = '_trk_session';
@@ -36,19 +37,11 @@ function getSessionId() {
 
 function getUserId() {
   try {
-    const authStr = localStorage.getItem('auth-storage');
-    if (authStr) {
-      const auth = JSON.parse(authStr);
-      return auth?.state?.user?.id || null;
-    }
-    // Fallback: try to decode JWT
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload?.id || payload?.sub || null;
-    }
+    // Read user ID directly from the auth store (Zustand, no persist middleware)
+    const user = useAuthStore.getState().user;
+    return user?.id || null;
   } catch {
-    // Not authenticated
+    // Not authenticated or store not initialized
   }
   return null;
 }
@@ -94,8 +87,12 @@ function flushBatch() {
 }
 
 function scheduleBatchFlush() {
-  if (batchTimer) clearTimeout(batchTimer);
-  batchTimer = setTimeout(flushBatch, BATCH_FLUSH_INTERVAL);
+  // Only set timer if not already running — prevents resetting the window on every event
+  if (batchTimer) return;
+  batchTimer = setTimeout(() => {
+    batchTimer = null;
+    flushBatch();
+  }, BATCH_FLUSH_INTERVAL);
 }
 
 function queueEvent(eventData) {
@@ -184,6 +181,14 @@ export function trackPageView(url, title) {
 
   // Delay tracking to measure time on page
   if (pageViewTimer) clearTimeout(pageViewTimer);
+
+  // Flush any queued events before tracking the new page view
+  // This ensures events from the previous page are sent before navigating away
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+    batchTimer = null;
+    flushBatch();
+  }
 
   pageViewTimer = setTimeout(() => {
     trackingAPI
@@ -294,6 +299,14 @@ export function trackWishlistAdd(productId, productName) {
   });
 }
 
+export function trackWhatsAppClick(phoneNumber) {
+  trackEvent('contact', 'whatsapp_click', {
+    label: phoneNumber,
+    category: 'WhatsApp',
+    metadata: { phoneNumber, source: 'floating_button' },
+  });
+}
+
 // ── Initialize ──
 
 export function initTracker() {
@@ -335,6 +348,7 @@ export default {
   trackSignUp,
   trackLogin,
   trackWishlistAdd,
+  trackWhatsAppClick,
   createTrackingSession,
   endTrackingSession,
   enableTracking,

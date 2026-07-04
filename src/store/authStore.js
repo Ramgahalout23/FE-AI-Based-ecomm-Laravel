@@ -32,11 +32,12 @@ function pickUser(payload) {
   return payload.user || (payload.email || payload.id ? payload : null);
 }
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: null,
   isAuthenticated: false,
   isAdmin: false,
   loading: true,
+  _tokenVersion: 0,
 
   init: async () => {
     // Track whether this is an OAuth redirect so we know to merge guest cart
@@ -50,6 +51,7 @@ const useAuthStore = create((set) => ({
       // Clean up URL without page reload
       const cleanUrl = window.location.pathname + window.location.hash;
       window.history.replaceState({}, '', cleanUrl);
+      set({ _tokenVersion: get()._tokenVersion + 1 });
     }
 
     const token = localStorage.getItem('authToken');
@@ -100,6 +102,7 @@ const useAuthStore = create((set) => ({
       user,
       isAuthenticated: true,
       isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+      _tokenVersion: get()._tokenVersion + 1,
     });
 
     // Merge guest cart items into server cart after login
@@ -121,6 +124,7 @@ const useAuthStore = create((set) => ({
         user,
         isAuthenticated: true,
         isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+        _tokenVersion: get()._tokenVersion + 1,
       });
 
       // Merge guest cart items into server cart after registration
@@ -133,8 +137,10 @@ const useAuthStore = create((set) => ({
     try { await authAPI.logout(); } catch { /* ignore — local logout still works */ }
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
+    // ! XSS NOTE — adminToken in localStorage is accessible to any JS.
+    // For production, migrate to httpOnly cookies via Sanctum SPA auth.
     localStorage.removeItem('adminToken');
-    set({ user: null, isAuthenticated: false, isAdmin: false });
+    set({ user: null, isAuthenticated: false, isAdmin: false, _tokenVersion: get()._tokenVersion + 1 });
   },
 
   setUser: (user) => set({

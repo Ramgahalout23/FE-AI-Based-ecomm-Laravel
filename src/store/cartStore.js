@@ -3,6 +3,24 @@ import { persist } from 'zustand/middleware';
 import { getProductImage } from '../utils/formatters';
 import { showError } from '../utils/toast';
 
+const CART_VERSION = 1;
+const CART_VERSION_KEY = 'LUXE_CART_VERSION';
+
+// On boot, clear persisted cart data if the version has changed.
+// This prevents stale cart items from a previous session persisting
+// after cache-invalidating changes to the cart logic.
+(() => {
+  try {
+    const storedVersion = parseInt(localStorage.getItem(CART_VERSION_KEY), 10);
+    if (storedVersion !== CART_VERSION) {
+      localStorage.removeItem('luxe-cart');
+      localStorage.setItem(CART_VERSION_KEY, String(CART_VERSION));
+    }
+  } catch {
+    // localStorage may be unavailable (e.g. private browsing restrictions)
+  }
+})();
+
 const useCartStore = create(
   persist(
     (set, get) => ({

@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import { useSettings } from '../../store/useSettings';
 import { pagesAPI } from '../../api/pages';
 import PageContentSkeleton from '../../components/ui/PageContentSkeleton';
 
 export default function ReturnPolicyPage() {
+  const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,11 +23,10 @@ export default function ReturnPolicyPage() {
         if (page && page.content) {
           setContent(page);
         } else {
-          setError('Page not found');
+          setError(t('return_policy.content_not_found'));
         }
       } catch (err) {
-        console.error('Failed to load return policy:', err);
-        setError('Failed to load content');
+        console.error('Failed to load return policy:', err);          setError(t('return_policy.content_not_found'));
       } finally {
         setLoading(false);
       }
@@ -38,9 +42,9 @@ export default function ReturnPolicyPage() {
     return (
       <div className="flex-1 bg-surface flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Page Not Available</h2>
-          <p className="text-gray-500 mb-4">{error || 'Content not found'}</p>
-          <a href="/" className="text-primary hover:underline">Go to Home</a>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('return_policy.page_not_available')}</h2>
+          <p className="text-gray-500 mb-4">{error || t('return_policy.content_not_found')}</p>
+          <a href="/" className="text-primary hover:underline">{t('return_policy.go_home')}</a>
         </div>
       </div>
     );
@@ -49,8 +53,8 @@ export default function ReturnPolicyPage() {
   return (
     <div className="page-content bg-white">
       <SEOHead
-        title={content?.title ? `${content.title} | Threvolt` : 'Return & Exchange Policy | Threvolt'}
-        description={content?.metaDescription || 'Learn about Threvolt return and exchange policy. Easy returns within 30 days, free exchanges, and full refunds on eligible items.'}
+        title={content?.title ? `${content.title} | ${storeName}` : `Return & Exchange Policy | ${storeName}`}
+        description={content?.metaDescription || `Learn about ${storeName} return and exchange policy. Easy returns within 30 days, free exchanges, and full refunds on eligible items.`}
       />
       {/* Hero */}
       <div className="bg-black text-white py-16">
@@ -72,7 +76,7 @@ export default function ReturnPolicyPage() {
         {content.content ? (
           <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: content.content }} />
         ) : (
-          <p className="text-gray-600">No content available</p>
+          <p className="text-gray-600">{t('return_policy.no_content')}</p>
         )}
       </div>
     </div>

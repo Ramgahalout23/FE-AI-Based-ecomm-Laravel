@@ -9,4 +9,10 @@ export const wishlistAPI = {
   clear: () => client.delete('/wishlist'),
   bulkAdd: (data) => client.post('/wishlist/bulk', data),
   moveToCart: (productId) => client.post(`/wishlist/${productId}/move-to-cart`),
+
+  // ── Sharing ──
+  share: () => client.post('/wishlist/share'),
+  unshare: () => client.delete('/wishlist/share'),
+  getShareStatus: () => client.get('/wishlist/share'),
+  getSharedWishlist: (token) => client.get(`/shared-wishlist/${token}`),
 };

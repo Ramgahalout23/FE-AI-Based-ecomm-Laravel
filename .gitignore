@@ -10,10 +10,10 @@ build/
 .env.local
 .env.development
 .env.test
+.env.production
 
-# But keep .env.example and .env.production (no secrets)
+# But keep .env.example as a reference template
 !.env.example
-!.env.production
 
 # IDE
 .vscode/
@@ -24,6 +24,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+nul
 
 # Logs
 npm-debug.log*

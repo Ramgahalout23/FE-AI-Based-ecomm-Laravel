@@ -1,13 +1,20 @@
+import { Check, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+;
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { notificationsAPI } from '../../api/notifications';
 import NotificationsSkeleton from '../../components/ui/NotificationsSkeleton';
 import { formatDateTime } from '../../utils/formatters';
+import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
 
 export default function NotificationsPage() {
+  const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,9 +40,9 @@ export default function NotificationsPage() {
     try {
       await notificationsAPI.markAllRead();
       setNotifications(notifications.map((n) => ({ ...n, isRead: true })));
-      toast.success('All marked as read');
+      toast.success(t('notifications.marked_read'));
     } catch {
-      toast.error('Failed to mark all as read');
+      toast.error(t('notifications.failed_mark_read'));
     }
   };
 
@@ -57,30 +64,29 @@ export default function NotificationsPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title="Notifications | Threvolt"
-        description="View your notifications and order updates from Threvolt."
+        title={`Notifications | ${storeName}`}
+        description={`View your notifications and order updates from ${storeName}.`}
         noIndex={true}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         <Breadcrumb
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Notifications' },
+          items={[    {label: t('nav.home'), href: '/' },
+    { label: t('notifications.title') },
           ]}
           variant="light"
           className="mb-4"
         />
         <div className="flex items-center justify-between mb-6">
           <div>
-            <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Your</span>
-            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">Notifications</h1>
+            <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{t('notifications.your')}</span>
+            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">{t('notifications.title')}</h1>
           </div>
           {hasUnread && (
             <button
               onClick={handleMarkAllRead}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-all"
             >
-              <Check size={14} /> Mark All Read
+              <Check size={14} /> {t('notifications.mark_all_read')}
             </button>
           )}
         </div>
@@ -88,10 +94,10 @@ export default function NotificationsPage() {
         {notifications.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell size={32} className="text-gray-400" />
+              <Bell size={32} />
             </div>
-            <h3 className="font-display text-lg font-bold text-gray-900 mb-2">No notifications</h3>
-            <p className="text-sm text-gray-500">You're all caught up!</p>
+            <h3 className="font-display text-lg font-bold text-gray-900 mb-2">{t('notifications.no_notifications')}</h3>
+            <p className="text-sm text-gray-500">{t('notifications.all_caught_up')}</p>
           </div>
         ) : (
           <div className="space-y-2">

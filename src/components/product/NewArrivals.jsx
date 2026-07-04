@@ -1,8 +1,11 @@
+import { Plus, Minus, ShoppingBag, Sparkles, X, Heart, Eye } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Eye, Plus, Minus, ShoppingBag, Sparkles, X } from 'lucide-react';
+
+;
+import { useTranslation } from 'react-i18next';
 import { getImageUrl, getProductImages, formatCurrency, slugify } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import { buildHighlights, getStyleTagline } from '../../utils/productHelpers';
@@ -156,6 +159,7 @@ function getProductImageUrls(product) {
 
 /* ─── Product Card ─── */
 function NewArrivalCard({ product, index }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { addItem: addToCart } = useCartStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
@@ -249,13 +253,13 @@ function NewArrivalCard({ product, index }) {
   // Badge priority
   let topLeftBadge = null;
   if (isOutOfStock) {
-    topLeftBadge = { label: 'Out of Stock', type: 'stock' };
+    topLeftBadge = { label: t('product.out_of_stock'), type: 'stock' };
   } else if (isLowStock) {
-    topLeftBadge = { label: 'Low Stock', type: 'stock' };
+    topLeftBadge = { label: t('product.low_stock'), type: 'stock' };
   } else if (discount) {
-    topLeftBadge = { label: 'Sale', type: 'sale' };
+    topLeftBadge = { label: t('product.sale_badge'), type: 'sale' };
   } else if (isNew) {
-    topLeftBadge = { label: 'New', type: 'new' };
+    topLeftBadge = { label: t('product.new_badge'), type: 'new' };
   } else if (product.badge) {
     topLeftBadge = { label: product.badge, type: 'custom' };
   }
@@ -437,9 +441,9 @@ function NewArrivalCard({ product, index }) {
               <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 shrink-0 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
-                    <ShoppingBag size={11} className="text-white" />
+                    <ShoppingBag size={11} />
                   </div>
-                  <h4 className="font-bold text-black uppercase tracking-wider text-xs">Quick Add</h4>
+                  <h4 className="font-bold text-black uppercase tracking-wider text-xs">{t('product.quick_add')}</h4>
                 </div>
                 <button
                   onClick={resetSelections}
@@ -468,10 +472,9 @@ function NewArrivalCard({ product, index }) {
                   {/* Colors */}
                   {productColors.length > 0 && (
                     <div className="pt-2.5 pb-2 border-b border-gray-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Color</span>
+                      <div className="flex items-center justify-between mb-2">                          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">{t('product.color')}</span>
                         <span className={`text-[9px] font-medium transition-colors duration-200 ${selectedColor ? 'text-black' : 'text-gray-400'}`}>
-                          {selectedColor || 'Select'}
+                          {selectedColor || t('product.select')}
                         </span>
                       </div>
                       <div className="flex justify-center gap-2 flex-wrap">
@@ -488,7 +491,7 @@ function NewArrivalCard({ product, index }) {
                               className={`relative rounded-full transition-all duration-200 ${
                                 isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-40' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110 shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105 shadow-sm shadow-black/5'
                               } w-5 h-5`}
-                              title={isOOS ? `${color} - Out of Stock` : color}
+                              title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                               disabled={isOOS}
                             >
                               <div
@@ -517,10 +520,9 @@ function NewArrivalCard({ product, index }) {
                   {/* Sizes */}
                   {productSizes.length > 0 && (
                     <div className="pt-2.5 pb-2 border-b border-gray-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">Size</span>
+                      <div className="flex items-center justify-between mb-2">                          <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">{t('product.size')}</span>
                         <span className={`text-[9px] font-medium transition-colors duration-200 ${selectedSize ? 'text-black' : 'text-gray-400'}`}>
-                          {selectedSize || 'Select'}
+                          {selectedSize || t('product.select')}
                         </span>
                       </div>
                       <div className="flex justify-center gap-2 flex-wrap">
@@ -540,7 +542,7 @@ function NewArrivalCard({ product, index }) {
                                     : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-400 hover:bg-gray-50 shadow-sm shadow-black/5'
                               } px-2.5 py-1.5 min-w-[34px] flex items-center justify-center`}
                             >
-                              {isOOS ? <span className="flex items-center gap-1">{size}<span className="text-[7px] font-normal text-gray-300 uppercase tracking-wider">OOS</span></span> : size}
+                              {isOOS ? <span className="flex items-center gap-1">{size}<span className="text-[7px] font-normal text-gray-300 uppercase tracking-wider">{t('product.oos')}</span></span> : size}
                             </button>
                           );
                         })}
@@ -581,13 +583,13 @@ function NewArrivalCard({ product, index }) {
                       {isAdding ? (
                         <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full" /> Adding</>
                       ) : !hasAllSelections && hasVariants ? (
-                        'Select'
+                        t('product.select')
                       ) : !matchedVariant && hasVariants ? (
-                        'Unavailable'
+                        t('product.unavailable')
                       ) : !canAdd ? (
-                        'Sold Out'
+                        t('product.sold_out')
                       ) : (
-                        <><ShoppingBag size={12} /> Add</>
+                        <><ShoppingBag size={12} /> {t('product.add')}</>
                       )}
                     </button>
                   </div>
@@ -606,13 +608,11 @@ function NewArrivalCard({ product, index }) {
               topLeftBadge.type === 'stock' ? 'bg-gray-700' : 'bg-gray-900'
             }`}
           >
-            {topLeftBadge.label === 'New' ? (
+            {topLeftBadge.label === t('product.new_badge') ? (
               <span className="flex items-center gap-1">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                New
-              </span>
+                </svg>                {t('product.new_badge')}</span>
             ) : (
               topLeftBadge.label
             )}
@@ -623,13 +623,13 @@ function NewArrivalCard({ product, index }) {
         {!showQuickAdd && (
           <button
             onClick={handleWishlist}
-            className={`absolute top-2 right-2 z-20 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+            className={`absolute top-2 right-2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
               inWishlist
                 ? 'bg-red-500 text-white shadow-md opacity-100 scale-100'
                 : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90'
             }`}
           >
-            <Heart size={13} fill={inWishlist ? 'currentColor' : 'none'} />
+            <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
           </button>
         )}
 
@@ -648,10 +648,9 @@ function NewArrivalCard({ product, index }) {
           <button
             onClick={handleQuickAdd}
             className="absolute bottom-0 inset-x-0 z-20 py-3 bg-white border-t border-black/10 text-black text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-all duration-200"
-          >
-            <span className="flex items-center justify-center gap-1.5">
+          >              <span className="flex items-center justify-center gap-1.5">
               <ShoppingBag size={13} />
-              Quick Add
+              {t('product.quick_add')}
             </span>
           </button>
         )}
@@ -661,7 +660,7 @@ function NewArrivalCard({ product, index }) {
           <div className="absolute top-2 left-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-white/70 backdrop-blur-sm text-[8px] font-semibold text-gray-600 uppercase tracking-wider shadow-sm">
               <Sparkles size={9} />
-              Details
+              {t('product.details_label')}
             </span>
           </div>
         )}
@@ -688,7 +687,7 @@ function NewArrivalCard({ product, index }) {
         {/* Color + Size inline */}
         {productColors.length > 0 && (
           <div className="flex items-center justify-center gap-1.5 mb-1.5">
-            <span className="text-[8px] font-semibold text-gray-400 uppercase tracking-wider">Color:</span>
+            <span className="text-[8px] font-semibold text-gray-400 uppercase tracking-wider">{t('product.color')}:</span>
             <div className="flex gap-1 flex-wrap">
               {productColors.map(color => {
                 const isSelected = selectedColor === color;
@@ -703,7 +702,7 @@ function NewArrivalCard({ product, index }) {
                     className={`relative rounded-full transition-all duration-200 shrink-0 ${
                       isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-30' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105'
                     } w-3.5 h-3.5`}
-                    title={isOOS ? `${color} - Out of Stock` : color}
+                    title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                     disabled={isOOS}
                   >
                     <div className={`w-full h-full rounded-full ${isLight ? 'border border-gray-200' : ''}`} style={{ background: getColorHex(color) }} />
@@ -716,7 +715,7 @@ function NewArrivalCard({ product, index }) {
         )}
         {productSizes.length > 0 && (
           <div className="flex items-center justify-center gap-1 mb-1.5">
-            <span className="text-[8px] font-semibold text-gray-400 uppercase tracking-wider">Size:</span>
+            <span className="text-[8px] font-semibold text-gray-400 uppercase tracking-wider">{t('product.size')}:</span>
             <div className="flex gap-1 flex-wrap">
               {productSizes.map(size => {
                 const isSelected = selectedSize === size;
@@ -784,13 +783,13 @@ function NewArrivalCard({ product, index }) {
               {isAdding ? (
                 <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full" /></>
               ) : !hasAllSelections && hasVariants ? (
-                'Select'
+                t('product.select')
               ) : !matchedVariant && hasVariants ? (
-                'Unavailable'
+                t('product.unavailable')
               ) : !canAdd ? (
-                'Sold Out'
+                t('product.sold_out')
               ) : (
-                <><ShoppingBag size={11} /> Add</>
+                <><ShoppingBag size={11} /> {t('product.add')}</>
               )}
             </button>
           </div>
@@ -833,15 +832,15 @@ function NewArrivalCard({ product, index }) {
                   <div className="flex items-center justify-between px-4 pb-2 shrink-0">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center">
-                        <ShoppingBag size={14} className="text-white" />
+                        <ShoppingBag size={14} />
                       </div>
-                      <span className="text-sm font-bold text-gray-900">Quick Add</span>
+                      <span className="text-sm font-bold text-gray-900">{t('product.quick_add')}</span>
                     </div>
                     <button
                       onClick={resetSelections}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-150 active:scale-[0.85]"
                     >
-                      <X size={15} className="text-gray-500" />
+                      <X size={15} />
                     </button>
                   </div>
 
@@ -870,7 +869,7 @@ function NewArrivalCard({ product, index }) {
                       {productColors.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                            Color · <span className="text-gray-900">{selectedColor || 'Select'}</span>
+                            {t('product.color')} · <span className="text-gray-900">{selectedColor || t('product.select')}</span>
                           </p>
                           <div className="flex flex-wrap gap-2.5">
                             {productColors.map((c) => {
@@ -922,7 +921,7 @@ function NewArrivalCard({ product, index }) {
                       {productSizes.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                            Size · <span className="text-gray-900">{selectedSize || 'Select'}</span>
+                            {t('product.size')} · <span className="text-gray-900">{selectedSize || t('product.select')}</span>
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {productSizes.map((s) => {
@@ -997,7 +996,7 @@ function NewArrivalCard({ product, index }) {
                               className="inline-flex items-center gap-1.5 whitespace-nowrap"
                             >
                               <ShoppingBag size={13} />
-                              <span>Add · {formatCurrency(displayPrice * qty)}</span>
+                              <span>{t('product.add_price', { price: formatCurrency(displayPrice * qty) })}</span>
                             </motion.span>
                           </AnimatePresence>
                         )}
@@ -1017,6 +1016,7 @@ function NewArrivalCard({ product, index }) {
 
 /* ─── New Arrivals Grid ─── */
 export default memo(function NewArrivals({ products, title = 'NEW ARRIVALS' }) {
+  const { t: tOuter } = useTranslation();
   const items = products && products.length > 0 ? products : DEFAULT_PRODUCTS;
 
   return (
@@ -1036,9 +1036,9 @@ export default memo(function NewArrivals({ products, title = 'NEW ARRIVALS' }) {
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-black tracking-[-0.02em] leading-[1.1]">
             {title}
           </h2>
-          <p className="mt-2 text-[11px] text-gray-400 font-medium uppercase tracking-[0.15em]">
-            Fresh drops. Bold statements.
-          </p>
+  <p className="mt-2 text-[11px] text-gray-400 font-medium uppercase tracking-[0.15em]">
+    {tOuter('product.fresh_drops_subtitle')}
+  </p>
         </motion.div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6 md:gap-x-5 md:gap-y-8">

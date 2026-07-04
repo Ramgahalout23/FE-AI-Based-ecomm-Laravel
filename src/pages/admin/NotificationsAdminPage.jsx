@@ -2,9 +2,22 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { NOTIFICATION_TYPES } from '../../utils/constants';
 import { formatDateTime } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 
 const EMPTY = { title: '', message: '', type: 'SYSTEM', targetAudience: 'ALL', selectedUserId: '' };
+
+const NOTIFICATION_COLUMNS = [
+  { key: 'userName', label: 'User' },
+  { key: 'userEmail', label: 'Email' },
+  { key: 'type', label: 'Type' },
+  { key: 'title', label: 'Title' },
+  { key: 'message', label: 'Message' },
+  { key: 'isRead', label: 'Read' },
+  { key: 'createdAt', label: 'Created Date' },
+];
 
 export default function NotificationsAdminPage() {
   const [notifications, setNotifications] = useState([]);
@@ -15,6 +28,10 @@ export default function NotificationsAdminPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [searchUsers, setSearchUsers] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
   const [userOptions, setUserOptions] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
@@ -29,12 +46,13 @@ export default function NotificationsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   const load = async (page = 1) => {
     setLoading(true);
     try {
-      const r = await adminAPI.getNotifications({ page, limit, search: debouncedSearch || undefined });
+      const r = await adminAPI.getNotifications({ page, limit: pageSize, search: debouncedSearch || undefined });
       const payload = r.data?.data;
       const list = Array.isArray(payload)
         ? payload
@@ -42,7 +60,7 @@ export default function NotificationsAdminPage() {
       setNotifications(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || payload?.pagination || (payload?.total !== undefined ? { page: payload.page, pages: payload.total_pages, total: payload.total, per_page: payload.limit } : {});
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch {
       // silent
@@ -58,7 +76,7 @@ export default function NotificationsAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, pageSize]);
 
   useEffect(() => {
     load(currentPage);
@@ -231,7 +249,10 @@ export default function NotificationsAdminPage() {
     <div>
       <div className="admin-header admin-header-row">
         <div><h2>Notifications</h2><p>Send and manage push notifications</p></div>
-        <button className="btn-dark btn-sm" onClick={() => setShowModal(true)}>📢 New Notification</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn-dark btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+          <button className="btn-dark btn-sm" onClick={() => setShowModal(true)}>📢 New Notification</button>
+        </div>
       </div>
 
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
@@ -263,18 +284,15 @@ export default function NotificationsAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} notifications)</span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>◀ Prev</button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map(p => (
-                <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-              ))}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Next ▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
 
       {showModal && (
@@ -437,6 +455,59 @@ export default function NotificationsAdminPage() {
           </div>
         </div>
       )}
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={NOTIFICATION_COLUMNS}
+        onExport={async (selectedColumns) => {
+          setExporting(true);
+          setExportStatus('dispatching');
+          setExportError(null);
+          try {
+            const res = await adminAPI.dispatchExport({
+              type: 'notifications',
+              columns: selectedColumns,
+              filters: { search: debouncedSearch || undefined },
+            });
+            const exportId = res.data?.data?.id || res.data?.id;
+            if (!exportId) { throw new Error('No export ID returned'); }
+            setExportStatus('processing');
+            const poll = async () => {
+              try {
+                const statusRes = await adminAPI.checkExportStatus(exportId);
+                const status = statusRes.data?.data?.status;
+                if (status === 'completed') {
+                  setExportStatus('completed');
+                  const dlRes = await adminAPI.downloadExport(exportId);
+                  downloadBlob(dlRes, `notifications-export-${new Date().toISOString().split('T')[0]}.csv`);
+                  setTimeout(() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }, 1500);
+                } else if (status === 'failed') {
+                  setExportStatus('failed');
+                  setExportError(statusRes.data?.data?.error_message || 'Export failed');
+                } else {
+                  setTimeout(poll, 1500);
+                }
+              } catch (e) {
+                if (!exportStatus || exportStatus === 'processing') {
+                  setExportStatus('failed');
+                  setExportError(e.response?.data?.message || 'Export failed');
+                }
+              }
+            };
+            setTimeout(poll, 1500);
+          } catch (err) {
+            setExportStatus('failed');
+            setExportError(err.response?.data?.message || 'Failed to start export');
+          } finally {
+            setExporting(false);
+          }
+        }}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+      />
     </div>
   );
 }

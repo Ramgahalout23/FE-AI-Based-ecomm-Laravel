@@ -1,27 +1,30 @@
+import { Home, Grid, ShoppingBag, User, Heart } from 'lucide-react';
 import { memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Grid, Heart, User, ShoppingBag } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 
 export default memo(function MobileNav() {
+  const { t } = useTranslation();
   const location = useLocation();
   const { count } = useCartStore();
   const { isAuthenticated } = useAuthStore();
 
-  // Don't show on admin pages, checkout, and product detail pages
-  // (PDP has its own sticky bottom bar that would overlap)
-  // Section product pages (/products/section/...) should still show MobileNav
-  if (location.pathname.startsWith('/admin') || location.pathname === '/checkout' || 
+  // Don't show on checkout or product detail pages (PDP has its own sticky bottom bar).
+  // Section product pages (/products/section/...) should still show MobileNav.
+  // Admin routes are excluded structurally — MobileNav only renders in StorefrontLayout.
+  if (location.pathname === '/checkout' || 
       (location.pathname.startsWith('/products/') && !location.pathname.startsWith('/products/section/'))) {
     return null;
   }
 
   const navItems = [
-    { path: '/', icon: Home, label: 'Home' },
-    { path: '/products', icon: Grid, label: 'Category' },
-    { path: '/wishlist', icon: Heart, label: 'Wishlist' },
-    { path: isAuthenticated ? '/profile' : '/login', icon: User, label: 'Account' },
+    { path: '/', icon: Home, label: t('mobile.home') },
+    { path: '/products', icon: Grid, label: t('mobile.category') },
+    { path: '/wishlist', icon: Heart, label: t('mobile.wishlist') },
+    { path: isAuthenticated ? '/profile' : '/login', icon: User, label: t('mobile.account') },
   ];
 
   return (
@@ -36,12 +39,12 @@ export default memo(function MobileNav() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[60px] transition-colors ${
+              className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[60px] transition-all duration-200 ${
                 isActive ? 'text-black' : 'text-gray-500'
               }`}
             >
               <div className="relative">
-                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                <Icon className={`w-[22px] h-[22px] transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
                 {/* Cart badge */}
                 {item.path === '/' && count > 0 && (
                   <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
@@ -57,19 +60,19 @@ export default memo(function MobileNav() {
         {/* Cart - separate since it has special behavior */}
         <Link
           to="/cart"
-          className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[60px] transition-colors ${
+          className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[60px] transition-all duration-200 ${
             location.pathname === '/cart' ? 'text-black' : 'text-gray-500'
           }`}
         >
           <div className="relative">
-            <ShoppingBag size={22} strokeWidth={location.pathname === '/cart' ? 2.5 : 2} />
+            <ShoppingBag className={`w-[22px] h-[22px] transition-transform duration-200 ${location.pathname === '/cart' ? 'scale-110' : ''}`} />
             {count > 0 && (
               <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
                 {count > 9 ? '9+' : count}
               </span>
             )}
           </div>
-          <span className="text-[10px] font-medium">Cart</span>
+          <span className="text-[10px] font-medium">{t('mobile.cart')}</span>
         </Link>
       </div>
     </div>

@@ -24,15 +24,19 @@ export default function AnalyticsPage() {
       <div className="chart-grid">
         <div className="chart-card">
           <div className="chart-title">Revenue Trend</div>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={data.revenue?.length ? data.revenue : mockRevenue}><XAxis dataKey="month" /><YAxis /><Tooltip formatter={(v) => formatCurrency(v)} /><Line type="monotone" dataKey="revenue" stroke="var(--gold)" strokeWidth={2} dot={{ fill: 'var(--gold)' }} /></LineChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.revenue?.length ? data.revenue : mockRevenue} isAnimationActive={false}><XAxis dataKey="month" /><YAxis /><Tooltip formatter={(v) => formatCurrency(v)} /><Line type="monotone" dataKey="revenue" stroke="var(--gold)" strokeWidth={2} dot={{ fill: 'var(--gold)' }} />              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
         <div className="chart-card">
           <div className="chart-title">Top Categories</div>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={[{ name: 'Fashion', value: 48 }, { name: 'Accessories', value: 32 }, { name: 'Jewellery', value: 24 }, { name: 'Beauty', value: 19 }]}><XAxis dataKey="name" /><YAxis /><Bar dataKey="value" fill="var(--gold)" radius={[4, 4, 0, 0]} /></BarChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: 250, minWidth: '1px', minHeight: '1px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[{ name: 'Fashion', value: 48 }, { name: 'Accessories', value: 32 }, { name: 'Jewellery', value: 24 }, { name: 'Beauty', value: 19 }]} isAnimationActive={false}><XAxis dataKey="name" /><YAxis /><Bar dataKey="value" fill="var(--gold)" radius={[4, 4, 0, 0]} />              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>

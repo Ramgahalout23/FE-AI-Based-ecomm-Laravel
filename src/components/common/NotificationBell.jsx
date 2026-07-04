@@ -1,12 +1,15 @@
+import { Bell } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+;
 import { motion, AnimatePresence } from 'framer-motion';
 import { notificationsAPI } from '../../api/notifications';
 import { useSocketEvent } from '../../hooks/useSocket';
 import { formatDateTime } from '../../utils/formatters';
 
 export default function NotificationBell() {
+  const { t } = useTranslation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [recent, setRecent] = useState([]);
   const [show, setShow] = useState(false);
@@ -127,8 +130,8 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={handleBellClick}
-        className="relative p-2 text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
-        aria-label="Notifications"
+        className="relative p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+        aria-label={t('notifications.bell.title')}
       >
         <Bell size={22} />
         {unreadCount > 0 && (
@@ -150,9 +153,9 @@ export default function NotificationBell() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <span className="text-sm font-semibold text-text-primary">
-                Notifications
+                {t('notifications.bell.title')}
                 {unreadCount > 0 && (
-                  <span className="ml-2 text-xs font-medium text-danger">{unreadCount} new</span>
+                  <span className="ml-2 text-xs font-medium text-danger">{t('notifications.bell.new', { count: unreadCount })}</span>
                 )}
               </span>
               <div className="flex items-center gap-2">
@@ -161,14 +164,14 @@ export default function NotificationBell() {
                     onClick={handleMarkAllRead}
                     className="text-xs text-primary hover:text-primary-dark font-medium transition-colors"
                   >
-                    Mark all read
+                    {t('notifications.bell.mark_all_read')}
                   </button>
                 )}
                 <button
                   onClick={() => { setShow(false); navigate('/notifications'); }}
                   className="text-xs text-muted hover:text-text-primary transition-colors"
                 >
-                  View all
+                  {t('notifications.bell.view_all')}
                 </button>
               </div>
             </div>
@@ -181,8 +184,8 @@ export default function NotificationBell() {
                 </div>
               ) : recent.length === 0 ? (
                 <div className="flex flex-col items-center py-8 text-center">
-                  <Bell size={28} className="text-muted mb-2" />
-                  <p className="text-sm text-muted">No notifications yet</p>
+                  <Bell size={28} />
+                  <p className="text-sm text-muted">{t('notifications.bell.no_notifications')}</p>
                 </div>
               ) : (
                 recent.map((n) => (

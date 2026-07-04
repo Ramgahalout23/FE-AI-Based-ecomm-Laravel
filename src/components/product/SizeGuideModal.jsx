@@ -1,6 +1,8 @@
+import { X, Maximize2, Minimize2 } from 'lucide-react';
 import { useState, useEffect, memo } from 'react';
-import { X, Ruler, Maximize2, Minimize2 } from 'lucide-react';
+
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const UNITS = { CM: 'cm', INCHES: 'in' };
 
@@ -59,6 +61,7 @@ function BodySilhouette({ selectedSize, sizeData }) {
 }
 
 export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
+  const { t } = useTranslation();
   const [unit, setUnit] = useState(UNITS.CM);
   const [selectedSize, setSelectedSize] = useState('M');
 
@@ -105,7 +108,7 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Size Guide"
+            aria-label={t('size_guide.title')}
             initial={{ opacity: 0, scale: 0.96, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -116,11 +119,11 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
             <div className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-4 border-b border-gray-100/80 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
-                  <Ruler size={18} className="text-white" />
+                  <ArrowUpDown size={18} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-display font-extrabold text-black tracking-tight">Size Guide</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Find your perfect fit</p>
+                  <h2 className="text-xl font-display font-extrabold text-black tracking-tight">{t('size_guide.title')}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">{t('size_guide.find_perfect_fit')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -135,9 +138,9 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
                 <button
                   onClick={onClose}
                   aria-label="Close size guide"
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-black hover:bg-gray-100 transition-all duration-200 active:scale-90"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-300 hover:text-black hover:bg-gray-100 transition-all duration-200 active:scale-90"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               </div>
             </div>
@@ -170,14 +173,14 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
                 {/* Measurements table */}
                 <div className="flex-1 w-full">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-bold text-black uppercase tracking-wider">Measurements</span>
+                    <span className="text-sm font-bold text-black uppercase tracking-wider">{t('size_guide.measurements')}</span>
                     <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">{selectedSize}</span>
                   </div>
                   <div className="rounded-xl border border-gray-200/80 overflow-hidden shadow-sm">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-gray-50/80 border-b border-gray-200">
-                          <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.1em]">Measurement</th>
+                          <th className="text-left py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.1em]">{t('size_guide.measurement')}</th>
                           <th className="text-right py-3 px-4 text-[10px] font-bold text-gray-500 uppercase tracking-[0.1em]">
                             {unit === UNITS.CM ? 'cm' : 'in'}
                           </th>
@@ -185,10 +188,10 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {[
-                          { label: 'Chest', key: 'chest', desc: 'Measure around the fullest part of your chest' },
-                          { label: 'Waist', key: 'waist', desc: 'Measure around your natural waistline' },
-                          { label: 'Length', key: 'length', desc: 'Measure from shoulder seam to hem' },
-                          { label: 'Sleeve', key: 'sleeve', desc: 'Measure from shoulder point to cuff' },
+                          { label: t('size_guide.chest'), key: 'chest', desc: t('size_guide.chest_desc') },
+                          { label: t('size_guide.waist'), key: 'waist', desc: t('size_guide.waist_desc') },
+                          { label: t('size_guide.length'), key: 'length', desc: t('size_guide.length_desc') },
+                          { label: t('size_guide.sleeve'), key: 'sleeve', desc: t('size_guide.sleeve_desc') },
                         ].map((m, i) => (
                           <tr key={m.key} className="group transition-colors hover:bg-gray-50/50">
                             <td className="py-3 px-4">
@@ -232,16 +235,15 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
             {/* Footer */}
             <div className="px-6 md:px-8 py-4 border-t border-gray-100/80 shrink-0 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                <Minimize2 size={12} className="text-gray-300" />
-                <span>
-                  Unit: <strong className="text-gray-500 font-semibold">{unit === UNITS.CM ? 'Centimeters' : 'Inches'}</strong>
+                <Minimize2 size={12} />
+                <span>                    Unit: <strong className="text-gray-500 font-semibold">{unit === UNITS.CM ? t('size_guide.centimeters') : t('size_guide.inches')}</strong>
                 </span>
               </div>
               <button
                 onClick={onClose}
                 className="px-6 py-2.5 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] shadow-sm hover:shadow-md"
               >
-                Got it
+                {t('size_guide.got_it')}
               </button>
             </div>
           </motion.div>

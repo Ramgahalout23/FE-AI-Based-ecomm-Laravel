@@ -1,8 +1,11 @@
+import { Plus, Minus, ShoppingBag, X, Sparkles, Heart } from 'lucide-react';
 import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Plus, Minus, ShoppingBag, X, Sparkles } from 'lucide-react';
+
+;
+import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
 import useFlyToCart from '../../hooks/useFlyToCart';
@@ -18,6 +21,7 @@ import { buildHighlights, getStyleTagline } from '../../utils/productHelpers.jsx
  * The quick-add panel is confined to the image area only, preventing overlap.
  */
 export default memo(function SearchProductCard({ product }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
   const { addItem: addToCart } = useCartStore();
@@ -197,10 +201,10 @@ export default memo(function SearchProductCard({ product }) {
   }, [product]);
 
   let topLeftBadge = null;
-  if (isOutOfStock) topLeftBadge = { label: 'Out of Stock', type: 'stock' };
-  else if (isLowStock) topLeftBadge = { label: 'Low Stock', type: 'stock' };
-  else if (discount) topLeftBadge = { label: 'Sale', type: 'sale' };
-  else if (isNew) topLeftBadge = { label: 'New', type: 'new' };
+  if (isOutOfStock) topLeftBadge = { label: t('product.out_of_stock'), type: 'stock' };
+  else if (isLowStock) topLeftBadge = { label: t('product.low_stock'), type: 'stock' };
+  else if (discount) topLeftBadge = { label: t('product.sale_badge'), type: 'sale' };
+  else if (isNew) topLeftBadge = { label: t('product.new_badge'), type: 'new' };
   else if (product.badge) topLeftBadge = { label: product.badge, type: 'custom' };
 
   return (
@@ -232,9 +236,9 @@ export default memo(function SearchProductCard({ product }) {
             <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 shrink-0 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
-                  <ShoppingBag size={11} className="text-white" />
+                  <ShoppingBag size={11} />
                 </div>
-                <h4 className="font-bold text-black uppercase tracking-wider text-xs">Quick Add</h4>
+                <h4 className="font-bold text-black uppercase tracking-wider text-xs">{t('product.quick_add')}</h4>
               </div>
               <button
                 onClick={resetSelections}
@@ -262,12 +266,11 @@ export default memo(function SearchProductCard({ product }) {
               {/* Colors */}
               {productColors.length > 0 && (
                 <div className="pt-1.5 pb-1.5 sm:pt-2.5 sm:pb-2 border-b border-gray-50">
-                  <div className="hidden sm:flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Color
+                  <div className="hidden sm:flex items-center justify-between mb-2">                      <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('product.color')}
                     </span>
                     <span className={`text-[9px] font-medium transition-colors duration-200 ${selectedColor ? 'text-black' : 'text-gray-500'}`}>
-                      {selectedColor || 'Select'}
+                      {selectedColor || t('product.select')}
                     </span>
                   </div>
                   <div className="flex justify-center gap-1.5 sm:gap-2 flex-wrap">
@@ -284,7 +287,7 @@ export default memo(function SearchProductCard({ product }) {
                           className={`relative rounded-full transition-all duration-200 ${
                             isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-40' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110 shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105 shadow-sm shadow-black/5'
                           } w-5 h-5 sm:w-6 sm:h-6`}
-                          title={isOOS ? `${color} - Out of Stock` : color}
+                          title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                           disabled={isOOS}
                         >
                           <div
@@ -313,12 +316,11 @@ export default memo(function SearchProductCard({ product }) {
               {/* Sizes */}
               {productSizes.length > 0 && (
                 <div className="pt-1.5 pb-1.5 sm:pt-2.5 sm:pb-2 border-b border-gray-50">
-                  <div className="hidden sm:flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Size
+                  <div className="hidden sm:flex items-center justify-between mb-2">                      <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t('product.size')}
                     </span>
                     <span className={`text-[9px] font-medium transition-colors duration-200 ${selectedSize ? 'text-black' : 'text-gray-500'}`}>
-                      {selectedSize || 'Select'}
+                      {selectedSize || t('product.select')}
                     </span>
                   </div>
                   <div className="flex justify-center gap-2 flex-wrap">
@@ -385,13 +387,13 @@ export default memo(function SearchProductCard({ product }) {
                   {isAdding ? (
                     <><div className="spinner w-3 h-3 border-2 border-white/30 border-t-white rounded-full" /> Adding</>
                   ) : !hasAllSelections && hasVariants ? (
-                    'Select'
+                    t('product.select')
                   ) : !matchedVariant && hasVariants ? (
-                    'Unavailable'
+                    t('product.unavailable')
                   ) : !canAdd ? (
-                    'Sold Out'
+                    t('product.sold_out')
                   ) : (
-                    <><ShoppingBag size={11} /> Add</>
+                    <><ShoppingBag size={11} /> {t('product.add')}</>
                   )}
                 </button>
               </div>
@@ -433,10 +435,10 @@ export default memo(function SearchProductCard({ product }) {
         {/* Badge */}
         {!showQuickAdd && topLeftBadge && (
           <span
-            className={`product-badge ${topLeftBadge.label === 'Sale' ? 'sale-badge' : ''}`}
+            className={`product-badge ${topLeftBadge.label === t('product.sale_badge') ? 'sale-badge' : ''}`}
             style={topLeftBadge.type === 'new' ? { background: '#059669' } : undefined}
           >
-            {topLeftBadge.label === 'New' ? (
+            {topLeftBadge.label === t('product.new_badge') ? (
               <span className="flex items-center gap-1">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -453,13 +455,13 @@ export default memo(function SearchProductCard({ product }) {
         {!showQuickAdd && (
           <button
             onClick={handleWishlist}
-            className={`absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${
+            className={`absolute top-2 right-2 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
               inWishlist
                 ? 'bg-danger text-white shadow-md opacity-100 scale-100'
                 : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-danger hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90'
             }`}
           >
-            <Heart size={13} fill={inWishlist ? 'currentColor' : 'none'} />
+            <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
           </button>
         )}
 
@@ -483,8 +485,8 @@ export default memo(function SearchProductCard({ product }) {
         {isOutOfStock && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/10">
             <div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[9px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
-              Sold Out
-            </div>
+            {t('product.sold_out')}
+          </div>
           </div>
         )}
 
@@ -504,7 +506,7 @@ export default memo(function SearchProductCard({ product }) {
         {isOutOfStock ? (
           <div className="absolute bottom-0 inset-x-0 z-30 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] flex items-center justify-center gap-1.5 bg-gray-800/80 text-gray-300">
             <X size={12} />
-            Out of Stock
+            {t('product.out_of_stock')}
           </div>
         ) : (
           !showQuickAdd && (
@@ -513,7 +515,7 @@ export default memo(function SearchProductCard({ product }) {
               className="absolute bottom-0 inset-x-0 z-30 py-2.5 text-[10px] font-bold uppercase tracking-[1.5px] md:translate-y-full md:group-hover:translate-y-0 transition-all duration-[400ms] ease flex items-center justify-center gap-1.5 md:opacity-0 md:group-hover:opacity-100 bg-black text-white md:hover:bg-white md:hover:text-black"
             >
               <ShoppingBag size={12} />
-              Quick Add
+              {t('product.quick_add')}
             </button>
           )
         )}
@@ -523,7 +525,7 @@ export default memo(function SearchProductCard({ product }) {
           <div className="absolute top-2 left-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 backdrop-blur-sm text-[7px] font-semibold text-gray-600 uppercase tracking-wider shadow-sm">
               <Sparkles size={8} />
-              Details
+              {t('product.details_label')}
             </span>
           </div>
         )}
@@ -551,7 +553,7 @@ export default memo(function SearchProductCard({ product }) {
           </div>
           {displayDiscount && (
             <span className="inline-block mt-0.5 text-[8px] font-bold text-green-600 bg-green-50 px-1 py-0.5 rounded-full border border-green-200">
-              Save {formatCurrency(displayOldPrice - displayPrice)}
+              {t('product.save_amount', { amount: formatCurrency(displayOldPrice - displayPrice) })}
             </span>
           )}
         </div>
@@ -593,15 +595,15 @@ export default memo(function SearchProductCard({ product }) {
                   <div className="flex items-center justify-between px-4 pb-2 shrink-0">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center">
-                        <ShoppingBag size={14} className="text-white" />
+                        <ShoppingBag size={14} />
                       </div>
-                      <span className="text-sm font-bold text-gray-900">Quick Add</span>
+                      <span className="text-sm font-bold text-gray-900">{t('product.quick_add')}</span>
                     </div>
                     <button
                       onClick={resetSelections}
                       className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-150 active:scale-[0.85]"
                     >
-                      <X size={15} className="text-gray-500" />
+                      <X size={15} />
                     </button>
                   </div>
 
@@ -630,7 +632,7 @@ export default memo(function SearchProductCard({ product }) {
                       {productColors.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                            Color · <span className="text-gray-900">{selectedColor || 'Select'}</span>
+                            {t('product.color')} · <span className="text-gray-900">{selectedColor || t('product.select')}</span>
                           </p>
                           <div className="flex flex-wrap gap-2.5">
                             {productColors.map((c) => {
@@ -682,7 +684,7 @@ export default memo(function SearchProductCard({ product }) {
                       {productSizes.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                            Size · <span className="text-gray-900">{selectedSize || 'Select'}</span>
+                            {t('product.size')} · <span className="text-gray-900">{selectedSize || t('product.select')}</span>
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {productSizes.map((s) => {
@@ -757,7 +759,7 @@ export default memo(function SearchProductCard({ product }) {
                               className="inline-flex items-center gap-1.5 whitespace-nowrap"
                             >
                               <ShoppingBag size={13} />
-                              <span>Add · {formatCurrency(displayPrice * qty)}</span>
+                              <span>{t('product.add_price', { price: formatCurrency(displayPrice * qty) })}</span>
                             </motion.span>
                           </AnimatePresence>
                         )}

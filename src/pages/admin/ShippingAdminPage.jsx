@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { shippingAPI } from '../../api/shipping';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import { SHIPPING_STATUSES } from '../../utils/constants';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 
 const EMPTY_SHIP = { orderId: '', carrier: '', trackingNumber: '' };
@@ -33,14 +37,74 @@ export default function ShippingAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
+
+  // CSV Export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const SHIPMENT_COLUMNS = [
+    { key: 'orderId', label: 'Order ID' },
+    { key: 'carrier', label: 'Carrier' },
+    { key: 'trackingNumber', label: 'Tracking Number' },
+    { key: 'cost', label: 'Cost' },
+    { key: 'status', label: 'Status' },
+    { key: 'estimatedDelivery', label: 'Estimated Delivery' },
+    { key: 'actualDelivery', label: 'Actual Delivery' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true); setExportStatus('dispatching'); setExportError(null);
+    try {
+      const filters = { search: debouncedSearch || undefined, status: statusFilter !== 'ALL' ? statusFilter : undefined };
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+      const dispatchRes = await adminAPI.dispatchExport({ type: 'shipments', filters, columns: selectedColumns });
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+      setExportStatus('processing');
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `shipments-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Shipments exported successfully');
+            setTimeout(() => { setShowExportModal(false); setExportStatus(null); }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed'); setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed'); setExportError(err.response?.data?.message || err.message || 'Failed to export shipments');
+      toast.error('Export failed');
+    } finally { setExporting(false); }
+  };
 
   const loadShipments = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         search: debouncedSearch || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined
       };
@@ -50,7 +114,7 @@ export default function ShippingAdminPage() {
       setShipments(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load shipments'); console.warn('Failed to load shipments:', e); }
     try {
@@ -68,7 +132,7 @@ export default function ShippingAdminPage() {
     } else {
       loadShipments(1);
     }
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     loadShipments(currentPage);
@@ -88,15 +152,20 @@ export default function ShippingAdminPage() {
 
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Shipping</h2><p>Manage shipments, zones, and tracking</p></div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn-ghost btn-sm" onClick={() => setZoneModal(true)}>🌍 Add Zone</button>
-          <button className="btn-dark btn-sm" onClick={() => { setForm(EMPTY_SHIP); setShowModal(true); }}>📦 Create Shipment</button>
-        </div>
-      </div>
-
-      {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
+      <AdminPageShell
+        title="Shipping"
+        subtitle="Manage shipments, zones, and tracking"
+        loading={loading}
+        error={error}
+        page="shipping"
+        actions={
+          <>
+            <button className="btn-ghost btn-sm" onClick={() => setZoneModal(true)}>🌍 Add Zone</button>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+            <button className="btn-dark btn-sm" onClick={() => { setForm(EMPTY_SHIP); setShowModal(true); }}>📦 Create Shipment</button>
+          </>
+        }
+      >
       <div className="admin-tabs-wrap">
         <button className={`admin-tab ${tab === 'shipments' ? 'active' : ''}`} onClick={() => setTab('shipments')}>Shipments</button>
         <button className={`admin-tab ${tab === 'zones' ? 'active' : ''}`} onClick={() => setTab('zones')}>Shipping Zones</button>
@@ -133,8 +202,7 @@ export default function ShippingAdminPage() {
           <table className="admin-table">
             <thead><tr><th>Shipment</th><th>Order</th><th>Carrier</th><th>Tracking</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={7}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr> :
-              shipments.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No shipments</h3></div></td></tr> :
+              {shipments.length === 0 ? <tr><td colSpan={7}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No shipments</h3></div></td></tr> :
               shipments.map(s => (
                 <tr key={s.id}>
                   <td><strong style={{ fontFamily: 'monospace' }}>#{s.id?.slice(0, 8)}</strong></td>
@@ -156,18 +224,15 @@ export default function ShippingAdminPage() {
             </tbody>
           </table>
 
-          {totalPages > 1 && (
-            <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} shipments)</span>
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>◀ Prev</button>
-                {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map(p => (
-                  <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-                ))}
-                <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Next ▶</button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+          />
         </div>
       ) : (
         <div className="table-card">
@@ -180,6 +245,18 @@ export default function ShippingAdminPage() {
           </table>
         </div>
       )}
+      </AdminPageShell>
+
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={SHIPMENT_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`shipments-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
 
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>

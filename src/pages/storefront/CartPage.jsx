@@ -1,25 +1,59 @@
-import { useEffect, useState } from 'react';
+import { Minus, Plus, ShoppingBag, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Minus, Plus, Trash2, ArrowRight, ArrowLeft, ShoppingBag, AlertTriangle, Heart, RefreshCw } from 'lucide-react';
+
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { trackRemoveFromCart } from '../../services/tracker';
 import useCartStore from '../../store/cartStore';
 import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
+import { useSettings } from '../../store/useSettings';
 import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
+import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, slugify, getImageUrl } from '../../utils/formatters';
 import { showError, showSuccess, removedFromCart, addedToWishlist } from '../../utils/toast';
 import CartPageSkeleton from '../../components/ui/CartItemSkeleton';
 
 export default function CartPage() {
+  const { t } = useTranslation();
   const { items, subtotal, updateQuantity, removeItem, clearCart, setItems } = useCartStore();
   const { addItem: addToWishlist } = useWishlistStore();
   const { isAuthenticated } = useAuthStore();
+  const { getSetting } = useSettings();
   const navigate = useNavigate();
   const [savingForLater, setSavingForLater] = useState(new Set());
+  const storeName = getSetting('storeName', 'THREVOLT');
+  const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
+  const shippingFlatRate = Number(getSetting('shippingFlatRate', '50'));
+  const currency = getSetting('currency', 'INR');
+
+  // ── Fetch active promotions for flash sale badges ──
+  const { data: promotionsData } = useQuery({
+    queryKey: ['active-promotions'],
+    queryFn: async () => {
+      const res = await promotionsAPI.getFlashSales();
+      return res.data?.data || res.data || [];
+    },
+    staleTime: 60000,
+    retry: false,
+  });
+
+  // Build flash sale product and category lookup maps
+  const flashSaleProductIds = useMemo(() => {
+    const promos = Array.isArray(promotionsData) ? promotionsData : [];
+    const productIds = new Set();
+    const categorySlugs = new Set();
+    promos.forEach((promo) => {
+      if (!promo.isActive) return;
+      (promo.products || []).forEach((p) => productIds.add(p.id));
+      (promo.categories || []).forEach((c) => categorySlugs.add(c.slug || c.id));
+    });
+    return { productIds, categorySlugs };
+  }, [promotionsData]);
 
   // Fetch server cart on mount to ensure local state is in sync (skip for guest users)
   const { isLoading: loadingCart } = useQuery({
@@ -57,7 +91,7 @@ export default function CartPage() {
     (sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0
   );
   const availableCount = availableItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-  const shipping = availableSubtotal >= 499 ? 0 : 50;
+  const shipping = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
   const total = availableSubtotal + shipping;
 
   const handleQuantityChange = async (item, newQty) => {
@@ -114,7 +148,7 @@ export default function CartPage() {
       }
       showSuccess(
         <span className="inline-flex items-center gap-1.5">
-          <Heart size={14} className="text-red-500" />
+          <Heart size={14} />
           Saved to wishlist
         </span>
       );
@@ -128,9 +162,18 @@ export default function CartPage() {
   };
 
   // ── Render helpers ──
+  const isFlashSaleItem = (item) => {
+    if (flashSaleProductIds.productIds.has(item.productId || item.product_id || item.id)) return true;
+    if (item.categorySlug || item.category_slug || item.category?.slug) {
+      return flashSaleProductIds.categorySlugs.has(item.categorySlug || item.category_slug || item.category?.slug);
+    }
+    return false;
+  };
+
   const renderCartItem = (item, isOOS) => {
     const itemKey = item.cartItemId || item.id;
     const isSaving = savingForLater.has(itemKey);
+    const onFlashSale = isFlashSaleItem(item);
 
     return (
       <div key={itemKey} className={`flex gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl ${isOOS ? 'border border-red-200 bg-red-50/30' : ''}`}>
@@ -150,6 +193,12 @@ export default function CartPage() {
               <Link to={`/products/${item.slug || slugify(item.name)}`} className="font-semibold text-black hover:text-gray-600 transition-colors line-clamp-2">
                 {item.name}
               </Link>
+              {onFlashSale && !isOOS && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-gradient-to-r from-purple-50 to-pink-50 px-2.5 py-0.5 rounded-full mt-1 border border-purple-200">
+                  <Zap size={12} />
+                  {t('cart.flash_sale')}
+                </span>
+              )}
               {(item.size || item.color) && (
                 <p className="text-sm text-gray-500 mt-1">
                   {[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`].filter(Boolean).join(' · ')}
@@ -158,12 +207,12 @@ export default function CartPage() {
               {isOOS ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full mt-1.5 border border-red-200">
                   <AlertTriangle size={12} />
-                  Out of Stock
+                  {t('cart.out_of_stock')}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 mt-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  In Stock
+                  {t('cart.in_stock')}
                 </span>
               )}
             </div>
@@ -181,7 +230,7 @@ export default function CartPage() {
             <div className={`flex items-center gap-1 bg-white rounded-lg border ${isOOS ? 'border-red-200 bg-red-50/50' : 'border-gray-200'}`}>
               <button
                 onClick={() => handleQuantityChange(item, item.quantity - 1)}
-                className="p-2 hover:bg-gray-100 rounded-l-lg transition-colors disabled:opacity-30"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-l-lg transition-colors disabled:opacity-30"
                 disabled={item.quantity <= 1}
               >
                 <Minus size={16} />
@@ -189,7 +238,7 @@ export default function CartPage() {
               <span className={`px-3 font-medium ${isOOS ? 'text-red-400' : ''}`}>{item.quantity}</span>
               <button
                 onClick={() => handleQuantityChange(item, item.quantity + 1)}
-                className="p-2 hover:bg-gray-100 rounded-r-lg transition-colors"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-r-lg transition-colors"
                 disabled={item.quantity >= 10 || isOOS}
               >
                 <Plus size={16} />
@@ -205,18 +254,18 @@ export default function CartPage() {
                   className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
                 >
                   {isSaving ? (
-                    <RefreshCw size={14} className="animate-spin" />
+                    <RefreshCw size={14} />
                   ) : (
                     <Heart size={14} />
                   )}
-                  <span className="hidden sm:inline">Save</span>
+                  <span className="hidden sm:inline">{t('cart.save')}</span>
                 </button>
               )}
               <div className="text-right">
                 {item.oldPrice && item.oldPrice > item.price && (
                   <p className="text-sm text-gray-400 line-through">{formatCurrency(item.oldPrice * item.quantity)}</p>
                 )}
-                <p className={`text-lg font-bold ${isOOS ? 'text-gray-400' : 'text-black'}`}>
+                <p className={`text-lg font-bold ${isOOS ? 'text-gray-400' : onFlashSale ? 'text-purple-700' : 'text-black'}`}>
                   {formatCurrency(item.price * item.quantity)}
                 </p>
               </div>
@@ -232,28 +281,28 @@ export default function CartPage() {
     return (
       <div className="page-content bg-white flex-1">
         <SEOHead
-          title="Shopping Cart | Threvolt"
-          description="Review your shopping cart at Threvolt. Secure checkout with easy returns and free shipping on orders above ₹499."
+          title={`Shopping Cart | ${storeName}`}
+          description={t('cart.seo_desc', { store: storeName, amount: formatCurrency(freeShippingThreshold, currency) })}
           noIndex={true}
         />
         <div className="max-w-lg mx-auto px-4 pt-6 sm:pt-8">
           <Breadcrumb
-            items={[{ label: 'Home', href: '/' }, { label: 'Cart' }]}
+            items={[    {label: t('nav.home'), href: '/' }, { label: t('checkout.cart') }]}
             variant="light"
             className="justify-center mb-8"
           />
         </div>
         <div className="max-w-lg mx-auto px-4 pb-20 text-center">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShoppingBag className="w-12 h-12 text-gray-400" />
+            <ShoppingBag size={48} />
           </div>
-          <h2 className="font-display text-2xl font-bold text-black mb-3">Your cart is empty</h2>
-          <p className="text-gray-500 mb-8">Looks like you haven't added anything to your cart yet.</p>
+          <h2 className="font-display text-2xl font-bold text-black mb-3">{t('cart.empty')}</h2>
+          <p className="text-gray-500 mb-8">{t('cart.empty_desc')}</p>
           <Link
             to="/products"
             className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors"
           >
-            Start Shopping <ArrowRight size={20} />
+            {t('cart.start_shopping')} <ArrowRight size={20} />
           </Link>
         </div>
       </div>
@@ -263,18 +312,18 @@ export default function CartPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title="Shopping Cart | Threvolt"
-        description="Review your shopping cart at Luxe. Secure checkout with easy returns and free shipping on orders above ₹499."
+        title={`Shopping Cart | ${storeName}`}
+        description={t('cart.seo_desc', { store: storeName, amount: formatCurrency(freeShippingThreshold, currency) })}
         noIndex={true}
       />
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
         <Breadcrumb
-          items={[{ label: 'Home', href: '/' }, { label: 'Cart' }]}
+          items={[    {label: t('nav.home'), href: '/' }, { label: t('checkout.cart') }]}
           variant="light"
           className="mb-4 sm:mb-6"
         />
         <h1 className="font-display text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8">
-          Shopping Cart ({items.length} {items.length === 1 ? 'item' : 'items'})
+          {t('cart.title')} ({items.length} {items.length === 1 ? t('cart.item') : t('cart.items')})
         </h1>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
@@ -286,7 +335,7 @@ export default function CartPage() {
                 {hasOutOfStockItems && (
                   <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Available ({availableItems.length})
+                    {t('cart.available')} ({availableItems.length})
                   </h3>
                 )}
                 <div className="space-y-3">
@@ -297,11 +346,10 @@ export default function CartPage() {
 
             {/* Unavailable Items */}
             {hasOutOfStockItems && (
-              <div>
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  Unavailable ({outOfStockItems.length})
-                </h3>
+              <div>                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    {t('cart.unavailable')} ({outOfStockItems.length})
+                  </h3>
                 <div className="space-y-3">
                   {outOfStockItems.map(item => renderCartItem(item, true))}
                 </div>
@@ -311,51 +359,51 @@ export default function CartPage() {
             {/* Continue Shopping */}
             <Link to="/products" className="inline-flex items-center gap-2 text-gray-500 hover:text-black transition-colors text-sm font-medium">
               <ArrowLeft size={18} />
-              Continue Shopping
+              {t('cart.continue_shopping')}
             </Link>
           </div>
 
           {/* ── Right Column: Order Summary ── */}
           <div className="lg:sticky lg:top-8 h-fit">
             <div className="bg-gray-50 rounded-2xl p-6">
-              <h2 className="font-display text-xl font-bold text-black mb-6">Order Summary</h2>
+              <h2 className="font-display text-xl font-bold text-black mb-6">{t('cart.order_summary')}</h2>
 
               <div className="space-y-3 border-t pt-4">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal ({availableCount} items)</span>
+                  <span className="text-gray-600">{t('cart.subtotal', { count: availableCount })}</span>
                   <span className="text-black font-medium">{formatCurrency(availableSubtotal)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping</span>
+                  <span className="text-gray-600">{t('cart.shipping')}</span>
                   <span className="text-black">
                     {shipping === 0 ? (
-                      <span className="text-green-600 font-semibold">Free</span>
+                      <span className="text-green-600 font-semibold">{t('cart.free')}</span>
                     ) : (
                       formatCurrency(shipping)
                     )}
                   </span>
                 </div>
-                {availableSubtotal > 0 && availableSubtotal < 499 && (
+                {freeShippingThreshold > 0 && availableSubtotal > 0 && availableSubtotal < freeShippingThreshold && (
                   <p className="text-xs text-emerald-600 font-medium">
-                    Add ₹{499 - availableSubtotal} more for free shipping!
+                    {t('cart.add_free_shipping', { amount: formatCurrency(freeShippingThreshold - availableSubtotal, currency) })}
                   </p>
                 )}
 
                 {/* OOS notice */}
                 {hasOutOfStockItems && (
                   <div className="flex items-start gap-2 pt-2 pb-1">
-                    <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                    <AlertTriangle size={14} />
                     <p className="text-xs text-amber-700 leading-relaxed">
                       {outOfStockItems.length === 1
-                        ? '1 item is out of stock and not included in the total.'
-                        : `${outOfStockItems.length} items are out of stock and not included in the total.`}
-                      {' '}Save them to your wishlist and check back later.
+                        ? t('cart.oos_single')
+                        : t('cart.oos_multiple', { count: outOfStockItems.length })}
+                      {' '}{t('cart.save_wishlist_check')}
                     </p>
                   </div>
                 )}
 
                 <div className="flex justify-between pt-3 border-t">
-                  <span className="font-bold text-black text-lg">Total</span>
+                  <span className="font-bold text-black text-lg">{t('cart.total')}</span>
                   <span className="font-bold text-black text-lg">{formatCurrency(total)}</span>
                 </div>
               </div>
@@ -374,17 +422,16 @@ export default function CartPage() {
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-black text-white hover:bg-gray-800'
                 }`}
-              >
-                {availableItems.length === 0 ? (
-                  <><AlertTriangle size={18} /> All Items Unavailable</>
+              >                  {availableItems.length === 0 ? (
+                  <><AlertTriangle size={18} /> {t('cart.all_unavailable')}</>
                 ) : (
-                  <><ArrowRight size={20} /> Proceed to Checkout</>
+                  <><ArrowRight size={20} /> {t('cart.proceed_checkout')}</>
                 )}
               </button>
 
               {/* Trust Info */}
               <div className="mt-6 text-center text-xs text-gray-500">
-                <p>Secure checkout • Free delivery above ₹499 • Easy 7-day returns</p>
+                <p>{t('cart.secure_checkout_text')} • {t('cart.free_delivery_text')} • {t('cart.easy_returns_text')}</p>
               </div>
             </div>
           </div>

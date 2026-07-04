@@ -14,10 +14,10 @@ export const productsAPI = {
   getVariants: (id) => client.get(`/products/${id}/variants`),
   getVariantByAttributes: (id, params) => client.get(`/products/${id}/variants/attributes`, { params }),
   // Admin
-  create: (data) => adminClient.post('/products', data),
-  update: (id, data) => adminClient.put(`/products/${id}`, data),
-  delete: (id) => adminClient.delete(`/products/${id}`),
-  publish: (id) => adminClient.patch(`/products/${id}/publish`),
-  archive: (id) => adminClient.patch(`/products/${id}/archive`),
-  getLowStock: () => adminClient.get('/products/admin/low-stock'),
+  create: (data) => adminClient.post('/admin/products', data),
+  update: (id, data) => adminClient.put(`/admin/products/${id}`, data),
+  delete: (id) => adminClient.delete(`/admin/products/${id}`),
+  publish: (id) => adminClient.patch(`/admin/products/${id}/publish`),
+  archive: (id) => adminClient.patch(`/admin/products/${id}/archive`),
+  getLowStock: () => adminClient.get('/admin/products/low-stock'),
 };

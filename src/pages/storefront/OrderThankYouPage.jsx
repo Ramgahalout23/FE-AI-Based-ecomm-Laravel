@@ -1,17 +1,16 @@
+import { Check, MapPin, ChevronRight, ShoppingBag, Share2, Copy, RefreshCw, Info, Smartphone, Package, Truck, Calendar, CheckCircle, Clock, Heart, ArrowLeft, ExternalLink, Mail, Printer, ShieldCheck, Tag, Phone, Bell } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Check, Package, Truck, MapPin, Calendar,
-  ChevronRight, ShoppingBag, Share2, Copy, CheckCircle,
-  Clock, Heart, ArrowLeft, ExternalLink, Mail, Printer,
-  ShieldCheck, RefreshCw, Tag, Info, Phone, Bell, Loader, Smartphone
-} from 'lucide-react';
+
+;
 import SEOHead from '../../components/seo/SEOHead';
 import Skeleton from '../../components/ui/Skeleton';
 import { getPaymentIcon } from '../../utils/paymentIcons';
 import { ordersAPI } from '../../api/orders';
 import { paymentsAPI } from '../../api/payments';
+import { useSettings } from '../../store/useSettings';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
 import { ORDER_STATUSES, SHIPPING_STATUSES } from '../../utils/constants';
 import toast from '../../utils/toast';
@@ -172,6 +171,54 @@ function AnimatedPending() {
   );
 }
 
+/* ═══════════════ ANIMATED RETURN / REFUND ═══════════════ */
+function AnimatedReturned() {
+  return (
+    <motion.div
+      initial={{ scale: 0, rotate: -180 }}
+      animate={{ scale: 1, rotate: 0 }}
+      transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+      className="relative"
+    >
+      {/* Outer ring pulse */}
+      <motion.div
+        className="absolute inset-0 rounded-full bg-purple-100"
+        initial={{ scale: 1, opacity: 1 }}
+        animate={{ scale: 2.2, opacity: 0 }}
+        transition={{ duration: 1.5, delay: 0.5, repeat: Infinity, ease: 'ease-out' }}
+      />
+      {/* Circle */}
+      <motion.div
+        className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-200"
+        whileHover={{ scale: 1.05, rotate: [0, -5, 5, 0] }}
+        transition={{ duration: 0.3 }}
+      >
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="md:w-12 md:h-12">
+          <motion.path
+            d="M8 20h18M26 20l-6-6M26 20l-6 6"
+            stroke="white"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
+          />
+          <motion.circle
+            cx="18" cy="20" r="12"
+            stroke="white"
+            strokeWidth="3"
+            fill="none"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
+          />
+        </svg>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /* ═══════════════ ANIMATED CANCELLED ═══════════════ */
 function AnimatedCancelled() {
   return (
@@ -210,6 +257,7 @@ function AnimatedCancelled() {
 
 /* ═══════════════ ORDER TIMELINE ═══════════════ */
 function OrderTimeline({ order }) {
+  const { t } = useTranslation();
   const steps = SHIPPING_STATUSES;
   const currentStepIdx = steps.indexOf(order.shippingStatus || 'PENDING');
   const [activeStep, setActiveStep] = useState(-1);
@@ -230,8 +278,27 @@ function OrderTimeline({ order }) {
   if (order.status === 'CANCELLED') {
     return (
       <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-        <p className="text-red-600 font-semibold text-lg">Order Cancelled</p>
-        <p className="text-red-500 text-sm mt-1">This order has been cancelled.</p>
+        <p className="text-red-600 font-semibold text-lg">{t('orders.detail.order_cancelled_title')}</p>
+        <p className="text-red-500 text-sm mt-1">{t('orders.detail.cancelled_desc')}</p>
+      </div>
+    );
+  }
+
+  // If returned or return requested, show simplified return view
+  if (order.status === 'RETURNED') {
+    return (
+      <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6 text-center">
+        <p className="text-purple-600 font-semibold text-lg">{t('orders.detail.return_completed_title')}</p>
+        <p className="text-purple-500 text-sm mt-1">{t('orders.detail.return_completed_hero_desc')}</p>
+      </div>
+    );
+  }
+
+  if (order.status === 'RETURN_REQUESTED') {
+    return (
+      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6 text-center">
+        <p className="text-orange-600 font-semibold text-lg">{t('orders.detail.return_requested_title')}</p>
+        <p className="text-orange-500 text-sm mt-1">{t('orders.detail.return_requested_hero_desc')}</p>
       </div>
     );
   }
@@ -251,11 +318,11 @@ function OrderTimeline({ order }) {
           const isCurrent = idx === currentStepIdx;
           const isActive = idx <= activeStep;
           const stepLabels = {
-            PENDING: { icon: Clock, label: 'Order Placed', desc: 'Your order has been placed successfully' },
-            PICKED_UP: { icon: Package, label: 'Picked Up', desc: 'Your package has been picked from store' },
-            IN_TRANSIT: { icon: Truck, label: 'In Transit', desc: 'Your package is on its way' },
-            OUT_FOR_DELIVERY: { icon: MapPin, label: 'Out for Delivery', desc: 'Your package is out for delivery' },
-            DELIVERED: { icon: CheckCircle, label: 'Delivered', desc: 'Your package has been delivered' },
+            PENDING: { icon: Clock, label: t('orders.detail.order_placed'), desc: t('orders.detail.order_placed_desc') },
+            PICKED_UP: { icon: Package, label: t('orders.detail.picked_up'), desc: t('orders.detail.picked_up_desc') },
+            IN_TRANSIT: { icon: Truck, label: t('orders.detail.in_transit'), desc: t('orders.detail.in_transit_desc') },
+            OUT_FOR_DELIVERY: { icon: MapPin, label: t('orders.detail.out_for_delivery'), desc: t('orders.detail.out_for_delivery_desc') },
+            DELIVERED: { icon: CheckCircle, label: t('orders.detail.delivered'), desc: t('orders.detail.delivered_desc') },
           };
           const stepInfo = stepLabels[step] || { icon: Package, label: step.replace(/_/g, ' '), desc: '' };
 
@@ -279,7 +346,7 @@ function OrderTimeline({ order }) {
                   transition={{ type: 'spring', stiffness: 300 }}
                 >
                   {isCompleted ? (
-                    <Check size={18} strokeWidth={3} />
+                    <Check size={18} />
                   ) : (
                     <stepInfo.icon size={16} />
                   )}
@@ -300,7 +367,7 @@ function OrderTimeline({ order }) {
                       animate={{ opacity: 1, scale: 1 }}
                       className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full uppercase tracking-wider"
                     >
-                      Current
+                      {t('orders.detail.current')}
                     </motion.span>
                   )}
                 </div>
@@ -317,7 +384,7 @@ function OrderTimeline({ order }) {
                     className="mt-2 flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100 w-fit"
                   >
                     <Calendar size={12} />
-                    Est. delivery by {formatDate(order.estimatedDelivery)}
+                    {t('orders.detail.est_delivery_by', { date: formatDate(order.estimatedDelivery) })}
                   </motion.div>
                 )}
               </div>
@@ -331,6 +398,7 @@ function OrderTimeline({ order }) {
 
 /* ═══════════════ ORDER ITEM CARD ═══════════════ */
 function OrderItemCard({ item, index }) {
+  const { t } = useTranslation();
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -355,7 +423,7 @@ function OrderItemCard({ item, index }) {
       {/* Details */}
       <div className="flex-1 min-w-0">
         <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">
-          {item.name || item.productName || `Product #${item.productId}`}
+          {item.name || item.productName || t('orders.detail.product_fallback', { id: item.productId })}
         </h4>
         {(item.size || item.color) && (
           <p className="text-xs text-gray-500 mt-0.5">
@@ -364,7 +432,7 @@ function OrderItemCard({ item, index }) {
         )}
         <div className="flex items-center justify-between mt-2">
           <div>
-            <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
+            <span className="text-xs text-gray-400">{t('orders.detail.qty_label', { qty: item.quantity })}</span>
             <span className="mx-2 text-gray-200">|</span>
             <span className="font-semibold text-gray-900 text-sm">
               {formatCurrency(item.price)}
@@ -381,30 +449,31 @@ function OrderItemCard({ item, index }) {
 
 /* ═══════════════ SHARE BUTTONS ═══════════════ */
 function ShareSection({ orderId }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopyLink = useCallback(() => {
     const link = `${window.location.origin}/orders/${orderId}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
-      toast.success('Order link copied!');
+      toast.success(t('orders.detail.order_link_copied'));
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
-      toast.error('Failed to copy link');
+      toast.error(t('orders.detail.failed_copy_link'));
     });
-  }, [orderId]);
+  }, [orderId, t]);
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mr-1">Share</span>
+      <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mr-1">{t('orders.detail.share')}</span>
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={handleCopyLink}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 transition-all"
       >
-        {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-        {copied ? 'Copied!' : 'Copy Link'}
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+        {copied ? t('orders.detail.link_copied') : t('orders.detail.copy_link')}
       </motion.button>
     </div>
   );
@@ -412,38 +481,39 @@ function ShareSection({ orderId }) {
 
 /* ═══════════════ PRICING BREAKDOWN ═══════════════ */
 function PricingBreakdown({ subtotal, discount, shippingCost, total }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2.5">
       <div className="flex justify-between text-sm">
-        <span className="text-gray-500">Subtotal</span>
+        <span className="text-gray-500">{t('checkout.subtotal')}</span>
         <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
       </div>
       {(discount || 0) > 0 && (
         <div className="flex justify-between text-sm">
           <span className="flex items-center gap-1.5 text-green-600">
             <Tag size={14} />
-            Discount
+            {t('checkout.discount')}
           </span>
           <span className="font-medium text-green-600">-{formatCurrency(discount)}</span>
         </div>
       )}
       <div className="flex justify-between text-sm">
-        <span className="text-gray-500">Shipping</span>
+        <span className="text-gray-500">{t('checkout.shipping')}</span>
         <span className={`font-medium ${shippingCost === 0 ? 'text-green-600' : 'text-gray-900'}`}>
           {shippingCost === 0 ? (
             <span className="flex items-center gap-1">
               <Truck size={14} />
-              Free
+              {t('checkout.free')}
             </span>
           ) : formatCurrency(shippingCost)}
         </span>
       </div>
       <div className="border-t border-gray-100 pt-3 mt-3">
         <div className="flex justify-between">
-          <span className="font-bold text-gray-900">Total</span>
+          <span className="font-bold text-gray-900">{t('checkout.total')}</span>
           <span className="font-bold text-gray-900 text-lg">{formatCurrency(total)}</span>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1 text-right">Inclusive of all taxes</p>
+        <p className="text-[10px] text-gray-400 mt-1 text-right">{t('orders.detail.inclusive_tax')}</p>
       </div>
     </div>
   );
@@ -451,6 +521,7 @@ function PricingBreakdown({ subtotal, discount, shippingCost, total }) {
 
 /* ═══════════════ ORDER UPDATE SUBSCRIPTION ═══════════════ */
 function OrderUpdateSubscription({ orderId, order }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [emailEnabled, setEmailEnabled] = useState(true);
@@ -469,7 +540,7 @@ function OrderUpdateSubscription({ orderId, order }) {
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
-    if (!email && !phone) return toast.error('Please provide at least an email or phone number');
+    if (!email && !phone) return toast.error(t('orders.detail.subscription_desc'));
     setSubmitting(true);
     try {
       await ordersAPI.subscribeUpdates(orderId, {
@@ -479,9 +550,9 @@ function OrderUpdateSubscription({ orderId, order }) {
         smsUpdates: smsEnabled,
       });
       setSubscribed(true);
-      toast.success('You\'re now subscribed to order updates!');
+      toast.success(t('orders.detail.subscribed_desc'));
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to subscribe. Please try again.';
+      const msg = err?.response?.data?.message || t('orders.detail.failed_retry_payment');
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -501,18 +572,18 @@ function OrderUpdateSubscription({ orderId, order }) {
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
           className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3"
         >
-          <Bell size={22} className="text-white" />
+          <Bell size={22} />
         </motion.div>
-        <h4 className="font-bold text-gray-900 text-sm mb-1">You're All Set! ✅</h4>
+        <h4 className="font-bold text-gray-900 text-sm mb-1">{t('orders.detail.subscribed_title')}</h4>
         <p className="text-xs text-gray-600">
           {emailEnabled && smsEnabled
-            ? 'You\'ll receive updates via email & SMS'
+            ? t('orders.detail.subscribed_email_sms')
             : emailEnabled
-            ? 'You\'ll receive updates via email'
-            : 'You\'ll receive updates via SMS'}
+            ? t('orders.detail.subscribed_email_only')
+            : t('orders.detail.subscribed_sms_only')}
         </p>
         <p className="text-[10px] text-gray-400 mt-2">
-          We'll notify you when your order status changes.
+          {t('orders.detail.subscribed_desc')}
         </p>
       </motion.div>
     );
@@ -530,14 +601,14 @@ function OrderUpdateSubscription({ orderId, order }) {
         className="w-full flex items-center justify-between"
       >
         <h3 className="font-display text-base font-bold text-gray-900 flex items-center gap-2">
-          <Bell size={18} className="text-indigo-600" />
-          Get Order Updates
+          <Bell size={18} />
+          {t('orders.detail.subscription_title')}
         </h3>
         <motion.div
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronRight size={18} className="text-gray-400" />
+          <ChevronRight size={18} />
         </motion.div>
       </button>
 
@@ -551,7 +622,7 @@ function OrderUpdateSubscription({ orderId, order }) {
             className="overflow-hidden"
           >
             <p className="text-xs text-gray-500 mt-3 mb-4">
-              Get real-time updates on your order status via email or SMS.
+              {t('orders.detail.subscription_desc')}
             </p>
 
             <form onSubmit={handleSubscribe} className="space-y-3">
@@ -563,9 +634,9 @@ function OrderUpdateSubscription({ orderId, order }) {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 cursor-pointer" onClick={() => setEmailEnabled(!emailEnabled)}>
-                      Email Updates
+                      {t('orders.detail.email_updates')}
                     </label>
-                    <p className="text-[10px] text-gray-400">Order status & delivery alerts</p>
+                    <p className="text-[10px] text-gray-400">{t('orders.detail.order_alerts')}</p>
                   </div>
                 </div>
                 <button
@@ -593,7 +664,7 @@ function OrderUpdateSubscription({ orderId, order }) {
                     transition={{ duration: 0.2 }}
                   >
                     <div className="relative">
-                      <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Mail size={15} />
                       <input
                         type="email"
                         value={email}
@@ -614,9 +685,9 @@ function OrderUpdateSubscription({ orderId, order }) {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 cursor-pointer" onClick={() => setSmsEnabled(!smsEnabled)}>
-                      SMS Updates
+                      {t('orders.detail.sms_updates')}
                     </label>
-                    <p className="text-[10px] text-gray-400">Real-time text alerts on your phone</p>
+                    <p className="text-[10px] text-gray-400">{t('orders.detail.sms_alerts')}</p>
                   </div>
                 </div>
                 <button
@@ -644,7 +715,7 @@ function OrderUpdateSubscription({ orderId, order }) {
                     transition={{ duration: 0.2 }}
                   >
                     <div className="relative">
-                      <Smartphone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <Smartphone size={15} />
                       <input
                         type="tel"
                         value={phone}
@@ -671,13 +742,13 @@ function OrderUpdateSubscription({ orderId, order }) {
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader size={16} className="animate-spin" />
-                    Subscribing...
+                    <RefreshCw size={16} />
+                    {t('orders.detail.subscribing_btn')}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <Bell size={16} />
-                    Subscribe to Updates
+                    {t('orders.detail.subscribe_btn')}
                   </span>
                 )}
               </motion.button>
@@ -689,7 +760,7 @@ function OrderUpdateSubscription({ orderId, order }) {
       {/* Collapsed hint */}
       {!expanded && (
         <p className="text-[10px] text-gray-400 mt-2 text-left">
-          Get notified when your order status changes
+          {t('orders.detail.collapsed_hint')}
         </p>
       )}
     </motion.div>
@@ -698,8 +769,12 @@ function OrderUpdateSubscription({ orderId, order }) {
 
 /* ═══════════════ MAIN THANK YOU PAGE ═══════════════ */
 export default function OrderThankYouPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
+  const currency = getSetting('currency', 'INR');
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pageLoaded, setPageLoaded] = useState(false);
@@ -709,11 +784,36 @@ export default function OrderThankYouPage() {
 
   useEffect(() => {
     const fetchOrder = async () => {
+      // Check sessionStorage for cached order data (avoids network on back-navigation)
+      const CACHE_KEY = `order_${id}`;
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          // Only use cached data if it's less than 3 minutes old (matches backend cache TTL)
+          const isFresh = parsed._cachedAt && (Date.now() - parsed._cachedAt < 180_000);
+          if (isFresh && parsed.id === id) {
+            setOrder(parsed);
+            setLoading(false);
+            setTimeout(() => setPageLoaded(true), 100);
+            return; // Skip network request — cache is still fresh
+          }
+        } catch {
+          // Invalid cache, ignore and fetch fresh
+          sessionStorage.removeItem(CACHE_KEY);
+        }
+      }
+
       try {
         const res = await ordersAPI.getById(id);
-        setOrder(res.data?.data || res.data || null);
+        const data = res.data?.data || res.data || null;
+        // Cache in sessionStorage with a timestamp so navigating back uses fresh data
+        if (data) {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, _cachedAt: Date.now() }));
+        }
+        setOrder(data);
       } catch {
-        toast.error('Could not load order details');
+        toast.error(t('orders.detail.failed_load_order'));
       } finally {
         setLoading(false);
         setTimeout(() => setPageLoaded(true), 100);
@@ -799,16 +899,16 @@ export default function OrderThankYouPage() {
             transition={{ type: 'spring', stiffness: 200 }}
             className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6"
           >
-            <Package size={36} className="text-red-400" />
+            <Package size={36} />
           </motion.div>
-          <h2 className="font-display text-2xl font-bold text-gray-900 mb-2">Order Not Found</h2>
-          <p className="text-gray-500 mb-8">We couldn't find this order. It may have been removed or the link is invalid.</p>
+          <h2 className="font-display text-2xl font-bold text-gray-900 mb-2">{t('orders.detail.order_not_found')}</h2>
+          <p className="text-gray-500 mb-8">{t('orders.detail.order_not_found_desc')}</p>
           <Link
             to="/orders"
             className="inline-flex items-center gap-2 bg-black text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-800 transition-colors"
           >
             <ArrowLeft size={18} />
-            Back to My Orders
+            {t('orders.detail.back_to_my_orders')}
           </Link>
         </div>
       </div>
@@ -827,6 +927,8 @@ export default function OrderThankYouPage() {
   const isPending = order.status === 'PENDING';
   const isCancelled = order.status === 'CANCELLED';
   const isFailed = order.status === 'FAILED';
+  const isReturned = order.status === 'RETURNED';
+  const isReturnRequested = order.status === 'RETURN_REQUESTED';
   const isPaymentFailed = paymentStatus === 'FAILED';
   const isRazorpay = paymentMethod === 'RAZORPAY';
   const canRetry = (isPending || isPaymentFailed) && isRazorpay;
@@ -871,8 +973,8 @@ export default function OrderThankYouPage() {
       const options = {
         key: keyId,
         amount: Math.round(total * 100),
-        currency: 'INR',
-        name: 'LUXE',
+        currency: currency,
+        name: storeName,
         description: `Order #${orderIdShort}`,
         order_id: razorpayOrderId,
         prefill: {
@@ -888,12 +990,17 @@ export default function OrderThankYouPage() {
               razorpayOrderId: response.razorpay_order_id,
               signature: response.razorpay_signature,
             });
-            toast.success('Payment successful! Refreshing order...');
+            toast.success(t('orders.detail.payment_successful'));
             // Re-fetch order data to update status
             const refreshed = await ordersAPI.getById(id);
-            setOrder(refreshed.data?.data || refreshed.data || null);
+            const refreshedData = refreshed.data?.data || refreshed.data || null;
+            // Update sessionStorage cache with the refreshed status
+            if (refreshedData) {
+              sessionStorage.setItem(`order_${id}`, JSON.stringify({ ...refreshedData, _cachedAt: Date.now() }));
+            }
+            setOrder(refreshedData);
           } catch (verifyErr) {
-            const msg = verifyErr?.response?.data?.message || 'Verification failed. Please contact support.';
+            const msg = verifyErr?.response?.data?.message || t('orders.detail.verification_failed');
             setRetryError(msg);
             toast.error(msg);
           }
@@ -901,7 +1008,7 @@ export default function OrderThankYouPage() {
         modal: {
           ondismiss: () => {
             setRetrying(false);
-            toast.error('Payment cancelled. Your order remains pending.');
+            toast.error(t('orders.detail.payment_cancelled'));
           },
         },
       };
@@ -909,13 +1016,13 @@ export default function OrderThankYouPage() {
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', (response) => {
         setRetrying(false);
-        const errMsg = response.error?.description || 'Payment failed';
+        const errMsg = response.error?.description || t('orders.detail.failed');
         setRetryError(errMsg);
-        toast.error('Payment failed: ' + errMsg);
+        toast.error(t('orders.detail.payment_failed_msg', { msg: errMsg }));
       });
       rzp.open();
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to retry payment';
+      const msg = err?.response?.data?.message || err?.message || t('orders.detail.failed_retry_payment');
       setRetryError(msg);
       toast.error(msg);
     } finally {
@@ -929,11 +1036,14 @@ export default function OrderThankYouPage() {
 
       <div ref={pageRef} className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
         <SEOHead
-          title={order ? `Order Confirmed #${orderIdShort} | Threvolt` : 'Order | Threvolt'}
-          description={order ? `Your order #${orderIdShort} has been placed successfully. Track your order and view details.` : 'View your order confirmation at Threvolt.'}
+          title={order ? `${statusInfo.label} #${orderIdShort} | ${storeName}` : `Order | ${storeName}`}
+          description={order ? (isReturned || isReturnRequested
+            ? `Return ${statusInfo.label.toLowerCase()} for order #${orderIdShort}. View return details and refund status.`
+            : `Your order #${orderIdShort} has been placed successfully. Track your order and view details.`
+          ) : `View your order confirmation at ${storeName}.`}
           noIndex={true}
         />
-        {/* ─── Hero Section ─── */}
+        {/* ─── Hero Sections ─── */}
         {isConfirmed && (
         <section className="relative pt-12 pb-8 md:pt-20 md:pb-12 overflow-hidden">
           {/* Background decoration */}
@@ -958,10 +1068,10 @@ export default function OrderThankYouPage() {
               className="mt-6 md:mt-8"
             >
               <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
-                Order Confirmed! 🎉
+                {t('orders.detail.order_confirmed')}
               </h1>
               <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
-                Thank you for your purchase! We're getting your order ready.
+                {t('orders.detail.order_confirmed_desc')}
               </p>
             </motion.div>
 
@@ -977,10 +1087,10 @@ export default function OrderThankYouPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(orderIdShort);
-                    toast.success('Order ID copied!');
+                    toast.success(t('orders.detail.order_id_copied'));
                   }}
                   className="ml-1 hover:text-gray-300 transition-colors"
-                  title="Copy order ID"
+                  title={t('orders.detail.copy_order_id')}
                 >
                   <Copy size={14} />
                 </button>
@@ -1006,6 +1116,10 @@ export default function OrderThankYouPage() {
                   ? 'bg-red-50 text-red-600'
                   : isPending
                   ? 'bg-yellow-50 text-yellow-600'
+                  : isReturned
+                  ? 'bg-purple-50 text-purple-700'
+                  : isReturnRequested
+                  ? 'bg-orange-50 text-orange-700'
                   : 'bg-gray-50 text-gray-600'
               }`}>
                 {statusInfo.label}
@@ -1019,8 +1133,186 @@ export default function OrderThankYouPage() {
               transition={{ duration: 0.4, delay: 1.3 }}
               className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 py-2.5 px-4 rounded-xl mx-auto max-w-md"
             >
-              <Mail size={14} className="shrink-0" />
-              <span>A confirmation email will be sent to your registered email address.</span>
+              <Mail size={14} />
+              <span>{t('orders.detail.email_confirmation_notice')}</span>
+            </motion.div>
+          </div>
+        </section>
+        )}
+
+        {/* ─── Return Requested Hero ─── */}
+        {isReturnRequested && (
+        <section className="relative pt-12 pb-8 md:pt-20 md:pb-12 overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-orange-50 rounded-full opacity-60" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-50/30 rounded-full" />
+          </div>
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <AnimatedReturned />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="mt-6 md:mt-8"
+            >
+              <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
+                {t('orders.detail.return_requested_title')}
+              </h1>
+              <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
+                {t('orders.detail.return_requested_hero_desc')}
+              </p>
+            </motion.div>
+
+            {/* Order ID Badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.7 }}
+            >
+              <div className="mt-6 inline-flex items-center gap-2.5 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-md">
+                <Package size={16} />
+                Order #{orderIdShort}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(orderIdShort);
+                    toast.success(t('orders.detail.order_id_copied'));
+                  }}
+                  className="ml-1 hover:text-gray-300 transition-colors"
+                  title={t('orders.detail.copy_order_id')}
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Status & Date */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 1 }}
+              className="mt-4 flex items-center justify-center gap-4 text-sm text-gray-500"
+            >
+              <span className="flex items-center gap-1.5">
+                <Calendar size={14} />
+                {formatDate(order.createdAt)}
+              </span>
+              <span className="text-gray-200">|</span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                isReturnRequested
+                  ? 'bg-orange-50 text-orange-700'
+                  : 'bg-gray-50 text-gray-600'
+              }`}>
+                {statusInfo.label}
+              </span>
+            </motion.div>
+
+            {/* Return Notice */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 1.3 }}
+              className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 py-2.5 px-4 rounded-xl mx-auto max-w-md"
+            >
+              <RefreshCw size={14} />
+              <span>{t('orders.detail.return_notice')}</span>
+            </motion.div>
+          </div>
+        </section>
+        )}
+
+        {/* ─── Return Completed Hero ─── */}
+        {isReturned && (
+        <section className="relative pt-12 pb-8 md:pt-20 md:pb-12 overflow-hidden">
+          {/* Background decoration */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-50 rounded-full opacity-60" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-50/30 rounded-full" />
+          </div>
+
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <AnimatedReturned />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="mt-6 md:mt-8"
+            >
+              <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
+                {t('orders.detail.return_completed_title')}
+              </h1>
+              <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
+                {t('orders.detail.return_completed_hero_desc')}
+              </p>
+            </motion.div>
+
+            {/* Order ID Badge */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 0.7 }}
+            >
+              <div className="mt-6 inline-flex items-center gap-2.5 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-md">
+                <Package size={16} />
+                Order #{orderIdShort}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(orderIdShort);
+                    toast.success(t('orders.detail.order_id_copied'));
+                  }}
+                  className="ml-1 hover:text-gray-300 transition-colors"
+                  title={t('orders.detail.copy_order_id')}
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* Status & Date */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, delay: 1 }}
+              className="mt-4 flex items-center justify-center gap-4 text-sm text-gray-500"
+            >
+              <span className="flex items-center gap-1.5">
+                <Calendar size={14} />
+                {formatDate(order.createdAt)}
+              </span>
+              <span className="text-gray-200">|</span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                isReturned
+                  ? 'bg-purple-50 text-purple-700'
+                  : 'bg-gray-50 text-gray-600'
+              }`}>
+                {statusInfo.label}
+              </span>
+            </motion.div>
+
+            {/* Refund Notice */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 1.3 }}
+              className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 py-2.5 px-4 rounded-xl mx-auto max-w-md"
+            >
+              <Check size={14} Circle />
+              <span>{t('orders.detail.refund_notice')}</span>
             </motion.div>
           </div>
         </section>
@@ -1050,10 +1342,10 @@ export default function OrderThankYouPage() {
               className="mt-6 md:mt-8"
             >
               <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
-                Payment Pending ⏳
+                {t('orders.detail.payment_pending_title')}
               </h1>
               <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
-                Your order has been placed but we're awaiting payment confirmation.
+                {t('orders.detail.payment_pending_desc')}
               </p>
             </motion.div>
 
@@ -1069,10 +1361,10 @@ export default function OrderThankYouPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(orderIdShort);
-                    toast.success('Order ID copied!');
+                    toast.success(t('orders.detail.order_id_copied'));
                   }}
                   className="ml-1 hover:text-gray-300 transition-colors"
-                  title="Copy order ID"
+                  title={t('orders.detail.copy_order_id')}
                 >
                   <Copy size={14} />
                 </button>
@@ -1118,9 +1410,9 @@ export default function OrderThankYouPage() {
                   className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {retrying ? (
-                    <><Loader size={18} className="animate-spin" /> Processing...</>
+                    <><RefreshCw size={18} /> {t('orders.detail.processing')}</>
                   ) : (
-                    <><ShieldCheck size={18} /> Retry Payment</>
+                    <><ShieldCheck size={18} /> {t('orders.detail.retry_payment')}</>
                   )}
                 </button>
                 {retryError && (
@@ -1136,8 +1428,8 @@ export default function OrderThankYouPage() {
               transition={{ duration: 0.4, delay: 1.5 }}
               className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 py-2.5 px-4 rounded-xl mx-auto max-w-md"
             >
-              <Mail size={14} className="shrink-0" />
-              <span>No payment was taken yet. Complete payment to confirm your order.</span>
+              <Mail size={14} />
+              <span>{t('orders.detail.no_payment_taken')}</span>
             </motion.div>
           </div>
         </section>
@@ -1167,10 +1459,10 @@ export default function OrderThankYouPage() {
               className="mt-6 md:mt-8"
             >
               <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
-                Order Cancelled
+                {t('orders.detail.order_cancelled_title')}
               </h1>
               <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
-                This order has been cancelled. If you made a payment, a refund will be processed.
+                {t('orders.detail.order_cancelled_hero_desc')}
               </p>
             </motion.div>
 
@@ -1186,10 +1478,10 @@ export default function OrderThankYouPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(orderIdShort);
-                    toast.success('Order ID copied!');
+                    toast.success(t('orders.detail.order_id_copied'));
                   }}
                   className="ml-1 hover:text-gray-300 transition-colors"
-                  title="Copy order ID"
+                  title={t('orders.detail.copy_order_id')}
                 >
                   <Copy size={14} />
                 </button>
@@ -1248,10 +1540,10 @@ export default function OrderThankYouPage() {
               className="mt-6 md:mt-8"
             >
               <h1 className="font-display text-3xl md:text-5xl font-extrabold text-gray-900 tracking-tight leading-[1.1]">
-                Payment Failed
+                {t('orders.detail.payment_failed_title')}
               </h1>
               <p className="text-gray-500 mt-3 md:mt-4 text-base md:text-lg max-w-lg mx-auto">
-                Your payment could not be processed. Please try again or choose a different payment method.
+                {t('orders.detail.payment_failed_desc')}
               </p>
             </motion.div>
 
@@ -1267,10 +1559,10 @@ export default function OrderThankYouPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(orderIdShort);
-                    toast.success('Order ID copied!');
+                    toast.success(t('orders.detail.order_id_copied'));
                   }}
                   className="ml-1 hover:text-gray-300 transition-colors"
-                  title="Copy order ID"
+                  title={t('orders.detail.copy_order_id')}
                 >
                   <Copy size={14} />
                 </button>
@@ -1312,9 +1604,9 @@ export default function OrderThankYouPage() {
                   className="inline-flex items-center gap-2 bg-black text-white px-8 py-4 rounded-xl font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {retrying ? (
-                    <><Loader size={18} className="animate-spin" /> Processing...</>
+                    <><RefreshCw size={18} /> {t('orders.detail.processing')}</>
                   ) : (
-                    <><ShieldCheck size={18} /> Retry Payment</>
+                    <><ShieldCheck size={18} /> {t('orders.detail.retry_payment')}</>
                   )}
                 </button>
                 {retryError && (
@@ -1341,11 +1633,11 @@ export default function OrderThankYouPage() {
                 >
                   <div className="flex items-center justify-between mb-5">
                     <h2 className="font-display text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <Truck size={20} className="text-green-600" />
-                      Order Timeline
+                      <Truck size={20} />
+                      {t('orders.detail.order_timeline')}
                     </h2>
                     <span className="text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full font-medium">
-                      Est. delivery {order.estimatedDelivery ? formatDate(order.estimatedDelivery) : '3-5 business days'}
+                      {t('orders.detail.estimated')} {order.estimatedDelivery ? t('orders.detail.est_delivery_by', { date: formatDate(order.estimatedDelivery) }) : t('orders.detail.est_delivery_fallback')}
                     </span>
                   </div>
                   <OrderTimeline order={order} />
@@ -1360,8 +1652,8 @@ export default function OrderThankYouPage() {
                 >
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="font-display text-lg font-bold text-gray-900 flex items-center gap-2">
-                      <ShoppingBag size={20} className="text-gray-700" />
-                      Items Ordered
+                      <ShoppingBag size={20} />
+                      {t('orders.detail.items_ordered')}
                       <span className="text-sm font-medium text-gray-400 ml-1">({order.items?.length || 0})</span>
                     </h2>
                   </div>
@@ -1384,8 +1676,8 @@ export default function OrderThankYouPage() {
                     className="bg-white rounded-2xl border border-gray-100 p-5 md:p-7 shadow-sm hover:shadow-md transition-shadow duration-300"
                   >
                     <h3 className="font-display text-base font-bold text-gray-900 flex items-center gap-2 mb-3">
-                      <MapPin size={18} className="text-gray-700" />
-                      Shipping Address
+                      <MapPin size={18} />
+                      {t('checkout.shipping_address')}
                     </h3>
                     <div className="text-sm text-gray-600 space-y-1">
                       {(() => {
@@ -1422,8 +1714,8 @@ export default function OrderThankYouPage() {
                   className="bg-white rounded-2xl border border-gray-100 p-5 md:p-7 shadow-sm hover:shadow-md transition-shadow duration-300"
                 >
                   <h3 className="font-display text-base font-bold text-gray-900 flex items-center gap-2 mb-4">
-                    <Info size={18} className="text-gray-700" />
-                    Payment Summary
+                    <Info size={18} />
+                    {t('orders.detail.payment_summary')}
                   </h3>
                   <PricingBreakdown
                     subtotal={subtotal}
@@ -1436,7 +1728,7 @@ export default function OrderThankYouPage() {
                   {paymentMethod && (
                     <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Payment Method</span>
+                        <span className="text-gray-500">{t('orders.detail.payment_method')}</span>
                         <span className="font-medium text-gray-900 flex items-center gap-2">
                           {(() => {
                             const { icon: PmtIcon, bg: iconBg, color: iconColor } = getPaymentIcon(paymentMethod);
@@ -1446,11 +1738,11 @@ export default function OrderThankYouPage() {
                               </div>
                             );
                           })()}
-                          {paymentMethod === 'COD' ? 'Cash on Delivery' : paymentMethod}
+                          {paymentMethod === 'COD' ? t('orders.detail.cash_on_delivery') : paymentMethod}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Payment Status</span>
+                        <span className="text-gray-500">{t('orders.detail.payment_status')}</span>
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                           paymentStatus === 'COMPLETED'
                             ? 'bg-green-50 text-green-700'
@@ -1460,12 +1752,38 @@ export default function OrderThankYouPage() {
                             ? 'bg-purple-50 text-purple-700'
                             : 'bg-yellow-50 text-yellow-700'
                         }`}>
-                          {paymentStatus === 'COMPLETED' && <><CheckCircle size={12} /> Paid</>}
-                          {paymentStatus === 'FAILED' && 'Failed'}
-                          {paymentStatus === 'REFUNDED' && 'Refunded'}
-                          {(!paymentStatus || paymentStatus === 'PENDING') && <><Clock size={12} /> Pending</>}
+                          {paymentStatus === 'COMPLETED' && <><CheckCircle size={12} /> {t('orders.detail.paid')}</>}
+                          {paymentStatus === 'FAILED' && t('orders.detail.failed')}
+                          {paymentStatus === 'REFUNDED' && <><CheckCircle size={12} /> {t('orders.detail.refunded')}</>}
+                          {(!paymentStatus || paymentStatus === 'PENDING') && <><Clock size={12} /> {t('orders.detail.pending_label')}</>}
                         </span>
                       </div>
+
+                      {/* ── Refund Confirmation Banner ── */}
+                      {isReturned && paymentStatus === 'REFUNDED' && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                          className="bg-gradient-to-r from-purple-50 to-green-50 border border-purple-200 rounded-xl p-4 space-y-2"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-400 to-green-500 flex items-center justify-center shadow-sm shrink-0">
+                              <CheckCircle size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">{t('orders.detail.refund_completed')}</p>
+                              <p className="text-xs text-gray-500">
+                                {t('orders.detail.refund_completed_desc', { amount: formatCurrency(total) })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 pt-1 border-t border-purple-200/50">
+                            <RefreshCw size={10} />
+                            <span>{t('orders.detail.refund_timing_note')}</span>
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -1480,8 +1798,20 @@ export default function OrderThankYouPage() {
                   transition={{ duration: 0.5, delay: 1.4 }}
                   className="bg-white rounded-2xl border border-gray-100 p-5 md:p-7 shadow-sm"
                 >
-                  <h3 className="font-display text-base font-bold text-gray-900 mb-4">Quick Actions</h3>
+                  <h3 className="font-display text-base font-bold text-gray-900 mb-4">{t('orders.detail.quick_actions')}</h3>
                   <div className="space-y-3">
+                    {(isReturned || isReturnRequested) && (
+                      <Link
+                        to="/returns"
+                        className="flex items-center justify-between w-full px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded-xl text-sm font-semibold text-purple-700 hover:text-purple-800 transition-all group"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <RefreshCw size={16} />
+                          {t('orders.detail.view_return_status')}
+                        </span>
+                        <ChevronRight size={16} />
+                      </Link>
+                    )}
                     {canRetry && (
                       <button
                         onClick={handleRetryPayment}
@@ -1490,9 +1820,9 @@ export default function OrderThankYouPage() {
                       >
                         <span className="flex items-center gap-2.5">
                           <ShieldCheck size={16} />
-                          {retrying ? 'Processing...' : 'Retry Payment'}
+                          {retrying ? t('orders.detail.processing') : t('orders.detail.retry_payment')}
                         </span>
-                        <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                        <ChevronRight size={16} />
                       </button>
                     )}
                     <Link
@@ -1500,10 +1830,20 @@ export default function OrderThankYouPage() {
                       className={`flex items-center justify-between w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:text-gray-900 transition-all group ${canRetry ? '' : ''}`}
                     >
                       <span className="flex items-center gap-2.5">
-                        <ExternalLink size={16} className="text-gray-400 group-hover:text-gray-700" />
-                        View Full Order Details
+                        <ExternalLink size={16} />
+                        {t('orders.detail.view_full_details')}
                       </span>
-                      <ChevronRight size={16} className="text-gray-300 group-hover:text-gray-600 group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight size={16} />
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="flex items-center justify-between w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 hover:text-gray-900 transition-all group"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Package size={16} />
+                        {t('orders.detail.view_all_orders')}
+                      </span>
+                      <ChevronRight size={16} />
                     </Link>
                     <Link
                       to="/products"
@@ -1511,9 +1851,9 @@ export default function OrderThankYouPage() {
                     >
                       <span className="flex items-center gap-2.5">
                         <ShoppingBag size={16} />
-                        Continue Shopping
+                        {t('orders.detail.continue_shopping')}
                       </span>
-                      <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight size={16} />
                     </Link>
                   </div>
                 </motion.div>
@@ -1526,9 +1866,9 @@ export default function OrderThankYouPage() {
                   className="flex items-center justify-around py-4 px-2"
                 >
                   {[
-                    { icon: ShieldCheck, label: 'Secure Payment' },
-                    { icon: RefreshCw, label: 'Easy Returns' },
-                    { icon: Heart, label: 'Quality Assured' },
+                    { icon: ShieldCheck, label: t('orders.detail.secure_payment') },
+                    { icon: RefreshCw, label: t('orders.detail.easy_returns') },
+                    { icon: Heart, label: t('orders.detail.quality_assured') },
                   ].map((item, i) => (
                     <div key={i} className="text-center">
                       <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-1.5">

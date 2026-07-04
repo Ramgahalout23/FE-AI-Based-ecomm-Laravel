@@ -145,6 +145,9 @@ client.interceptors.response.use(
 
 // ── Admin Client → Laravel API ──
 // Uses separate ADMIN_API_BASE that points to Laravel (port 8000) via Vite proxy.
+//
+// ! XSS NOTE — Both adminToken and authToken use localStorage. For production
+// hardening, migrate to httpOnly cookies via Sanctum SPA auth.
 // Laravel's AdminRepository already has:
 //   - Cache::remember() with 300s TTL on all dashboard/analytics queries
 //   - Single optimized SQL with subselects for dashboard metrics

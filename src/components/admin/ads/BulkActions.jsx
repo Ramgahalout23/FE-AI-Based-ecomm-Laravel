@@ -1,5 +1,6 @@
+import { CheckCheck, Copy, Play, Pause, X, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { CheckSquare, Square, Copy, Trash2, Play, Pause, X, CheckCheck } from 'lucide-react';
+
 import toast from '../../../utils/toast';
 
 export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelete, onDuplicate }) {
@@ -68,7 +69,7 @@ export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelet
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={toggleSelectAll} className="flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-primary transition-colors">
-            {selectAll ? <CheckSquare size={16} className="text-brand-black" /> : <Square size={16} />}
+            {selectAll ? <CheckCheck size={16} /> : <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>}
             Select All
           </button>
           {count > 0 && (
@@ -116,7 +117,7 @@ export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelet
           <div key={c.id} className={`flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-b-0 hover:bg-surface/30 transition-colors cursor-pointer ${selectedIds.has(c.id) ? 'bg-brand-black/5' : ''}`}
             onClick={() => toggleSelect(c.id)}>
             <div className="flex-shrink-0">
-              {selectedIds.has(c.id) ? <CheckSquare size={16} className="text-brand-black" /> : <Square size={16} className="text-gray-300" />}
+              {selectedIds.has(c.id) ? <CheckCheck size={16} /> : <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">{c.name}</div>

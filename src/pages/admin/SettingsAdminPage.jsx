@@ -1,13 +1,29 @@
+import { X, Minus, Send, MessageCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
-import { getImageUrl } from '../../utils/formatters';
+import { getImageUrl, formatDateTime, formatTime } from '../../utils/formatters';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
-import { MessageCircle, X, Minus, Send } from 'lucide-react';
+
+;
 import { aiAPI } from '../../api/ai';
 import TaxAdminTab from './TaxAdminTab';
+import GeneralTab from './settings/GeneralTab';
+import BrandingTab from './settings/BrandingTab';
+import ThemeTab from './settings/ThemeTab';
+import ShippingLabelsTab from './settings/ShippingLabelsTab';
+import PaymentsTab from './settings/PaymentsTab';
+import EmailTab from './settings/EmailTab';
+import SmsTab from './settings/SmsTab';
+import IntegrationsTab from './settings/IntegrationsTab';
+import WebSocketTab from './settings/WebSocketTab';
+import FooterTab from './settings/FooterTab';
+import SeoTab from './settings/SeoTab';
+import MaintenanceTab from './settings/MaintenanceTab';
+import SystemTab from './settings/SystemTab';
+import ChatTab from './settings/ChatTab';
 
 const AVAILABLE_CURRENCIES = [
   { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
@@ -22,21 +38,43 @@ const AVAILABLE_CURRENCIES = [
 ];
 
 const AVAILABLE_TIMEZONES = [
-  { value: 'IST', label: 'IST (Indian Standard Time)' },
   { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
-  { value: 'EST', label: 'EST (Eastern Standard Time)' },
-  { value: 'PST', label: 'PST (Pacific Standard Time)' },
   { value: 'GMT', label: 'GMT (Greenwich Mean Time)' },
+  { value: 'IST', label: 'IST (Indian Standard Time)' },
+  { value: 'EST', label: 'EST (Eastern Standard Time)' },
+  { value: 'CST', label: 'CST (Central Standard Time)' },
+  { value: 'MST', label: 'MST (Mountain Standard Time)' },
+  { value: 'PST', label: 'PST (Pacific Standard Time)' },
+  { value: 'AST', label: 'AST (Atlantic Standard Time)' },
+  { value: 'NST', label: 'NST (Newfoundland Standard Time)' },
+  { value: 'AKST', label: 'AKST (Alaska Standard Time)' },
+  { value: 'HST', label: 'HST (Hawaii Standard Time)' },
+  { value: 'BST', label: 'BST (British Summer Time)' },
   { value: 'CET', label: 'CET (Central European Time)' },
-  { value: 'AST', label: 'AST (Arabian Standard Time)' },
+  { value: 'EET', label: 'EET (Eastern European Time)' },
+  { value: 'GST', label: 'GST (Gulf Standard Time)' },
+  { value: 'CST_CN', label: 'CST (China Standard Time)' },
+  { value: 'HKT', label: 'HKT (Hong Kong Time)' },
+  { value: 'SGT', label: 'SGT (Singapore Time)' },
+  { value: 'JST', label: 'JST (Japan Standard Time)' },
+  { value: 'KST', label: 'KST (Korea Standard Time)' },
   { value: 'AEST', label: 'AEST (Australian Eastern Standard Time)' },
+  { value: 'AEDT', label: 'AEDT (Australian Eastern Daylight Time)' },
+  { value: 'NZST', label: 'NZST (New Zealand Standard Time)' },
 ];
 
 export default function SettingsAdminPage() {
   const { settings: contextSettings, loading: contextLoading, updateSettings: updateContextSettings } = useSettings();
   const [tab, setTab] = useState('general');
   const [seo, setSeo] = useState({ title: '', description: '', keywords: '' });
-  const [branding, setBranding] = useState({ logoUrl: '', logoDarkUrl: '', faviconUrl: '', primaryColor: '#000000', secondaryColor: '#d4af37', facebook: '', instagram: '', twitter: '', youtube: '' });
+  const [branding, setBranding] = useState({ logoUrl: '', logoDarkUrl: '', faviconUrl: '', primaryColor: '#1a1a1a', secondaryColor: '#6b7280', facebook: '', instagram: '', twitter: '', youtube: '' });
+  const [theme, setTheme] = useState({
+    primaryColor: '#1a1a1a', secondaryColor: '#6b7280', accentColor: '#4b5563',
+    surfaceColor: '#f8f9fb', textColor: '#191c1e', borderColor: '#E8E2D9',
+    successColor: '#27AE60', dangerColor: '#C0392B', warningColor: '#F39C12', infoColor: '#2980B9',
+    fontDisplay: "'Jost', sans-serif", fontBody: "'Jost', sans-serif", fontHeadline: "'Jost', sans-serif",
+    containerMaxWidth: '1280px', sectionGap: '80px', borderRadius: '8px', cardBorderRadius: '12px',
+  });
   const [settings, setSettings] = useState(contextSettings);
   const [loading, setLoading] = useState(contextLoading);
   const [dynamicGateways, setDynamicGateways] = useState([]);
@@ -46,6 +84,8 @@ export default function SettingsAdminPage() {
   const [gatewayForm, setGatewayForm] = useState({ id: '', name: '', description: '', enabled: true, paymentUrl: '', fields: [] });
   const [newField, setNewField] = useState({ key: '', label: '', value: '', type: 'text' });
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const [initialLoad, setInitialLoad] = useState(true);
 
   // Maintenance schedule state
   const [schedules, setSchedules] = useState([]);
@@ -139,6 +179,27 @@ export default function SettingsAdminPage() {
             twitter: data.twitter || prev.twitter,
             youtube: data.youtube || prev.youtube,
           }));
+          // Hydrate theme state from saved settings
+          setTheme(prev => ({
+            ...prev,
+            ...(data.themePrimaryColor && { primaryColor: data.themePrimaryColor }),
+            ...(data.themeSecondaryColor && { secondaryColor: data.themeSecondaryColor }),
+            ...(data.themeAccentColor && { accentColor: data.themeAccentColor }),
+            ...(data.themeSurfaceColor && { surfaceColor: data.themeSurfaceColor }),
+            ...(data.themeTextColor && { textColor: data.themeTextColor }),
+            ...(data.themeBorderColor && { borderColor: data.themeBorderColor }),
+            ...(data.themeSuccessColor && { successColor: data.themeSuccessColor }),
+            ...(data.themeDangerColor && { dangerColor: data.themeDangerColor }),
+            ...(data.themeWarningColor && { warningColor: data.themeWarningColor }),
+            ...(data.themeInfoColor && { infoColor: data.themeInfoColor }),
+            ...(data.themeFontDisplay && { fontDisplay: data.themeFontDisplay }),
+            ...(data.themeFontBody && { fontBody: data.themeFontBody }),
+            ...(data.themeFontHeadline && { fontHeadline: data.themeFontHeadline }),
+            ...(data.themeContainerMaxWidth && { containerMaxWidth: data.themeContainerMaxWidth }),
+            ...(data.themeSectionGap && { sectionGap: data.themeSectionGap }),
+            ...(data.themeBorderRadius && { borderRadius: data.themeBorderRadius }),
+            ...(data.themeCardBorderRadius && { cardBorderRadius: data.themeCardBorderRadius }),
+          }));
           if (data.dynamic_payment_methods) {
             try {
               const parsed = JSON.parse(data.dynamic_payment_methods);
@@ -153,6 +214,7 @@ export default function SettingsAdminPage() {
       } else {
         console.warn('Failed to load settings:', settingsRes.reason);
       }
+      setInitialLoad(false);
     };
     load();
   }, []);
@@ -187,25 +249,112 @@ export default function SettingsAdminPage() {
     finally { setLoading(false); }
   };
 
+  const handleSaveTheme = async (themeData) => {
+    setLoading(true);
+    try {
+      // Use explicit themeData if provided (avoids stale closure), fall back to state
+      const data = themeData || theme;
+      // Save each theme setting as a flat key with theme_ prefix
+      const themeUpdates = {
+        themePrimaryColor: data.primaryColor,
+        themeSecondaryColor: data.secondaryColor,
+        themeAccentColor: data.accentColor,
+        themeSurfaceColor: data.surfaceColor,
+        themeTextColor: data.textColor,
+        themeBorderColor: data.borderColor,
+        themeSuccessColor: data.successColor,
+        themeDangerColor: data.dangerColor,
+        themeWarningColor: data.warningColor,
+        themeInfoColor: data.infoColor,
+        themeFontDisplay: data.fontDisplay,
+        themeFontBody: data.fontBody,
+        themeFontHeadline: data.fontHeadline,
+        themeContainerMaxWidth: data.containerMaxWidth,
+        themeSectionGap: data.sectionGap,
+        themeBorderRadius: data.borderRadius,
+        themeCardBorderRadius: data.cardBorderRadius,
+      };
+      await updateContextSettings(themeUpdates);
+      toast.success('Theme applied successfully');
+    }
+    catch { toast.error('Failed to save theme'); }
+    finally { setLoading(false); }
+  };
+
+  /**
+   * Map each settings tab to the setting keys it's responsible for.
+   * This prevents saving changes from other tabs when an admin clicks save
+   * on only one tab — avoiding unintended overwrites if two admins
+   * are editing different tabs simultaneously.
+   */
+  const TAB_SETTING_KEYS = {
+    'general': [
+      'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
+      'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
+      'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
+    ],
+    'shipping-labels': [
+      'shippingLabelLogo', 'shippingPickupAddress', 'shippingReturnAddress',
+      'shippingQueryPhone', 'shippingQueryMobile', 'shippingQueryEmail', 'shippingLabelNote',
+    ],
+    'payments': [
+      'razorpayEnabled', 'razorpayKeyId', 'razorpayKeySecret',
+      'codEnabled', 'codInstructions',
+    ],
+    'tax': [
+      'taxRate', 'taxCalculation', 'freeShippingThreshold', 'shippingFlatRate',
+    ],
+    'email': [
+      'smtpHost', 'smtpPort', 'smtpUsername', 'smtpPassword',
+      'fromEmailAddress', 'emailTemplate',
+    ],
+    'sms': [
+      'twilioAccountSid', 'twilioAuthToken', 'twilioPhoneNumber',
+      'smsOrderTemplate', 'smsShippingTemplate',
+    ],
+    'websocket': [
+      'realtimeDriver',
+      'pusherAppId', 'pusherKey', 'pusherSecret', 'pusherCluster',
+      'socketServerUrl', 'socketPingInterval', 'socketPingTimeout',
+    ],
+    'footer': [
+      'footerBrandTagline',
+      'footerNewsletterEnabled', 'footerNewsletterTitle', 'footerNewsletterBtnText', 'footerNewsletterSubtitle',
+      'footerShopLinks', 'footerHelpLinks', 'footerBottomLinks', 'footerTrustBadges',
+    ],
+    'maintenance': [
+      'maintenanceMode', 'maintenanceMessage', 'maintenanceAllowedIPs',
+    ],
+    'chat': [
+      'chatbotEnabled', 'chatSupportName', 'chatResponseTime',
+      'chatWelcomeMessage', 'chatOfflineMessage',
+      'chatAutoReplyEnabled', 'chatAutoReplyMessage',
+      'chatWorkingHoursEnabled', 'chatWorkingHoursStart', 'chatWorkingHoursEnd', 'chatWorkingDays',
+      'whatsappButtonEnabled',
+    ],
+  };
+
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // Collect all changed settings
+      // Only collect changes for settings relevant to the active tab.
+      // This prevents unintentionally overwriting settings from other tabs
+      // (e.g. saving the Email tab should not also push general or payment changes).
+      const allowedKeys = TAB_SETTING_KEYS[tab] || [];
       const updates = {};
       const prevSettings = contextSettings;
-      Object.keys(settings).forEach(key => {
-        if (prevSettings[key] !== settings[key]) {
+      allowedKeys.forEach(key => {
+        if (key in settings && prevSettings[key] !== settings[key]) {
           updates[key] = settings[key];
         }
       });
 
-      // Always include dynamic payment methods with settings
-      if (dynamicGateways.length > 0) {
+      // Always include dynamic payment methods with settings when on payments tab
+      if (tab === 'payments' && dynamicGateways.length > 0) {
         updates.dynamic_payment_methods = JSON.stringify(dynamicGateways);
       }
-      
+
       if (Object.keys(updates).length > 0) {
-        // Single save through the proper context channel (uses settingsAPI -> POST /settings)
         await updateContextSettings(updates);
       } else {
         toast.info('No changes to save');
@@ -396,11 +545,7 @@ export default function SettingsAdminPage() {
 
   const formatScheduleDate = (dateStr) => {
     if (!dateStr) return '—';
-    try {
-      return new Date(dateStr).toLocaleString(undefined, {
-        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-      });
-    } catch { return dateStr; }
+    return formatDateTime(dateStr);
   };
 
   const handleBackup = async () => {
@@ -495,6 +640,7 @@ export default function SettingsAdminPage() {
       <div className="admin-tabs-wrap">
         <button className={`admin-tab ${tab === 'general' ? 'active' : ''}`} onClick={() => setTab('general')}>General</button>
         <button className={`admin-tab ${tab === 'branding' ? 'active' : ''}`} onClick={() => setTab('branding')}>Branding</button>
+        <button className={`admin-tab ${tab === 'theme' ? 'active' : ''}`} onClick={() => setTab('theme')}>Theme</button>
         <button className={`admin-tab ${tab === 'shipping-labels' ? 'active' : ''}`} onClick={() => setTab('shipping-labels')}>Shipping Labels</button>
         <button className={`admin-tab ${tab === 'payments' ? 'active' : ''}`} onClick={() => setTab('payments')}>Payments</button>
         <button className={`admin-tab ${tab === 'tax' ? 'active' : ''}`} onClick={() => setTab('tax')}>Tax & Shipping</button>
@@ -509,17 +655,246 @@ export default function SettingsAdminPage() {
         <button className={`admin-tab ${tab === 'chat' ? 'active' : ''}`} onClick={() => setTab('chat')}>Chat / Support</button>
       </div>
 
+      {initialLoad ? (
+        <div className="detail-panel" style={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
+            <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto 0.5rem' }} />
+            <p>Loading settings...</p>
+          </div>
+        </div>
+      ) : (
+      <div className="dashboard-content-enter">
       {tab === 'general' && (
         <div className="detail-panel">
           <div className="detail-header"><h3>Store Configuration</h3></div>
           <div className="form-grid">
             <div className="form-group"><label>Store Name</label><input value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} /></div>
+            <div className="form-group form-full"><label>Brand Tagline</label><textarea rows={2} value={settings.brandTagline || ''} onChange={e => setSettings({...settings, brandTagline: e.target.value})} placeholder="Your brand's tagline or short description..." /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Used in invoices, emails, and SEO descriptions.</span></div>
             <div className="form-group"><label>Contact Email</label><input value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} /></div>
-            <div className="form-group"><label>Currency</label><select value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})}><option>USD</option><option>EUR</option><option>GBP</option><option>INR</option></select></div>
-            <div className="form-group"><label>Timezone</label><select value={settings.timezone} onChange={e => setSettings({...settings, timezone: e.target.value})}><option>UTC</option><option>EST</option><option>PST</option><option>IST</option></select></div>
+            <div className="form-group"><label>Store Email (Invoices)</label><input value={settings.storeEmail || ''} onChange={e => setSettings({...settings, storeEmail: e.target.value})} placeholder="company@yourstore.com" /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Shown as the company email on PDF invoices.</span></div>
+            <div className="form-group"><label>Currency</label><select value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})}>{AVAILABLE_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.name}</option>)}</select></div>
+            <div className="form-group"><label>Timezone</label><select value={settings.timezone} onChange={e => setSettings({...settings, timezone: e.target.value})}>{AVAILABLE_TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}</select></div>
             <div className="form-group form-full"><label>Store Address</label><input value={settings.storeAddress} onChange={e => setSettings({...settings, storeAddress: e.target.value})} /></div>
           </div>
           <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button></div>
+
+          {/* ── Homepage Sections Master Toggles ── */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="detail-header" style={{ marginBottom: '0.75rem' }}>
+              <h3>Homepage Sections</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                Master toggles to show or hide individual sections on the storefront homepage.
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Reviews Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>⭐</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Customer Reviews</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      "What Our Customers Say" slider section on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.reviewsEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, reviewsEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.reviewsEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.reviewsEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Best Sellers Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🔥</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Best Sellers</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      "Trending Now" product carousel section on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.bestSellersEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, bestSellersEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.bestSellersEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.bestSellersEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* New Arrivals Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🆕</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>New Arrivals</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      "Fresh Drops" product carousel section on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.newArrivalsEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, newArrivalsEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.newArrivalsEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.newArrivalsEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Curated Looks Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>👕</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Curated Looks</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      "Style Inspiration" dynamic gallery section on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.curatedLooksEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, curatedLooksEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.curatedLooksEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.curatedLooksEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div className="form-actions" style={{ marginTop: '1rem' }}>
+              <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
+                {loading ? 'Saving...' : 'Save Section Toggles'}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Navbar Options ── */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+            <div className="detail-header" style={{ marginBottom: '0.75rem' }}>
+              <h3>Navbar Options</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                Master toggles to show or hide the Language &amp; Currency switchers on the top navigation bar.
+              </p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Language Switcher Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🌐</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Language Switcher</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Show language/translate dropdown on the navigation bar
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.languageSwitcherEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, languageSwitcherEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.languageSwitcherEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.languageSwitcherEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Currency Switcher Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>💱</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Currency Switcher</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Show currency selector dropdown on the navigation bar
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.currencySwitcherEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, currencySwitcherEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.currencySwitcherEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.currencySwitcherEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div className="form-actions" style={{ marginTop: '1rem' }}>
+              <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
+                {loading ? 'Saving...' : 'Save Navbar Options'}
+              </button>
+            </div>
+          </div>
 
           {/* Announcement Bar Settings */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
@@ -543,7 +918,7 @@ export default function SettingsAdminPage() {
                 <label>Announcement Message</label>
                 <textarea
                   rows={2}
-                  value={settings.announcementText || 'THREVOLT  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499'}
+                  value={settings.announcementText || `${settings.storeName || 'THREVOLT'}  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499`}
                   onChange={e => setSettings({ ...settings, announcementText: e.target.value })}
                   placeholder="Separate items with  ✦  (star symbol)"
                 />
@@ -583,7 +958,7 @@ export default function SettingsAdminPage() {
                 padding: '0.35rem 0',
               }}>
                 {(() => {
-                  const previewItems = (settings.announcementText || 'THREVOLT  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499').split('✦').filter(Boolean);
+                  const previewItems = (settings.announcementText || `${settings.storeName || 'THREVOLT'}  ✦  Premium Quality Guaranteed  ✦  Free Shipping on orders above ₹499`).split('✦').filter(Boolean);
                   const renderRow = (key) => (
                     <span key={key}>
                       {previewItems.map((item, idx) => (
@@ -626,6 +1001,10 @@ export default function SettingsAdminPage() {
           </div>
           <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Shipping Settings'}</button></div>
         </div>
+      )}
+
+      {tab === 'theme' && (
+        <ThemeTab theme={theme} setTheme={setTheme} loading={loading} handleSaveTheme={handleSaveTheme} />
       )}
 
       {tab === 'branding' && (
@@ -1336,8 +1715,8 @@ export default function SettingsAdminPage() {
                       Leave empty for indefinite maintenance (turn off manually)
                     </span>
                   </div>
-                </>
-              )}
+        </>
+      )}
             </div>
 
             <div className="form-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
@@ -1518,22 +1897,14 @@ export default function SettingsAdminPage() {
             <div className="detail-header"><h3>System Information</h3></div>
             <div className="detail-grid">
               <div className="detail-item"><span className="label">App Version</span><span className="value">1.0.0</span></div>
-              <div className="detail-item"><span className="label">API Endpoint</span><span className="value" style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1'}</span></div>
+              <div className="detail-item"><span className="label">API Endpoint</span><span className="value" style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}</span></div>
               <div className="detail-item"><span className="label">Environment</span><span className="value"><span className="status-badge status-pending">Development</span></span></div>
               <div className="detail-item"><span className="label">Last Deploy</span><span className="value">—</span></div>
             </div>
           </div>
 
-          <div className="admin-alert warning">
-            <span className="admin-alert-icon">⚠️</span>
-            <div className="admin-alert-body">
-              <div className="admin-alert-title">Admin Bypass Active</div>
-              <div>Authentication bypass is enabled for admin routes. Remember to disable this before deploying to production.</div>
-            </div>
-          </div>
         </div>
       )}
-
 
       {tab === 'chat' && (
         <div>
@@ -1581,6 +1952,84 @@ export default function SettingsAdminPage() {
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   Shown below the chat header to set response expectations
                 </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── WhatsApp Button ── */}
+          <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
+            <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <h3>WhatsApp Button</h3>
+                <span className={`status-badge ${settings.whatsappButtonEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                  {settings.whatsappButtonEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                </span>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.whatsappButtonEnabled !== 'false'}
+                  onChange={e => setSettings({ ...settings, whatsappButtonEnabled: e.target.checked ? 'true' : 'false' })}
+                />
+                <strong>Show WhatsApp button on storefront</strong>
+              </label>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
+              When enabled, a floating WhatsApp button appears at the bottom-left of the storefront.
+              Customers can tap it to start a direct WhatsApp conversation with your business.
+              Works alongside the live chat widget (both can be active simultaneously).
+            </p>
+            <div className="form-grid">
+              <div className="form-group form-full">
+                <label>WhatsApp Phone Number</label>
+                <input
+                  value={settings.whatsappButtonNumber || ''}
+                  onChange={e => setSettings({ ...settings, whatsappButtonNumber: e.target.value })}
+                  placeholder="+919876543210"
+                  autoComplete="tel"
+                  disabled={settings.whatsappButtonEnabled === 'false'}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  Enter your WhatsApp number with country code (e.g., +919876543210 for India).
+                  No spaces or special characters needed.
+                </span>
+              </div>
+            </div>
+            {/* Preview */}
+            <div style={{
+              marginTop: '1rem',
+              background: 'var(--off-white)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border)',
+              padding: '1rem 1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              opacity: settings.whatsappButtonEnabled !== 'false' ? 1 : 0.4,
+              transition: 'opacity 0.3s ease',
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxShadow: '0 2px 12px rgba(37, 211, 102, 0.3)',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  {(settings.whatsappButtonNumber || '+919876543210').replace(/[^\d+]/g, '') || '+919876543210'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                  Customers see this floating button at the bottom-left of the homepage
+                </div>
               </div>
             </div>
           </div>
@@ -1849,7 +2298,7 @@ export default function SettingsAdminPage() {
                         </div>
                         <div>{settings.chatWelcomeMessage || 'Hi there! How can we help you today?'}</div>
                         <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '4px', textAlign: 'right' }}>
-                          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatTime(new Date())}
                         </div>
                       </div>
                     </div>
@@ -2216,468 +2665,22 @@ export default function SettingsAdminPage() {
           <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save SMS Settings'}</button></div>
         </div>
       )}
-
       {tab === 'integrations' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Social Login */}
-          <div className="detail-panel">
-            <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <h3>Social Login</h3>
-                <span className={`status-badge ${(settings.googleLoginEnabled === 'true' || settings.facebookLoginEnabled === 'true') ? 'status-active' : 'status-pending'}`}>
-                  {(settings.googleLoginEnabled === 'true' || settings.facebookLoginEnabled === 'true') ? 'Configured' : 'Not Setup'}
-                </span>
-              </div>
-            </div>
-
-            {/* Google Login */}
-            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h4 style={{ fontSize: '0.95rem', margin: 0 }}>Google OAuth</h4>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={settings.googleLoginEnabled === 'true'} onChange={e => setSettings({ ...settings, googleLoginEnabled: e.target.checked ? 'true' : 'false' })} />
-                  <strong style={{ fontSize: '0.85rem' }}>Enable Google</strong>
-                </label>
-              </div>
-              <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Google Client ID</label>
-                  <input 
-                    value={settings.googleClientId || ''} 
-                    onChange={e => setSettings({ ...settings, googleClientId: e.target.value })} 
-                    placeholder="xxxxxxxx.apps.googleusercontent.com"
-                    disabled={settings.googleLoginEnabled !== 'true'}
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Google Client Secret</label>
-                  <input 
-                    type="password"
-                    value={settings.googleClientSecret || ''} 
-                    onChange={e => setSettings({ ...settings, googleClientSecret: e.target.value })} 
-                    placeholder="••••••••••••••••••••••••"
-                    autoComplete="off"
-                    disabled={settings.googleLoginEnabled !== 'true'}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Facebook Login */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <h4 style={{ fontSize: '0.95rem', margin: 0 }}>Facebook OAuth</h4>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={settings.facebookLoginEnabled === 'true'} onChange={e => setSettings({ ...settings, facebookLoginEnabled: e.target.checked ? 'true' : 'false' })} />
-                  <strong style={{ fontSize: '0.85rem' }}>Enable Facebook</strong>
-                </label>
-              </div>
-              <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Facebook App ID</label>
-                  <input 
-                    value={settings.facebookAppId || ''} 
-                    onChange={e => setSettings({ ...settings, facebookAppId: e.target.value })} 
-                    placeholder="1234567890"
-                    disabled={settings.facebookLoginEnabled !== 'true'}
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Facebook App Secret</label>
-                  <input 
-                    type="password"
-                    value={settings.facebookAppSecret || ''} 
-                    onChange={e => setSettings({ ...settings, facebookAppSecret: e.target.value })} 
-                    placeholder="••••••••••••••••••••••••"
-                    autoComplete="off"
-                    disabled={settings.facebookLoginEnabled !== 'true'}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="form-actions" style={{ marginTop: '1rem' }}><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Social Login'}</button></div>
-          </div>
-
-          {/* Ad Platforms */}
-          <div className="detail-panel">
-            <div className="detail-header" style={{ marginBottom: '1rem' }}>
-              <h3>Ad Platform Credentials</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                Configure credentials for Meta (Facebook/Instagram), WhatsApp, and Google Ads
-              </p>
-            </div>
-
-            {/* Meta (Facebook & Instagram) */}
-            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Meta (Facebook/Instagram Ads)</h4>
-              <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Meta Access Token</label>
-                  <input 
-                    type="password"
-                    value={settings.metaAccessToken || ''} 
-                    onChange={e => setSettings({ ...settings, metaAccessToken: e.target.value })} 
-                    placeholder="EAABsbCS1iHgBAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Meta Ad Account ID</label>
-                  <input 
-                    value={settings.metaAdAccountId || ''} 
-                    onChange={e => setSettings({ ...settings, metaAdAccountId: e.target.value })} 
-                    placeholder="act_1234567890"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Meta Page ID</label>
-                  <input 
-                    value={settings.metaPageId || ''} 
-                    onChange={e => setSettings({ ...settings, metaPageId: e.target.value })} 
-                    placeholder="1234567890"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* WhatsApp */}
-            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
-              <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>WhatsApp Business</h4>
-              <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>WhatsApp Access Token</label>
-                  <input 
-                    type="password"
-                    value={settings.whatsappAccessToken || ''} 
-                    onChange={e => setSettings({ ...settings, whatsappAccessToken: e.target.value })} 
-                    placeholder="EAABsbCS1iHgBAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>WhatsApp Phone Number ID</label>
-                  <input 
-                    value={settings.whatsappPhoneNumberId || ''} 
-                    onChange={e => setSettings({ ...settings, whatsappPhoneNumberId: e.target.value })} 
-                    placeholder="102123456789012"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>WhatsApp Business Account ID</label>
-                  <input 
-                    value={settings.whatsappBusinessAccountId || ''} 
-                    onChange={e => setSettings({ ...settings, whatsappBusinessAccountId: e.target.value })} 
-                    placeholder="1234567890"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Google Ads */}
-            <div>
-              <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>Google Ads</h4>
-              <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Google Ads Client ID</label>
-                  <input 
-                    value={settings.googleAdsClientId || ''} 
-                    onChange={e => setSettings({ ...settings, googleAdsClientId: e.target.value })} 
-                    placeholder="1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Google Ads Client Secret</label>
-                  <input 
-                    type="password"
-                    value={settings.googleAdsClientSecret || ''} 
-                    onChange={e => setSettings({ ...settings, googleAdsClientSecret: e.target.value })} 
-                    placeholder="••••••••••••••••••••••••"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Google Ads Developer Token</label>
-                  <input 
-                    value={settings.googleAdsDeveloperToken || ''} 
-                    onChange={e => setSettings({ ...settings, googleAdsDeveloperToken: e.target.value })} 
-                    placeholder="abcd1234efgh5678"
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Google Ads Refresh Token</label>
-                  <input 
-                    type="password"
-                    value={settings.googleAdsRefreshToken || ''} 
-                    onChange={e => setSettings({ ...settings, googleAdsRefreshToken: e.target.value })} 
-                    placeholder="••••••••••••••••••••••••"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group form-full">
-                  <label>Google Ads Customer Account ID</label>
-                  <input 
-                    value={settings.googleAdsCustomerAccountId || ''} 
-                    onChange={e => setSettings({ ...settings, googleAdsCustomerAccountId: e.target.value })} 
-                    placeholder="1234567890"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="form-actions" style={{ marginTop: '1rem' }}><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Ad Platform Settings'}</button></div>
-          </div>
-
-          {/* AI Provider Configuration - Provider Agnostic */}
-          <div className="detail-panel">
-            <div className="detail-header" style={{ marginBottom: '1rem' }}>
-              <h3>AI Provider Configuration</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                Configure any OpenAI-compatible AI provider. Simply enter the API key, base URL, and model names. Works with OpenAI, Groq, Together AI, DeepSeek, OpenRouter, and more.
-              </p>
-            </div>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>AI Provider</label>
-                <select 
-                  value={settings.aiProvider || 'openai'} 
-                  onChange={e => {
-                    const provider = e.target.value;
-                    const presets = {
-                      openai: { url: 'https://api.openai.com/v1', chatModel: 'gpt-4o', imageModel: 'dall-e-3' },
-                      groq: { url: 'https://api.groq.com/openai/v1', chatModel: 'llama-3.3-70b-versatile', imageModel: '' },
-                      together: { url: 'https://api.together.xyz/v1', chatModel: 'mistralai/Mixtral-8x22B-Instruct-v0.1', imageModel: 'stabilityai/stable-diffusion-xl-base-1.0' },
-                      deepseek: { url: 'https://api.deepseek.com/v1', chatModel: 'deepseek-chat', imageModel: '' },
-                      openrouter: { url: 'https://openrouter.ai/api/v1', chatModel: 'openai/gpt-4o', imageModel: '' },
-                      anthropic: { url: 'https://api.anthropic.com/v1', chatModel: 'claude-3-5-sonnet-20241022', imageModel: '' },
-                    };
-                    const preset = presets[provider];
-                    if (preset) {
-                      setSettings(prev => ({
-                        ...prev,
-                        aiProvider: provider,
-                        aiProviderUrl: preset.url,
-                        aiChatModel: preset.chatModel,
-                        aiImageModel: preset.imageModel || prev.aiImageModel,
-                        aiProviderApiKey: prev.aiProviderApiKey || prev.openaiApiKey || '',
-                      }));
-                    } else {
-                      setSettings(prev => ({ ...prev, aiProvider: provider }));
-                    }
-                  }}
-                >
-                  <option value="openai">OpenAI</option>
-                  <option value="groq">Groq</option>
-                  <option value="together">Together AI</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="anthropic">Anthropic (Claude)</option>
-                  <option value="custom">Custom Provider</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>API Key</label>
-                <input 
-                  type="password"
-                  value={settings.aiProviderApiKey || settings.openaiApiKey || ''} 
-                  onChange={e => setSettings({ ...settings, aiProviderApiKey: e.target.value })} 
-                  placeholder="sk-... or your provider's API key"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="form-group form-full">
-                <label>Base URL</label>
-                <input 
-                  value={settings.aiProviderUrl || 'https://api.openai.com/v1'} 
-                  onChange={e => setSettings({ ...settings, aiProviderUrl: e.target.value })} 
-                  placeholder="https://api.openai.com/v1"
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  The API endpoint URL for your chosen provider. Must be an OpenAI-compatible endpoint.
-                </span>
-              </div>
-              <div className="form-group">
-                <label>Chat Model</label>
-                <input 
-                  value={settings.aiChatModel || 'gpt-4o'} 
-                  onChange={e => setSettings({ ...settings, aiChatModel: e.target.value })} 
-                  placeholder="gpt-4o"
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  Model used for text generation (descriptions, chat, ads)
-                </span>
-              </div>
-              <div className="form-group">
-                <label>Image Model</label>
-                <input 
-                  value={settings.aiImageModel || 'dall-e-3'} 
-                  onChange={e => setSettings({ ...settings, aiImageModel: e.target.value })} 
-                  placeholder="dall-e-3"
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                  Model used for image generation (leave empty if not supported)
-                </span>
-              </div>
-            </div>
-            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', fontSize: '0.78rem', color: 'var(--muted)' }}>
-              <strong style={{ color: 'var(--charcoal)' }}>Supported Providers & Base URLs:</strong>
-              <div style={{ marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontFamily: 'monospace', fontSize: '0.72rem' }}>
-                <span>• OpenAI: <code>https://api.openai.com/v1</code></span>
-                <span>• Groq: <code>https://api.groq.com/openai/v1</code></span>
-                <span>• Together AI: <code>https://api.together.xyz/v1</code></span>
-                <span>• DeepSeek: <code>https://api.deepseek.com/v1</code></span>
-                <span>• OpenRouter: <code>https://openrouter.ai/api/v1</code></span>
-                <span>• Anthropic: <code>https://api.anthropic.com/v1</code></span>
-              </div>
-            </div>
-            <div className="form-actions" style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                onClick={handleTestAIConnection} 
-                disabled={testingAI}
-              >
-                {testingAI ? 'Testing...' : '🔌 Test Connection'}
-              </button>
-              <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
-                {loading ? 'Saving...' : 'Save AI Provider Settings'}
-              </button>
-            </div>
-          </div>
-
-          {/* Backup Schedule */}
-          <div className="detail-panel">
-            <div className="detail-header" style={{ marginBottom: '1rem' }}>
-              <h3>Backup Schedule</h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                Configure automatic database backups
-              </p>
-            </div>
-            <div className="form-grid">
-              <div className="form-group">
-                <label>Backup Frequency</label>
-                <select value={settings.backupFrequency || 'daily'} onChange={e => setSettings({ ...settings, backupFrequency: e.target.value })}>
-                  <option value="hourly">Hourly</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Backup Time</label>
-                <input 
-                  type="time"
-                  value={settings.backupTime || '02:00'} 
-                  onChange={e => setSettings({ ...settings, backupTime: e.target.value })} 
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Time in UTC when backups should run</span>
-              </div>
-              <div className="form-group">
-                <label>Backup Day of Week</label>
-                <select value={settings.backupDayOfWeek || '0'} onChange={e => setSettings({ ...settings, backupDayOfWeek: e.target.value })}>
-                  <option value="0">Sunday</option>
-                  <option value="1">Monday</option>
-                  <option value="2">Tuesday</option>
-                  <option value="3">Wednesday</option>
-                  <option value="4">Thursday</option>
-                  <option value="5">Friday</option>
-                  <option value="6">Saturday</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Last Backup Run</label>
-                <input 
-                  value={settings.backupLastRun || 'Never'} 
-                  disabled
-                  placeholder="Never"
-                />
-              </div>
-            </div>
-            <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Backup Settings'}</button></div>
-
-            {/* Backup History */}
-            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-              <div className="detail-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h3>Backup History</h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                    Previous backups and their status
-                  </p>
-                </div>
-                <button className="btn-dark btn-sm" onClick={handleBackup} disabled={loading}>
-                  + Create Backup Now
-                </button>
-              </div>
-
-              {backupsLoading ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>
-                  <div className="spinner" style={{ width: 24, height: 24, margin: '0 auto 0.5rem' }} />
-                  <p>Loading backup history...</p>
-                </div>
-              ) : backups.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💾</div>
-                  <p>No backups yet.</p>
-                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                    Backups will appear here once they are created.
-                  </p>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                        <th style={{ padding: '0.75rem' }}>Filename</th>
-                        <th style={{ padding: '0.75rem' }}>Created</th>
-                        <th style={{ padding: '0.75rem' }}>Size</th>
-                        <th style={{ padding: '0.75rem' }}>Status</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {backups.map((backup) => (
-                        <tr key={backup.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.75rem' }}>
-                            <code style={{ background: 'var(--off-white)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem' }}>
-                              {backup.filename}
-                            </code>
-                          </td>
-                          <td style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                            {new Date(backup.timestamp).toLocaleString()}
-                          </td>
-                          <td style={{ padding: '0.75rem', fontSize: '0.85rem', fontWeight: 500 }}>
-                            {backup.size}
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <span className={`status-badge ${backup.status === 'success' ? 'status-active' : 'status-pending'}`} style={{ fontSize: '0.75rem' }}>
-                              {backup.status === 'success' ? '✓ Success' : 'Pending'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                              <button className="btn-ghost btn-sm" onClick={() => toast.success('Downloading backup: ' + backup.filename)}>
-                                Download
-                              </button>
-                              <button className="btn-ghost btn-sm" style={{ color: 'red' }} onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this backup?')) {
-                                  setBackups(backups.filter(b => b.id !== backup.id));
-                                  toast.success('Backup deleted');
-                                }
-                              }}>
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <IntegrationsTab
+          settings={settings}
+          setSettings={setSettings}
+          loading={loading}
+          handleSaveSettings={handleSaveSettings}
+          backups={backups}
+          backupsLoading={backupsLoading}
+          handleBackup={handleBackup}
+n          loadBackups={loadBackups}
+          handleTestAIConnection={handleTestAIConnection}
+          testingAI={testingAI}
+        />
+      )}
+      </div>
       )}
     </div>
   );
 }
-

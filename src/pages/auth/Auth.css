@@ -3,6 +3,6 @@
 .auth-header{text-align:center;margin-bottom:2rem}
 .auth-header h1{font-family:var(--font-display);font-size:1.8rem;margin-bottom:0.5rem}
 .auth-header p{color:var(--muted);font-size:0.9rem}
-.auth-link{color:var(--gold);font-weight:500;font-size:0.85rem}
-.auth-link:hover{color:var(--gold-dark)}
+.auth-link{color:var(--primary);font-weight:500;font-size:0.85rem}
+.auth-link:hover{color:var(--charcoal)}
 .auth-footer{text-align:center;margin-top:1.5rem;font-size:0.875rem;color:var(--muted)}

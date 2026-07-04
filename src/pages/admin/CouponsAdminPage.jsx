@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { couponsAPI } from '../../api/coupons';
 import { adminAPI } from '../../api/admin';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { COUPON_TYPES } from '../../utils/constants';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 
 const EMPTY = { code: '', discountType: 'PERCENTAGE', discountValue: '', minPurchase: '', maxUses: '', expiresAt: '' };
@@ -17,6 +21,30 @@ export default function CouponsAdminPage() {
   const [bulkModal, setBulkModal] = useState(false);
   const [bulkForm, setBulkForm] = useState({ count: 10, prefix: 'SALE', discountValue: 10 });
   const [analytics, setAnalytics] = useState(null);
+
+  // CSV Export state (async job-based)
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const COUPON_COLUMNS = [
+    { key: 'code', label: 'Code' },
+    { key: 'discountType', label: 'Discount Type' },
+    { key: 'discountValue', label: 'Discount Value' },
+    { key: 'minOrderValue', label: 'Min Order Value' },
+    { key: 'maxDiscount', label: 'Max Discount' },
+    { key: 'usageLimit', label: 'Usage Limit' },
+    { key: 'usageCount', label: 'Usage Count' },
+    { key: 'isActive', label: 'Active' },
+    { key: 'startDate', label: 'Start Date' },
+    { key: 'expiryDate', label: 'Expiry Date' },
+    { key: 'isAutoApply', label: 'Auto Apply' },
+    { key: 'isStackable', label: 'Stackable' },
+    { key: 'isNewUserOnly', label: 'New User Only' },
+    { key: 'description', label: 'Description' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
 
   // Search / Filter
   const [search, setSearch] = useState('');
@@ -34,14 +62,15 @@ export default function CouponsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   const load = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         search: debouncedSearch || undefined
       };
       if (activeFilter === 'ACTIVE') params.isActive = true;
@@ -53,7 +82,7 @@ export default function CouponsAdminPage() {
       setCoupons(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load coupons'); console.warn('Failed to load coupons:', e); } finally { setLoading(false); }
   };
@@ -65,12 +94,75 @@ export default function CouponsAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch, activeFilter]);
+  }, [debouncedSearch, activeFilter, pageSize]);
 
   // Load when currentPage changes
   useEffect(() => {
     load(currentPage);
   }, [currentPage]);
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true);
+    setExportStatus('dispatching');
+    setExportError(null);
+    try {
+      const filters = {
+        search: debouncedSearch || undefined,
+        isActive: activeFilter === 'ALL' ? undefined : activeFilter === 'ACTIVE',
+      };
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+
+      const dispatchRes = await adminAPI.dispatchExport({
+        type: 'coupons',
+        filters,
+        columns: selectedColumns,
+      });
+
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+
+      setExportStatus('processing');
+
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `coupons-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Coupons exported successfully');
+            setTimeout(() => {
+              setShowExportModal(false);
+              setExportStatus(null);
+            }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed');
+            setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed');
+      setExportError(err.response?.data?.message || err.message || 'Failed to export coupons');
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
   const openEdit = (c) => { 
@@ -135,14 +227,20 @@ export default function CouponsAdminPage() {
 
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Coupons</h2><p>Manage discount codes and promotions</p></div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn-ghost btn-sm" onClick={() => setBulkModal(true)}>🎲 Bulk Generate</button>
-          <button className="btn-dark btn-sm" onClick={openCreate}>+ Create Coupon</button>
-        </div>
-      </div>
-
+      <AdminPageShell
+        title="Coupons"
+        subtitle="Manage discount codes and promotions"
+        loading={loading}
+        error={error}
+        page="coupons"
+        actions={
+          <>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+            <button className="btn-ghost btn-sm" onClick={() => setBulkModal(true)}>🎲 Bulk Generate</button>
+            <button className="btn-dark btn-sm" onClick={openCreate}>+ Create Coupon</button>
+          </>
+        }
+      >
       {/* Analytics Panel */}
       {analytics && (
         <div className="detail-panel">
@@ -158,8 +256,6 @@ export default function CouponsAdminPage() {
           </div>
         </div>
       )}
-
-      {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search by code..." value={search} onChange={e => setSearch(e.target.value)} autoComplete="off" />
@@ -173,9 +269,7 @@ export default function CouponsAdminPage() {
         <table className="admin-table">
           <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Purchase</th><th>Uses</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={8}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-            ) : coupons.length === 0 ? (
+            {coupons.length === 0 ? (
               <tr><td colSpan={8}><div className="empty-state"><div className="empty-state-icon">🎟️</div><h3>No coupons yet</h3></div></td></tr>
             ) : coupons.map(c => (
               <tr key={c.id}>
@@ -198,19 +292,17 @@ export default function CouponsAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} coupons)</span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} style={{ opacity: currentPage <= 1 ? 0.5 : 1 }}>◀ Prev</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-              ))}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} style={{ opacity: currentPage >= totalPages ? 0.5 : 1 }}>Next ▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      </AdminPageShell>
 
       {/* Create/Edit Modal */}
       {showModal && (
@@ -248,6 +340,18 @@ export default function CouponsAdminPage() {
           </div>
         </div>
       )}
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={COUPON_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`coupons-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
     </div>
   );
 }

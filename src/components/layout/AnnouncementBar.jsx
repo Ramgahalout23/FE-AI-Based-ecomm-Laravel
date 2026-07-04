@@ -72,9 +72,9 @@ export default memo(function AnnouncementBar() {
 
         .announcement-item span:last-child {
           font-family: 'Jost', sans-serif;
-          font-size: 0.65rem;
+          font-size: 0.7rem;
           font-weight: 600;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
           color: rgba(255, 255, 255, 0.85);
         }
@@ -89,9 +89,9 @@ export default memo(function AnnouncementBar() {
         }
 
         @media (max-width: 640px) {
-          .announcement-bar { height: 30px; }
+          .announcement-bar { height: 34px; }
           .announcement-item span:last-child {
-            font-size: 0.55rem;
+            font-size: 0.7rem;
             letter-spacing: 0.08em;
           }
         }

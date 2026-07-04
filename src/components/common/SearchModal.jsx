@@ -1,6 +1,9 @@
+import { Search, X, TrendingUp, Star, ArrowRight, Clock } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, X, TrendingUp, Star, ArrowRight, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+;
 import { motion, AnimatePresence } from 'framer-motion';
 import { productsAPI } from '../../api/products';
 import SearchProductCard from '../../components/product/SearchProductCard';
@@ -30,6 +33,7 @@ const itemVariants = {
 };
 
 export default memo(function SearchModal({ isOpen, onClose }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const inputRef = useRef(null);
@@ -130,7 +134,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Search products"
+            aria-label={t('search.aria_label')}
             initial={{ opacity: 0, scale: 0.96, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }}
@@ -139,12 +143,12 @@ export default memo(function SearchModal({ isOpen, onClose }) {
           >
             {/* Search Input */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
-              <Search size={20} className="text-gray-400 shrink-0" />
+              <Search size={20} />
               <form onSubmit={handleSearch} className="flex-1 min-w-0">
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search products..."
+                  placeholder={t('search.placeholder_modal')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="w-full text-lg font-medium text-black placeholder:text-gray-300 bg-transparent outline-none"
@@ -153,9 +157,9 @@ export default memo(function SearchModal({ isOpen, onClose }) {
               {query && (
                 <button
                   onClick={() => setQuery('')}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition-colors shrink-0"
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition-colors shrink-0"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               )}
               <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-100 text-[11px] font-bold text-gray-400 shrink-0">
@@ -163,9 +167,9 @@ export default memo(function SearchModal({ isOpen, onClose }) {
               </kbd>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition-colors shrink-0"
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-black hover:bg-gray-100 transition-colors shrink-0"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
@@ -175,20 +179,20 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                 /* Search results preview */
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
-                    <Search size={28} className="text-gray-300" />
+                    <Search size={28} />
                   </div>
                   <p className="text-base font-semibold text-black mb-1">
-                    Search for &ldquo;{query}&rdquo;
+                    {t('search.for_query', { query })}
                   </p>
                   <p className="text-sm text-gray-400 mb-6">
-                    Press Enter to see all results
+                    {t('search.press_enter')}
                   </p>
                   <button
                     onClick={handleSearch}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-black text-white text-sm font-bold hover:bg-gray-800 transition-colors"
                   >
                     <Search size={16} />
-                    Search Products
+                    {t('search.products_button')}
                   </button>
                 </div>
               ) : (
@@ -201,9 +205,9 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                   {/* Trending Searches */}
                   <motion.div variants={itemVariants}>
                     <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp size={16} className="text-primary" />
+                      <TrendingUp size={16} />
                       <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                        Trending Searches
+                        {t('search.trending')}
                       </h3>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -213,7 +217,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                           onClick={() => handleTrendingClick(term)}
                           className="group flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 border border-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white hover:border-black transition-all duration-200"
                         >
-                          <Clock size={12} className="opacity-40 group-hover:opacity-70" />
+                          <Clock size={12} />
                           {term}
                         </button>
                       ))}
@@ -224,16 +228,16 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                   <motion.div variants={itemVariants}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <Star size={16} className="text-amber-500" />
+                        <Star size={16} />
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                          Popular Products
+                          {t('search.popular')}
                         </h3>
                       </div>
                       <button
                         onClick={() => { navigate('/products'); onClose(); }}
                         className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-black transition-colors"
                       >
-                        View All <ArrowRight size={12} />
+                        {t('search.view_all')} <ArrowRight size={12} />
                       </button>
                     </div>
 
@@ -250,12 +254,12 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                     ) : popularProducts.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {popularProducts.map((product) => (
-                          <SearchProductCard key={product.id} product={product} />
+                          <Search ProductCard key={product.id} product={product} />
                         ))}
                       </div>
                     ) : (
                       <div className="text-center py-8 text-sm text-gray-400">
-                        No popular products available
+                        {t('search.no_popular')}
                       </div>
                     )}
                   </motion.div>
@@ -267,13 +271,13 @@ export default memo(function SearchModal({ isOpen, onClose }) {
             <div className="hidden sm:flex px-5 py-3 border-t border-gray-100 shrink-0 items-center justify-between text-[11px] text-gray-400">
               <span>
                 <kbd className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 font-bold mr-1">↑↓</kbd>
-                Navigate
+                {t('search.navigate')}
                 <kbd className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 font-bold mx-1">Enter</kbd>
-                Select
+                {t('search.select')}
               </span>
               <span>
                 <kbd className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 font-bold mr-1">ESC</kbd>
-                Close
+                {t('search.close')}
               </span>
             </div>
           </motion.div>

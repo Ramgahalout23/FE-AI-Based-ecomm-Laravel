@@ -1,8 +1,10 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import ProductCard from './ProductCard';
 
 export default memo(function ProductGrid({ products = [], loading = false }) {
+  const { t } = useTranslation();
   if (loading) {
     return (
       <div className="product-grid">
@@ -24,8 +26,8 @@ export default memo(function ProductGrid({ products = [], loading = false }) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🔍</div>
-        <h3>No products found</h3>
-        <p>Try adjusting your search or filters</p>
+        <h3>{t('products.no_products_found')}</h3>
+        <p>{t('products.try_adjusting_filters')}</p>
       </div>
     );
   }

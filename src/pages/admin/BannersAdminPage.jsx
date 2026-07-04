@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import { settingsAPI } from '../../api/settings';
 import { aiAPI } from '../../api/ai';
 import { BANNER_TYPES } from '../../utils/constants';
 import toast from '../../utils/toast';
+import { downloadBlob } from '../../utils/download';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl, getBannerImage } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
 
 const DISPLAY_MODES = [
   { value: 'DEFAULT', label: 'Default (Image + Text)', icon: '🖼️📝' },
   { value: 'IMAGE_ONLY', label: 'Image Only', icon: '🖼️' },
+  { value: 'VIDEO', label: 'Video Background', icon: '🎬' },
   { value: 'TITLE_ONLY', label: 'Title Only', icon: '📝' },
 ];
 
-const EMPTY = { title: '', imageUrl: '', type: 'HERO', link: '', description: '', displayMode: 'DEFAULT' };
+const EMPTY = { title: '', imageUrl: '', videoUrl: '', type: 'HERO', link: '', description: '', displayMode: 'DEFAULT' };
 
 export default function BannersAdminPage() {
   // ── AI Generation ──
@@ -54,6 +59,30 @@ export default function BannersAdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
+  // CSV Export state (async job-based)
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const BANNER_COLUMNS = [
+    { key: 'title', label: 'Title' },
+    { key: 'subtitle', label: 'Subtitle' },
+    { key: 'description', label: 'Description' },
+    { key: 'type', label: 'Type' },
+    { key: 'position', label: 'Position' },
+    { key: 'isActive', label: 'Active' },
+    { key: 'displayMode', label: 'Display Mode' },
+    { key: 'linkUrl', label: 'Link URL' },
+    { key: 'startDate', label: 'Start Date' },
+    { key: 'endDate', label: 'End Date' },
+    { key: 'showOnMobile', label: 'Show on Mobile' },
+    { key: 'showOnDesktop', label: 'Show on Desktop' },
+    { key: 'backgroundColor', label: 'Background Color' },
+    { key: 'textColor', label: 'Text Color' },
+    { key: 'createdAt', label: 'Created Date' },
+  ];
+
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
@@ -73,14 +102,15 @@ export default function BannersAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   const load = async (page = 1) => {
     setLoading(true);
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         search: debouncedSearch || undefined,
         type: typeFilter !== 'ALL' ? typeFilter : undefined
       };
@@ -90,7 +120,7 @@ export default function BannersAdminPage() {
       setBanners(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || (data?.total !== undefined ? { page: data.page, pages: data.total_pages, total: data.total, per_page: data.limit } : {});
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load banners'); console.warn('Failed to load banners:', e); } finally { setLoading(false); }
   };
@@ -130,7 +160,7 @@ export default function BannersAdminPage() {
     } else {
       load(1);
     }
-  }, [debouncedSearch, typeFilter]);
+  }, [debouncedSearch, typeFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
@@ -143,6 +173,7 @@ export default function BannersAdminPage() {
     setForm({
       title: b.title || '',
       imageUrl: getBannerImage(b) || '',
+      videoUrl: b.videoUrl || '',
       type: b.type || 'HERO',
       link: b.linkUrl || b.link || '',
       description: b.description || '',
@@ -156,6 +187,7 @@ export default function BannersAdminPage() {
       const payload = {
         title: form.title,
         imageUrl: form.imageUrl,
+        videoUrl: form.videoUrl,
         type: form.type,
         linkUrl: form.link,
         description: form.description,
@@ -205,17 +237,85 @@ export default function BannersAdminPage() {
     }
   };
 
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true);
+    setExportStatus('dispatching');
+    setExportError(null);
+    try {
+      const filters = {
+        search: debouncedSearch || undefined,
+        type: typeFilter !== 'ALL' ? typeFilter : undefined,
+      };
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+
+      const dispatchRes = await adminAPI.dispatchExport({
+        type: 'banners',
+        filters,
+        columns: selectedColumns,
+      });
+
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+
+      setExportStatus('processing');
+
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `banners-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Banners exported successfully');
+            setTimeout(() => {
+              setShowExportModal(false);
+              setExportStatus(null);
+            }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed');
+            setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed');
+      setExportError(err.response?.data?.message || err.message || 'Failed to export banners');
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
-      <div className="admin-header admin-header-row">
-        <div><h2>Banners</h2><p>Manage homepage and promotional banners</p></div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn-ghost btn-sm" onClick={handleReorder}>💾 Save Order</button>
-          <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Banner</button>
-        </div>
-      </div>
-
-      {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
+      <AdminPageShell
+        title="Banners"
+        subtitle="Manage homepage and promotional banners"
+        loading={loading}
+        error={error}
+        page="banners"
+        actions={
+          <>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+            <button className="btn-ghost btn-sm" onClick={handleReorder}>💾 Save Order</button>
+            <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Banner</button>
+          </>
+        }
+      >
 
       {/* Global Display Filter Toggle */}
       <div className="table-card" style={{ marginBottom: '1rem' }}>
@@ -287,8 +387,7 @@ export default function BannersAdminPage() {
         <table className="admin-table">
           <thead><tr><th>Title</th><th>Type</th><th>Display Mode</th><th>Image</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr> :
-            banners.length === 0 ? <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">🖼️</div><h3>No banners yet</h3></div></td></tr> :
+            {banners.length === 0 ? <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">🖼️</div><h3>No banners yet</h3></div></td></tr> :
             banners.map(b => (
               <tr key={b.id}>
                 <td>{b.title ? <strong>{b.title}</strong> : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>🖼️ Image Only</span>}{b.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{b.description}</div>}</td>
@@ -296,6 +395,7 @@ export default function BannersAdminPage() {
                 <td>
                   <span className={`status-badge ${
                     b.displayMode === 'IMAGE_ONLY' ? 'status-warning' :
+                    b.displayMode === 'VIDEO' ? 'status-processing' :
                     b.displayMode === 'TITLE_ONLY' ? 'status-info' :
                     'status-success'
                   }`} style={{ fontSize: '0.68rem' }}>
@@ -318,19 +418,29 @@ export default function BannersAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} banners)</span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button className="btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>◀ Prev</button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map(p => (
-                <button key={p} className={p === currentPage ? 'btn-dark btn-sm' : 'btn-ghost btn-sm'} onClick={() => setCurrentPage(p)} style={{ minWidth: '32px' }}>{p}</button>
-              ))}
-              <button className="btn-ghost btn-sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>Next ▶</button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+      </AdminPageShell>
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={BANNER_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`banners-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
 
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
@@ -399,6 +509,35 @@ export default function BannersAdminPage() {
 
                 <div className="form-group"><label>Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Summer Sale" /></div>
                 <div className="form-group"><label>Description</label><textarea rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+
+                {/* Video URL — shown only when VIDEO display mode is selected */}
+                {form.displayMode === 'VIDEO' && (
+                  <div className="form-group form-full">
+                    <label>🎬 Banner Video URL</label>
+                    <input
+                      value={form.videoUrl}
+                      onChange={e => setForm({ ...form, videoUrl: e.target.value })}
+                      placeholder="https://example.com/banner-video.mp4"
+                      style={{ width: '100%' }}
+                    />
+                    <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.72rem', color: 'var(--muted)' }}>
+                      <span>Supported: MP4, WebM. Videos autoplay muted on the homepage hero.</span>
+                    </div>
+                    {form.videoUrl && (
+                      <div style={{ marginTop: '0.5rem', borderRadius: 8, overflow: 'hidden', background: '#000' }}>
+                        <video
+                          src={form.videoUrl}
+                          muted
+                          loop
+                          playsInline
+                          autoPlay
+                          style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }}
+                          onError={() => toast.error('Video failed to load — check the URL')}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="form-group form-full">
                   <label>Display Mode</label>

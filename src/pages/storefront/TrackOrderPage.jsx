@@ -1,20 +1,24 @@
-import { useState } from 'react';
 import { Search, Package, Truck, CheckCircle, Clock } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+;
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import { useSettings } from '../../store/useSettings';
 import { ordersAPI } from '../../api/orders';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { ORDER_STATUSES } from '../../utils/constants';
 
 const STATUS_ICONS = {
-  PENDING: Clock,
-  CONFIRMED: Clock,
-  PROCESSING: Package,
-  SHIPPED: Truck,
-  DELIVERED: CheckCircle,
-  CANCELLED: Clock,
-  RETURNED: Package,
-  RETURN_REQUESTED: Package,
+  PENDING: ClockIcon,
+  CONFIRMED: ClockIcon,
+  PROCESSING: CubeIcon,
+  SHIPPED: TruckIcon,
+  DELIVERED: CheckCircleIcon,
+  CANCELLED: ClockIcon,
+  RETURNED: CubeIcon,
+  RETURN_REQUESTED: CubeIcon,
 };
 
 const TIMELINE_STEPS = [
@@ -25,6 +29,9 @@ const TIMELINE_STEPS = [
 ];
 
 export default function TrackOrderPage() {
+  const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [orderNumber, setOrderNumber] = useState('');
   const [tracking, setTracking] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -43,9 +50,9 @@ export default function TrackOrderPage() {
       setTracking(res.data?.data || null);
     } catch (err) {
       if (err.response?.status === 404) {
-        setError('Order not found. Please check your order number and try again.');
+        setError(t('track.order_not_found'));
       } else {
-        setError('Failed to look up order. Please try again later.');
+        setError(t('track.error_lookup'));
       }
     } finally {
       setLoading(false);
@@ -57,15 +64,14 @@ export default function TrackOrderPage() {
   return (
     <div className="section">
       <SEOHead
-        title="Track Your Order | Threvolt"
-        description="Track your Threvolt order in real-time. Enter your order number to see shipping status, delivery timeline, and package location."
+        title={`Track Your Order | ${storeName}`}
+        description={`Track your ${storeName} order in real-time. Enter your order number to see shipping status, delivery timeline, and package location.`}
         noIndex={true}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         <Breadcrumb
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Track Order' },
+          items={[    {label: t('nav.home'), href: '/' },
+    { label: t('track.title') },
           ]}
           variant="light"
           className="mb-6"
@@ -76,11 +82,11 @@ export default function TrackOrderPage() {
         {/* Hero Section */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/20 mb-4">
-            <Package size={28} className="text-gold" />
+            <Package size={28} />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-charcoal mb-2">Track Your Order</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-charcoal mb-2">{t('track.title')}</h1>
           <p className="text-muted text-sm max-w-md mx-auto">
-            Enter your order number to see the latest status, shipping details, and estimated delivery.
+            {t('track.hero_desc')}
           </p>
         </div>
 
@@ -88,12 +94,12 @@ export default function TrackOrderPage() {
         <form onSubmit={handleTrack} className="mb-8">
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+              <Search size={18} />
               <input
                 type="text"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
-                placeholder="Enter order number (e.g. ORD-12345678-ABCD)"
+                placeholder={t('track.search_placeholder')}
                 className="w-full pl-11 pr-4 py-3.5 border border-border rounded-xl text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all bg-white"
                 autoComplete="off"
               />
@@ -103,16 +109,15 @@ export default function TrackOrderPage() {
               disabled={loading || !orderNumber.trim()}
               className="px-6 py-3.5 bg-charcoal text-white rounded-xl font-semibold text-sm hover:bg-charcoal/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-black/5"
             >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Searching...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Search size={16} />
-                  Track
-                </span>
+              {loading ? (                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    {t('track.searching')}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Search size={16} />
+                    {t('track.track_btn')}
+                  </span>
               )}
             </button>
           </div>
@@ -133,7 +138,7 @@ export default function TrackOrderPage() {
             <div className="bg-white border border-border rounded-xl p-6 md:p-8">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
-                  <p className="text-xs text-muted uppercase tracking-wider font-semibold mb-1">Order Number</p>
+                  <p className="text-xs text-muted uppercase tracking-wider font-semibold mb-1">{t('track.order_number')}</p>
                   <h2 className="text-xl font-bold text-charcoal font-mono">{tracking.orderNumber}</h2>
                 </div>
                 <span className={`px-3 py-1.5 rounded-full text-xs font-bold ${
@@ -198,7 +203,7 @@ export default function TrackOrderPage() {
 
             {/* Order Summary */}
             <div className="bg-white border border-border rounded-xl p-6 md:p-8">
-              <h3 className="text-sm font-bold text-charcoal uppercase tracking-wider mb-4">Order Summary</h3>
+              <h3 className="text-sm font-bold text-charcoal uppercase tracking-wider mb-4">{t('checkout.order_summary')}</h3>
 
               {/* Items */}
               <div className="space-y-3 mb-4">
@@ -222,7 +227,7 @@ export default function TrackOrderPage() {
 
               {/* Total */}
               <div className="flex justify-between items-center pt-3 border-t border-border">
-                <span className="text-sm font-semibold text-charcoal">Total</span>
+                <span className="text-sm font-semibold text-charcoal">{t('checkout.total')}</span>
                 <span className="text-lg font-bold text-charcoal">{formatCurrency(tracking.total)}</span>
               </div>
             </div>
@@ -252,8 +257,8 @@ export default function TrackOrderPage() {
             {/* Help */}
             <div className="text-center py-4">
               <p className="text-sm text-muted">
-                Need help with your order?{' '}
-                <a href="/contact" className="text-gold font-semibold hover:underline">Contact Support</a>
+                {t('track.need_help')}{' '}
+                <a href="/contact" className="text-gold font-semibold hover:underline">{t('track.contact_support')}</a>
               </p>
             </div>
           </div>
@@ -264,10 +269,10 @@ export default function TrackOrderPage() {
           <div className="text-center py-12">
             <div className="text-5xl mb-4 opacity-30">🔍</div>
             <p className="text-muted text-sm">
-              Enter your order number above to track your package
+              {t('track.enter_order_number')}
             </p>
             <p className="text-xs text-muted mt-2">
-              Your order number can be found in your order confirmation email
+              {t('track.order_number_hint')}
             </p>
           </div>
         )}

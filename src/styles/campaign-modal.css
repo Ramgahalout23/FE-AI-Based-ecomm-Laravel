@@ -1,0 +1,113 @@
+/* ═══════════════════════════════════════════
+   Ads — Campaign Modal (CampaignModal.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Upload Dropzone ── */
+.upload-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface);
+  transition: all 0.2s;
+}
+.upload-dropzone.drag-over {
+  border-color: var(--brand-black);
+  background: rgba(0,0,0,0.03);
+}
+.upload-dropzone-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5rem;
+}
+.upload-dropzone-large-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+}
+
+/* ── Carousel Grid ── */
+.carousel-add-slot {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.carousel-add-slot:hover {
+  border-color: var(--brand-black);
+  background: rgba(0,0,0,0.02);
+}
+
+/* ── Uploaded Creative Preview ── */
+.creative-preview-box {
+  background-color: #f9fafb;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+.creative-preview-thumb {
+  width: 112px;
+  height: 112px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: #e5e7eb;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+/* ── URL Input Fallback ── */
+.creative-url-input {
+  font-size: 12px;
+  padding: 0.5rem 0.75rem;
+}
+.creative-url-section {
+  margin-top: 0.5rem;
+}
+.creative-url-label {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* ── Campaign Modal Panel ── */
+.campaign-modal-panel {
+  width: 90%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ── Modal Close Button Icon ── */
+.modal-close-btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+/* ── Upload Dropzone Large ── */
+.upload-dropzone-lg {
+  padding: 2rem 1rem;
+}
+
+/* ── Form Actions Bordered ── */
+.form-actions-bordered {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}

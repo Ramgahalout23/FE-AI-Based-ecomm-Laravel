@@ -1,7 +1,10 @@
-import { Component } from 'react';
 import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Component } from 'react';
+import { withTranslation } from 'react-i18next';
 
-export default class ErrorBoundary extends Component {
+;
+
+class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -33,6 +36,7 @@ export default class ErrorBoundary extends Component {
   };
 
   render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
@@ -68,7 +72,7 @@ export default class ErrorBoundary extends Component {
             marginBottom: '8px',
             fontFamily: '"Cabinet Grotesk", system-ui, sans-serif',
           }}>
-            {this.props.title || 'Something went wrong'}
+            {this.props.title || t('error_boundary.something_wrong')}
           </h2>
 
           <p style={{
@@ -78,10 +82,10 @@ export default class ErrorBoundary extends Component {
             lineHeight: 1.5,
             marginBottom: '32px',
           }}>
-            {this.props.description || 'An unexpected error occurred while rendering this section. Please try again.'}
+            {this.props.description || t('error_boundary.description')}
           </p>
 
-          {process.env.NODE_ENV === 'development' && this.state.error && (
+          {import.meta.env.MODE === 'development' && this.state.error && (
             <details style={{
               marginBottom: '24px',
               maxWidth: '600px',
@@ -91,7 +95,7 @@ export default class ErrorBoundary extends Component {
               color: '#666',
             }}>
               <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
-                Error Details
+                {t('error_boundary.error_details')}
               </summary>
               <pre style={{
                 background: '#f8f9fa',
@@ -131,7 +135,7 @@ export default class ErrorBoundary extends Component {
               onMouseLeave={(e) => { e.currentTarget.style.background = '#1a1a1a'; }}
             >
               <RefreshCw size={16} />
-              Try Again
+              {t('error_boundary.try_again')}
             </button>
 
             <button
@@ -160,7 +164,7 @@ export default class ErrorBoundary extends Component {
               }}
             >
               <ArrowLeft size={16} />
-              Go Back
+              {t('error_boundary.go_back')}
             </button>
           </div>
 
@@ -170,7 +174,7 @@ export default class ErrorBoundary extends Component {
               fontSize: '12px',
               color: '#aaa',
             }}>
-              If the problem persists, try refreshing the page.
+              {t('error_boundary.refresh_prompt')}
             </p>
           )}
         </div>
@@ -180,3 +184,5 @@ export default class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+
+export default withTranslation()(ErrorBoundary);

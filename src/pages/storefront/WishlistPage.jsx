@@ -1,41 +1,59 @@
+import { ShoppingBag, AlertTriangle, X, ChevronDown, Share2, Check, Link, Trash2, Heart, ArrowRight, Package } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, Heart, AlertTriangle, ArrowRight, X, Package, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+;
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { wishlistAPI } from '../../api/wishlist';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
+import { useSettings } from '../../store/useSettings';
 import useFlyToCart from '../../hooks/useFlyToCart';
 import { formatCurrency, slugify, getProductImage, getImageUrl } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
-import { showSuccess, showError, removedFromWishlist, wishlistCleared } from '../../utils/toast';
+import { showSuccess, showError, removedFromWishlist, wishlistCleared, linkCopied } from '../../utils/toast';
 import '../../styles/wishlist.css';
 import WishlistSkeleton from '../../components/ui/WishlistSkeleton';
 
 export default function WishlistPage() {
+  const { t } = useTranslation();
   const { items, removeItem, clear } = useWishlistStore();
   const { addItem, openCart } = useCartStore();
   const { flyToCart } = useFlyToCart();
   const navigate = useNavigate();
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
   const [loading, setLoading] = useState(true);
   const [removingIds, setRemovingIds] = useState(new Set());
   const [movingIds, setMovingIds] = useState(new Set());
   const [variantSelections, setVariantSelections] = useState({}); // { [itemId]: { selectedColor, selectedSize } }
   const [expandedIds, setExpandedIds] = useState(new Set()); // itemIds that have their variant selector open
 
+  // ── Share state ──
+  const [shareLink, setShareLink] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+
   useEffect(() => {
     const fetch = async () => {
       try {
         const res = await wishlistAPI.get();
         useWishlistStore.getState().setItems(res.data?.data?.items || res.data?.data || []);
-      } catch (e) {
-        console.warn('Failed to load wishlist:', e);
+      } catch {
+        console.warn('Failed to load wishlist');
       } finally {
         setLoading(false);
       }
     };
     fetch();
+
+    // Fetch share status on mount
+    wishlistAPI.getShareStatus().then(res => {
+      const url = res.data?.data?.url;
+      if (url) setShareLink(url);
+    }).catch(() => {});
   }, []);
 
   // ── Variant helpers ──────────────────────────────
@@ -142,7 +160,7 @@ export default function WishlistPage() {
         { duration: 2500 }
       );
       openCart();
-    } catch (e) {
+    } catch {
       showError('Failed to move item to cart');
       setMovingIds(prev => {
         const next = new Set(prev);
@@ -184,6 +202,58 @@ export default function WishlistPage() {
     wishlistCleared();
   };
 
+  // ── Share handlers ──
+  const handleShare = async () => {
+    if (shareLink) {
+      handleCopyLink();
+      return;
+    }
+    setShareLoading(true);
+    try {
+      const res = await wishlistAPI.share();
+      const url = res.data?.data?.url;
+      if (url) {
+        setShareLink(url);
+        // Auto-copy to clipboard
+        try {
+          await navigator.clipboard.writeText(url);
+          setShareCopied(true);
+          linkCopied();
+          setTimeout(() => setShareCopied(false), 2000);
+        } catch {
+          // Clipboard API may not be available
+        }
+      }
+    } catch {
+      showError('Failed to create share link');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!shareLink) return;
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setShareCopied(true);
+      linkCopied();
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      showError('Failed to copy link');
+    }
+  };
+
+  const handleRevokeShare = async () => {
+    try {
+      await wishlistAPI.unshare();
+      setShareLink(null);
+      setShareCopied(false);
+      showSuccess('Share link revoked');
+    } catch {
+      showError('Failed to revoke share link');
+    }
+  };
+
   const handleNavigate = useCallback((slug) => {
     navigate(`/products/${slug}`);
   }, [navigate]);
@@ -199,16 +269,15 @@ export default function WishlistPage() {
   return (
     <div className="wishlist-page">
       <SEOHead
-        title="My Wishlist | Threvolt"
-        description="View and manage your saved items at Threvolt. Add your favorite products to your wishlist and shop them anytime."
+        title={`My Wishlist | ${storeName}`}
+        description={`View and manage your saved items at ${storeName}. Add your favorite products to your wishlist and shop them anytime.`}
         noIndex={true}
       />
       {/* ── Breadcrumb ──────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
         <Breadcrumb
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Wishlist' },
+          items={[    {label: t('nav.home'), href: '/' },
+    { label: t('wishlist.title') },
           ]}
           variant="light"
         />
@@ -218,26 +287,63 @@ export default function WishlistPage() {
       <div className="wishlist-header">
         <div className="wishlist-header-left">
           <div className="wishlist-header-icon">
-            <Heart size={22} fill="white" />
+            <Heart size={22} />
           </div>
           <div className="wishlist-header-text">
-            <h2>My Wishlist</h2>
-            <p>Items you've saved for later</p>
+            <h2>{t('wishlist.title')}</h2>
+            <p>{t('wishlist.items_saved')}</p>
           </div>
         </div>
         <div className="wishlist-header-right">
           <div className="wishlist-count-badge">
             <span>{items.length}</span>
-            {items.length === 1 ? 'Item' : 'Items'}
+            {items.length === 1 ? t('wishlist.item') : t('wishlist.items')}
           </div>
           {items.length > 0 && (
-            <button className="wishlist-clear-btn" onClick={handleClearAll}>
-              <Trash2 size={13} />
-              Clear All
-            </button>
+            <>
+              <button className="wishlist-share-btn" onClick={handleShare} disabled={shareLoading}>
+                {shareLoading ? (
+                  <span className="spinner" style={{ width: 13, height: 13, borderWidth: 2 }} />
+                ) : shareCopied ? (
+                  <Check size={13} />
+                ) : (
+                  <Share2 size={13} />
+                )}
+                {shareCopied ? t('wishlist.copied') : t('wishlist.share')}
+              </button>
+              <button className="wishlist-clear-btn" onClick={handleClearAll}>
+                <Trash2 size={13} />
+                {t('wishlist.clear_all')}
+              </button>
+            </>
           )}
         </div>
       </div>
+
+      {/* ── Share Link Banner ───────────────────────── */}
+      {shareLink && (
+        <div className="wishlist-share-banner">
+          <div className="wishlist-share-banner-content">
+            <Link size={16} Icon />
+            <span className="wishlist-share-banner-text">{shareLink}</span>
+          </div>
+          <div className="wishlist-share-banner-actions">
+            <button
+              className="wishlist-share-copy-btn"
+              onClick={handleCopyLink}
+            >
+              {shareCopied ? <Check size={14} /> : <Share2 size={14} />}
+              {shareCopied ? t('wishlist.copied') : t('wishlist.copy')}
+            </button>
+            <button
+              className="wishlist-share-revoke-btn"
+              onClick={handleRevokeShare}
+            >
+              {t('wishlist.revoke')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Loading State ───────────────────────────── */}
       {loading ? (
@@ -248,11 +354,11 @@ export default function WishlistPage() {
           <div className="wishlist-empty-icon">
             <Heart size={40} style={{ color: '#ccc' }} />
           </div>
-          <h3>Your wishlist is empty</h3>
-          <p>Save your favorite items here and come back to them anytime.</p>
+          <h3>{t('wishlist.empty')}</h3>
+          <p>{t('wishlist.empty_desc')}</p>
           <button className="btn-primary" onClick={() => navigate('/products')}>
             <Package size={16} />
-            Browse Products
+            {t('wishlist.browse_products')}
             <ArrowRight size={16} />
           </button>
         </div>

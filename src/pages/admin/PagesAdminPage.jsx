@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
 import { formatDate } from '../../utils/formatters';
+import Pagination from '../../components/admin/Pagination';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import AdvancedPageEditor from '../../components/common/AdvancedPageEditor';
 
@@ -18,18 +21,74 @@ export default function PagesAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const limit = 10;
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
+
+  // CSV Export
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const PAGE_COLUMNS = [
+    { key: 'title', label: 'Title' },
+    { key: 'slug', label: 'Slug' },
+    { key: 'metaTitle', label: 'Meta Title' },
+    { key: 'metaDescription', label: 'Meta Description' },
+    { key: 'isPublished', label: 'Published' },
+    { key: 'createdAt', label: 'Created Date' },
+    { key: 'updatedAt', label: 'Updated Date' },
+  ];
+
+  const handleExportCSV = async (selectedColumns) => {
+    setExporting(true); setExportStatus('dispatching'); setExportError(null);
+    try {
+      const dispatchRes = await adminAPI.dispatchExport({ type: 'pages', filters: {}, columns: selectedColumns });
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+      setExportStatus('processing');
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `pages-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Pages exported successfully');
+            setTimeout(() => { setShowExportModal(false); setExportStatus(null); }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed'); setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+      poll().catch(() => {});
+    } catch (err) {
+      console.error('Export failed:', err);
+      setExportStatus('failed'); setExportError(err.response?.data?.message || err.message || 'Failed to export pages');
+      toast.error('Export failed');
+    } finally { setExporting(false); }
+  };
 
   const load = async (page = 1) => {
     setLoading(true);
     try {
-      const r = await adminAPI.getPages({ page, limit });
+      const r = await adminAPI.getPages({ page, limit: pageSize });
       const data = r.data?.data || r.data;
       const list = data?.pages || data?.items || data || [];
       setPages(Array.isArray(list) ? list : []);
       const pag = r.data?.pagination || data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || pag.totalPages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (e) { setError('Failed to load pages'); console.warn('Failed to load pages:', e); } finally { setLoading(false); }
   };
@@ -106,10 +165,28 @@ export default function PagesAdminPage() {
     }
   };
 
+  const handleSeedDefaults = async () => {
+    if (!confirm('Load sample page templates? This will add predefined pages (About, Privacy, FAQ, etc.) if they don\'t already exist.')) return;
+    try {
+      const res = await adminAPI.seedPageDefaults();
+      toast.success(res.data?.message || 'Sample templates loaded!');
+      await load(currentPage);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to load templates';
+      toast.error(msg);
+    }
+  };
+
+  const [seeding, setSeeding] = useState(false);
+
   return (
     <div>
       <div className="admin-header admin-header-row">
         <div><h2>Custom Pages (CMS)</h2><p>Manage static content, policies, and lookbooks</p></div>
+        <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+        <button className="btn-ghost btn-sm" onClick={() => { setSeeding(true); handleSeedDefaults().finally(() => setSeeding(false)); }} disabled={seeding}>
+          {seeding ? '⏳ Loading...' : '📄 Load Sample Templates'}
+        </button>
         <button className="btn-dark btn-sm" onClick={openCreate}>+ Create Page</button>
       </div>
 
@@ -144,49 +221,27 @@ export default function PagesAdminPage() {
           </tbody>
         </table>
 
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Showing page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} pages total)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage <= 1} 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{ opacity: currentPage <= 1 ? 0.5 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
-              >
-                ◀ Prev
-              </button>
-              {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 10) pageNum = i + 1;
-                else if (currentPage <= 5) pageNum = i + 1;
-                else if (currentPage >= totalPages - 4) pageNum = totalPages - 9 + i;
-                else pageNum = currentPage - 5 + i;
-                return (
-                  <button 
-                    key={pageNum} 
-                    className={pageNum === currentPage ? "btn-dark btn-sm" : "btn-ghost btn-sm"}
-                    onClick={() => setCurrentPage(pageNum)}
-                    style={{ minWidth: '32px' }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage >= totalPages} 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{ opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
-              >
-                Next ▶
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
+
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={PAGE_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`pages-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
 
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)} style={isFullscreen ? { padding: 0 } : {}}>

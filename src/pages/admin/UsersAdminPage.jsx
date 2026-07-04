@@ -4,6 +4,9 @@ import { formatDate, getInitials } from '../../utils/formatters';
 import { USER_ROLES } from '../../utils/constants';
 import toast from '../../utils/toast';
 import { downloadBlob } from '../../utils/download';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import Pagination from '../../components/admin/Pagination';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 
 export default function UsersAdminPage() {
   const [users, setUsers] = useState([]);
@@ -16,11 +19,29 @@ export default function UsersAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [limit] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   // Search debouncing
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // CSV Export state (async job-based)
+  const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const USER_COLUMNS = [
+    { key: 'id', label: 'User ID' },
+    { key: 'firstName', label: 'First Name' },
+    { key: 'lastName', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'role', label: 'Role' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'emailVerified', label: 'Email Verified' },
+    { key: 'blocked', label: 'Status (Blocked)' },
+    { key: 'createdAt', label: 'Joined Date' },
+  ];
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -29,19 +50,67 @@ export default function UsersAdminPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = async (selectedColumns) => {
     setExporting(true);
+    setExportStatus('dispatching');
+    setExportError(null);
     try {
-      const params = {
+      // 1. Dispatch the export job
+      const filters = {
         role: roleFilter !== 'ALL' ? roleFilter : undefined,
         search: debouncedSearch || undefined,
       };
-      const response = await adminAPI.exportUsers(params);
-      downloadBlob(response, `users-export-${new Date().toISOString().slice(0, 10)}.csv`);
-      toast.success('Users exported successfully');
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+
+      const dispatchRes = await adminAPI.dispatchExport({
+        type: 'users',
+        filters,
+        columns: selectedColumns,
+      });
+
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+
+      setExportStatus('processing');
+
+      // 2. Poll for completion
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'completed') {
+            // 3. Download the completed file
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `users-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Users exported successfully');
+            setTimeout(() => {
+              setShowExportModal(false);
+              setExportStatus(null);
+            }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed');
+            setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+
+      poll().catch(() => {});
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error('Failed to export users');
+      setExportStatus('failed');
+      setExportError(err.response?.data?.message || err.message || 'Failed to export users');
+      toast.error('Export failed');
     } finally {
       setExporting(false);
     }
@@ -52,7 +121,7 @@ export default function UsersAdminPage() {
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         role: roleFilter !== 'ALL' ? roleFilter : undefined,
         search: debouncedSearch || undefined
       };
@@ -65,7 +134,7 @@ export default function UsersAdminPage() {
 
       // Pagination from raw paginator: current_page, last_page, total
       setCurrentPage(raw.current_page || raw.page || page);
-      setTotalPages(raw.last_page || raw.pages || raw.totalPages || Math.ceil((raw.total || list.length) / limit) || 1);
+      setTotalPages(raw.last_page || raw.pages || raw.totalPages || Math.ceil((raw.total || list.length) / pageSize) || 1);
       setTotalItems(raw.total || list.length);
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -75,14 +144,14 @@ export default function UsersAdminPage() {
     }
   };
 
-  // Reset page on search or role filter change
+  // Reset page on search, role filter, or page size change
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     } else {
       load(1);
     }
-  }, [debouncedSearch, roleFilter]);
+  }, [debouncedSearch, roleFilter, pageSize]);
 
   // Reload when page changes
   useEffect(() => {
@@ -115,9 +184,12 @@ export default function UsersAdminPage() {
   };
 
   return (
-    <div>
-      <div className="admin-header"><h2>Users</h2><p>Manage customer accounts and roles ({totalItems} total)</p></div>
-
+      <AdminPageShell
+        title="Users"
+        subtitle={`Manage customer accounts and roles (${totalItems} total)`}
+        loading={loading}
+        page="users"
+      >
       {/* User Detail */}
       {detail && (
         <div className="detail-panel">
@@ -157,17 +229,15 @@ export default function UsersAdminPage() {
             <option value="ALL">All Roles</option>
             {Object.keys(USER_ROLES).map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <button className="btn-ghost btn-sm" onClick={handleExportCSV} disabled={exporting}>
-            {exporting ? 'Exporting...' : '📥 Export CSV'}
+          <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>
+            📥 Export CSV
           </button>
           <span className="table-count">{totalItems} users</span>
         </div>
         <table className="admin-table">
           <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-            ) : users.length === 0 ? (
+            {users.length === 0 ? (
               <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">👥</div><h3>No users found</h3></div></td></tr>
             ) : users.map(u => (
               <tr key={u.id}>
@@ -194,43 +264,29 @@ export default function UsersAdminPage() {
           </tbody>
         </table>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Showing page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} users total)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage <= 1} 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{ opacity: currentPage <= 1 ? 0.5 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
-              >
-                ◀ Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button 
-                  key={p} 
-                  className={p === currentPage ? "btn-dark btn-sm" : "btn-ghost btn-sm"}
-                  onClick={() => setCurrentPage(p)}
-                  style={{ minWidth: '32px' }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage >= totalPages} 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{ opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
-              >
-                Next ▶
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          itemLabel="user"
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
-    </div>
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={USER_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`users-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
+      </AdminPageShell>
   );
 }

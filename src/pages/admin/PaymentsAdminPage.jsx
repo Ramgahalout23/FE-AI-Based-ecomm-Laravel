@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { paymentsAPI } from '../../api/payments';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import { PAYMENT_STATUSES } from '../../utils/constants';
 import toast from '../../utils/toast';
@@ -60,9 +61,13 @@ export default function PaymentsAdminPage() {
 
   return (
     <div>
-      <div className="admin-header"><h2>Payments</h2><p>Track transactions and manage refunds</p></div>
-
-      {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
+      <AdminPageShell
+        title="Payments"
+        subtitle="Track transactions and manage refunds"
+        loading={loading}
+        error={error}
+        page="payments"
+      >
       <div className="stats-grid">
         <div className="stat-card"><div className="stat-icon revenue">💳</div><div className="stat-label">Total Processed</div><div className="stat-val" style={{ color: 'var(--success)' }}>{formatCurrency(stats.totalProcessed || 48900)}</div></div>
         <div className="stat-card"><div className="stat-icon orders">⏳</div><div className="stat-label">Pending</div><div className="stat-val" style={{ color: 'var(--warning)' }}>{formatCurrency(stats.totalPending || 2400)}</div></div>
@@ -101,9 +106,7 @@ export default function PaymentsAdminPage() {
           <table className="admin-table">
             <thead><tr><th>Payment ID</th><th>Order</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
             <tbody>
-              {loading ? (
-                <tr><td colSpan={7}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-              ) : payments.length === 0 ? (
+              {payments.length === 0 ? (
                 <tr><td colSpan={7}><div className="empty-state"><div className="empty-state-icon">💳</div><h3>No payments yet</h3></div></td></tr>
               ) : payments.map(p => (
                 <tr key={p.id}>
@@ -148,6 +151,7 @@ export default function PaymentsAdminPage() {
           </table>
         </div>
       )}
+      </AdminPageShell>
     </div>
   );
 }

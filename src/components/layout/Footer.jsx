@@ -1,6 +1,9 @@
+import { ChevronDown, MapPin, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+;
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../../store/useSettings';
 import { getImageUrl } from '../../utils/formatters';
@@ -43,7 +46,7 @@ function MobileAccordion({ title, children }) {
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
-          <ChevronDown size={16} className="text-white/40" />
+          <ChevronDown size={16} />
         </motion.div>
       </button>
       <AnimatePresence initial={false}>
@@ -67,9 +70,15 @@ function MobileAccordion({ title, children }) {
 }
 
 export default function Footer() {
+  const { t } = useTranslation();
   const { getSetting } = useSettings();
   const siteName = getSetting('storeName', 'THREVOLT');
+  const brandTagline = getSetting('footerBrandTagline', "India's favorite t-shirt brand. Premium quality, bold designs, and unbeatable comfort — all at prices that make you smile.");
   const settingsLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
+  const storeAddress = getSetting('storeAddress', 'Bangalore, Karnataka, India');
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`;
+  const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
+  const currency = getSetting('currency', 'INR');
   const socialLinks = [
     { platform: 'IG', url: getSetting('instagram', '#') },
     { platform: 'FB', url: getSetting('facebook', '#') },
@@ -77,11 +86,12 @@ export default function Footer() {
     { platform: 'YT', url: getSetting('youtube', '#') }
   ];
 
+  const currencySymbol = currency === 'INR' ? '₹' : '$';
   const features = [
-    { icon: 'local_shipping', title: 'Free Shipping', desc: 'On orders over ₹499' },
-    { icon: 'refresh', title: 'Easy Returns', desc: '7-day return policy' },
-    { icon: 'payments', title: 'Secure Payment', desc: '100% secure transactions' },
-    { icon: 'support_agent', title: '24/7 Support', desc: 'Dedicated customer service' },
+    { icon: 'local_shipping', title: t('footer.free_shipping'), desc: t('footer.above_amount', { amount: `${currencySymbol}${freeShippingThreshold}` }) },
+    { icon: 'refresh', title: t('footer.easy_returns'), desc: t('footer.returns_days') },
+    { icon: 'payments', title: t('footer.secure_payment'), desc: t('footer.secure_transactions') },
+    { icon: 'support_agent', title: t('footer.support_247'), desc: t('footer.dedicated_support') },
   ];
 
   return (
@@ -94,7 +104,7 @@ export default function Footer() {
           ════════════════════════════════════════════ */}
       <div className="border-b border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 [&>*:nth-last-child(-n+2)]:border-b-0">
             {features.map((item, idx) => (
               <div
                 key={idx}
@@ -150,48 +160,61 @@ export default function Footer() {
               )}
             </Link>
             <p className="text-xs leading-relaxed text-white/50 max-w-xs mx-auto mb-4">
-              India's favorite t-shirt brand. Premium quality, bold designs, and unbeatable comfort. 🔥
+              {brandTagline}
             </p>
             <div className="flex justify-center gap-2.5">
               {socialLinks.map((social, idx) => (
                 <SocialIcon key={idx} platform={social.platform} url={social.url} />
               ))}
             </div>
+
+            {/* Mobile Store Address with Google Maps link */}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 mt-4 text-white/40 hover:text-primary transition-colors duration-200 text-xs group"
+            >
+              <MapPin size={13} />
+              <span className="group-hover:text-white/60 transition-colors duration-200 leading-relaxed">
+                {storeAddress}
+              </span>
+            </a>
           </div>
 
           {/* Links — Accordion */}
           <div className="border-t border-white/10 pt-1 mb-5">
-            <MobileAccordion title="Shop">
-              <Link to="/products?category=oversized" className="hover:text-white transition-colors w-fit">Oversized Tees</Link>
-              <Link to="/products?category=graphic" className="hover:text-white transition-colors w-fit">Graphic Tees</Link>
-              <Link to="/products?category=polo" className="hover:text-white transition-colors w-fit">Polo T-Shirts</Link>
-              <Link to="/products?category=plain" className="hover:text-white transition-colors w-fit">Plain T-Shirts</Link>
-              <Link to="/products?category=combo" className="hover:text-white transition-colors w-fit">Combo Packs</Link>
+            <MobileAccordion title={t('footer.shop')}>
+              <Link to="/products?category=oversized" className="hover:text-white transition-colors w-fit">{t('footer.shop.oversized')}</Link>
+              <Link to="/products?category=graphic" className="hover:text-white transition-colors w-fit">{t('footer.shop.graphic')}</Link>
+              <Link to="/products?category=polo" className="hover:text-white transition-colors w-fit">{t('footer.shop.polo')}</Link>
+              <Link to="/products?category=plain" className="hover:text-white transition-colors w-fit">{t('footer.shop.plain')}</Link>
+              <Link to="/products?category=combo" className="hover:text-white transition-colors w-fit">{t('footer.shop.combo')}</Link>
             </MobileAccordion>
-            <MobileAccordion title="Help">
-              <Link to="/track-order" className="hover:text-white transition-colors w-fit">Track Order</Link>
-              <Link to="/about" className="hover:text-white transition-colors w-fit">About Us</Link>
-              <Link to="/contact" className="hover:text-white transition-colors w-fit">Contact Us</Link>
-              <span className="hover:text-white transition-colors cursor-pointer w-fit">Size Guide</span>
-              <span className="hover:text-white transition-colors cursor-pointer w-fit">Shipping Info</span>
-              <Link to="/return-policy" className="hover:text-white transition-colors w-fit">Returns & Exchange</Link>
-              <Link to="/privacy-policy" className="hover:text-white transition-colors w-fit">Privacy Policy</Link>
+            <MobileAccordion title={t('footer.help')}>
+              <Link to="/track-order" className="hover:text-white transition-colors w-fit">{t('footer.help.track')}</Link>
+              <Link to="/about" className="hover:text-white transition-colors w-fit">{t('footer.help.about')}</Link>
+              <Link to="/contact" className="hover:text-white transition-colors w-fit">{t('footer.help.contact')}</Link>
+              <span className="hover:text-white transition-colors cursor-pointer w-fit">{t('footer.help.size_guide')}</span>
+              <span className="hover:text-white transition-colors cursor-pointer w-fit">{t('footer.help.shipping_info')}</span>
+              <Link to="/return-policy" className="hover:text-white transition-colors w-fit">{t('footer.help.returns')}</Link>
+              <Link to="/privacy-policy" className="hover:text-white transition-colors w-fit">{t('footer.help.privacy')}</Link>
             </MobileAccordion>
           </div>
 
           {/* Newsletter */}
           <div className="bg-white/5 rounded-2xl p-4">
-            <h4 className="text-white text-xs font-semibold mb-1 uppercase tracking-wider">Get 10% Off</h4>
-            <p className="text-xs text-white/50 mb-3">Subscribe for early access to new drops & exclusive deals 🎉</p>
+            <h4 className="text-white text-xs font-semibold mb-1 uppercase tracking-wider">{t('footer.newsletter.title')}</h4>
+            <p className="text-xs text-white/50 mb-3">{t('footer.newsletter.subtitle')}</p>
             <div className="flex gap-2">
               <input
                 type="email"
-                placeholder="Your email"
+                placeholder={t('footer.newsletter.placeholder')}
                 className="flex-1 bg-white/10 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-primary transition-colors min-w-0"
                 autoComplete="email"
               />
               <button className="bg-[#ff6b35] text-white px-4 py-2.5 rounded-xl font-semibold text-xs hover:bg-[#e55a2b] transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-lg shadow-orange-500/20">
-                Join <ArrowRight size={14} />
+                {t('footer.newsletter.join')} <ArrowRight size={14} />
               </button>
             </div>
           </div>
@@ -219,8 +242,22 @@ export default function Footer() {
               )}
             </Link>
             <p className="text-sm leading-relaxed text-white/50 mb-6 max-w-sm">
-              India's favorite t-shirt brand. Premium quality, bold designs, and unbeatable comfort — all at prices that make you smile. 🔥
+              {brandTagline}
             </p>
+
+            {/* Store Address with Google Maps link */}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-2.5 mb-5 text-white/50 hover:text-primary transition-colors duration-200 group"
+            >
+              <MapPin size={15} />
+              <span className="text-sm leading-relaxed group-hover:text-white/70 transition-colors duration-200">
+                {storeAddress}
+              </span>
+            </a>
+
             <div className="flex gap-2.5">
               {socialLinks.map((social, idx) => (
                 <SocialIcon key={idx} platform={social.platform} url={social.url} />
@@ -230,46 +267,46 @@ export default function Footer() {
 
           {/* Shop */}
           <div className="lg:col-span-2">
-            <h4 className="text-white text-sm font-semibold mb-6 uppercase tracking-wider">Shop</h4>
+            <h4 className="text-white text-sm font-semibold mb-6 uppercase tracking-wider">{t('footer.shop')}</h4>
             <div className="flex flex-col gap-2.5 text-sm">
-              <Link to="/products?category=oversized" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Oversized Tees</Link>
-              <Link to="/products?category=graphic" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Graphic Tees</Link>
-              <Link to="/products?category=polo" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Polo T-Shirts</Link>
-              <Link to="/products?category=plain" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Plain T-Shirts</Link>
-              <Link to="/products?category=combo" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Combo Packs</Link>
+              <Link to="/products?category=oversized" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.shop.oversized')}</Link>
+              <Link to="/products?category=graphic" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.shop.graphic')}</Link>
+              <Link to="/products?category=polo" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.shop.polo')}</Link>
+              <Link to="/products?category=plain" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.shop.plain')}</Link>
+              <Link to="/products?category=combo" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.shop.combo')}</Link>
             </div>
           </div>
 
           {/* Help */}
           <div className="lg:col-span-2">
-            <h4 className="text-white text-sm font-semibold mb-6 uppercase tracking-wider">Help</h4>
+            <h4 className="text-white text-sm font-semibold mb-6 uppercase tracking-wider">{t('footer.help')}</h4>
             <div className="flex flex-col gap-2.5 text-sm">
-              <Link to="/track-order" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Track Order</Link>
-              <Link to="/about" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">About Us</Link>
-              <Link to="/contact" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Contact Us</Link>
-              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">Size Guide</span>
-              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">Shipping Info</span>
-              <Link to="/return-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Returns & Exchange</Link>
-              <Link to="/privacy-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">Privacy Policy</Link>
+              <Link to="/track-order" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.track')}</Link>
+              <Link to="/about" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.about')}</Link>
+              <Link to="/contact" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.contact')}</Link>
+              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">{t('footer.help.size_guide')}</span>
+              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">{t('footer.help.shipping_info')}</span>
+              <Link to="/return-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.returns')}</Link>
+              <Link to="/privacy-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.privacy')}</Link>
             </div>
           </div>
 
           {/* Newsletter */}
           <div className="lg:col-span-4">
             <div className="bg-white/5 rounded-2xl p-7">
-              <h4 className="text-white text-sm font-semibold mb-3 uppercase tracking-wider">Get 10% Off</h4>
+              <h4 className="text-white text-sm font-semibold mb-3 uppercase tracking-wider">{t('footer.newsletter.title')}</h4>
               <p className="text-sm text-white/50 mb-5 leading-relaxed">
-                Subscribe &amp; get 10% off your first order + early access to new drops! 🎉
+                {t('footer.newsletter.desktop_subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
-                  placeholder="Your email address"
+                  placeholder={t('footer.newsletter.placeholder_desktop')}
                   className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/60 transition-colors min-w-0"
                   autoComplete="email"
                 />
                 <button className="bg-[#ff6b35] text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-[#e55a2b] hover:shadow-lg hover:shadow-orange-500/25 transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md">
-                  Join <ArrowRight size={16} />
+                  {t('footer.newsletter.join')} <ArrowRight size={16} />
                 </button>
               </div>
             </div>
@@ -286,11 +323,11 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-6 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4 text-[11px] md:text-xs text-white/40">
           <div className="flex gap-5 md:gap-8">
-            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">Privacy Policy</span>
-            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">Terms of Service</span>
-            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">Refund Policy</span>
+            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">{t('footer.bottom.privacy')}</span>
+            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">{t('footer.bottom.terms')}</span>
+            <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">{t('footer.bottom.return_policy')}</span>
           </div>
-          <div className="text-center md:text-right tracking-wide">© {new Date().getFullYear()} {siteName}. Made with 🧡 in India</div>
+          <div className="text-center md:text-right tracking-wide">{t('footer.bottom.made_with', { year: new Date().getFullYear(), store: siteName })}</div>
         </div>
       </div>
     </footer>

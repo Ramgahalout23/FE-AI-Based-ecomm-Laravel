@@ -4,22 +4,17 @@
  * Uses existing support ticket system for persistence and Socket.io for real-time messaging.
  */
 
+import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, X, Send, Loader, Minus, AlertCircle } from 'lucide-react';
+import { formatTime } from '../../utils/formatters';
+
+;
 import useChat from '../../hooks/useChat';
 import useAuthStore from '../../store/authStore';
 import toast from '../../utils/toast';
 
 // ─── Helpers ──────────────────────────────────────────────
-
-function formatTime(date) {
-  try {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '';
-  }
-}
 
 function groupMessagesByDate(messages) {
   const groups = {};
@@ -140,9 +135,9 @@ export default function LiveChatWidget() {
       {/* ─── Floating Button ─── */}
       <button
         onClick={handleOpen}
+        className="chat-float-btn"
         style={{
           position: 'fixed',
-          bottom: '24px',
           right: '24px',
           zIndex: 9999,
           width: '56px',
@@ -198,10 +193,11 @@ export default function LiveChatWidget() {
 
       {/* ─── Chat Window ─── */}
       {isOpen && (
-        <div style={{
+        <div className="chat-float-window"
+        style={{
           position: 'fixed',
-          bottom: '92px',
           right: '24px',
+          bottom: '92px',
           zIndex: 9999,
           width: '360px',
           maxWidth: 'calc(100vw - 48px)',
@@ -344,7 +340,7 @@ export default function LiveChatWidget() {
                 color: '#666',
                 fontSize: '14px',
               }}>
-                <Loader size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
                 Starting chat...
               </div>
             ) : error && !chat ? (
@@ -536,7 +532,7 @@ export default function LiveChatWidget() {
                 aria-label="Send message"
               >
                 {chatLoading ? (
-                  <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} />
                 ) : (
                   <Send size={16} />
                 )}
@@ -547,6 +543,13 @@ export default function LiveChatWidget() {
       )}
 
       <style>{`
+        .chat-float-btn {
+          bottom: 88px;
+        }
+        .chat-float-window {
+          bottom: 156px !important;
+        }
+
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -558,6 +561,15 @@ export default function LiveChatWidget() {
         .chat-dot-pulse { animation: chatPulse 1.2s ease-in-out infinite; }
         .chat-dot-pulse:nth-child(2) { animation-delay: 0.2s; }
         .chat-dot-pulse:nth-child(3) { animation-delay: 0.4s; }
+
+        @media (min-width: 1024px) {
+          .chat-float-btn {
+            bottom: 24px;
+          }
+          .chat-float-window {
+            bottom: 92px !important;
+          }
+        }
       `}</style>
     </>
   );

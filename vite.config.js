@@ -14,9 +14,11 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'icons.svg'],
         manifest: {
-          name: 'THREVOLT | Premium Streetwear',
-          short_name: 'THREVOLT',
-          description: 'Premium streetwear e-commerce store',
+          name: process.env.VITE_STORE_NAME
+            ? `${process.env.VITE_STORE_NAME} | Premium Streetwear`
+            : 'THREVOLT | Premium Streetwear',
+          short_name: process.env.VITE_STORE_NAME || 'THREVOLT',
+          description: `${process.env.VITE_STORE_NAME || 'THREVOLT'} — Premium streetwear e-commerce store`,
           theme_color: '#0a0a0a',
           background_color: '#ffffff',
           display: 'standalone',
@@ -132,6 +134,40 @@ export default defineConfig(({ mode }) => {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
+          // ★ Split vendor libs into separate chunks for better caching
+          manualChunks(id) {
+            // node_modules chunking
+            if (id.includes('node_modules')) {
+              // React ecosystem — changes rarely, great for long-term caching
+              if (id.includes('react') && !id.includes('react-dom') && !id.includes('react-router') && !id.includes('react-helmet')) {
+                return 'vendor-react';
+              }
+              if (id.includes('react-dom') || id.includes('scheduler')) {
+                return 'vendor-dom';
+              }
+              if (id.includes('react-router')) {
+                return 'vendor-router';
+              }
+              if (id.includes('react-helmet')) {
+                return 'vendor-helmet';
+              }
+              if (id.includes('@tanstack/react-query')) {
+                return 'vendor-query';
+              }
+              // Large UI libraries — split individually
+              if (id.includes('framer-motion')) {
+                return 'vendor-framer';
+              }
+              if (id.includes('recharts') || id.includes('d3-')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('@zxing')) {
+                return 'vendor-barcode';
+              }
+              // Everything else in vendor bundle
+              return 'vendor';
+            }
+          },
         },
       },
     },

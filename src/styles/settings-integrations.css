@@ -1,0 +1,31 @@
+/* ═══════════════════════════════════════════
+   Settings — Integrations Tab (IntegrationsTab.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Environment Variables Code Block ── */
+.env-code-block {
+  background: #1a1a2e;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  line-height: 1.8;
+}
+
+/* ── Provider Reference Box ── */
+.provider-ref-box {
+  background: var(--off-white);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ── Loading State ── */
+.loading-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}

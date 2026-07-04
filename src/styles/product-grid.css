@@ -1,0 +1,41 @@
+/* ── Product Grid ────────────── */
+.product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
+
+.product-card{position:relative;cursor:pointer;transition:all 0.35s ease}
+.product-card:hover{transform:translateY(-4px)}
+
+/* Premium hover crossfade: multi-image layer stacking (inspired by selektt.com) */
+.product-img-stack{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
+.product-img-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1;will-change:opacity,transform;transition:opacity 0.35s cubic-bezier(0.25,0.46,0.45,0.94),transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)}
+.product-img-layer.active{z-index:2;opacity:1}
+.product-card:hover .product-img-layer.active{transform:scale(1.04)}
+
+/* Image indicator dots */
+.product-img-dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:5px;pointer-events:none;opacity:0;transition:opacity 0.25s ease}
+.product-card:hover .product-img-dots{opacity:1}
+.product-img-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.4);transition:all 0.25s cubic-bezier(0.16,1,0.3,1)}
+.product-img-dot.active{background:#fff;width:16px;border-radius:3px}
+
+.product-img{aspect-ratio:3/4;width:100%;background:#f0f0f5;display:flex;align-items:center;justify-content:center;font-size:3rem;position:relative;overflow:hidden}
+.product-badge{position:absolute;top:10px;left:10px;z-index:2;background:#232323;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;letter-spacing:1px;text-transform:uppercase}
+.product-badge.sale-badge{background:#e95144}
+.product-wishlist{position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.9);border:none;cursor:pointer;padding:6px;border-radius:50%;font-size:0.85rem;transition:all 0.3s ease}
+.product-wishlist:hover{background:#1a1a1a;color:#fff;transform:scale(1.1)}
+.product-wishlist.active{color:#ef4444;background:rgba(255,255,255,0.95)}
+.product-info{padding:1rem}
+.product-cat{font-size:0.7rem;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem;font-weight:600}
+.product-name{font-family:'Jost',sans-serif;font-size:1rem;font-weight:600;margin-bottom:0.5rem;color:#1a1a2e;line-height:1.3}
+.product-card .price{font-size:0.95rem;font-weight:600;color:#232323}
+.product-card .price .original{font-size:0.8rem;font-weight:400;color:#868686;text-decoration:line-through;margin-left:6px}
+.product-card .unit-price{font-size:0.7rem;color:#868686;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+.stars{font-size:0.75rem;color:#888888;margin-top:0.3rem}
+
+/* Product Detail Grid */
+.product-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; padding: 3rem 2rem; }
+@media(max-width: 768px) {
+  .product-detail-grid { grid-template-columns: 1fr; padding: 1.5rem 1rem; gap: 1.5rem; }
+}
+
+@media(max-width:1024px){.product-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.product-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.product-grid{grid-template-columns:repeat(2,1fr);gap:0.75rem}}

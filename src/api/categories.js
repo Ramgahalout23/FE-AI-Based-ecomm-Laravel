@@ -7,7 +7,7 @@ export const categoriesAPI = {
   getById: (id) => client.get(`/categories/${id}`),
   getSubcategories: (id) => client.get(`/categories/${id}/subcategories`),
   getStats: (id) => client.get(`/categories/${id}/stats`),
-  create: (data) => adminClient.post('/categories', data),
-  update: (id, data) => adminClient.put(`/categories/${id}`, data),
-  delete: (id) => adminClient.delete(`/categories/${id}`),
+  create: (data) => adminClient.post('/admin/categories', data),
+  update: (id, data) => adminClient.put(`/admin/categories/${id}`, data),
+  delete: (id) => adminClient.delete(`/admin/categories/${id}`),
 };

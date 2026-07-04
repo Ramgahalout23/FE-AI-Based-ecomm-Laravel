@@ -1,0 +1,48 @@
+/* ═══════════════════════════════════════════
+   Settings — Payments Tab (PaymentsTab.jsx)
+   ═══════════════════════════════════════════ */
+
+/* ── Gateway Modal ── */
+.gateway-modal-fields {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.gateway-fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.gateway-custom-field-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  align-items: center;
+}
+.gateway-custom-field-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+.gateway-custom-field-label-input {
+  flex: 1;
+  font-size: 0.8rem;
+}
+.gateway-custom-field-value-input {
+  flex: 1;
+  font-size: 0.8rem;
+}
+.gateway-remove-field-btn {
+  background: none;
+  border: none;
+  color: red;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+/* ── Payment Table ── */
+.gateway-id-code {
+  background: var(--off-white);
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+}

@@ -6,6 +6,9 @@ import { ORDER_STATUSES } from '../../utils/constants';
 import toast from '../../utils/toast';
 import { downloadBlob } from '../../utils/download';
 import { useOrderStatusUpdates, useOrderCreated } from '../../hooks/useSocket';
+import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import Pagination from '../../components/admin/Pagination';
+import AdminPageShell from '../../components/admin/AdminPageShell';
 
 export default function OrdersAdminPage() {
   const navigate = useNavigate();
@@ -18,11 +21,27 @@ export default function OrdersAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [limit] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
 
   // Search debouncing
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // CSV Export state (async job-based)
+  const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState(null);
+  const [exportError, setExportError] = useState(null);
+
+  const ORDER_COLUMNS = [
+    { key: 'orderNumber', label: 'Order Number' },
+    { key: 'customerName', label: 'Customer Name' },
+    { key: 'email', label: 'Customer Email' },
+    { key: 'total', label: 'Total' },
+    { key: 'status', label: 'Status' },
+    { key: 'paymentMethod', label: 'Payment Method' },
+    { key: 'createdAt', label: 'Date' },
+  ];
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -31,19 +50,64 @@ export default function OrdersAdminPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = async (selectedColumns) => {
     setExporting(true);
+    setExportStatus('dispatching');
+    setExportError(null);
     try {
-      const params = {
+      const filters = {
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         search: debouncedSearch || undefined,
       };
-      const response = await adminAPI.exportOrders(params);
-      downloadBlob(response, `orders-export-${new Date().toISOString().slice(0, 10)}.csv`);
-      toast.success('Orders exported successfully');
+      Object.keys(filters).forEach(k => { if (filters[k] === undefined) delete filters[k]; });
+
+      const dispatchRes = await adminAPI.dispatchExport({
+        type: 'orders',
+        filters,
+        columns: selectedColumns,
+      });
+
+      const jobId = dispatchRes.data?.data?.id;
+      if (!jobId) throw new Error('No job ID returned');
+
+      setExportStatus('processing');
+
+      const poll = async () => {
+        try {
+          const statusRes = await adminAPI.checkExportStatus(jobId);
+          const status = statusRes.data?.data?.status;
+
+          if (status === 'completed') {
+            const downloadRes = await adminAPI.downloadExport(jobId);
+            const filename = statusRes.data?.data?.file_name || `orders-export-${new Date().toISOString().slice(0, 10)}.csv`;
+            downloadBlob(downloadRes, filename);
+            setExportStatus('completed');
+            toast.success('Orders exported successfully');
+            setTimeout(() => {
+              setShowExportModal(false);
+              setExportStatus(null);
+            }, 1500);
+          } else if (status === 'failed') {
+            throw new Error(statusRes.data?.data?.error_message || 'Export failed');
+          } else {
+            setTimeout(poll, 1500);
+          }
+        } catch (pollErr) {
+          console.error('Export poll error:', pollErr);
+          if (!exportStatus || exportStatus === 'processing') {
+            setExportStatus('failed');
+            setExportError(pollErr.response?.data?.message || pollErr.message || 'Export failed');
+            toast.error('Export failed');
+          }
+        }
+      };
+
+      poll().catch(() => {});
     } catch (err) {
       console.error('Export failed:', err);
-      toast.error('Failed to export orders');
+      setExportStatus('failed');
+      setExportError(err.response?.data?.message || err.message || 'Failed to export orders');
+      toast.error('Export failed');
     } finally {
       setExporting(false);
     }
@@ -54,7 +118,7 @@ export default function OrdersAdminPage() {
     try {
       const params = {
         page,
-        limit,
+        limit: pageSize,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
         search: debouncedSearch || undefined
       };
@@ -65,7 +129,7 @@ export default function OrdersAdminPage() {
 
       const pag = r.data?.pagination || r.data?.data?.pagination || {};
       setCurrentPage(pag.page || page);
-      setTotalPages(pag.pages || Math.ceil((pag.total || list.length) / limit) || 1);
+      setTotalPages(pag.pages || Math.ceil((pag.total || list.length) / pageSize) || 1);
       setTotalItems(pag.total || list.length);
     } catch (err) {
       console.error('Failed to load orders:', err);
@@ -75,14 +139,14 @@ export default function OrdersAdminPage() {
     }
   };
 
-  // Reset page when search or statusFilter changes
+  // Reset page when search, statusFilter, or page size changes
   useEffect(() => {
     if (currentPage !== 1) {
       setCurrentPage(1);
     } else {
       load(1);
     }
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, pageSize]);
 
   // Load when currentPage changes
   useEffect(() => {
@@ -129,9 +193,12 @@ export default function OrdersAdminPage() {
   );
 
   return (
-    <div>
-      <div className="admin-header"><h2>Orders</h2><p>Track and manage customer orders ({totalItems} total)</p></div>
-
+    <AdminPageShell
+      title="Orders"
+      subtitle={`Track and manage customer orders (${totalItems} total)`}
+      loading={loading}
+      page="orders"
+    >
       {/* Quick Stats */}
       <div className="stats-grid">
         {Object.entries(counts).map(([status, count]) => (
@@ -150,17 +217,15 @@ export default function OrdersAdminPage() {
             <option value="ALL">All Statuses</option>
             {Object.keys(ORDER_STATUSES).map(s => <option key={s} value={s}>{ORDER_STATUSES[s].label}</option>)}
           </select>
-          <button className="btn-ghost btn-sm" onClick={handleExportCSV} disabled={exporting}>
-            {exporting ? 'Exporting...' : '📥 Export CSV'}
+          <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>
+            📥 Export CSV
           </button>
           <span className="table-count">{totalItems} orders</span>
         </div>
         <table className="admin-table">
           <thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
-            ) : orders.length === 0 ? (
+            {orders.length === 0 ? (
               <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">{'\uD83D\uDCCB'}</div><h3>No orders found</h3></div></td></tr>
             ) : orders.map(o => (
               <tr key={o.id}>
@@ -182,43 +247,29 @@ export default function OrdersAdminPage() {
           </tbody>
         </table>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="pagination-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', padding: '1rem', borderTop: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Showing page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({totalItems} orders total)
-            </span>
-            <div style={{ display: 'flex', gap: '0.25rem' }}>
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage <= 1} 
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                style={{ opacity: currentPage <= 1 ? 0.5 : 1, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer' }}
-              >
-                {'\u25C0'} Prev
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button 
-                  key={p} 
-                  className={p === currentPage ? "btn-dark btn-sm" : "btn-ghost btn-sm"}
-                  onClick={() => setCurrentPage(p)}
-                  style={{ minWidth: '32px' }}
-                >
-                  {p}
-                </button>
-              ))}
-              <button 
-                className="btn-ghost btn-sm" 
-                disabled={currentPage >= totalPages} 
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                style={{ opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer' }}
-              >
-                Next {'\u25B6'}
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          onPageChange={setCurrentPage}
+          itemLabel="order"
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={pageSizeOptions}
+        />
       </div>
-    </div>
+
+      {/* CSV Export Modal */}
+      <ExportCSVModal
+        isOpen={showExportModal}
+        onClose={() => { setShowExportModal(false); setExportStatus(null); setExportError(null); }}
+        columns={ORDER_COLUMNS}
+        onExport={handleExportCSV}
+        exporting={exporting}
+        exportStatus={exportStatus}
+        exportError={exportError}
+        filename={`orders-export-${new Date().toISOString().slice(0, 10)}.csv`}
+      />
+    </AdminPageShell>
   );
 }
