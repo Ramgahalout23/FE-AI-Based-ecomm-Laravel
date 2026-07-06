@@ -71,6 +71,7 @@ export default function NotificationsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         <Breadcrumb
           items={[    {label: t('nav.home'), href: '/' },
+    { label: t('profile.title'), href: '/profile' },
     { label: t('notifications.title') },
           ]}
           variant="light"

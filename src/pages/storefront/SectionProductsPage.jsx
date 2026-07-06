@@ -30,7 +30,7 @@ const SECTION_CONFIG = {
   'new-arrivals': {
     title: 'home.new_arrivals',
     subtitle: 'products.section_new_subtitle',
-    label: 'home.fresh_drops',
+    label: 'home.seasonal',
     icon: Sparkles,
     badge: 'NEW',
     fetchFn: (params) => productsAPI.getNewArrivals(params),

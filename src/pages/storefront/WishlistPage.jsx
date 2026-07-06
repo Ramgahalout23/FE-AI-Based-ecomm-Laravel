@@ -277,6 +277,7 @@ export default function WishlistPage() {
       <div className="max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
         <Breadcrumb
           items={[    {label: t('nav.home'), href: '/' },
+    { label: t('profile.title'), href: '/profile' },
     { label: t('wishlist.title') },
           ]}
           variant="light"

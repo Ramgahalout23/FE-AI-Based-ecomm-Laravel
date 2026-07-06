@@ -8,6 +8,7 @@ import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
+import { BarChart3, Ticket, Edit, Plus, X, Download, Dices } from 'lucide-react';
 
 const EMPTY = { code: '', discountType: 'PERCENTAGE', discountValue: '', minPurchase: '', maxUses: '', expiresAt: '' };
 
@@ -235,8 +236,8 @@ export default function CouponsAdminPage() {
         page="coupons"
         actions={
           <>
-            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
-            <button className="btn-ghost btn-sm" onClick={() => setBulkModal(true)}>🎲 Bulk Generate</button>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}><Download size={14} /> Export CSV</button>
+            <button className="btn-ghost btn-sm" onClick={() => setBulkModal(true)}><Dices size={14} /> Bulk Generate</button>
             <button className="btn-dark btn-sm" onClick={openCreate}>+ Create Coupon</button>
           </>
         }
@@ -245,8 +246,8 @@ export default function CouponsAdminPage() {
       {analytics && (
         <div className="detail-panel">
           <div className="detail-header">
-            <h3>📊 Analytics: {analytics.code}</h3>
-            <button className="btn-ghost btn-sm" onClick={() => setAnalytics(null)}>✕ Close</button>
+            <h3><BarChart3 size={16} /> Analytics: {analytics.code}</h3>
+            <button className="btn-ghost btn-sm" onClick={() => setAnalytics(null)}><X size={14} /> Close</button>
           </div>
           <div className="detail-grid">
             <div className="detail-item"><span className="label">Total Uses</span><span className="value">{analytics.usedCount || analytics.totalUses || analytics.usageCount || 0}</span></div>
@@ -270,7 +271,7 @@ export default function CouponsAdminPage() {
           <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Purchase</th><th>Uses</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {coupons.length === 0 ? (
-              <tr><td colSpan={8}><div className="empty-state"><div className="empty-state-icon">🎟️</div><h3>No coupons yet</h3></div></td></tr>
+              <tr><td colSpan={8}><div className="empty-state"><div className="empty-state-icon"><Ticket size={40} /></div><h3>No coupons yet</h3></div></td></tr>
             ) : coupons.map(c => (
               <tr key={c.id}>
                 <td><strong style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}>{c.code}</strong></td>
@@ -282,7 +283,7 @@ export default function CouponsAdminPage() {
                 <td><span className={`status-badge ${(c.isActive ?? c.active) !== false ? 'status-active' : 'status-inactive'}`}>{(c.isActive ?? c.active) !== false ? 'Active' : 'Inactive'}</span></td>
                 <td>
                   <div className="row-actions">
-                    <button className="btn-view" onClick={() => viewAnalytics(c)}>📊</button>
+                    <button className="btn-view" onClick={() => viewAnalytics(c)}><BarChart3 size={14} /></button>
                     <button className="btn-edit" onClick={() => openEdit(c)}>Edit</button>
                     <button className="btn-del" onClick={() => handleDelete(c.id)}>Delete</button>
                   </div>
@@ -308,7 +309,7 @@ export default function CouponsAdminPage() {
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
-            <div className="modal-header"><h3>{editing ? '✏️ Edit Coupon' : '➕ New Coupon'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
+            <div className="modal-header"><h3>{editing ? <><Edit size={18} /> Edit Coupon</> : <><Plus size={18} /> New Coupon</>}</h3><button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
                 <div className="form-group"><label>Coupon Code</label><input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SAVE20" /></div>
@@ -328,7 +329,7 @@ export default function CouponsAdminPage() {
       {bulkModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setBulkModal(false)}>
           <div className="modal" style={{ maxWidth: 420 }}>
-            <div className="modal-header"><h3>🎲 Bulk Generate Coupons</h3><button className="modal-close" onClick={() => setBulkModal(false)}>✕</button></div>
+            <div className="modal-header"><h3><Dices size={18} /> Bulk Generate Coupons</h3><button className="modal-close" onClick={() => setBulkModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
                 <div className="form-group"><label>Count</label><input type="number" value={bulkForm.count} onChange={e => setBulkForm({ ...bulkForm, count: e.target.value })} /></div>

@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-
-;
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { returnsAPI } from '../../api/returns';
@@ -230,7 +228,7 @@ export default function ReturnsPage() {
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">{t('returns.what_would_you_like')}</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {RETURN_TYPES.filter(t => t.value).map((type) => (
+                    {RETURN_TYPES.filter((rt) => rt.value).map((type) => (
                       <button
                         key={type.value}
                         type="button"

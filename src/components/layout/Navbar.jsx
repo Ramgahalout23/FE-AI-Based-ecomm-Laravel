@@ -11,9 +11,8 @@ import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
 import { useSettings } from '../../store/useSettings';
 import { productsAPI } from '../../api/products';
-import { pagesAPI } from '../../api/pages';
-import { promotionsAPI } from '../../api/promotions';
 import { getImageUrl } from '../../utils/formatters';
+import { useAppInit } from '../../contexts/AppInitContext';
 import AnnouncementBar from './AnnouncementBar';
 import CurrencySwitcher from '../common/CurrencySwitcher';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -38,25 +37,13 @@ export default function Navbar() {
   const { getSetting } = useSettings();
   const siteName = getSetting('storeName', 'THREVOLT');
   const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
-  const [customPages, setCustomPages] = useState([]);
-  const [hasActivePromotions, setHasActivePromotions] = useState(false);
 
-  // Check for active promotions (show Sales tab only when promotions are running)
-  useEffect(() => {
-    const checkPromotions = async () => {
-      try {
-        const res = await promotionsAPI.getActive();
-        const data = res?.data?.data || res?.data || [];
-        const activeCount = Array.isArray(data) ? data.length : data?.items?.length || 0;
-        setHasActivePromotions(activeCount > 0);
-      } catch {
-        setHasActivePromotions(false);
-      }
-    };
-    checkPromotions();
-    const interval = setInterval(checkPromotions, 60000); // Re-check every minute
-    return () => clearInterval(interval);
-  }, []);
+  // Use consolidated app-init data for nav — replaces 2 individual API calls
+  const { data: appInitData } = useAppInit();
+  const activePromotions = appInitData?.promotions || [];
+  const customPages = appInitData?.pages || [];
+  const keySettings = appInitData?.keySettings || {};
+  const hasActivePromotions = activePromotions.length > 0;
 
   // Sync brand colors from settings onto CSS custom properties
   useEffect(() => {
@@ -65,18 +52,6 @@ export default function Navbar() {
     if (primary) document.documentElement.style.setProperty('--primary', primary);
     if (secondary) document.documentElement.style.setProperty('--secondary', secondary);
   }, [getSetting]);
-
-  // Fetch published custom pages for nav links
-  useEffect(() => {
-    const fetchPages = async () => {
-      try {
-        const res = await pagesAPI.getAll();
-        const pages = res?.data?.data || res?.data || [];
-        setCustomPages(Array.isArray(pages) ? pages : []);
-      } catch { /* ignore */ }
-    };
-    fetchPages();
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);

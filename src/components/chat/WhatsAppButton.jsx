@@ -5,11 +5,28 @@
  * Coexists with the chatbot (bottom-right) — no overlap.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { trackWhatsAppClick } from '../../services/tracker';
 
 export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help with my order', position = 'left' }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+
+  // Watch body overflow — all modals/sheets set overflow: hidden when open
+  useEffect(() => {
+    const checkOverflow = () => {
+      setIsOverlayOpen(document.body.style.overflow === 'hidden');
+    };
+
+    // Check on mount
+    checkOverflow();
+
+    // Observe style attribute changes on body
+    const observer = new MutationObserver(checkOverflow);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleClick = useCallback(() => {
     if (!phoneNumber) return;
@@ -45,8 +62,11 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 24px rgba(37, 211, 102, 0.35), 0 2px 8px rgba(0,0,0,0.15)',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, scale 0.25s ease',
           transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+          opacity: isOverlayOpen ? 0 : 1,
+          scale: isOverlayOpen ? 0.75 : 1,
+          pointerEvents: isOverlayOpen ? 'none' : 'auto',
         }}
         aria-label="Chat on WhatsApp"
       >
@@ -73,8 +93,8 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
         />
       </button>
 
-      {/* Tooltip label that appears on hover */}
-      {isHovered && (
+      {/* Tooltip label that appears on hover — hidden when overlay is open */}
+      {isHovered && !isOverlayOpen && (
         <div
           className="whatsapp-tooltip"
           style={{

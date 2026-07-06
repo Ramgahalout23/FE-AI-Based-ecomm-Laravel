@@ -26,6 +26,8 @@ import useFlyToCart from '../../hooks/useFlyToCart';
 import { getColorHex } from '../../utils/constants';
 import { promotionsAPI } from '../../api/promotions';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
+import OffersSection from '../../components/storefront/OffersSection';
+import BundleOffer from '../../components/storefront/BundleOffer';
 import ProductGrid from '../../components/product/ProductGrid';
 import ProductCard from '../../components/product/ProductCard';
 import { addedToCart, removedFromWishlist, addedToWishlist, wishlistError, linkCopied } from '../../utils/toast';
@@ -153,10 +155,6 @@ export default function ProductDetailPage() {
 
     const catName = typeof product.category === 'object' ? product.category.name : product.category;
     trackProductView(product.id, product.name, catName);
-
-    // Auto-select if only one option available
-    if (product.colors?.length === 1) setSelectedColor(product.colors[0]);
-    if (product.sizes?.length === 1) setSelectedSize(product.sizes[0]);
 
     // Recently viewed — localStorage for guests, server-sync for authenticated users
     let viewed = JSON.parse(localStorage.getItem('luxe_recently_viewed') || '[]');
@@ -1154,6 +1152,9 @@ export default function ProductDetailPage() {
                 })}
               </motion.div>
 
+              {/* Offers Section */}
+              <OffersSection promotions={flashPromotions} />
+
               {/* Accordions */}
               <div className="flex flex-col divide-y divide-gray-100">
                 {/* Details */}
@@ -1574,7 +1575,7 @@ function ReviewCardsWithImages({ reviews = [] }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-30px' }}
               transition={{ duration: 0.4, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-xl md:rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col overflow-hidden group/review"
+              className="bg-white rounded-xl md:rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col overflow-hidden group/review max-w-sm mx-auto md:max-w-none"
             >
               {/* Review Images — premium horizontal strip */}
               {reviewImages.length > 0 && (

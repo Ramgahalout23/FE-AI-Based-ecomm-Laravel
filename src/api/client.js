@@ -84,6 +84,22 @@ async function refreshAdminToken() {
   }
 }
 
+/**
+ * Log database connection errors to the browser developer console
+ * with a formatted group for easy debugging.
+ */
+function logDbError(error) {
+  if (error.response?.data?.error === 'database_connection_failed') {
+    const dbError = error.response.data;
+    console.group('%c🔴 Database Connection Error', 'color: #ef4444; font-size: 14px; font-weight: bold;');
+    console.error('Message:', dbError.message);
+    if (dbError.debug) {
+      console.table(dbError.debug);
+    }
+    console.groupEnd();
+  }
+}
+
 function clearAuthAndRedirect() {
   const isAdminArea =
     typeof window !== 'undefined' &&
@@ -137,10 +153,13 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor — handle 401 / token refresh (Node.js storefront)
+// Response interceptor — handle 401 / token refresh + log DB errors
 client.interceptors.response.use(
   (res) => res,
-  createAuthErrorHandler(client, refreshAuthToken)
+  async (error) => {
+    logDbError(error);
+    return createAuthErrorHandler(client, refreshAuthToken)(error);
+  }
 );
 
 // ── Admin Client → Laravel API ──
@@ -165,10 +184,13 @@ adminClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Admin client 401 interceptor — uses Laravel-specific Sanctum token refresh
+// Admin client 401 interceptor — uses Laravel-specific Sanctum token refresh + log DB errors
 adminClient.interceptors.response.use(
   (res) => res,
-  createAuthErrorHandler(adminClient, refreshAdminToken)
+  async (error) => {
+    logDbError(error);
+    return createAuthErrorHandler(adminClient, refreshAdminToken)(error);
+  }
 );
 
 export default client;

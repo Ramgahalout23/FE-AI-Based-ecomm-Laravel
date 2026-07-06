@@ -1,44 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
-import { currenciesAPI } from '../api/currencies';
+import { useAppInit } from '../contexts/AppInitContext';
 import { useDisplayCurrencyStore } from '../store/displayCurrencyStore';
 import { setDefaultCurrency } from '../utils/formatters';
 
 /**
  * useDisplayCurrency — manages the user's display currency preference.
  *
- * - Fetches the list of available currencies from the API on first mount.
+ * - Reads available currencies from AppInitContext (already fetched by app-init).
  * - Persists the user's selected currency to localStorage (via Zustand store).
  * - Calls `setDefaultCurrency()` from formatters to update all price displays.
  * - Subscribes to the Zustand store so that price-displaying components re-render
  *   when the currency changes.
  */
 export function useDisplayCurrency() {
-  const [currencies, setCurrencies] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Read currencies from app-init (already fetched, no separate API call needed)
+  const { data: appInitData, loading: appInitLoading } = useAppInit();
+  const currencies = appInitData?.currencies || [];
+  const loading = appInitLoading;
 
   // Subscribe to the Zustand store for re-render-driven currency updates
   const displayCurrency = useDisplayCurrencyStore((s) => s.code);
   const setCode = useDisplayCurrencyStore((s) => s.setCode);
-
-  // Fetch available currencies on mount
-  useEffect(() => {
-    let mounted = true;
-    const fetchCurrencies = async () => {
-      try {
-        const res = await currenciesAPI.getAll();
-        const data = res?.data?.data || [];
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setCurrencies(data);
-        }
-      } catch {
-        // Silently fail — fall back to defaults
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    fetchCurrencies();
-    return () => { mounted = false; };
-  }, []);
 
   // Setter that persists to store AND updates formatters
   const setDisplayCurrency = useCallback((code) => {

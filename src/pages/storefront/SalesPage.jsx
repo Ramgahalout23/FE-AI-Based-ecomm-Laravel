@@ -373,7 +373,7 @@ export default function SalesPage() {
                 {isLoading
                   ? t('sales.loading')
                   : promotions.length > 0
-                  ? t('sales.active_promotions', { count: promotions.length, s: promotions.length !== 1 ? 's' : '' })
+                  ? t('sales.active_promotions', { count: promotions.length, plural: promotions.length !== 1 ? 's' : '' })
                   : t('sales.no_active')}
               </p>
             </div>

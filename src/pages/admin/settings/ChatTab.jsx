@@ -247,6 +247,146 @@ export default function ChatTab({ settings, setSettings, loading, handleSaveSett
         </div>
       </div>
 
+      
+      {/* -- Phone Lead Banner -- */}
+      <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
+        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h3>Phone Lead Banner</h3>
+            <span className={`status-badge ${settings.phoneLeadBannerEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+              {settings.phoneLeadBannerEnabled !== 'false' ? 'Visible' : 'Hidden'}
+            </span>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={settings.phoneLeadBannerEnabled !== 'false'} onChange={e => setSettings({ ...settings, phoneLeadBannerEnabled: e.target.checked ? 'true' : 'false' })} />
+            <strong>Show banner on storefront</strong>
+          </label>
+        </div>
+        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+          A full-screen welcome overlay that asks visitors for their phone number to receive 
+          exclusive offers and discounts. Appears 2 seconds after page load and dismisses permanently on close.
+        </p>
+        <div className="form-grid">
+          <div className="form-group form-full">
+            <label>Banner Heading</label>
+            <input
+              value={settings.phoneLeadBannerHeading || 'Get 100 Off Your First Order!'}
+              onChange={e => setSettings({ ...settings, phoneLeadBannerHeading: e.target.value })}
+              placeholder="Get 100 Off Your First Order!"
+              disabled={settings.phoneLeadBannerEnabled === 'false'}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>The bold heading shown at the top of the banner</span>
+          </div>
+          <div className="form-group form-full">
+            <label>Offer Description</label>
+            <textarea
+              rows={2}
+              value={settings.phoneLeadBannerOfferText || 'Enter your phone number to receive exclusive offers, updates, and instant 100 discount on your first purchase!'}
+              onChange={e => setSettings({ ...settings, phoneLeadBannerOfferText: e.target.value })}
+              placeholder="Enter your phone number to receive exclusive offers..."
+              disabled={settings.phoneLeadBannerEnabled === 'false'}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>The paragraph text below the heading explaining the offer</span>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div style={{
+          marginTop: '1rem',
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
+          border: '1px solid var(--border)',
+          opacity: settings.phoneLeadBannerEnabled !== 'false' ? 1 : 0.4,
+          transition: 'opacity 0.3s ease',
+          position: 'relative',
+        }}>
+          <div style={{
+            background: '#1A1A1A',
+            padding: '1.25rem 1.5rem',
+            textAlign: 'center',
+            position: 'relative',
+          }}>
+            <div style={{
+              position: 'absolute', inset: 0, opacity: 0.04,
+              backgroundImage: 'radial-gradient(circle at 30% 30%, #C9A96E 0%, transparent 60%), radial-gradient(circle at 70% 80%, #C9A96E 0%, transparent 50%)',
+            }} />
+            <div style={{
+              position: 'absolute', bottom: 0, left: '25%', right: '25%',
+              height: '1px',
+              background: 'linear-gradient(90deg, transparent, rgba(201, 169, 110, 0.3), transparent)',
+            }} />
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 0.75rem', fontSize: '1.25rem',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A96E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                </svg>
+              </div>
+              <h4 style={{
+                color: 'white', margin: 0, fontSize: '1.1rem', fontWeight: 700,
+                fontFamily: 'var(--font-display)', letterSpacing: '-0.01em',
+              }}>
+                {settings.phoneLeadBannerHeading || 'Get 100 Off Your First Order!'}
+              </h4>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', margin: '0.5rem auto 0', maxWidth: '280px', fontWeight: 300 }}>
+                {settings.phoneLeadBannerOfferText || 'Enter your phone number to receive exclusive offers...'}
+              </p>
+            </div>
+          </div>
+          <div style={{ padding: '1rem 1.25rem', background: '#FAF7F2' }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 600, color: '#6B6560', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+              Phone Number
+            </div>
+            <div style={{
+              display: 'flex', gap: '0.5rem',
+            }}>
+              <input
+                type="tel"
+                placeholder="+91 98765 43210"
+                readOnly
+                style={{
+                  flex: 1,
+                  padding: '0.6rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '2px solid #E8E2D9',
+                  fontSize: '0.85rem',
+                  fontFamily: 'inherit',
+                  color: '#999',
+                  cursor: 'not-allowed',
+                  background: 'white',
+                }}
+                value=""
+              />
+              <button
+                disabled
+                style={{
+                  padding: '0.6rem 1rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#1A1A1A',
+                  color: 'white',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'not-allowed',
+                  opacity: 0.7,
+                }}
+              >
+                Claim &gt;
+              </button>
+            </div>
+            <p style={{ fontSize: '0.7rem', color: '#9B958E', textAlign: 'center', marginTop: '0.5rem' }}>
+              No spam. Unsubscribe anytime.
+            </p>
+          </div>
+        </div>
+      </div>
+
+
       <div className="form-actions" style={{ marginTop: '1rem' }}>
         <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
           {loading ? 'Saving...' : 'Save Chat Settings'}

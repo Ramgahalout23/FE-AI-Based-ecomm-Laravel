@@ -2,7 +2,7 @@ import { Bell } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-;
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notificationsAPI } from '../../api/notifications';
 import { useSocketEvent } from '../../hooks/useSocket';
@@ -10,83 +10,55 @@ import { formatDateTime } from '../../utils/formatters';
 
 export default function NotificationBell() {
   const { t } = useTranslation();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [recent, setRecent] = useState([]);
   const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  // Fetch unread count + recent on mount
-  const fetchUnread = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [unreadRes, allRes] = await Promise.all([
-        notificationsAPI.getUnread().catch(() => ({ data: null })),
-        notificationsAPI.getAll().catch(() => ({ data: null })),
-      ]);
+  // Invalidate all notification queries (used by socket listener & mutation handlers)
+  const invalidateNotifications = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['notificationBell'] });
+  }, [queryClient]);
 
-      // Recent notifications for dropdown
-      const allPayload = allRes?.data?.data;
-      const list = Array.isArray(allPayload)
-        ? allPayload
-        : allPayload?.notifications || allPayload?.items || [];
-      if (Array.isArray(list)) {
-        setRecent(list.slice(0, 5));
-        const unreadList = list.filter(n => !n.isRead);
+  // Use React Query for notifications — prevents canceled requests on re-render
+  const { data: allRes, isLoading: loading } = useQuery({
+    queryKey: ['notificationBell', 'all'],
+    queryFn: () => notificationsAPI.getAll().catch(() => ({ data: null })),
+    staleTime: 30000,
+    retry: false,
+  });
 
-        // Prefer unread endpoint, fall back to deriving from the list
-        const unreadPayload = unreadRes?.data?.data;
-        if (Array.isArray(unreadPayload)) {
-          setUnreadCount(unreadPayload.length);
-        } else if (unreadPayload?.count !== undefined) {
-          setUnreadCount(unreadPayload.count);
-        } else {
-          setUnreadCount(unreadList.length);
-        }
-      } else {
-        // No list at all — just use unread endpoint
-        const unreadPayload = unreadRes?.data?.data;
-        if (Array.isArray(unreadPayload)) {
-          setUnreadCount(unreadPayload.length);
-        } else if (unreadPayload?.count !== undefined) {
-          setUnreadCount(unreadPayload.count);
-        } else if (typeof unreadPayload === 'number') {
-          setUnreadCount(unreadPayload);
-        }
-      }
-    } catch {
-      // Silent — zero state
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: unreadRes } = useQuery({
+    queryKey: ['notificationBell', 'unread'],
+    queryFn: () => notificationsAPI.getUnread().catch(() => ({ data: { count: 0 } })),
+    staleTime: 30000,
+    retry: false,
+  });
 
-  useEffect(() => {
-    fetchUnread();
-  }, [fetchUnread]);
+  const allPayload = allRes?.data?.data;
+  const list = Array.isArray(allPayload)
+    ? allPayload
+    : allPayload?.notifications || allPayload?.items || [];
+  const recent = Array.isArray(list) ? list.slice(0, 5) : [];
 
-  // Real-time socket listener for new notifications
-  const handleNewNotification = useCallback((data) => {
-    setUnreadCount(prev => prev + 1);
-    // Prepend to recent list
-    setRecent(prev => {
-      const updated = [
-        {
-          id: data.notificationId,
-          title: data.title,
-          message: data.message,
-          type: data.type,
-          isRead: false,
-          createdAt: data.createdAt,
-        },
-        ...prev,
-      ].slice(0, 5);
-      return updated;
-    });
-  }, []);
+  const unreadPayload = unreadRes?.data?.data;
+  let unreadCount = 0;
+  if (Array.isArray(unreadPayload)) {
+    unreadCount = unreadPayload.length;
+  } else if (unreadPayload?.count !== undefined) {
+    unreadCount = unreadPayload.count;
+  } else if (typeof unreadPayload === 'number') {
+    unreadCount = unreadPayload;
+  } else if (Array.isArray(list)) {
+    unreadCount = list.filter(n => !n.isRead).length;
+  }
 
-  useSocketEvent('notification:new', handleNewNotification, []);
+  // Real-time socket listener — invalidates query cache on new notification
+  const handleNewNotification = useCallback(() => {
+    invalidateNotifications();
+  }, [invalidateNotifications]);
+
+  useSocketEvent('notification:new', handleNewNotification, [handleNewNotification]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -102,8 +74,7 @@ export default function NotificationBell() {
   const handleMarkAsRead = async (id) => {
     try {
       await notificationsAPI.markAsRead(id);
-      setRecent(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-      setUnreadCount(prev => Math.max(prev - 1, 0));
+      invalidateNotifications();
     } catch {
       // silent
     }
@@ -112,8 +83,7 @@ export default function NotificationBell() {
   const handleMarkAllRead = async () => {
     try {
       await notificationsAPI.markAllRead();
-      setRecent(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      invalidateNotifications();
     } catch {
       // silent
     }
@@ -122,7 +92,7 @@ export default function NotificationBell() {
   const handleBellClick = () => {
     setShow(prev => !prev);
     if (!show) {
-      fetchUnread(); // Refresh when opening
+      invalidateNotifications(); // Refresh when opening
     }
   };
 

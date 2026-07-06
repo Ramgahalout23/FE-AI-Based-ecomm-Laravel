@@ -327,7 +327,7 @@ export default function Footer() {
             <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">{t('footer.bottom.terms')}</span>
             <span className="hover:text-white/80 transition-colors cursor-pointer relative after:absolute after:bottom-0 after:left-0 after:h-px after:w-0 after:bg-white/40 after:transition-all hover:after:w-full">{t('footer.bottom.return_policy')}</span>
           </div>
-          <div className="text-center md:text-right tracking-wide">{t('footer.bottom.made_with', { year: new Date().getFullYear(), store: siteName })}</div>
+          <div className="text-center md:text-right tracking-wide">© {new Date().getFullYear()} {siteName}. {t('footer.bottom.made_with')}</div>
         </div>
       </div>
     </footer>

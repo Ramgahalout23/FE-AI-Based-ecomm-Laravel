@@ -158,28 +158,35 @@ function FashionShowcase({ reels, onRefresh }) {
   return (
     <section className="py-16 md:py-20 bg-white">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center mb-6 md:mb-8"
+        >
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
+            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
+            <span className="h-px w-6 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full" />
+          </div>
           <div className="relative inline-block">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif tracking-tight text-gray-900"
-              style={{ fontFamily: "'Times New Roman', Times, serif" }}>
+            <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
               {t('reels.watch_and_buy')}
             </h2>
             {onRefresh && (
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="absolute -right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-all disabled:opacity-50 active:scale-90"
+                className="absolute -right-10 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all disabled:opacity-50 active:scale-90"
                 title={t('reels.refresh')}
                 aria-label={t('reels.refresh')}
               >
-                <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
               </button>
             )}
           </div>
-          <p className="text-gray-400 text-xs md:text-sm mt-2 tracking-wide uppercase">
-            {t('reels.shop_the_look')}
-          </p>
-        </div>
+        </motion.div>
 
         <div className="relative group">
           {canScrollLeft && (

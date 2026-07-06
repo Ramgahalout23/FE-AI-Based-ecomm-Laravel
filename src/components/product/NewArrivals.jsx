@@ -237,7 +237,7 @@ function NewArrivalCard({ product, index }) {
   const displayDiscount = displayOldPrice ? Math.round(((displayOldPrice - displayPrice) / displayOldPrice) * 100) : null;
 
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
-  const { isOutOfStock, isLowStock } = computeStockStatus(product);
+  const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
 
   // Computed "New" badge
   const isNew = useMemo(() => {
@@ -255,7 +255,7 @@ function NewArrivalCard({ product, index }) {
   if (isOutOfStock) {
     topLeftBadge = { label: t('product.out_of_stock'), type: 'stock' };
   } else if (isLowStock) {
-    topLeftBadge = { label: t('product.low_stock'), type: 'stock' };
+    topLeftBadge = { label: t('product.low_stock', { count: effectiveStockQty }), type: 'stock' };
   } else if (discount) {
     topLeftBadge = { label: t('product.sale_badge'), type: 'sale' };
   } else if (isNew) {
@@ -296,6 +296,16 @@ function NewArrivalCard({ product, index }) {
   const handleQuickAdd = (e) => {
     e.stopPropagation();
     if (isAdding) return;
+
+    // Auto-select first in-stock variant when user intentionally opens quick-add
+    const firstAvailable = variantsList.find(v => (v.quantity || 0) > 0);
+    if (firstAvailable?.attributes) {
+      if (firstAvailable.attributes.color && productColors.length)
+        setSelectedColor(firstAvailable.attributes.color);
+      if (firstAvailable.attributes.size && productSizes.length)
+        setSelectedSize(firstAvailable.attributes.size);
+    }
+
     setShowQuickAdd(true);
     setShowHighlights(false);
   };
@@ -808,7 +818,7 @@ function NewArrivalCard({ product, index }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50"
+                className="fixed inset-0 z-[9999]"
                 onClick={resetSelections}
               >
                 {/* Dark Backdrop */}

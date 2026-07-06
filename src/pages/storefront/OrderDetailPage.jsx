@@ -68,6 +68,7 @@ export default function OrderDetailPage() {
         <Breadcrumb
           items={[
             { label: t('nav.home'), href: '/' },
+            { label: t('profile.title'), href: '/profile' },
             { label: t('orders.title'), href: '/orders' },
             { label: `#${order.id?.slice(0, 8) || id}` },
           ]}

@@ -187,7 +187,7 @@ export default memo(function SearchProductCard({ product }) {
   const productImages = getProductImages(product);
 
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
-  const { isOutOfStock, isLowStock } = computeStockStatus(product);
+  const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
 
   // Computed "New" badge — based on badge field, isNew flag, or recent creation
   const isNew = useMemo(() => {
@@ -202,7 +202,7 @@ export default memo(function SearchProductCard({ product }) {
 
   let topLeftBadge = null;
   if (isOutOfStock) topLeftBadge = { label: t('product.out_of_stock'), type: 'stock' };
-  else if (isLowStock) topLeftBadge = { label: t('product.low_stock'), type: 'stock' };
+  else if (isLowStock) topLeftBadge = { label: t('product.low_stock', { count: effectiveStockQty }), type: 'stock' };
   else if (discount) topLeftBadge = { label: t('product.sale_badge'), type: 'sale' };
   else if (isNew) topLeftBadge = { label: t('product.new_badge'), type: 'new' };
   else if (product.badge) topLeftBadge = { label: product.badge, type: 'custom' };
@@ -571,7 +571,7 @@ export default memo(function SearchProductCard({ product }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50"
+                className="fixed inset-0 z-[9999]"
                 onClick={resetSelections}
               >
                 {/* Dark Backdrop */}

@@ -3,8 +3,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { trackingAPI } from '../../api/tracking';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 
-;
-
 const COLORS = ['#1a1a1a', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 // ── Stable recharts config constants (stable references prevent re-render loops) ──
@@ -20,6 +18,7 @@ export default function TrackingAdminPage() {
   const [tab, setTab] = useState('overview');
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chartsReady, setChartsReady] = useState(false);
   const [events, setEvents] = useState([]);
   const [pageViews, setPageViews] = useState([]);
   const [activeSessions, setActiveSessions] = useState([]);
@@ -41,6 +40,13 @@ export default function TrackingAdminPage() {
     } catch (e) { console.warn('Tracking data load failed:', e); }
     setLoading(false);
   }, []);
+
+  // Delay chart rendering until after layout is computed — prevents recharts -1 width/height
+  useEffect(() => {
+    if (loading) return;
+    const raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, [loading]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -86,7 +92,7 @@ export default function TrackingAdminPage() {
         </div>
         <div className="bg-white p-5 rounded-2xl border border-border shadow-soft">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center"><User size={18} s /></div>
+            <div className="w-9 h-9 rounded-lg bg-green-100 text-green-600 flex items-center justify-center"><Users size={18} /></div>
             <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Unique Visitors</div>
           </div>
           <div className="text-2xl font-bold text-text-primary font-display">{(stats.uniqueVisitors || 0).toLocaleString()}</div>
@@ -129,12 +135,13 @@ export default function TrackingAdminPage() {
         {/* Top Pages */}
         <div className="bg-white p-5 rounded-2xl border border-border shadow-soft">
           <h3 className="font-display font-bold text-sm text-text-primary mb-4">Top Pages</h3>
+          {chartsReady ? (
           <div className="h-[280px]">
             {pageViewChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={pageViewChartData} layout="vertical" margin={TRACKING_MARGIN_L80} isAnimationActive={false}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <X Axis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
                   <YAxis dataKey="name" type="category" tick={TRACKING_TICK_10_W80} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={TRACKING_TOOLTIP_STYLE} />
                   <Bar dataKey="views" fill="#1a1a1a" radius={TRACKING_BAR_RADIUS} maxBarSize={20} />
@@ -146,17 +153,19 @@ export default function TrackingAdminPage() {
               </div>
             )}
           </div>
+          ) : <div style={{ height: 280 }} />}
         </div>
 
         {/* Events Breakdown */}
         <div className="bg-white p-5 rounded-2xl border border-border shadow-soft">
           <h3 className="font-display font-bold text-sm text-text-primary mb-4">Events Breakdown</h3>
+          {chartsReady ? (
           <div className="h-[280px]">
             {eventChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={eventChartData} layout="vertical" margin={TRACKING_MARGIN_L100} isAnimationActive={false}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <X Axis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
+                  <XAxis type="number" tick={TRACKING_TICK_11} axisLine={false} tickLine={false} />
                   <YAxis dataKey="name" type="category" tick={TRACKING_TICK_10_W100} axisLine={false} tickLine={false} />
                   <Tooltip contentStyle={TRACKING_TOOLTIP_STYLE} />
                   <Bar dataKey="count" fill="#8b5cf6" radius={TRACKING_BAR_RADIUS} maxBarSize={20} />
@@ -168,6 +177,7 @@ export default function TrackingAdminPage() {
               </div>
             )}
           </div>
+          ) : <div style={{ height: 280 }} />}
         </div>
       </div>
 
@@ -206,7 +216,7 @@ export default function TrackingAdminPage() {
             </table>
           </div>
         ) : (
-          <div className="p-6 text-center text-text-muted text-sm"><User size={24} s /><p>No active sessions. When users visit the store, their sessions will appear here.</p></div>
+          <div className="p-6 text-center text-text-muted text-sm"><Users size={24} /><p>No active sessions. When users visit the store, their sessions will appear here.</p></div>
         )}
       </div>
 

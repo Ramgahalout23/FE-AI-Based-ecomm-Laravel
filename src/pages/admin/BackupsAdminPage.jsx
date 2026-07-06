@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminAPI } from '../../api/admin';
+import { Save, Calendar, Edit, Trash2, Package, AlertTriangle, Download, X } from 'lucide-react';
 
 const FREQUENCY_OPTIONS = [
   { value: 'manual', label: 'Manual only' },
@@ -210,7 +211,7 @@ export default function BackupsAdminPage() {
     <div>
       <div className="admin-header admin-header-row">
         <div>
-          <h2><span style={{ marginRight: 8 }}>💾</span>Backups</h2>
+          <h2 className="flex items-center gap-2"><Save size={20} />Backups</h2>
           <p>Create, download, and delete database backups — manage your backup schedule</p>
         </div>
         <div className="flex items-center gap-3">
@@ -223,7 +224,7 @@ export default function BackupsAdminPage() {
             ) : actionLoading === 'create' ? (
               '⟳ Queuing…'
             ) : (
-              '💾 Create Backup'
+              <><Save size={14} /> Create Backup</>
             )}
           </button>
         </div>
@@ -249,9 +250,9 @@ export default function BackupsAdminPage() {
       {/* ── Backup Schedule ── */}
       <div className="table-card mb-4">
         <div className="table-head">
-          <h3>📅 Backup Schedule</h3>
+          <h3 className="flex items-center gap-2"><Calendar size={16} /> Backup Schedule</h3>
           {!editSettings && (
-            <button className="btn-ghost btn-sm" onClick={() => setEditSettings(true)}>✏️ Edit</button>
+            <button className="btn-ghost btn-sm" onClick={() => setEditSettings(true)}><Edit size={14} /> Edit</button>
           )}
         </div>
 
@@ -315,7 +316,7 @@ export default function BackupsAdminPage() {
 
       {error && (
         <div className="admin-alert error">
-          <span className="admin-alert-icon">⚠️</span>
+          <span className="admin-alert-icon"><AlertTriangle size={16} /></span>
           <div className="admin-alert-body">
             <div className="admin-alert-title">Error</div>
             <div>{error}</div>
@@ -326,7 +327,7 @@ export default function BackupsAdminPage() {
       {/* ── Backup Files Table ── */}
       <div className="table-card">
         <div className="table-head">
-          <h3>🗂️ Backup Files</h3>
+          <h3 className="flex items-center gap-2"><Package size={16} /> Backup Files</h3>
           <span className="table-count">
             {backups.filter(b => b.status === 'completed').length} completed
             {backups.some(b => b.status !== 'completed') && (
@@ -339,7 +340,7 @@ export default function BackupsAdminPage() {
           <div className="loading-page" style={{ padding: '3rem' }}><div className="spinner" /></div>
         ) : backups.length === 0 ? (
           <div className="empty-state" style={{ padding: '3rem' }}>
-            <div className="empty-state-icon">📦</div>
+            <div className="empty-state-icon"><Package size={40} /></div>
             <h3>No backups yet</h3>
             <p>Create your first backup to protect your data.</p>
             <button className="btn-dark btn-sm" onClick={handleCreate} disabled={actionLoading === 'create'} style={{ marginTop: '0.75rem' }}>
@@ -370,7 +371,7 @@ export default function BackupsAdminPage() {
                       <div className="backup-filename-cell">
                         {isQueued && <span className="processing-pulse" />}
                         {isProcessing && <span className="spinning" style={{ fontSize: '0.7rem', color: 'var(--accent)' }}>⟳</span>}
-                        {isCompleted && <span style={{ fontSize: '0.75rem' }}>💾</span>}
+                        {isCompleted && <Save size={14} style={{ flexShrink: 0 }} />}
                         <code className={`backup-filename ${!isCompleted ? 'text-muted' : ''}`}>
                           {isQueued || isProcessing ? (
                             <>{backup.backup_id ? backup.backup_id.substring(0, 22) + '…' : backup.filename}</>
@@ -408,11 +409,11 @@ export default function BackupsAdminPage() {
                       <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
                         <button className="btn-edit" onClick={() => handleDownload(backup.filename)}
                           disabled={!isCompleted || actionLoading === `download-${backup.filename}`}>
-                          {isCompleted ? '⬇️ Download' : '—'}
+                          {isCompleted ? <><Download size={14} /> Download</> : '—'}
                         </button>
                         <button className="btn-del" onClick={() => setConfirmDelete(backup.filename)}
                           disabled={!isCompleted || actionLoading === `delete-${backup.filename}`}>
-                          {isCompleted ? '🗑️ Delete' : '—'}
+                          {isCompleted ? <><Trash2 size={14} /> Delete</> : '—'}
                         </button>
                       </div>
                     </td>
@@ -430,8 +431,8 @@ export default function BackupsAdminPage() {
         <div className="modal-overlay open" onClick={(e) => { if (e.target === e.currentTarget) setConfirmDelete(null); }}>
           <div className="modal" style={{ maxWidth: 420 }}>
             <div className="modal-header">
-              <h3>🗑️ Delete Backup</h3>
-              <button className="modal-close" onClick={() => setConfirmDelete(null)}>✕</button>
+              <h3 className="flex items-center gap-2"><Trash2 size={18} /> Delete Backup</h3>
+              <button className="modal-close" onClick={() => setConfirmDelete(null)}><X size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ color: 'var(--muted)' }}>

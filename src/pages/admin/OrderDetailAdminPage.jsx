@@ -8,6 +8,7 @@ import '../../styles/shipping-label.css';
 import toast from '../../utils/toast';
 import { showSuccess, showError } from '../../utils/toast';
 import { useOrderStatusUpdates } from '../../hooks/useSocket';
+import { ClipboardList, User, CreditCard, DollarSign, MapPin, Package, FileText, Calendar, RefreshCw, Tag, Edit, Save, Ticket, Truck, ArrowLeft, Printer, Shield, Check, X, AlertTriangle } from 'lucide-react';
 
 function Code39Barcode({ value }) {
   const code39 = {
@@ -124,9 +125,8 @@ export default function OrderDetailAdminPage() {
         setDetail(r.data?.data || r.data);
       }).catch(() => {});
       if (data.status) {
-        toast(
-          `Order ${data.orderNumber || data.orderId?.slice(0, 8)} → ${ORDER_STATUSES[data.status]?.label || data.status}`,
-          { icon: '🔄', duration: 4000 }
+        toast.success(
+          `Order ${data.orderNumber || data.orderId?.slice(0, 8)} → ${ORDER_STATUSES[data.status]?.label || data.status}`
         );
       }
     }
@@ -374,15 +374,15 @@ export default function OrderDetailAdminPage() {
   };
 
   const SECTIONS = [
-    { id: 'order-info', title: 'Order Info', icon: '📋' },
-    { id: 'customer', title: 'Customer', icon: '👤' },
-    { id: 'payment', title: 'Payment', icon: '💳' },
-    { id: 'pricing', title: 'Pricing', icon: '💰' },
-    { id: 'addresses', title: 'Addresses', icon: '📍' },
-    { id: 'items', title: 'Items', icon: '📦' },
-    { id: 'notes', title: 'Notes', icon: '📝' },
-    { id: 'timeline', title: 'Timeline', icon: '📅' },
-    { id: 'status', title: 'Status', icon: '🔄' },
+    { id: 'order-info', title: 'Order Info', icon: <ClipboardList size={14} /> },
+    { id: 'customer', title: 'Customer', icon: <User size={14} /> },
+    { id: 'payment', title: 'Payment', icon: <CreditCard size={14} /> },
+    { id: 'pricing', title: 'Pricing', icon: <DollarSign size={14} /> },
+    { id: 'addresses', title: 'Addresses', icon: <MapPin size={14} /> },
+    { id: 'items', title: 'Items', icon: <Package size={14} /> },
+    { id: 'notes', title: 'Notes', icon: <FileText size={14} /> },
+    { id: 'timeline', title: 'Timeline', icon: <Calendar size={14} /> },
+    { id: 'status', title: 'Status', icon: <RefreshCw size={14} /> },
   ];
 
   return (
@@ -430,7 +430,7 @@ export default function OrderDetailAdminPage() {
               else toast.error('Labels can only be printed for orders in Processing or Shipped phase.');
             }}
           >
-            🏷️ Print Label
+            <Tag size={14} /> Print Label
           </button>
           <button
             className="btn-dark btn-sm"
@@ -438,7 +438,7 @@ export default function OrderDetailAdminPage() {
             onClick={() => downloadInvoice(detail.id, detail.orderNumber)}
             title="Download PDF Invoice"
           >
-            📄 Invoice
+            <FileText size={14} /> Invoice
           </button>
           <button
             className={`btn-sm ${editing ? 'btn-ghost' : 'btn-dark'}`}
@@ -446,7 +446,7 @@ export default function OrderDetailAdminPage() {
             onClick={handleToggleEdit}
             title={editing ? 'Cancel editing' : 'Edit order items and pricing'}
           >
-            {editing ? '✕ Cancel Edit' : '✏️ Edit Order'}
+            {editing ? <><X size={14} /> Cancel Edit</> : <><Edit size={14} /> Edit Order</>}
           </button>
         </div>
       </div>
@@ -615,7 +615,7 @@ export default function OrderDetailAdminPage() {
                 <div className="pb-row pb-total"><span>Total</span><span>{formatCurrency(detail.total ?? detail.totalAmount ?? 0)}</span></div>
               </div>
             )}
-            {detail.couponId && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--muted)' }}>🎟️ Coupon ID: <span style={{ fontFamily: 'monospace' }}>{detail.couponId}</span></div>}
+            {detail.couponId && <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><Ticket size={14} /> Coupon ID: <span style={{ fontFamily: 'monospace' }}>{detail.couponId}</span></div>}
           </CollapsibleSection>
         </div>
 
@@ -624,11 +624,11 @@ export default function OrderDetailAdminPage() {
           <CollapsibleSection id="addresses" title="Addresses" icon="📍" defaultExpanded={false}>
             <div className="addresses-grid">
               <div className="address-card">
-                <div className="address-card-title">🚚 Shipping Address</div>
+                <div className="address-card-title"><Truck size={14} /> Shipping Address</div>
                 <div className="address-card-content">{formatAddress(detail.shippingAddress) || '\u2014'}</div>
               </div>
               <div className="address-card">
-                <div className="address-card-title">💳 Billing Address</div>
+                <div className="address-card-title"><CreditCard size={14} /> Billing Address</div>
                 <div className="address-card-content">{formatAddress(detail.billingAddress || detail.shippingAddress) || '\u2014'}</div>
               </div>
             </div>
@@ -660,7 +660,7 @@ export default function OrderDetailAdminPage() {
                         {productImage ? (
                           <img loading="lazy" src={getImageUrl(productImage)} alt={productName} title={productName} className="it-product-img" />
                         ) : (
-                          <div className="it-product-img-placeholder" title={productName}>📦</div>
+                          <div className="it-product-img-placeholder" title={productName}><Package size={16} /></div>
                         )}
                         <div className="it-product-info">
                           <div className="it-product-name">{productName}</div>
@@ -726,7 +726,7 @@ export default function OrderDetailAdminPage() {
               {detail.notes && (
                 <div className="note-block" style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.75rem 1rem' }}>
                   <div className="note-label" style={{ color: '#92400e', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span>📝 Additional Comments from Customer</span>
+                    <span><FileText size={14} /> Additional Comments from Customer</span>
                   </div>
                   <div className="note-text" style={{ color: '#78350f', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{detail.notes}</div>
                 </div>
@@ -810,11 +810,11 @@ export default function OrderDetailAdminPage() {
               onClick={handleSaveEdit}
               disabled={editLoading}
             >
-              {editLoading ? (
-                <><span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving...</>
-              ) : (
-                '💾 Save Changes'
-              )}
+              {editLoading ? (                <>
+                        <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving...</>
+                      ) : (
+                        <><Save size={14} /> Save Changes</>
+                      )}
             </button>
             <button
               className="btn-ghost"
@@ -860,8 +860,8 @@ export default function OrderDetailAdminPage() {
             }}>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Add Product to Order</h3>
               <button style={{
-                background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--muted)'
-              }} onClick={() => { setShowProductSearch(false); setProductSearchQuery(''); setProductSearchResults([]); }}>✕</button>
+                background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center'
+              }} onClick={() => { setShowProductSearch(false); setProductSearchQuery(''); setProductSearchResults([]); }}><X size={16} /></button>
             </div>
             <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
               <input
@@ -905,7 +905,7 @@ export default function OrderDetailAdminPage() {
                       {getProductImage(product) ? (
                         <img loading="lazy" src={getImageUrl(getProductImage(product))} alt={product.name} title={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span title={product.name}>📦</span>
+                        <span title={product.name}><Package size={14} /></span>
                       )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -941,8 +941,8 @@ export default function OrderDetailAdminPage() {
             }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Shipping Label Preview</h3>
               <button style={{
-                background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--muted)'
-              }} onClick={() => setShowLabel(false)}>✕</button>
+                background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center'
+              }} onClick={() => setShowLabel(false)}><X size={16} /></button>
             </div>
             <div style={{ padding: '1.5rem', overflowY: 'auto', maxHeight: '70vh', background: '#f3f4f6', display: 'flex', justifyContent: 'center' }}>
               <div id="shipping-label-printable" className="label-page">
@@ -964,20 +964,20 @@ export default function OrderDetailAdminPage() {
                 </div>
                 <div className="address-section">
                   <div className="address-box">
-                    <div className="address-label">📍 FROM</div>
+                    <div className="address-label"><MapPin size={12} /> FROM</div>
                     <div className="address-name--from">{labelSettings?.storeName || 'Store'}</div>
                     <div className="address-detail--from">{labelSettings?.shippingPickupAddress || '456 Industrial Way, Suite A, New York, NY 10002'}</div>
                   </div>
                   <div className="address-divider" />
                   <div className="address-box">
-                    <div className="address-label">🚚 SHIP TO</div>
+                    <div className="address-label"><Truck size={12} /> SHIP TO</div>
                     <div className="address-name">{detail.customerName || detail.userId || 'Customer'}</div>
                     <div className="address-detail">{formatAddress(detail.shippingAddress)}</div>
                   </div>
                 </div>
                 {(detail.billingAddress || detail.shippingAddress) && (
                   <div className="billing-section">
-                    <div className="billing-label">💳 BILL TO</div>
+                    <div className="billing-label"><CreditCard size={12} /> BILL TO</div>
                     <div className="billing-name">
                       {detail.billingAddress
                         ? `${detail.billingAddress.firstName || ''} ${detail.billingAddress.lastName || ''}`.trim() || detail.customerName || '\u2014'
@@ -1012,11 +1012,11 @@ export default function OrderDetailAdminPage() {
                       <div className="payment-collection-badge">
                         {isCOD ? (
                           <div className="cod-collect-badge">
-                            <span className="cod-icon">💵</span>
+                            <DollarSign size={16} style={{ marginRight: 4 }} />
                             <span>COLLECT <strong>{formatCurrency(detail.total || detail.totalAmount)}</strong> ON DELIVERY</span>
                           </div>
                         ) : (
-                          <div className="prepaid-badge"><span>✅</span><span>PAID</span></div>
+                          <div className="prepaid-badge"><Check size={14} /><span>PAID</span></div>
                         )}
                       </div>
                     </>
@@ -1040,12 +1040,12 @@ export default function OrderDetailAdminPage() {
                 </div>
                 <div className="footer-section">
                   <div className="footer-box">
-                    <div className="footer-title">↩️ RETURN TO</div>
+                    <div className="footer-title"><ArrowLeft size={12} /> RETURN TO</div>
                     <div className="footer-text">{labelSettings?.shippingReturnAddress || 'Store Returns Center'}</div>
                   </div>
                   <div className="footer-divider" />
                   <div className="footer-box">
-                    <div className="footer-title">🛡️ CUSTOMER CARE</div>
+                    <div className="footer-title"><Shield size={12} /> CUSTOMER CARE</div>
                     <div className="footer-text">
                       {labelSettings?.shippingQueryPhone || labelSettings?.shippingQueryMobile || '+1 (555) 019-2834'}<br />
                       {labelSettings?.shippingQueryEmail || 'support@threvolt.com'}
@@ -1063,7 +1063,7 @@ export default function OrderDetailAdminPage() {
             }}>
               <button className="btn-ghost btn-sm" onClick={() => setShowLabel(false)}>Cancel</button>
               <button className="btn-dark btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={handlePrint}>
-                🖨️ Print Label
+                <Printer size={14} /> Print Label
               </button>
             </div>
           </div>

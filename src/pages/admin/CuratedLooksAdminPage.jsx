@@ -9,6 +9,7 @@ import { getImageUrl } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
+import { Eye, Ban, Download, Save, Palette, Image as ImageIcon, Edit, Plus, X, AlertTriangle, Lightbulb, Package } from 'lucide-react';
 
 const EMPTY_FORM = {
   name: '',
@@ -327,22 +328,22 @@ export default function CuratedLooksAdminPage() {
             {togglingSection ? (
               <span className="spinner" style={{ width: 12, height: 12, borderColor: looksEnabled ? '#ef4444' : '#fff', borderTopColor: 'transparent' }} />
             ) : looksEnabled ? (
-              <span style={{ fontSize: '1rem' }}>👁️</span>
+              <Eye size={16} />
             ) : (
-              <span style={{ fontSize: '1rem' }}>🚫</span>
+              <Ban size={16} />
             )}
             {looksEnabled ? 'Disable Section' : 'Enable Section'}
           </button>
           <button className="btn-dark btn-sm" onClick={openCreate}>
             + Add Look
           </button>
-          <button className="btn-dark btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+          <button className="btn-dark btn-sm" onClick={() => setShowExportModal(true)}><Download size={14} /> Export CSV</button>
         </div>
       </div>
 
       {!looksEnabled && (
         <div className="admin-alert warning mb-4">
-          <span className="admin-alert-icon">💡</span>
+          <span className="admin-alert-icon"><Lightbulb size={16} /></span>
           <div className="admin-alert-body">
             <div>The curated looks section is currently <strong>hidden</strong> from the homepage. Click <strong>"Enable Section"</strong> above to show it.</div>
           </div>
@@ -351,7 +352,7 @@ export default function CuratedLooksAdminPage() {
 
       {error && (
         <div className="admin-alert danger mb-4">
-          <span className="admin-alert-icon">⚠️</span>
+          <span className="admin-alert-icon"><AlertTriangle size={16} /></span>
           <div className="admin-alert-body">
             <div className="admin-alert-title">Error Loading Data</div>
             <div>{error}</div>
@@ -408,7 +409,7 @@ export default function CuratedLooksAdminPage() {
               disabled={savingOrder}
               style={{ fontSize: '0.72rem', padding: '0.25rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
             >
-              {savingOrder ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '💾'}
+              {savingOrder ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Save size={14} />}
               {savingOrder ? 'Saving...' : 'Save Order'}
             </button>
           </div>
@@ -432,7 +433,7 @@ export default function CuratedLooksAdminPage() {
               <tr>
                 <td colSpan={7}>
                   <div className="empty-state">
-                    <div className="empty-state-icon">🎨</div>
+                    <div className="empty-state-icon"><Palette size={40} /></div>
                     <h3>No curated looks yet</h3>
                     <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                       Add your first curated look to showcase collections on the homepage.
@@ -516,7 +517,7 @@ export default function CuratedLooksAdminPage() {
                           background: '#f5f5f5',
                         }}
                       >
-                        📷
+                        <ImageIcon size={24} />
                       </span>
                     )}
                   </td>
@@ -584,9 +585,9 @@ export default function CuratedLooksAdminPage() {
         >
           <div className="modal" style={{ maxWidth: '560px' }}>
             <div className="modal-header">
-              <h3>{editing ? '✏️ Edit Curated Look' : '➕ New Curated Look'}</h3>
+              <h3>{editing ? <><Edit size={18} /> Edit Curated Look</> : <><Plus size={18} /> New Curated Look</>}</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>
-                ✕
+                <X size={16} />
               </button>
             </div>
             <div className="modal-body">
@@ -616,7 +617,7 @@ export default function CuratedLooksAdminPage() {
                         onClick={() => setForm({ ...form, imageUrl: '' })}
                         style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem', flexShrink: 0 }}
                       >
-                        ✕ Clear
+                        <X size={14} /> Clear
                       </button>
                     )}
                   </div>
@@ -795,7 +796,7 @@ export default function CuratedLooksAdminPage() {
                                     flexShrink: 0,
                                   }}
                                 >
-                                  📦
+                                  <Package size={16} />
                                 </span>
                               )}
                               <div style={{ flex: 1, minWidth: 0 }}>

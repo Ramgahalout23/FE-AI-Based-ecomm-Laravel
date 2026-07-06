@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { AnimatePresence } from 'framer-motion';
-import { QueryClient, useQuery } from '@tanstack/react-query';
+import { AnimatePresence, MotionConfig } from 'framer-motion';
+import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { Toaster } from './utils/toast';
@@ -31,13 +31,14 @@ import { initI18nSync, loadApiTranslations } from './utils/i18n';
 // Initialize i18n synchronously with English defaults BEFORE the first React render.
 // This prevents a flash of raw translation keys in the Navbar on initial page load.
 initI18nSync();
+import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
 import ThemeInjector from './components/common/ThemeInjector';
 import LiveChatWidget from './components/chat/LiveChatWidget';
+import WhatsAppButton from './components/chat/WhatsAppButton';
+import PhoneLeadBanner from './components/common/PhoneLeadBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
-
-import { settingsAPI } from './api/settings';
 
 // ── Route-level Code Splitting (React.lazy) ──
 // Pages are loaded on-demand, reducing the initial JS bundle significantly.
@@ -173,22 +174,16 @@ const localStoragePersister = createSyncStoragePersister({
 function MaintenanceWrapper({ children }) {
   const { isAdmin } = useAuthStore();
   const location = useLocation();
-
-  const { data: maintenanceData, isLoading } = useQuery({
-    queryKey: ['maintenance-status'],
-    queryFn: () => settingsAPI.getMaintenanceStatus(),
-    staleTime: 60000,
-    retry: false,
-  });
+  const { data: appInitData, loading: appInitLoading } = useAppInit();
 
   // Never block admin routes — admin login page must be reachable to turn off maintenance
   if (location.pathname.startsWith('/admin')) {
     return children;
   }
 
-  const isMaintenance = maintenanceData?.data?.data?.enabled;
+  const isMaintenance = appInitData?.maintenance?.enabled;
 
-  if (isLoading) {
+  if (appInitLoading) {
     return <div className="loading-page"><div className="spinner" /></div>;
   }
 
@@ -203,6 +198,10 @@ function StorefrontLayout() {
   const location = useLocation();
   const { settings: appSettings } = useSettings();
   const chatbotEnabled = appSettings.chatbotEnabled !== 'false';
+  const whatsappEnabled = appSettings.whatsappButtonEnabled !== 'false';
+  const whatsappNumber = appSettings.whatsappButtonNumber || '';
+  const whatsappMessage = appSettings.whatsappButtonMessage || '';
+  const whatsappPosition = appSettings.whatsappButtonPosition || 'left';
 
   // Initialize user tracking on first mount
   useEffect(() => {
@@ -233,7 +232,9 @@ function StorefrontLayout() {
       </main>
       <Footer />
       <MobileNav />
+      <PhoneLeadBanner />
       {chatbotEnabled && <LiveChatWidget />}
+      {whatsappEnabled && whatsappNumber && <WhatsAppButton phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} />}
     </div>
   );
 }
@@ -372,9 +373,10 @@ function AppContent() {
     <BrowserRouter>
       <ThemeInjector />
       <Toaster
-        position="bottom-center"
-        gutter={16}
+        position="top-right"
+        gutter={12}
         containerClassName="toaster-container"
+        reverseOrder={false}
         toastOptions={{
           className: 'toast-premium',
           duration: 2800,
@@ -382,42 +384,38 @@ function AppContent() {
             fontFamily: 'var(--font-body)',
             fontSize: '0.875rem',
             fontWeight: 600,
-            background: '#ffffff',
             color: '#1a1a1a',
-            borderRadius: '14px',
-            padding: '14px 20px',
-            boxShadow: '0 12px 48px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.06)',
+            borderRadius: '16px',
+            padding: '14px 20px 18px',
+            boxShadow: '0 12px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
             letterSpacing: '0.01em',
             lineHeight: 1.5,
-            border: '1px solid rgba(0,0,0,0.1)',
           },
           success: {
             icon: (
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="9" cy="9" r="7" fill="#22c55e" />
-                <path d="M5.5 9.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="10" cy="10" r="8" fill="#22c55e" />
+                <path d="M6 10.5l2.5 2.5 5-5.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             ),
             style: {
-              background: '#ffffff',
               borderLeft: '4px solid #22c55e',
             },
           },
           error: {
             icon: (
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="9" cy="9" r="7" fill="#ef4444" />
-                <path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="10" cy="10" r="8" fill="#ef4444" />
+                <path d="M7 7l6 6M13 7l-6 6" stroke="white" strokeWidth="2" strokeLinecap="round" />
               </svg>
             ),
             style: {
-              background: '#ffffff',
               borderLeft: '4px solid #ef4444',
             },
           },
         }}
       />
-      <CookieConsent />
+      <CookieConsent enabled={appSettings.cookieConsentEnabled !== 'false'} />
       <ScrollToTop />
       <MaintenanceWrapper>
       <Routes>
@@ -578,7 +576,7 @@ export default function App() {
           dehydrateOptions: {
             shouldDehydrateQuery: (query) => {
               const queryKey = query.queryKey;
-              if (queryKey?.[0] === 'auth' || queryKey?.[0] === 'maintenance-status' || queryKey?.[0] === 'homepage') {
+              if (queryKey?.[0] === 'auth' || queryKey?.[0] === 'homepage') {
                 return false;
               }
               return query.state.status === 'success';
@@ -586,11 +584,15 @@ export default function App() {
           },
         }}
       >
+        <AppInitProvider>
         <SettingsProvider>
           <CurrencyProvider>
-            <AppContent />
+            <MotionConfig reducedMotion="user">
+              <AppContent />
+            </MotionConfig>
           </CurrencyProvider>
         </SettingsProvider>
+        </AppInitProvider>
       </PersistQueryClientProvider>
     </HelmetProvider>
   );

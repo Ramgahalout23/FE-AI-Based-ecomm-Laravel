@@ -10,12 +10,13 @@ import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl, getBannerImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import { Image, FileText, Video, Save, Plus, X, Sparkles, Download, Home, Info, Edit, Trash2, Check, Search, Upload, RefreshCw, Crosshair } from 'lucide-react';
 
 const DISPLAY_MODES = [
-  { value: 'DEFAULT', label: 'Default (Image + Text)', icon: '🖼️📝' },
-  { value: 'IMAGE_ONLY', label: 'Image Only', icon: '🖼️' },
-  { value: 'VIDEO', label: 'Video Background', icon: '🎬' },
-  { value: 'TITLE_ONLY', label: 'Title Only', icon: '📝' },
+  { value: 'DEFAULT', label: 'Default (Image + Text)', icon: <><Image size={14} /><FileText size={14} /></> },
+  { value: 'IMAGE_ONLY', label: 'Image Only', icon: <Image size={14} /> },
+  { value: 'VIDEO', label: 'Video Background', icon: <Video size={14} /> },
+  { value: 'TITLE_ONLY', label: 'Title Only', icon: <FileText size={14} /> },
 ];
 
 const EMPTY = { title: '', imageUrl: '', videoUrl: '', type: 'HERO', link: '', description: '', displayMode: 'DEFAULT' };
@@ -310,8 +311,8 @@ export default function BannersAdminPage() {
         page="banners"
         actions={
           <>
-            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
-            <button className="btn-ghost btn-sm" onClick={handleReorder}>💾 Save Order</button>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}><Download size={14} /> Export CSV</button>
+            <button className="btn-ghost btn-sm" onClick={handleReorder}><Save size={14} /> Save Order</button>
             <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Banner</button>
           </>
         }
@@ -321,13 +322,12 @@ export default function BannersAdminPage() {
       <div className="table-card" style={{ marginBottom: '1rem' }}>
         <div style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>🏠 Homepage Banner Display:</span>
+            <span style={{ fontWeight: 600, fontSize: '0.85rem' }} className="flex items-center gap-1"><Home size={16} /> Homepage Banner Display:</span>
             <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
               Controls which banner type shows on the homepage hero section
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-muted, #f5f5f5)', borderRadius: '8px', padding: '2px' }}>
-            <button
+          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-muted, #f5f5f5)', borderRadius: '8px', padding: '2px' }}>              <button
               onClick={() => toggleDisplayFilter('DEFAULT')}
               disabled={filterLoading}
               style={{
@@ -339,10 +339,13 @@ export default function BannersAdminPage() {
                 fontWeight: displayFilter === 'DEFAULT' ? 700 : 500,
                 background: displayFilter === 'DEFAULT' ? 'var(--primary, #ff6b00)' : 'transparent',
                 color: displayFilter === 'DEFAULT' ? '#fff' : 'var(--text, #333)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
                 transition: 'all 0.15s ease',
               }}
             >
-              🖼️📝 Title Banners
+              <Image size={14} /><FileText size={14} /> Title Banners
             </button>
             <button
               onClick={() => toggleDisplayFilter('IMAGE_ONLY')}
@@ -356,21 +359,24 @@ export default function BannersAdminPage() {
                 fontWeight: displayFilter === 'IMAGE_ONLY' ? 700 : 500,
                 background: displayFilter === 'IMAGE_ONLY' ? 'var(--primary, #ff6b00)' : 'transparent',
                 color: displayFilter === 'IMAGE_ONLY' ? '#fff' : 'var(--text, #333)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
                 transition: 'all 0.15s ease',
               }}
             >
-              🖼️ Image Only
+              <Image size={14} /> Image Only
             </button>
           </div>
         </div>
         {displayFilter === 'IMAGE_ONLY' && (
           <div style={{ padding: '0.5rem 1rem 0.75rem', fontSize: '0.75rem', color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-            ℹ️ Only banners with <strong>Image Only</strong> display mode will appear on the homepage. Title/Text banners are hidden.
+            <Info size={14} /> Only banners with <strong>Image Only</strong> display mode will appear on the homepage. Title/Text banners are hidden.
           </div>
         )}
         {displayFilter === 'DEFAULT' && (
           <div style={{ padding: '0.5rem 1rem 0.75rem', fontSize: '0.75rem', color: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
-            ℹ️ Only banners with <strong>Default (Image + Text)</strong> or <strong>Title Only</strong> display mode will appear on the homepage. Image Only banners are hidden.
+            <Info size={14} /> Only banners with <strong>Default (Image + Text)</strong> or <strong>Title Only</strong> display mode will appear on the homepage. Image Only banners are hidden.
           </div>
         )}
       </div>
@@ -387,10 +393,10 @@ export default function BannersAdminPage() {
         <table className="admin-table">
           <thead><tr><th>Title</th><th>Type</th><th>Display Mode</th><th>Image</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {banners.length === 0 ? <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">🖼️</div><h3>No banners yet</h3></div></td></tr> :
+            {banners.length === 0 ? <tr><td colSpan={6}><div className="empty-state">            <div className="empty-state-icon"><Image size={40} /></div><h3>No banners yet</h3></div></td></tr> :
             banners.map(b => (
               <tr key={b.id}>
-                <td>{b.title ? <strong>{b.title}</strong> : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>🖼️ Image Only</span>}{b.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{b.description}</div>}</td>
+                <td>              {b.title ? <strong>{b.title}</strong> : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}><Image size={14} /> Image Only</span>}{b.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{b.description}</div>}</td>
                 <td><span className="status-badge status-info">{b.type}</span></td>
                 <td>
                   <span className={`status-badge ${
@@ -399,8 +405,8 @@ export default function BannersAdminPage() {
                     b.displayMode === 'TITLE_ONLY' ? 'status-info' :
                     'status-success'
                   }`} style={{ fontSize: '0.68rem' }}>
-                    {b.displayMode === 'IMAGE_ONLY' ? '🖼️ Image Only' :
-                     b.displayMode === 'TITLE_ONLY' ? '📝 Title Only' :
+                    {                    b.displayMode === 'IMAGE_ONLY' ? 'Image Only' :
+                     b.displayMode === 'TITLE_ONLY' ? 'Title Only' :
                      'Default'}
                   </span>
                 </td>
@@ -445,7 +451,7 @@ export default function BannersAdminPage() {
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
-            <div className="modal-header"><h3>{editing ? '✏️ Edit Banner' : '➕ New Banner'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
+            <div className="modal-header"><h3 className="flex items-center gap-2">{editing ? <><Edit size={18} /> Edit Banner</> : <><Plus size={18} /> New Banner</>}</h3><button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
                 <div className="form-group form-full">
@@ -470,7 +476,7 @@ export default function BannersAdminPage() {
                       }}
                       title="Generate banner image with AI"
                     >
-                      {aiLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '✨'}
+                      {aiLoading ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Sparkles size={14} />}
                       {aiLoading ? 'Generating...' : 'AI Generate'}
                     </button>
                   </div>
@@ -479,7 +485,7 @@ export default function BannersAdminPage() {
                 {/* Reference Image for style matching */}
                 <div className="form-group form-full" style={{ background: '#f0f9ff', borderRadius: 8, padding: '0.75rem', border: '1px solid #bae6fd' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0369a1', margin: 0 }}>🎯 Style Reference (Optional)</label>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0369a1', margin: 0 }} className="flex items-center gap-1"><Crosshair size={14} /> Style Reference (Optional)</label>
                     <span style={{ fontSize: '0.62rem', color: '#0369a1', opacity: 0.7 }}>AI matches this style</span>
                   </div>
                   <p style={{ fontSize: '0.68rem', color: '#64748b', marginBottom: '0.35rem', lineHeight: 1.3 }}>
@@ -493,7 +499,7 @@ export default function BannersAdminPage() {
                   />
                   {bannerRefImageUrl && (
                     <div style={{ fontSize: '0.65rem', color: '#0369a1', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <span>📎 Reference set</span>
+                      <span><Upload size={14} /> Reference set</span>
                       <button
                         onClick={() => setBannerRefImageUrl('')}
                         style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.68rem', textDecoration: 'underline', padding: 0 }}
@@ -513,7 +519,7 @@ export default function BannersAdminPage() {
                 {/* Video URL — shown only when VIDEO display mode is selected */}
                 {form.displayMode === 'VIDEO' && (
                   <div className="form-group form-full">
-                    <label>🎬 Banner Video URL</label>
+                    <label className="flex items-center gap-1"><Video size={14} /> Banner Video URL</label>
                     <input
                       value={form.videoUrl}
                       onChange={e => setForm({ ...form, videoUrl: e.target.value })}

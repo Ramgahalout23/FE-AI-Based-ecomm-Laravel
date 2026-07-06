@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 import { adminAPI } from '../../api/admin';
 import { analyticsAPI } from '../../api/analytics';
-import { inventoryAPI } from '../../api/inventory';
 import { formatDateTime, formatTime } from '../../utils/formatters';
 import DateRangePicker, { getDateParams, getDefaultDateRange } from '../../components/common/DateRangePicker';
 import RefreshControls from '../../components/common/RefreshControls';
 import useDashboardCache from '../../hooks/useDashboardCache';
 import useInterval from '../../hooks/useInterval';
 import DashboardSkeleton from '../../components/dashboard/SkeletonLoader';
+import { BarChart3, Package, AlertTriangle, X } from 'lucide-react';
 
 const PIE_COLORS = ['#1a1a1a', '#22c55e', '#888888', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6'];
 const CHART_COLORS = ['#C9A96E', '#27AE60', '#2980B9', '#E74C3C', '#8E44AD', '#F39C12', '#1ABC9C'];
@@ -41,7 +41,6 @@ const DASHBOARD_DEFAULTS = {
   health: null,
   logs: [],
   liveOrders: [],
-  alerts: [],
   orderStatus: [{ name: 'No Orders', value: 100 }],
   topProducts: [],
   revenueComparison: null,
@@ -69,59 +68,6 @@ function mapOrders(orders) {
 }
 
 /**
- * Map variant/product low-stock alerts.
- */
-function buildAlerts(variants, products) {
-  const alerts = [];
-  const existingMsgs = new Set();
-
-  if (Array.isArray(variants)) {
-    variants.slice(0, 10).forEach((v, i) => {
-      const name = v.product?.name
-        ? v.product.name + (v.name ? ' (' + v.name + ')' : '')
-        : (v.name || v.product_name || 'Product');
-      const isOutOfStock = (v.quantity || 0) <= 0;
-      const msg = isOutOfStock
-        ? name + ' is completely out of stock.'
-        : name + ' is running low — only ' + v.quantity + ' left in stock.';
-      if (!existingMsgs.has(msg)) {
-        existingMsgs.add(msg);
-        alerts.push({
-          id: 'variant_' + (v.id || i),
-          type: isOutOfStock ? 'error' : 'warning',
-          title: isOutOfStock ? 'Out of Stock Alert' : 'Low Stock Alert',
-          message: msg,
-          show: true,
-        });
-      }
-    });
-  }
-
-  if (Array.isArray(products)) {
-    products.slice(0, 5).forEach((p, i) => {
-      const name = p.name || p.product_name || p.product?.name || 'Product';
-      const qty = p.quantity ?? p.available_quantity ?? 0;
-      const isOutOfStock = qty <= 0;
-      const msg = isOutOfStock
-        ? name + ' is completely out of stock.'
-        : name + ' is running low — only ' + qty + ' left in stock.';
-      if (!existingMsgs.has(msg)) {
-        existingMsgs.add(msg);
-        alerts.push({
-          id: 'product_' + (p.id || i),
-          type: isOutOfStock ? 'error' : 'warning',
-          title: isOutOfStock ? 'Out of Stock Alert' : 'Low Stock Alert',
-          message: msg,
-          show: true,
-        });
-      }
-    });
-  }
-
-  return alerts.slice(0, 8);
-}
-
-/**
  * Normalise an API response: unwrap .data?.data -> .data.
  */
 function unwrap(res) {
@@ -129,19 +75,12 @@ function unwrap(res) {
 }
 
 /**
- * Reducer for dashboard data — uses SET_MULTIPLE (batched) and DISMISS_ALERT.
+ * Reducer for dashboard data.
  */
 function dashboardReducer(state, action) {
   switch (action.type) {
     case 'SET_MULTIPLE':
       return { ...state, ...action.payload };
-    case 'DISMISS_ALERT':
-      return {
-        ...state,
-        alerts: state.alerts.map(a =>
-          a.id === action.payload ? { ...a, show: false } : a
-        ),
-      };
     default:
       return state;
   }
@@ -254,9 +193,6 @@ export default function DashboardPage() {
         // 13. Review analytics
         if (full.reviewAnalytics) d.reviewAnalytics = full.reviewAnalytics;
 
-        // 14. Alerts (low stock variants)
-        d.alerts = buildAlerts(Array.isArray(full.lowStock) ? full.lowStock : [], []);
-
         // Single batched dispatch — React 18+ batches these into one render
         dispatch({ type: 'SET_MULTIPLE', payload: d });
         if (!isBackground) setLoading(false);
@@ -277,7 +213,6 @@ export default function DashboardPage() {
       ordersRes,
       orderStatusRes,
       topProductsRes,
-      lowStockRes,
       revenueCompRes,
       customerGrowthRes,
       hourlyDistRes,
@@ -292,7 +227,6 @@ export default function DashboardPage() {
       adminAPI.getOrders({ limit: 8, page: 1, ...dateParams }),
       analyticsAPI.getOrderStatus(dateParams),
       analyticsAPI.getProducts(dateParams),
-      adminAPI.getLowStockVariants().catch(() => ({ data: { data: [] } })),
       analyticsAPI.getRevenueComparison(dateParams),
       analyticsAPI.getCustomerGrowth(dateParams),
       analyticsAPI.getHourlyDistribution(dateParams),
@@ -344,20 +278,6 @@ export default function DashboardPage() {
       }
     }
 
-    if (lowStockRes.status === 'fulfilled') {
-      const variants = unwrap(lowStockRes.value) || [];
-      fetched.alerts = buildAlerts(Array.isArray(variants) ? variants : [], []);
-      // Additional product-level low stock
-      try {
-        const invRes = await inventoryAPI.getLowStock();
-        const lowStockProducts = unwrap(invRes) || [];
-        if (Array.isArray(lowStockProducts)) {
-          const extraAlerts = buildAlerts([], lowStockProducts);
-          fetched.alerts = [...fetched.alerts, ...extraAlerts].slice(0, 8);
-        }
-      } catch { /* skip */ }
-    }
-
     if (revenueCompRes.status === 'fulfilled') {
       fetched.revenueComparison = unwrap(revenueCompRes.value);
     }
@@ -391,8 +311,8 @@ export default function DashboardPage() {
     }
 
     // Track API errors
-    const apiNames = ['Dashboard Metrics', 'System Health', 'Activity Logs', 'Orders', 'Order Status', 'Top Products', 'Low Stock', 'Revenue Comparison', 'Customer Growth', 'Hourly Distribution', 'Payment Methods', 'Conversion Metrics', 'Daily Sales', 'Review Analytics'];
-    const results = [metricsRes, healthRes, logsRes, ordersRes, orderStatusRes, topProductsRes, lowStockRes, revenueCompRes, customerGrowthRes, hourlyDistRes, paymentTrendsRes, conversionRes, dailySalesRes, reviewAnalyticsRes];
+    const apiNames = ['Dashboard Metrics', 'System Health', 'Activity Logs', 'Orders', 'Order Status', 'Top Products', 'Revenue Comparison', 'Customer Growth', 'Hourly Distribution', 'Payment Methods', 'Conversion Metrics', 'Daily Sales', 'Review Analytics'];
+    const results = [metricsRes, healthRes, logsRes, ordersRes, orderStatusRes, topProductsRes, revenueCompRes, customerGrowthRes, hourlyDistRes, paymentTrendsRes, conversionRes, dailySalesRes, reviewAnalyticsRes];
     const failures = results.map((r, i) => r.status === 'rejected' ? apiNames[i] : null).filter(Boolean);
     if (failures.length > 0) {
       setApiErrors(prev => {
@@ -431,7 +351,7 @@ export default function DashboardPage() {
   }, refreshInterval);
 
   // ── Derived data ──
-  const { metrics, health, logs, liveOrders, alerts, orderStatus, topProducts,
+  const { metrics, health, logs, liveOrders, orderStatus, topProducts,
     revenueComparison, customerGrowth, hourlyData, paymentMethods,
     conversionMetrics, dailySales, reviewAnalytics } = data;
 
@@ -516,11 +436,11 @@ export default function DashboardPage() {
             </span>
           )}
           <DateRangePicker value={dateRange} onChange={setDateRange} />
-          <button className="px-4 py-2.5 border border-border rounded-xl bg-white hover:border-brand-black hover:text-brand-black transition-colors text-sm font-medium text-text-primary shadow-soft" onClick={() => navigate('/admin/analytics')}>
-            📊 Analytics
+          <button className="px-4 py-2.5 border border-border rounded-xl bg-white hover:border-brand-black hover:text-brand-black transition-colors text-sm font-medium text-text-primary shadow-soft flex items-center gap-2" onClick={() => navigate('/admin/analytics')}>
+            <BarChart3 size={16} /> Analytics
           </button>
-          <button className="px-4 py-2.5 bg-brand-black text-brand-white rounded-xl hover:bg-black active:bg-brand-black-hover transition-all text-sm font-semibold shadow-lg hover:shadow-xl" onClick={() => navigate('/admin/orders')}>
-            📦 View Orders
+          <button className="px-4 py-2.5 bg-brand-black text-brand-white rounded-xl hover:bg-black active:bg-brand-black-hover transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center gap-2" onClick={() => navigate('/admin/orders')}>
+            <Package size={16} /> View Orders
           </button>
         </div>
       </div>
@@ -529,7 +449,7 @@ export default function DashboardPage() {
       {apiErrors.length > 0 && (
         <div className="mb-6 bg-warning-bg border border-warning/30 rounded-2xl p-4 shadow-soft">
           <div className="flex items-start gap-3">
-            <span className="text-xl shrink-0 mt-0.5">⚠️</span>
+            <span className="text-xl shrink-0 mt-0.5"><AlertTriangle size={20} /></span>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold text-warning mb-1">Some data couldn't be loaded</div>
               <div className="text-xs text-warning/80">
@@ -538,31 +458,10 @@ export default function DashboardPage() {
                 <button className="underline font-semibold hover:text-warning" onClick={handleManualRefresh}>Retry now</button>
               </div>
             </div>
-            <button className="text-warning/50 hover:text-warning text-lg leading-none p-1" onClick={() => setApiErrors([])} aria-label="Dismiss">✕</button>
+            <button className="text-warning/50 hover:text-warning text-lg leading-none p-1" onClick={() => setApiErrors([])} aria-label="Dismiss"><X size={16} /></button>
           </div>
         </div>
       )}
-
-      {/* Alerts */}
-      <div className="mb-8 space-y-3">
-        {alerts.filter(a => a.show).map(a => {
-          const borderClass = 'flex items-start gap-4 p-4 rounded-xl border ' +
-            (a.type === 'warning' ? 'bg-warning-bg border-warning/20 text-warning' :
-             a.type === 'error' ? 'bg-danger-bg border-danger/20 text-danger' :
-             a.type === 'success' ? 'bg-success-bg border-success/20 text-success' :
-             'bg-info-bg border-info/20 text-info');
-          return (
-            <div key={a.id} className={borderClass}>
-              <span className="text-xl shrink-0">{a.type === 'warning' ? '\u26A0\uFE0F' : a.type === 'error' ? '\uD83D\uDD34' : a.type === 'success' ? '\u2705' : '\uD83D\uDD25'}</span>
-              <div className="flex-1 text-sm pt-0.5">
-                <div className="font-bold mb-0.5">{a.title}</div>
-                <div className="opacity-90">{a.message}</div>
-              </div>
-              <button className="text-lg opacity-50 hover:opacity-100 p-1" onClick={() => dispatch({ type: 'DISMISS_ALERT', payload: a.id })}>✕</button>
-            </div>
-          );
-        })}
-      </div>
 
       {/* Show skeleton while loading (only when no cached data is showing) */}
       {loading && (

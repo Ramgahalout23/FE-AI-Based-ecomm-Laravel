@@ -54,6 +54,7 @@ export default function OrdersPage() {
         <Breadcrumb
           items={[
             { label: t('nav.home'), href: '/' },
+            { label: t('profile.title'), href: '/profile' },
             { label: t('orders.title') },
           ]}
           variant="light"

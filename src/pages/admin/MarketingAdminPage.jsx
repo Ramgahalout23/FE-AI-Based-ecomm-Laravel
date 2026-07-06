@@ -300,6 +300,16 @@ export default function MarketingAdminPage() {
     setAnalyticsLoading(false);
   };
 
+  // Delay chart rendering in modal until after layout is computed — prevents recharts -1 width/height
+  useEffect(() => {
+    if (!viewingCampaign || analyticsLoading) {
+      setChartsReady(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, [viewingCampaign, analyticsLoading]);
+
   const closeCampaignAnalytics = () => {
     setViewingCampaign(null);
     setCampaignStats(null);
@@ -1219,6 +1229,7 @@ export default function MarketingAdminPage() {
                   {/* Bar Chart — Engagement Metrics */}
                   <div className="bg-white p-5 rounded-xl border border-border shadow-soft">
                     <h4 className="font-display font-bold text-sm text-text-primary mb-4">Engagement Breakdown</h4>
+                    {chartsReady ? (
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
@@ -1235,11 +1246,13 @@ export default function MarketingAdminPage() {
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
+                    ) : <div style={{ height: 256 }} />}
                   </div>
 
                   {/* Pie Chart — Delivery Status Distribution */}
                   <div className="bg-white p-5 rounded-xl border border-border shadow-soft">
                     <h4 className="font-display font-bold text-sm text-text-primary mb-4">Delivery Distribution</h4>
+                    {chartsReady ? (
                     <div className="h-64">
                       {pieData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
@@ -1273,6 +1286,7 @@ export default function MarketingAdminPage() {
                         </div>
                       )}
                     </div>
+                    ) : <div style={{ height: 256 }} />}
                   </div>
                 </div>
 

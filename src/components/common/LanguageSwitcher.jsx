@@ -2,41 +2,24 @@ import { ChevronDown, Globe } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 ;
-import { translationsAPI } from '../../api/translations';
+import { useAppInit } from '../../contexts/AppInitContext';
 import { switchLanguage } from '../../utils/i18n';
 import { useTranslation } from 'react-i18next';
 
 /**
  * LanguageSwitcher — a dropdown that lets users switch the site language.
- * Translations are loaded lazily from the backend API.
+ * Languages are read from the AppInitContext (already fetched by app-init endpoint).
  */
 export default function LanguageSwitcher({ variant = 'navbar' }) {
   const [open, setOpen] = useState(false);
-  const [languages, setLanguages] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   const ref = useRef(null);
   const { i18n } = useTranslation();
 
-  // Fetch available languages on mount
-  useEffect(() => {
-    let mounted = true;
-    const fetchLanguages = async () => {
-      try {
-        const res = await translationsAPI.getLanguages();
-        const data = res?.data?.data || [];
-        if (mounted && Array.isArray(data)) {
-          setLanguages(data);
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    fetchLanguages();
-    return () => { mounted = false; };
-  }, []);
+  // Read languages from app-init (already fetched, no separate API call needed)
+  const { data: appInitData, loading: appInitLoading } = useAppInit();
+  const languages = appInitData?.languages || [];
+  const loading = appInitLoading;
 
   // On mount, sync the displayed language with the persisted preference in localStorage.
   // This ensures the component reflects the language even if i18next's internal state

@@ -1,26 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
+import { ShoppingCart, Package, User, Shield, Tag, FileText, Trash2, Ban, Check, Settings, Save, Bell, ClipboardList, Search, AlertTriangle } from 'lucide-react';
 
 const ACTION_ICONS = {
-  'Order Confirmed': '🛒',
-  'Order Placed': '📦',
-  'Staff Created': '👤',
-  'Staff Updated': '🛡️',
-  'Product Created': '🏷️',
-  'Product Updated': '📝',
-  'Product Deleted': '🗑️',
-  'User Blocked': '🚫',
-  'User Unblocked': '✅',
-  'Setting Updated': '⚙️',
-  'Backup Created': '💾',
-  'System Notification': '🔔',
+  'Order Confirmed': <ShoppingCart size={16} />,
+  'Order Placed': <Package size={16} />,
+  'Staff Created': <User size={16} />,
+  'Staff Updated': <Shield size={16} />,
+  'Product Created': <Tag size={16} />,
+  'Product Updated': <FileText size={16} />,
+  'Product Deleted': <Trash2 size={16} />,
+  'User Blocked': <Ban size={16} />,
+  'User Unblocked': <Check size={16} />,
+  'Setting Updated': <Settings size={16} />,
+  'Backup Created': <Save size={16} />,
+  'System Notification': <Bell size={16} />,
 };
 
 function getActionIcon(action) {
   for (const [key, icon] of Object.entries(ACTION_ICONS)) {
     if (action?.toLowerCase().includes(key.toLowerCase())) return icon;
   }
-  return '📋';
+  return <ClipboardList size={16} />;
 }
 
 function getActionColor(action) {
@@ -126,8 +127,8 @@ export default function AuditLogAdminPage() {
     <div>
       <div className="admin-header admin-header-row">
         <div>
-          <h2>
-            <span style={{ marginRight: 8 }}>📋</span>Audit Log
+          <h2 className="flex items-center gap-2">
+            <ClipboardList size={20} />Audit Log
           </h2>
           <p>Track all administrative actions and system events</p>
         </div>
@@ -154,7 +155,7 @@ export default function AuditLogAdminPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="search-input" style={{ flex: '1 1 280px', maxWidth: 400 }}>
-          <span className="search-icon">🔍</span>
+          <span className="search-icon"><Search size={14} /></span>
           <input
             type="text"
             placeholder="Search actions, descriptions, or IDs..."
@@ -179,7 +180,7 @@ export default function AuditLogAdminPage() {
           <option value="">All Actions</option>
           {uniqueActions.map((a) => (
             <option key={a} value={a}>
-              {getActionIcon(a)} {a}
+              {a}
             </option>
           ))}
         </select>
@@ -192,7 +193,7 @@ export default function AuditLogAdminPage() {
       {/* Error state */}
       {error && (
         <div className="admin-alert danger mb-4">
-          <span className="admin-alert-icon">⚠️</span>
+          <span className="admin-alert-icon"><AlertTriangle size={16} /></span>
           <div className="admin-alert-body">
             <div className="admin-alert-title">Error</div>
             <div>{error}</div>
@@ -212,7 +213,7 @@ export default function AuditLogAdminPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state" style={{ padding: '3rem' }}>
-            <div className="empty-state-icon" style={{ fontSize: '2.5rem' }}>📋</div>
+            <div className="empty-state-icon" style={{ fontSize: '2.5rem' }}><ClipboardList size={40} /></div>
             <h3>No activity logs found</h3>
             <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
               {search || actionFilter

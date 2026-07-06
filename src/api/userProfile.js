@@ -4,6 +4,9 @@ export const userProfileAPI = {
   get: () => client.get('/user-profile'),
   update: (data) => client.put('/user-profile', data),
   getStats: () => client.get('/user-profile/stats'),
+  uploadAvatar: (formData) => client.post('/uploads/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   // Addresses
   getAddresses: () => client.get('/user-profile/addresses'),
   getDefaultAddress: () => client.get('/user-profile/addresses/default'),

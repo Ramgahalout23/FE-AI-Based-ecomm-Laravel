@@ -15,8 +15,14 @@ export default function SystemTab({ loading, settings, handleBackup, handleClear
           <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🗑️</div>
             <strong>Clear Cache</strong>
-            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Flush application cache for fresh data</p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Flush backend cache (config, views, translations)</p>
             <button className="btn-ghost btn-sm" onClick={handleClearCache}>Clear Cache</button>
+          </div>
+          <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🌐</div>
+            <strong>Clear Translations Cache</strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Clear translations localStorage for all visitors</p>
+            <button className="btn-ghost btn-sm" onClick={handleClearCache}>Clear Translations</button>
           </div>
           <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>

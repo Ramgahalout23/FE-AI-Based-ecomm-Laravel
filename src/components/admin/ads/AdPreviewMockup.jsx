@@ -33,7 +33,7 @@ const PLATFORM_STYLES = {
   },
 };
 
-import { X, Activity, Play, MessageCircle, Image, Eye } from 'lucide-react';
+import { X, Activity, Target, Play, MessageCircle, Image, Eye } from 'lucide-react';
 import { useState } from 'react';
 
 export default function AdPreviewMockup({ campaign, copy, platform, onClose }) {

@@ -5,7 +5,15 @@ import { formatCurrency } from '../../utils/formatters';
 
 export default function AnalyticsPage() {
   const [data, setData] = useState({ revenue: [], topProducts: [] });
+  const [chartsReady, setChartsReady] = useState(false);
+
   useEffect(() => { const f = async () => { try { const r = await analyticsAPI.getRevenueTrends(); setData(r.data || {}); } catch (e) { console.warn('Failed to load revenue trends:', e); } }; f(); }, []);
+
+  // Delay chart rendering until after layout is computed — prevents recharts -1 width/height
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const mockRevenue = [
     { month: 'Jan', revenue: 32000 }, { month: 'Feb', revenue: 38000 }, { month: 'Mar', revenue: 42000 },
@@ -21,6 +29,8 @@ export default function AnalyticsPage() {
         <div className="stat-card"><div className="stat-label">Conversion Rate</div><div className="stat-val">3.8%</div><div className="stat-change stat-up">↑ 0.4%</div></div>
         <div className="stat-card"><div className="stat-label">Customer LTV</div><div className="stat-val">{formatCurrency(489)}</div><div className="stat-change stat-up">↑ 12.7%</div></div>
       </div>
+      {!chartsReady && <div style={{ height: 520 }} />}
+      {chartsReady && (
       <div className="chart-grid">
         <div className="chart-card">
           <div className="chart-title">Revenue Trend</div>
@@ -39,6 +49,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

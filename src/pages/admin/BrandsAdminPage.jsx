@@ -5,6 +5,7 @@ import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import { Edit, Plus, X, Download, Tag } from 'lucide-react';
 
 export default function BrandsAdminPage() {
   const [brands, setBrands] = useState([]);
@@ -157,7 +158,7 @@ export default function BrandsAdminPage() {
         page="brands"
         actions={
           <>
-            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
+            <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}><Download size={14} /> Export CSV</button>
             <button className="btn-dark btn-sm" onClick={openCreate}>+ Add Brand</button>
           </>
         }
@@ -181,7 +182,7 @@ export default function BrandsAdminPage() {
           <thead><tr><th>Logo</th><th>Brand</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {brands.length === 0 ? (
-              <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon">🏷️</div><h3>No brands yet</h3></div></td></tr>
+              <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><Tag size={40} /></div><h3>No brands yet</h3></div></td></tr>
             ) : brands.map(b => (
               <tr key={b.id}>
                 <td>{b.logoUrl ? <img loading="lazy" src={b.logoUrl} alt={b.name} style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 4 }} /> : <span style={{ color: '#999' }}>—</span>}</td>
@@ -224,7 +225,7 @@ export default function BrandsAdminPage() {
       {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
-            <div className="modal-header"><h3>{editing ? '✏️ Edit Brand' : '➕ New Brand'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
+            <div className="modal-header"><h3>{editing ? <><Edit size={18} /> Edit Brand</> : <><Plus size={18} /> New Brand</>}</h3><button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
                 <div className="form-group"><label>Brand Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Gucci" /></div>

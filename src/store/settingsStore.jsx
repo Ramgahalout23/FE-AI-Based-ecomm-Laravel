@@ -1,59 +1,35 @@
-import { useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState, useEffect } from 'react';
 import { settingsAPI } from '../api/settings';
+import { useAppInit } from '../contexts/AppInitContext';
 import toast from '../utils/toast';
 import { SettingsContext } from './settingsContext';
 
-/**
- * Parse raw API settings response into a clean flat object,
- * stripping any envelope keys that don't belong in the settings map.
- */
-function parseSettings(response) {
-  const body = response?.data;
-  const raw = (body && typeof body === 'object' && body.data && typeof body.data === 'object')
-    ? body.data
-    : (body || {});
-
-  const POISON_KEYS = new Set([
-    'success', 'statusCode', 'message', 'timestamp', 'data', 'settings',
-  ]);
-  const clean = {};
-  Object.keys(raw).forEach((k) => {
-    if (!POISON_KEYS.has(k)) clean[k] = raw[k];
-  });
-  return clean;
-}
-
 export function SettingsProvider({ children }) {
-  const queryClient = useQueryClient();
+  // Read settings from app-init (already fetched, no separate API call needed)
+  const { data: appInitData, loading: appInitLoading, refetch: refetchAppInit } = useAppInit();
+  const [settings, setSettings] = useState(getDefaultSettings());
+  const [loading, setLoading] = useState(true);
 
-  const { data: settings = {}, isLoading: loading, error } = useQuery({
-    queryKey: ['settings'],
-    queryFn: async () => {
-      const response = await settingsAPI.getAll({ timeout: 60000 });
-      const parsed = parseSettings(response);
-      // If we got back an empty object, fall back to defaults
-      if (Object.keys(parsed).length === 0) {
-        return getDefaultSettings();
-      }
-      return parsed;
-    },
-    staleTime: 300000, // 5 minutes — settings rarely change
-    retry: 2,
-    // On error, use defaults (don't crash the app)
-    placeholderData: getDefaultSettings(),
-  });
+  // Sync from app-init data when it loads
+  useEffect(() => {
+    if (appInitData?.settings && Object.keys(appInitData.settings).length > 0) {
+      setSettings(prev => ({ ...prev, ...appInitData.settings }));
+    }
+    if (!appInitLoading) {
+      setLoading(false);
+    }
+  }, [appInitData, appInitLoading]);
 
   const refreshSettings = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['settings'] });
-  }, [queryClient]);
+    // Refetch app-init data to get latest settings
+    await refetchAppInit();
+  }, [refetchAppInit]);
 
   const getSetting = (key, defaultValue = null) => {
     return settings[key] ?? defaultValue;
   };
 
   const getSettingsByModule = (module) => {
-    // Since API returns flat object, we'll filter based on known keys per module
     const moduleSettings = {};
     const moduleKeyMap = {
       FOOTER: ['footerBrandTagline', 'footerNewsletterEnabled', 'footerNewsletterTitle', 'footerNewsletterSubtitle', 'footerNewsletterBtnText', 'footerShopLinks', 'footerHelpLinks', 'footerBottomLinks', 'footerTrustBadges'],
@@ -86,10 +62,8 @@ export function SettingsProvider({ children }) {
   const updateSettings = async (updates) => {
     try {
       const response = await settingsAPI.updateSettings(updates);
-      // API returns { success, message, data: {...updated settings} }
       const serverData = response.data?.data || response.data || updates;
-      // Update React Query cache directly (useQuery manages the state)
-      queryClient.setQueryData(['settings'], prev => ({ ...(prev || {}), ...serverData }));
+      setSettings(prev => ({ ...(prev || {}), ...serverData }));
       toast.success('Settings updated successfully');
       return serverData;
     } catch (err) {
@@ -102,9 +76,8 @@ export function SettingsProvider({ children }) {
   const updateSetting = async (key, value) => {
     try {
       const response = await settingsAPI.updateSetting(key, value);
-      // API returns { success, message, data: { key, value } }
       const serverData = response.data?.data || { [key]: value };
-      queryClient.setQueryData(['settings'], prev => ({
+      setSettings(prev => ({
         ...(prev || {}),
         [serverData.key || key]: serverData.value || value
       }));
@@ -120,7 +93,7 @@ export function SettingsProvider({ children }) {
   const value = {
     settings,
     loading,
-    error,
+    error: null,
     getSetting,
     getSettingsByModule,
     updateSettings,
@@ -190,11 +163,16 @@ function getDefaultSettings() {
     twilioAuthToken: '',
     twilioPhoneNumber: '',
     // Announcement Bar
+    // Cookie Consent
+    cookieConsentEnabled: 'true',
+
     // Homepage Sections (master toggles)
     reviewsEnabled: 'true',
     bestSellersEnabled: 'true',
     newArrivalsEnabled: 'true',
     curatedLooksEnabled: 'true',
+    newArrivalProductId: '',
+    newArrivalExpiryDate: '',
     // Social Login
     googleLoginEnabled: 'true',
     facebookLoginEnabled: 'true',
@@ -207,6 +185,12 @@ function getDefaultSettings() {
     // WhatsApp Button
     whatsappButtonEnabled: 'false',
     whatsappButtonNumber: '',
+    whatsappButtonMessage: 'Hi, I need help with my order',
+    whatsappButtonPosition: 'left',
+    // Phone Lead Banner
+    phoneLeadBannerEnabled: 'false',
+    phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',
+    phoneLeadBannerOfferText: 'Enter your phone number to receive exclusive offers, updates, and instant ₹100 discount on your first purchase!',
     // Chatbot / Live Chat
     // Navbar Options
     languageSwitcherEnabled: 'true',

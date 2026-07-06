@@ -79,11 +79,14 @@ export default function SettingsAdminPage() {
   const [loading, setLoading] = useState(contextLoading);
   const [dynamicGateways, setDynamicGateways] = useState([]);
   const [testingAI, setTestingAI] = useState(false);
+  const [availableProducts, setAvailableProducts] = useState([]);
   const [showGatewayModal, setShowGatewayModal] = useState(false);
   const [editingGateway, setEditingGateway] = useState(null);
   const [gatewayForm, setGatewayForm] = useState({ id: '', name: '', description: '', enabled: true, paymentUrl: '', fields: [] });
   const [newField, setNewField] = useState({ key: '', label: '', value: '', type: 'text' });
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [whatsappPreviewOpen, setWhatsappPreviewOpen] = useState(false);
+  const [whatsappHover, setWhatsappHover] = useState(false);
 
   const [initialLoad, setInitialLoad] = useState(true);
 
@@ -126,6 +129,23 @@ export default function SettingsAdminPage() {
   useEffect(() => {
     setLoading(contextLoading);
   }, [contextLoading]);
+
+  // Fetch products for the New Arrival of the Week selector
+  useEffect(() => {
+    if (tab === 'general') {
+      const fetchProducts = async () => {
+        try {
+          const res = await adminAPI.getProducts({ limit: 200, page: 1 });
+          const data = res.data?.data || res.data;
+          const list = data?.products || data?.data || (Array.isArray(data) ? data : []);
+          setAvailableProducts(list);
+        } catch (err) {
+          console.warn('Failed to load products for selector:', err);
+        }
+      };
+      fetchProducts();
+    }
+  }, [tab]);
 
   // Fetch real-time system metrics
   useEffect(() => {
@@ -291,6 +311,8 @@ export default function SettingsAdminPage() {
     'general': [
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
       'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
+      'newArrivalProductId', 'newArrivalExpiryDate',
+      'cookieConsentEnabled',
       'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
     ],
     'shipping-labels': [
@@ -331,6 +353,12 @@ export default function SettingsAdminPage() {
       'chatAutoReplyEnabled', 'chatAutoReplyMessage',
       'chatWorkingHoursEnabled', 'chatWorkingHoursStart', 'chatWorkingHoursEnd', 'chatWorkingDays',
       'whatsappButtonEnabled',
+      'whatsappButtonNumber',
+      'whatsappButtonMessage',
+      'whatsappButtonPosition',
+      'phoneLeadBannerEnabled',
+      'phoneLeadBannerHeading',
+      'phoneLeadBannerOfferText',
     ],
   };
 
@@ -357,7 +385,7 @@ export default function SettingsAdminPage() {
       if (Object.keys(updates).length > 0) {
         await updateContextSettings(updates);
       } else {
-        toast.info('No changes to save');
+        toast.success('No changes to save');
       }
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -573,7 +601,7 @@ export default function SettingsAdminPage() {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('THREVOLT_') || key.startsWith('luxe-') || key.includes('Query') || key.includes('query'))) {
+        if (key && (key.startsWith('THREVOLT_') || key.startsWith('luxe-') || key.startsWith('luxe_translations_') || key.includes('Query') || key.includes('query'))) {
           keysToRemove.push(key);
         }
       }
@@ -811,6 +839,272 @@ export default function SettingsAdminPage() {
                 </label>
               </div>
             </div>
+
+            {/* ── New Arrival of the Week Product Selector ── */}
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem 1.25rem',
+              background: 'var(--off-white)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>⭐</span>
+                <div>
+                  <strong style={{ fontSize: '0.9rem' }}>New Arrival of the Week</strong>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                    Choose a product to feature in the editorial hero section on the homepage
+                  </p>
+                </div>
+              </div>
+              <select
+                value={settings.newArrivalProductId || ''}
+                onChange={e => setSettings({ ...settings, newArrivalProductId: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem 0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'white',
+                  fontSize: '0.85rem',
+                  fontFamily: 'Jost, sans-serif',
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <option value="">— Auto-select from New Arrivals —</option>
+                {availableProducts.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.category ? `(${typeof p.category === 'object' ? p.category?.name || '' : p.category})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              {/* ── Live Product Preview ── */}
+              {(() => {
+                const selected = settings.newArrivalProductId
+                  ? availableProducts.find(p => String(p.id) === String(settings.newArrivalProductId))
+                  : null;
+
+                if (!selected) {
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      background: '#f8f6f3',
+                      border: '1px dashed var(--border)',
+                      marginBottom: '0.5rem',
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '8px',
+                        background: '#e8e5e0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.25rem',
+                        flexShrink: 0,
+                      }}>✨</div>
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#888' }}>Auto-selected</div>
+                        <div style={{ fontSize: '0.72rem', color: '#aaa' }}>
+                          First product from New Arrivals will be featured
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const imgUrl = selected.image_url || selected.images?.[0]?.url || selected.thumbnail || '';
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.85rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '12px',
+                    background: 'white',
+                    border: '1px solid var(--border)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    marginBottom: '0.5rem',
+                    transition: 'all 0.2s ease',
+                  }}>
+                    {/* Product Image */}
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      background: '#f0eeeb',
+                      flexShrink: 0,
+                      border: '1px solid #ece9e4',
+                    }}>
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <img
+                          src={getImageUrl(imgUrl)}
+                          alt={selected.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => {
+                            e.target.style.display = 'none';
+                            const fb = e.target.parentElement.querySelector('.img-fallback');
+                            if (fb) fb.style.opacity = '0.3';
+                          }}
+                        />
+                        <div
+                          className="img-fallback"
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                            opacity: 0,
+                            transition: 'opacity 0.15s ease',
+                            pointerEvents: 'none',
+                          }}
+                        >👕</div>
+                      </div>
+                    </div>
+
+                    {/* Product Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: '#1a1a1a',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginBottom: '0.2rem',
+                      }}>
+                        {selected.name}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1rem', fontWeight: 700, color: '#1a1a1a' }}>
+                          {selected.price ? `₹${Number(selected.price).toLocaleString()}` : ''}
+                        </span>
+                        {selected.oldPrice && Number(selected.oldPrice) > Number(selected.price) && (
+                          <>
+                            <span style={{
+                              fontSize: '0.78rem',
+                              color: '#999',
+                              textDecoration: 'line-through',
+                            }}>
+                              ₹{Number(selected.oldPrice).toLocaleString()}
+                            </span>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              color: '#e74c3c',
+                              background: '#fef2f2',
+                              padding: '0.1rem 0.45rem',
+                              borderRadius: '999px',
+                            }}>
+                              -{Math.round(((Number(selected.oldPrice) - Number(selected.price)) / Number(selected.oldPrice)) * 100)}%
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {selected.category && (
+                        <div style={{
+                          fontSize: '0.68rem',
+                          color: '#999',
+                          marginTop: '0.15rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          fontWeight: 500,
+                        }}>
+                          {typeof selected.category === 'object' ? selected.category?.name || '' : selected.category}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Selected indicator */}
+                    <div style={{
+                      flexShrink: 0,
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: '#1a1a1a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                Leave as "Auto-select" to use the first product from New Arrivals. Save settings after selecting.
+              </span>
+
+              {/* ── Expiry Date ── */}
+              <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '0.3rem' }}>
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    value={settings.newArrivalExpiryDate || ''}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setSettings({ ...settings, newArrivalExpiryDate: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      background: 'white',
+                      fontSize: '0.82rem',
+                      fontFamily: 'Jost, sans-serif',
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 160, paddingTop: '0.3rem' }}>
+                  {settings.newArrivalExpiryDate && (() => {
+                    const now = new Date();
+                    const expiry = new Date(settings.newArrivalExpiryDate);
+                    const isExpired = now > expiry;
+                    const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '999px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        background: isExpired ? '#fef2f2' : '#f0fdf4',
+                        color: isExpired ? '#dc2626' : '#16a34a',
+                        border: `1px solid ${isExpired ? '#fecaca' : '#bbf7d0'}`,
+                      }}>
+                        {isExpired ? (
+                          <>🔴 Expired — featured product will auto-hide</>
+                        ) : daysLeft <= 3 ? (
+                          <>🟡 Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</>
+                        ) : (
+                          <>🟢 Active — {daysLeft} day{daysLeft !== 1 ? 's' : ''} remaining</>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: '#999', marginTop: '0.25rem', display: 'block' }}>
+                Set an optional expiry date. After this date, the featured product will auto-hide on the homepage. Leave empty for no expiry.
+              </span>
+            </div>
+
             <div className="form-actions" style={{ marginTop: '1rem' }}>
               <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
                 {loading ? 'Saving...' : 'Save Section Toggles'}
@@ -825,6 +1119,36 @@ export default function SettingsAdminPage() {
               <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                 Master toggles to show or hide the Language &amp; Currency switchers on the top navigation bar.
               </p>
+              {/* Cookie Consent Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🍪</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Cookie Consent Banner</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Show the cookie consent dialog to first-time visitors
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.cookieConsentEnabled !== "false"}
+                    onChange={e => setSettings({ ...settings, cookieConsentEnabled: e.target.checked ? "true" : "false" })}
+                  />
+                  <span className={`status-badge ${settings.cookieConsentEnabled !== "false" ? "status-active" : "status-pending"}`}>
+                    {settings.cookieConsentEnabled !== "false" ? "Visible" : "Hidden"}
+                  </span>
+                </label>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {/* Language Switcher Toggle */}
@@ -1960,6 +2284,114 @@ export default function SettingsAdminPage() {
           <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
             <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                {/* WhatsApp icon with hover preview */}
+                <div
+                  style={{ position: 'relative', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                  onMouseEnter={() => setWhatsappHover(true)}
+                  onMouseLeave={() => setWhatsappHover(false)}
+                >
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: settings.whatsappButtonEnabled !== 'false'
+                      ? 'linear-gradient(135deg, #25D366, #128C7E)'
+                      : '#ccc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.2s ease',
+                    transform: whatsappHover ? 'scale(1.1)' : 'scale(1)',
+                    boxShadow: whatsappHover ? '0 2px 12px rgba(37, 211, 102, 0.4)' : 'none',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                  </div>
+                  {/* Hovercard */}
+                  {whatsappHover && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      marginTop: '8px',
+                      zIndex: 100,
+                      background: '#ffffff',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)',
+                      border: '1px solid #e8e2d9',
+                      padding: '12px 14px',
+                      minWidth: '220px',
+                      pointerEvents: 'none',
+                    }}>
+                      {/* Arrow */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        left: '50%',
+                        transform: 'translateX(-50%) rotate(45deg)',
+                        width: '12px',
+                        height: '12px',
+                        background: '#ffffff',
+                        borderLeft: '1px solid #e8e2d9',
+                        borderTop: '1px solid #e8e2d9',
+                      }} />
+                      {/* Preview content */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)',
+                        }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                            Chat on WhatsApp
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '1px' }}>
+                            {(settings.whatsappButtonNumber || '+919876543210').replace(/[^\d+]/g, '') || '+919876543210'}
+                          </div>
+                          {settings.whatsappButtonMessage && (
+                            <div style={{
+                              fontSize: '0.7rem',
+                              color: '#888',
+                              marginTop: '2px',
+                              maxWidth: '160px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              "{settings.whatsappButtonMessage}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {settings.whatsappButtonEnabled === 'false' && (
+                        <div style={{
+                          marginTop: '8px',
+                          paddingTop: '8px',
+                          borderTop: '1px solid #f0f0f0',
+                          fontSize: '0.7rem',
+                          color: '#f59e0b',
+                          textAlign: 'center',
+                        }}>
+                          WhatsApp button is currently hidden
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <h3>WhatsApp Button</h3>
                 <span className={`status-badge ${settings.whatsappButtonEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
                   {settings.whatsappButtonEnabled !== 'false' ? 'Visible' : 'Hidden'}
@@ -1975,7 +2407,7 @@ export default function SettingsAdminPage() {
               </label>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
-              When enabled, a floating WhatsApp button appears at the bottom-left of the storefront.
+              When enabled, a floating WhatsApp button appears on the storefront.
               Customers can tap it to start a direct WhatsApp conversation with your business.
               Works alongside the live chat widget (both can be active simultaneously).
             </p>
@@ -1994,47 +2426,277 @@ export default function SettingsAdminPage() {
                   No spaces or special characters needed.
                 </span>
               </div>
-            </div>
-            {/* Preview */}
-            <div style={{
-              marginTop: '1rem',
-              background: 'var(--off-white)',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border)',
-              padding: '1rem 1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              opacity: settings.whatsappButtonEnabled !== 'false' ? 1 : 0.4,
-              transition: 'opacity 0.3s ease',
-            }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                boxShadow: '0 2px 12px rgba(37, 211, 102, 0.3)',
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                </svg>
+              <div className="form-group form-full">
+                <label>Default Message</label>
+                <textarea
+                  rows={2}
+                  value={settings.whatsappButtonMessage || ''}
+                  onChange={e => setSettings({ ...settings, whatsappButtonMessage: e.target.value })}
+                  placeholder="Hi, I need help with my order"
+                  disabled={settings.whatsappButtonEnabled === 'false'}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                  This pre-filled message will appear when customers click the WhatsApp button.
+                </span>
               </div>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                  {(settings.whatsappButtonNumber || '+919876543210').replace(/[^\d+]/g, '') || '+919876543210'}
+              <div className="form-group form-full">
+                <label>Button Position</label>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <label style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-lg)',
+                    border: `2px solid ${settings.whatsappButtonPosition !== 'right' ? 'var(--charcoal)' : 'var(--border)'}`,
+                    background: settings.whatsappButtonPosition !== 'right' ? 'var(--off-white)' : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    opacity: settings.whatsappButtonEnabled === 'false' ? 0.5 : 1,
+                  }}>
+                    <input
+                      type="radio"
+                      name="whatsappPosition"
+                      checked={settings.whatsappButtonPosition !== 'right'}
+                      onChange={() => setSettings({ ...settings, whatsappButtonPosition: 'left' })}
+                      disabled={settings.whatsappButtonEnabled === 'false'}
+                      style={{ accentColor: 'var(--charcoal)' }}
+                    />
+                    <span style={{ fontSize: '1.1rem' }}>⬅️</span>
+                    <div>
+                      <strong style={{ fontSize: '0.85rem' }}>Bottom Left</strong>
+                    </div>
+                  </label>
+                  <label style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-lg)',
+                    border: `2px solid ${settings.whatsappButtonPosition === 'right' ? 'var(--charcoal)' : 'var(--border)'}`,
+                    background: settings.whatsappButtonPosition === 'right' ? 'var(--off-white)' : 'white',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    opacity: settings.whatsappButtonEnabled === 'false' ? 0.5 : 1,
+                  }}>
+                    <input
+                      type="radio"
+                      name="whatsappPosition"
+                      checked={settings.whatsappButtonPosition === 'right'}
+                      onChange={() => setSettings({ ...settings, whatsappButtonPosition: 'right' })}
+                      disabled={settings.whatsappButtonEnabled === 'false'}
+                      style={{ accentColor: 'var(--charcoal)' }}
+                    />
+                    <span style={{ fontSize: '1.1rem' }}>➡️</span>
+                    <div>
+                      <strong style={{ fontSize: '0.85rem' }}>Bottom Right</strong>
+                    </div>
+                  </label>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
-                  Customers see this floating button at the bottom-left of the homepage
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.3rem', display: 'block' }}>
+                  Choose which corner the floating button appears in. The live chat widget is always on the right.
+                </span>
+              </div>
+            </div>
+            {/* ── Live WhatsApp Preview ── */}
+            <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
+              <div className="detail-header" style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <h3>WhatsApp Preview</h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontStyle: 'italic' }}>
+                  Click the WhatsApp bubble to see a live preview
+                </span>
+              </div>
+              {/* Simulated storefront viewport */}
+              <div style={{
+                background: '#f0f0f0',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+                padding: '1.5rem',
+                position: 'relative',
+                minHeight: '280px',
+                overflow: 'hidden',
+                opacity: settings.whatsappButtonEnabled !== 'false' ? 1 : 0.4,
+                transition: 'opacity 0.3s ease',
+              }}>
+                {/* Faux storefront content */}
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '0.5rem', opacity: 0.5 }}>Storefront</div>
+                    <div style={{ fontSize: '13px', color: '#aaa', fontWeight: 500 }}>WhatsApp Button Preview</div>
+                  </div>
                 </div>
+                {/* Floating WhatsApp button */}
+                <button
+                  onClick={() => setWhatsappPreviewOpen(!whatsappPreviewOpen)}
+                  style={{
+                    position: 'absolute',
+                    bottom: '24px',
+                    [settings.whatsappButtonPosition === 'right' ? 'right' : 'left']: '24px',
+                    zIndex: 10,
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 20px rgba(37, 211, 102, 0.35)',
+                    transition: 'transform 0.2s ease, boxShadow 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(37, 211, 102, 0.45)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(37, 211, 102, 0.35)'; }}
+                  disabled={settings.whatsappButtonEnabled === 'false'}
+                  aria-label="Toggle WhatsApp preview"
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                </button>
+                {/* WhatsApp chat window */}
+                {whatsappPreviewOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '80px',
+                    [settings.whatsappButtonPosition === 'right' ? 'right' : 'left']: '24px',
+                    zIndex: 11,
+                    width: '320px',
+                    maxWidth: 'calc(100% - 48px)',
+                    maxHeight: '360px',
+                    background: '#ffffff',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, #075E54, #128C7E)',
+                      color: 'white',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexShrink: 0,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'rgba(255,255,255,0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '14px',
+                          fontWeight: 700,
+                        }}>W</div>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700 }}>
+                            WhatsApp Chat
+                          </div>
+                          <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                            Usually replies within a few minutes
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setWhatsappPreviewOpen(false)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'rgba(255,255,255,0.6)',
+                          cursor: 'pointer',
+                          padding: '2px',
+                          display: 'flex',
+                          borderRadius: '4px',
+                        }}
+                        aria-label="Close WhatsApp preview"
+                      >
+                        <Minus size={16} />
+                      </button>
+                    </div>
+                    {/* Chat body */}
+                    <div style={{
+                      flex: 1,
+                      padding: '16px',
+                      background: '#e5ddd5',
+                      background: '#e5ddd5',
+
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      minHeight: '160px',
+                      overflowY: 'auto',
+                    }}>
+                      {/* Business message */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                        <div style={{
+                          maxWidth: '85%',
+                          padding: '10px 14px',
+                          borderRadius: '4px 16px 16px 16px',
+                          background: '#ffffff',
+                          color: '#1a1a1a',
+                          fontSize: '13px',
+                          lineHeight: 1.4,
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                        }}>
+                          <div style={{ fontSize: '11px', color: '#128C7E', fontWeight: 600, marginBottom: '2px' }}>
+                            {(settings.whatsappButtonNumber || '+919876543210').replace(/[^\d+]/g, '') || '+919876543210'}
+                          </div>
+                          <div>{settings.whatsappButtonMessage || 'Hi, I need help with my order'}</div>
+                          <div style={{ fontSize: '9px', opacity: 0.4, marginTop: '4px', textAlign: 'right' }}>
+                            {formatTime(new Date())}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Input area */}
+                    <div style={{
+                      padding: '10px 12px',
+                      background: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexShrink: 0,
+                    }}>
+                      <div style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: '20px',
+                        background: '#ffffff',
+                        border: '1px solid #ddd',
+                        fontSize: '12px',
+                        color: '#999',
+                      }}>
+                        Type a message...
+                      </div>
+                      <button style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: '#128C7E',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <Send size={14} color="white" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* ── Messages ── */}
+          {/* ── Messages ── */}          {/* ── Messages ── */}
           <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
             <div className="detail-header" style={{ marginBottom: '1rem' }}>
               <h3>Messages & Auto-Reply</h3>

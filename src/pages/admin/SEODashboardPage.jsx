@@ -1,11 +1,9 @@
-import { Trophy, BarChart3, Globe, RefreshCw, TrendingUp, Minus, AlertTriangle, Search, Zap, Settings, FileText, Pencil, CheckCircle, XCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { Trophy, BarChart3, Globe, RefreshCw, TrendingUp, TrendingDown, Minus, AlertTriangle, Search, Zap, Settings, FileText, Pencil, CheckCircle, XCircle, ArrowRight, ExternalLink, Award, GitBranch } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
 import { formatDate, formatTime } from '../../utils/formatters';
-
-;
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, sub, color, onClick }) {

@@ -87,6 +87,9 @@ function ProductCard({ product }) {
 
   const displayPrice = matchedVariant?.price ?? product.price;
   const hasAllSelections = (!colors.length || selectedColor) && (!sizes.length || selectedSize);
+  const canAdd = hasVariants
+    ? (hasAllSelections && matchedVariant && (matchedVariant.quantity || 0) > 0)
+    : ((product.quantity ?? 0) > 0);
 
   /* ── Auto-first variant for no-selection quick add ── */
   const firstAvailVariant = useMemo(() => {
@@ -193,7 +196,7 @@ function ProductCard({ product }) {
 
   /* ── Add from panel (after selections made) ── */
   const handlePanelAdd = useCallback(async () => {
-    if (isAdding || !hasAllSelections) return;
+    if (isAdding || !hasAllSelections || !canAdd) return;
     setIsAdding(true);
     try {
       if (hasVariants) {
@@ -236,7 +239,7 @@ function ProductCard({ product }) {
     } finally {
       setIsAdding(false);
     }
-  }, [hasVariants, hasAllSelections, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, closePanel, isAuthenticated]);
+  }, [hasVariants, hasAllSelections, canAdd, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, closePanel, isAuthenticated]);
 
   /* ── Prevent body scroll when mobile bottom sheet is open ── */
   useEffect(() => {
@@ -249,7 +252,7 @@ function ProductCard({ product }) {
   }, [showQuickAdd]);
 
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
-  const { isOutOfStock, isLowStock } = computeStockStatus(product);
+  const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
 
   // Computed "New" badge — based on badge field, isNew flag, or recent creation
   const isNew = useMemo(() => {
@@ -267,7 +270,7 @@ function ProductCard({ product }) {
   if (isOutOfStock) {
     topLeftBadge = { label: t('product.out_of_stock'), className: 'bg-red-500 text-white' };
   } else if (isLowStock) {
-    topLeftBadge = { label: t('product.low_stock'), className: 'bg-amber-500 text-white' };
+    topLeftBadge = { label: t('product.low_stock', { count: effectiveStockQty }), className: 'bg-amber-500 text-white' };
   } else if (discount) {
     topLeftBadge = { label: t('product.sale_badge'), className: 'bg-red-500 text-white' };
   } else if (isNew) {
@@ -478,11 +481,21 @@ function ProductCard({ product }) {
                     {/* Add to Cart */}
                     <button
                       onClick={handlePanelAdd}
-                      disabled={!hasAllSelections || isAdding}
-                      className="flex-1 h-8 flex items-center justify-center gap-1.5 bg-black text-white text-[10px] font-bold rounded-[3px] transition-all duration-150 hover:bg-gray-900 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-black"
+                      disabled={!canAdd || isAdding}
+                      className={`flex-1 h-8 flex items-center justify-center gap-1.5 text-[10px] font-bold rounded-[3px] transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed ${
+                        canAdd && !isAdding
+                          ? 'bg-black text-white hover:bg-gray-900'
+                          : 'bg-gray-100 text-gray-400'
+                      }`}
                     >
                       {isAdding ? (
                         <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : !hasAllSelections ? (
+                        <span>{t('product.select') || 'Select'}</span>
+                      ) : !matchedVariant && hasVariants ? (
+                        <span>{t('product.unavailable') || 'Unavailable'}</span>
+                      ) : !canAdd ? (
+                        <span>{t('product.sold_out') || 'Sold Out'}</span>
                       ) : (
                         <AnimatePresence mode="popLayout">
                           <motion.span
@@ -517,12 +530,12 @@ function ProductCard({ product }) {
             !showQuickAdd && (
               <button
                 onClick={handleQuickAdd}
-                className="absolute bottom-0 inset-x-0 z-20 h-9 flex items-center justify-center gap-1.5 bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-200 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60"
+                className="absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60"
               >
                 {isAdding ? (
                   <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
                 ) : (
-                  <><ShoppingBag size={11} /><span>{t('product.quick_add')}</span></>
+                  <><ShoppingBag size={12} /><span>{t('product.quick_add')}</span></>
                 )}
               </button>
             )
@@ -530,8 +543,8 @@ function ProductCard({ product }) {
         </div>
 
         {/* Details */}
-        <div className={`p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          <p className="text-[11px] max-sm:text-[10px] font-medium text-primary uppercase tracking-wider mb-1">
+        <div className={`max-sm:p-2.5 p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
+          <p className="text-[11px] max-sm:text-[10px] font-medium text-primary uppercase tracking-wider mb-1 truncate">
             {typeof product.category === 'object' ? product.category?.name || product.categoryName || 'T-Shirt' : product.category || product.categoryName || 'T-Shirt'}
           </p>
 
@@ -561,7 +574,7 @@ function ProductCard({ product }) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="fixed inset-0 z-50"
+                className="fixed inset-0 z-[9999]"
                 onClick={closePanel}
               >
                 {/* Dark Backdrop */}
@@ -723,11 +736,21 @@ function ProductCard({ product }) {
                       {/* Add to Cart */}
                       <button
                         onClick={handlePanelAdd}
-                        disabled={!hasAllSelections || isAdding}
-                        className="flex-1 h-11 flex items-center justify-center gap-2 bg-black text-white text-xs font-bold rounded-lg transition-all duration-150 hover:bg-gray-900 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-black"
+                        disabled={!canAdd || isAdding}
+                        className={`flex-1 h-11 flex items-center justify-center gap-2 text-xs font-bold rounded-lg transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed ${
+                          canAdd && !isAdding
+                            ? 'bg-black text-white hover:bg-gray-900'
+                            : 'bg-gray-100 text-gray-400'
+                        }`}
                       >
                         {isAdding ? (
                           <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : !hasAllSelections ? (
+                          <span>{t('product.select') || 'Select'}</span>
+                        ) : !matchedVariant && hasVariants ? (
+                          <span>{t('product.unavailable') || 'Unavailable'}</span>
+                        ) : !canAdd ? (
+                          <span>{t('product.sold_out') || 'Sold Out'}</span>
                         ) : (
                           <AnimatePresence mode="popLayout">
                             <motion.span

@@ -7,6 +7,7 @@ import RefreshControls from '../../components/common/RefreshControls';
 import useDashboardCache from '../../hooks/useDashboardCache';
 import useInterval from '../../hooks/useInterval';
 import AnalyticsSkeleton from '../../components/analytics/AnalyticsSkeleton';
+import { DollarSign, Package, Users, BarChart3, Clock, Check, CreditCard } from 'lucide-react';
 
 const COLORS = ['#C9A96E', '#27AE60', '#2980B9', '#C0392B', '#8E44AD', '#F39C12', '#1ABC9C', '#2C3E50'];
 const PIE_COLORS = ['#1a1a1a', '#22c55e', '#888888', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6'];
@@ -76,6 +77,7 @@ export default function AnalyticsAdminPage() {
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [tab, setTab] = useState('overview');
+  const [chartsReady, setChartsReady] = useState(false);
 
   // Destructure all analytics fields from state
   const {
@@ -257,6 +259,13 @@ export default function AnalyticsAdminPage() {
     return () => { fetchingRef.current = false; };
   }, [dateRange, loadAnalytics]);
 
+  // Delay chart rendering until after layout is computed — prevents recharts -1 width/height
+  useEffect(() => {
+    if (loading) return;
+    const raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, [loading]);
+
   // --- Auto-refresh interval ---
   useInterval(() => {
     loadAnalytics(dateRange, { skipCache: true, isBackground: true });
@@ -339,14 +348,18 @@ export default function AnalyticsAdminPage() {
       {/* Tab content with fade-in when skeleton disappears */}
       {!loading && (
       <div className="dashboard-content-enter">
+      {!chartsReady && <div style={{ height: 800 }} />}
+      {chartsReady && (
+      <>
+
       {/* ========== OVERVIEW TAB ========== */}
       {tab === 'overview' && (
         <>
           <div className="stats-grid">
-            <div className="stat-card"><div className="stat-icon revenue">💰</div><div className="stat-label">Total Revenue</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.totalRevenue || sales?.totalRevenue || sales?.revenue || sales?.total_revenue || 0)}</div><div className="stat-change stat-up">↑ {revenueComparison ? Math.abs(revenueComparison.changePercent ?? 0).toFixed(1) : '14.2'}% vs prev</div></div>
-            <div className="stat-card"><div className="stat-icon orders">📦</div><div className="stat-label">Total Orders</div><div className="stat-val">{formatNumber(dashboardSummary?.metrics?.totalOrders || sales?.totalOrders || sales?.orders || sales?.total_orders || 0)}</div><div className="stat-change stat-up">↑ {conversionMetrics ? conversionMetrics.completedOrders : 0} completed</div></div>
-            <div className="stat-card"><div className="stat-icon users">👥</div><div className="stat-label">Total Customers</div><div className="stat-val">{formatNumber(userAnalytics?.totalUsers || dashboardSummary?.metrics?.totalUsers || dashboardSummary?.totalCustomers || 0)}</div><div className="stat-change">{userAnalytics?.newUsers ? '↑ ' + userAnalytics.newUsers + ' new' : ''}</div></div>
-            <div className="stat-card"><div className="stat-icon revenue">📊</div><div className="stat-label">AOV</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.avgOrderValue || dashboardSummary?.avgOrderValue || sales?.avgOrderValue || sales?.aov || sales?.average_order_value || 0)}</div><div className="stat-change">{conversionMetrics ? (conversionMetrics.conversionRate ?? 0).toFixed(1) + '% conv.' : ''}</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><DollarSign size={20} /></div><div className="stat-label">Total Revenue</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.totalRevenue || sales?.totalRevenue || sales?.revenue || sales?.total_revenue || 0)}</div><div className="stat-change stat-up">↑ {revenueComparison ? Math.abs(revenueComparison.changePercent ?? 0).toFixed(1) : '14.2'}% vs prev</div></div>
+            <div className="stat-card"><div className="stat-icon orders"><Package size={20} /></div><div className="stat-label">Total Orders</div><div className="stat-val">{formatNumber(dashboardSummary?.metrics?.totalOrders || sales?.totalOrders || sales?.orders || sales?.total_orders || 0)}</div><div className="stat-change stat-up">↑ {conversionMetrics ? conversionMetrics.completedOrders : 0} completed</div></div>
+            <div className="stat-card"><div className="stat-icon users"><Users size={20} /></div><div className="stat-label">Total Customers</div><div className="stat-val">{formatNumber(userAnalytics?.totalUsers || dashboardSummary?.metrics?.totalUsers || dashboardSummary?.totalCustomers || 0)}</div><div className="stat-change">{userAnalytics?.newUsers ? '↑ ' + userAnalytics.newUsers + ' new' : ''}</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><BarChart3 size={20} /></div><div className="stat-label">AOV</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.avgOrderValue || dashboardSummary?.avgOrderValue || sales?.avgOrderValue || sales?.aov || sales?.average_order_value || 0)}</div><div className="stat-change">{conversionMetrics ? (conversionMetrics.conversionRate ?? 0).toFixed(1) + '% conv.' : ''}</div></div>
           </div>
 
           {/* Conversion Metrics Row */}
@@ -451,14 +464,15 @@ export default function AnalyticsAdminPage() {
         </>
       )}
 
+
       {/* ========== SALES TAB ========== */}
       {tab === 'sales' && (
         <>
           <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="stat-card"><div className="stat-icon revenue">💰</div><div className="stat-label">Total Revenue</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.totalRevenue || sales?.totalRevenue || sales?.revenue || 0)}</div><div className="stat-change stat-up">Revenue in this period</div></div>
-            <div className="stat-card"><div className="stat-icon orders">📦</div><div className="stat-label">Total Orders</div><div className="stat-val">{formatNumber(dashboardSummary?.metrics?.totalOrders || sales?.totalOrders || sales?.orders || 0)}</div><div className="stat-change">{sales?.averageOrderValue ? 'AOV: ' + formatCurrency(sales.averageOrderValue) : ''}</div></div>
-            <div className="stat-card"><div className="stat-icon revenue">📊</div><div className="stat-label">Daily Avg Revenue</div><div className="stat-val">{formatCurrency(dailySales.length > 0 ? dailySales.reduce((s, d) => s + d.revenue, 0) / dailySales.length : 0)}</div><div className="stat-change">Across {dailySales.length} days</div></div>
-            <div className="stat-card"><div className="stat-icon users">🕐</div><div className="stat-label">Peak Hour</div><div className="stat-val">{hourlyData.length > 0 ? (() => { const peak = [...hourlyData].sort((a, b) => b.orders - a.orders)[0]; return peak ? peak.hour : 'N/A'; })() : 'N/A'}</div><div className="stat-change">Most orders placed</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><DollarSign size={20} /></div><div className="stat-label">Total Revenue</div><div className="stat-val">{formatCurrency(dashboardSummary?.metrics?.totalRevenue || sales?.totalRevenue || sales?.revenue || 0)}</div><div className="stat-change stat-up">Revenue in this period</div></div>
+            <div className="stat-card"><div className="stat-icon orders"><Package size={20} /></div><div className="stat-label">Total Orders</div><div className="stat-val">{formatNumber(dashboardSummary?.metrics?.totalOrders || sales?.totalOrders || sales?.orders || 0)}</div><div className="stat-change">{sales?.averageOrderValue ? 'AOV: ' + formatCurrency(sales.averageOrderValue) : ''}</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><BarChart3 size={20} /></div><div className="stat-label">Daily Avg Revenue</div><div className="stat-val">{formatCurrency(dailySales.length > 0 ? dailySales.reduce((s, d) => s + d.revenue, 0) / dailySales.length : 0)}</div><div className="stat-change">Across {dailySales.length} days</div></div>
+            <div className="stat-card"><div className="stat-icon users"><Clock size={20} /></div><div className="stat-label">Peak Hour</div><div className="stat-val">{hourlyData.length > 0 ? (() => { const peak = [...hourlyData].sort((a, b) => b.orders - a.orders)[0]; return peak ? peak.hour : 'N/A'; })() : 'N/A'}</div><div className="stat-change">Most orders placed</div></div>
           </div>
 
           {/* Daily Sales Trend */}
@@ -523,6 +537,7 @@ export default function AnalyticsAdminPage() {
           )}
         </>
       )}
+
 
       {/* ========== PRODUCTS TAB ========== */}
       {tab === 'products' && (
@@ -590,13 +605,14 @@ export default function AnalyticsAdminPage() {
                   </tr>
                 ))}
                 {(topProducts.length === 0 && (
-                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No data yet</h3><p>Product analytics will appear once you have orders.</p></div></td></tr>
+                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><Package size={40} /></div><h3>No data yet</h3><p>Product analytics will appear once you have orders.</p></div></td></tr>
                 ))}
               </tbody>
             </table>
           </div>
         </>
       )}
+
 
       {/* ========== PAYMENTS TAB ========== */}
       {tab === 'payments' && (
@@ -653,7 +669,7 @@ export default function AnalyticsAdminPage() {
                   </tr>
                 ))}
                 {paymentMethodTrends.length === 0 && (
-                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon">💳</div><h3>No payment data yet</h3><p>Payment analytics will appear once you have orders.</p></div></td></tr>
+                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><CreditCard size={40} /></div><h3>No payment data yet</h3><p>Payment analytics will appear once you have orders.</p></div></td></tr>
                 )}
               </tbody>
             </table>
@@ -679,14 +695,15 @@ export default function AnalyticsAdminPage() {
         </>
       )}
 
+
       {/* ========== CUSTOMERS TAB ========== */}
       {tab === 'customers' && (
         <>
           <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="stat-card"><div className="stat-icon users">👥</div><div className="stat-label">Total Users</div><div className="stat-val">{formatNumber(userAnalytics?.totalUsers || dashboardSummary?.metrics?.totalUsers || dashboardSummary?.totalCustomers || 0)}</div><div className="stat-change">{userAnalytics?.newUsers ? formatNumber(userAnalytics.newUsers) + ' new in period' : ''}</div></div>
-            <div className="stat-card"><div className="stat-icon users">✅</div><div className="stat-label">Active Users</div><div className="stat-val">{formatNumber(userAnalytics?.activeUsers || 0)}</div><div className="stat-change">Recently logged in</div></div>
-            <div className="stat-card"><div className="stat-icon revenue">💵</div><div className="stat-label">Total Customer Revenue</div><div className="stat-val">{formatCurrency(userAnalytics?.totalRevenue || 0)}</div></div>
-            <div className="stat-card"><div className="stat-icon revenue">📊</div><div className="stat-label">Customer AOV</div><div className="stat-val">{formatCurrency(userAnalytics?.averageOrderValue || 0)}</div></div>
+            <div className="stat-card"><div className="stat-icon users"><Users size={20} /></div><div className="stat-label">Total Users</div><div className="stat-val">{formatNumber(userAnalytics?.totalUsers || dashboardSummary?.metrics?.totalUsers || dashboardSummary?.totalCustomers || 0)}</div><div className="stat-change">{userAnalytics?.newUsers ? formatNumber(userAnalytics.newUsers) + ' new in period' : ''}</div></div>
+            <div className="stat-card"><div className="stat-icon users"><Check size={20} /></div><div className="stat-label">Active Users</div><div className="stat-val">{formatNumber(userAnalytics?.activeUsers || 0)}</div><div className="stat-change">Recently logged in</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><DollarSign size={20} /></div><div className="stat-label">Total Customer Revenue</div><div className="stat-val">{formatCurrency(userAnalytics?.totalRevenue || 0)}</div></div>
+            <div className="stat-card"><div className="stat-icon revenue"><BarChart3 size={20} /></div><div className="stat-label">Customer AOV</div><div className="stat-val">{formatCurrency(userAnalytics?.averageOrderValue || 0)}</div></div>
           </div>
 
           {/* Customer Growth Chart */}
@@ -723,12 +740,14 @@ export default function AnalyticsAdminPage() {
                     <td>{formatCurrency(c.ltv || c.totalSpent)}</td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon">👥</div><h3>No data yet</h3><p>Customer insights will appear once you have orders.</p></div></td></tr>
+                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><Users size={40} /></div><h3>No data yet</h3><p>Customer insights will appear once you have orders.</p></div></td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </>
+      )}
+      </>
       )}
       </div>
       )}

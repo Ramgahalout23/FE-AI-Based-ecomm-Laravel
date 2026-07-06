@@ -4,24 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-
-;
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
 import { useSettings } from '../../store/useSettings';
+import { homepageAPI } from '../../api/homepage';
 import { productsAPI } from '../../api/products';
-import { categoriesAPI } from '../../api/categories';
-import { bannersAPI } from '../../api/banners';
-import { seoAPI } from '../../api/seo';
-import { reviewsAPI } from '../../api/reviews';
-import { curatedLooksAPI } from '../../api/curatedLooks';
-import { reelsAPI } from '../../api/reels';
-import { promotionsAPI } from '../../api/promotions';
 import usePullToRefresh from '../../hooks/usePullToRefresh';
 
-import { formatCurrency, formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
+import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
 import ReelsSection from '../../components/storefront/ReelsSection';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
+import NewArrivalOfTheWeek from '../../components/storefront/NewArrivalOfTheWeek';
 
 /* ═══════════ ANIMATION WRAPPERS — Premium Entrance ═══════════ */
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
@@ -46,7 +39,7 @@ function AnimatedDivider() {
         whileInView={{ scaleX: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="h-px w-20 md:w-32 bg-gradient-to-r from-transparent via-gray-200 to-transparent"
+        className="h-px w-20 md:w-32 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full"
         style={{ transformOrigin: 'left center' }}
       />
       <motion.div
@@ -54,14 +47,15 @@ function AnimatedDivider() {
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.4, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
-        className="w-1.5 h-1.5 rounded-full bg-primary/25"
+        className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"
+        style={{ animationDuration: '3s' }}
       />
       <motion.div
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-        className="h-px w-20 md:w-32 bg-gradient-to-l from-transparent via-gray-200 to-transparent"
+        className="h-px w-20 md:w-32 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full"
         style={{ transformOrigin: 'right center' }}
       />
     </div>
@@ -372,9 +366,9 @@ function CategorySection({ categories }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
             <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.collections')}</span>
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full" />
           </div>
           <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
             {t('home.shop_by_category')}
@@ -492,44 +486,124 @@ function CategorySection({ categories }) {
   );
 }
 
-/* ═══════════ PREMIUM PRODUCT SLIDER (Horizontal Carousel) ═══════════ */
+/* ═══════════ PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) ═══════════ */
 function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
+  const wrapperRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const autoplayRef = useRef(null);
+
+  // Autoplay — scrolls every 5s (pauses on hover)
+  useEffect(() => {
+    if (isMobile || products.length <= 1) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const scrollNext = () => {
+      const card = el.querySelector('.product-slide');
+      if (!card) return;
+      const cardWidth = card.offsetWidth;
+      const gap = 12;
+      const scrollAmount = cardWidth + gap;
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      const nextScroll = el.scrollLeft + scrollAmount;
+      if (nextScroll >= maxScroll - 10) {
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      }
+    };
+
+    const startAutoplay = () => {
+      autoplayRef.current = setInterval(scrollNext, 5000);
+    };
+
+    if (!isHovered) {
+      startAutoplay();
+    }
+
+    return () => clearInterval(autoplayRef.current);
+  }, [isMobile, isHovered, products.length]);
+
+  // Update scroll button visibility and current index on scroll
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setCanScrollLeft(scrollLeft > 8);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
+      const card = el.querySelector('.product-slide');
+      if (card) {
+        const cardWidth = card.offsetWidth;
+        const gap = 12;
+        const totalWidth = cardWidth + gap;
+        if (totalWidth > 0) {
+          const idx = Math.round(scrollLeft / totalWidth);
+          setCurrentIdx(Math.min(idx, products.length - 1));
+        }
+      }
+    };
+    el.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => el.removeEventListener('scroll', update);
+  }, [products]);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const scrollByCard = (direction) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const card = el.querySelector('.product-slide');
+    if (!card) return;
+    const cardWidth = card.offsetWidth;
+    const gap = 12;
+    el.scrollBy({ left: direction * (cardWidth + gap), behavior: 'smooth' });
+  };
 
   /* ── Drag-to-scroll (touch + mouse) ── */
-  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0, moved: false });
+  const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const onDragStart = (clientX) => {
+  const onDragStart = (clientX, clientY) => {
     const el = scrollRef.current;
     if (!el) return;
     dragState.current = {
       isDragging: true,
-      startX: clientX,
-      scrollLeft: el.scrollLeft,
+      startPos: isMobile ? clientY : clientX,
+      scrollPos: isMobile ? el.scrollTop : el.scrollLeft,
       moved: false,
     };
     setIsDragActive(true);
   };
 
-  const onDragMove = (clientX) => {
+  const onDragMove = (clientX, clientY) => {
     const ds = dragState.current;
     if (!ds.isDragging) return;
     const el = scrollRef.current;
     if (!el) return;
-    const dx = clientX - ds.startX;
-    if (Math.abs(dx) > 5) ds.moved = true;
-    el.scrollLeft = ds.scrollLeft - dx;
+    const currentPos = isMobile ? clientY : clientX;
+    const delta = currentPos - ds.startPos;
+    if (Math.abs(delta) > 5) ds.moved = true;
+    if (isMobile) {
+      el.scrollTop = ds.scrollPos - delta;
+    } else {
+      el.scrollLeft = ds.scrollPos - delta;
+    }
   };
 
   const onDragEnd = () => {
     setIsDragActive(false);
     dragState.current.isDragging = false;
-    /* Reset moved after a short delay so click handler sees the true value */
     setTimeout(() => { dragState.current.moved = false; }, 50);
   };
 
@@ -537,183 +611,159 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
     const el = scrollRef.current;
     if (!el) return;
 
-    const updateScrollState = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      setCanScrollLeft(scrollLeft > 8);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
-
-      if (scrollWidth <= clientWidth) {
-        setScrollProgress(1);
-      } else {
-        setScrollProgress(scrollLeft / (scrollWidth - clientWidth));
-      }
-    };
-
-    /* Prevent click events when user was dragging */
     const handlePreventClick = (e) => {
-      if (dragState.current.moved) {
+      // Skip drag prevention for "View All" card — it should always be clickable
+      if (dragState.current.moved && !e.target.closest('[data-no-drag]')) {
         e.preventDefault();
         e.stopPropagation();
       }
     };
 
-    el.addEventListener('scroll', updateScrollState, { passive: true });
     el.addEventListener('click', handlePreventClick, { capture: true });
-    updateScrollState();
     return () => {
-      el.removeEventListener('scroll', updateScrollState);
       el.removeEventListener('click', handlePreventClick, { capture: true });
     };
   }, [products]);
 
-  const scrollByOffset = (direction) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const cardWidth = el.querySelector('.product-slide')?.offsetWidth || 260;
-    const gap = 20;
-    const scrollAmount = (cardWidth + gap) * (direction === 'left' ? -1 : 1);
-    el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  };
-
   if (!products || products.length === 0) return null;
 
+  const scrollableTrackClass = [
+    'max-sm:grid max-sm:grid-cols-2 sm:flex sm:flex-row gap-3 sm:gap-3 md:gap-4',
+    'overflow-y-auto sm:overflow-x-auto',
+    'sm:snap-x snap-mandatory',
+    'scrollbar-hide select-none',
+    isDragActive ? 'cursor-grabbing' : 'cursor-grab',
+  ].join(' ');
+
+  const cardClass = isMobile
+    ? 'product-slide'
+    : 'max-sm:w-full sm:product-slide sm:w-[302px] sm:min-w-[302px] sm:snap-start sm:shrink-0';
+
   return (
-    <div className="relative group/slider">
+    <div
+      ref={wrapperRef}
+      className="relative group/slider"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Edge gradient overlays — hint at scrollable content (desktop only) */}
+      <div className="max-sm:hidden absolute inset-y-0 left-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-r from-white via-white/95 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollLeft ? 1 : 0 }} />
+      <div className="max-sm:hidden absolute inset-y-0 right-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-l from-white via-white/95 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollRight ? 1 : 0 }} />
+
       {/* Scrollable Track */}
       <div
         ref={scrollRef}
-        onMouseDown={(e) => onDragStart(e.clientX)}
-        onMouseMove={(e) => onDragMove(e.clientX)}
+        onMouseDown={(e) => onDragStart(e.clientX, e.clientY)}
+        onMouseMove={(e) => onDragMove(e.clientX, e.clientY)}
         onMouseUp={onDragEnd}
         onMouseLeave={onDragEnd}
-        className={`flex gap-1 sm:gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-3 select-none ${
-          isDragActive ? 'cursor-grabbing' : 'cursor-grab'
-        }`}
+        className={scrollableTrackClass}
       >
         {products.map((p, idx) => (
           <motion.div
             key={p.id}
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, [isMobile ? 'y' : 'x']: 40 }}
+            whileInView={{ opacity: 1, [isMobile ? 'y' : 'x']: 0 }}
             viewport={{ once: true, margin: '-30px' }}
             transition={{ duration: 0.6, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
-            className="product-slide max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[302px] sm:min-w-[302px] snap-start shrink-0"
+            className={cardClass}
           >
             <ProductCard product={p} />
           </motion.div>
         ))}
 
-        {/* View All Card — navigates to full products page */}
+        {/* View All */}
         {viewAllLink && (
-          <motion.button
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-30px' }}
-            transition={{ duration: 0.6, delay: products.length * 0.04, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => {
-              if (dragState.current.moved) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-              }
-              navigate(viewAllLink);
-            }}
-            className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[302px] sm:min-w-[302px] snap-start shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-br from-gray-50 via-white to-gray-100/80 border-2 border-dashed border-gray-200 hover:border-primary/40 shadow-sm hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-500 group cursor-pointer relative overflow-hidden"
-          >
-            {/* Subtle decorative circles */}
-            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-primary/[0.03] group-hover:bg-primary/[0.06] transition-colors duration-500" />
-            <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full bg-gray-200/30 group-hover:bg-primary/[0.04] transition-colors duration-500" />
-            
-            <div className="flex flex-col items-center gap-3 z-10 text-gray-400 group-hover:text-primary transition-colors duration-500">
-              {/* Stacked grid icon */}
-              <div className="relative w-14 h-14">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-primary/10 group-hover:to-primary/5 shadow-inner transition-all duration-500" />
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-gray-400 group-hover:text-primary transition-colors duration-500"
-                  >
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
+          <>
+            {/* Mobile: simple button */}
+            <button
+              data-no-drag="true"
+              onClick={() => navigate(viewAllLink)}
+              className="sm:hidden col-span-2 w-full mt-2.5 py-3.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 font-bold text-sm uppercase tracking-wider hover:from-gray-900 hover:to-gray-800 hover:text-white hover:shadow-lg hover:shadow-black/10 transition-all duration-300 flex items-center justify-center gap-2 group active:scale-[0.98]"
+            >
+              <span className="transition-all duration-300 group-hover:tracking-[0.2em]">View All</span>
+              <ArrowRight size={15} className="transition-all duration-300 group-hover:translate-x-1" />
+            </button>
+            {/* Desktop: card */}
+            <motion.button
+              data-no-drag="true"
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ duration: 0.6, delay: products.length * 0.04, ease: [0.16, 1, 0.3, 1] }}
+              onClick={() => navigate(viewAllLink)}
+              className="max-sm:hidden sm:w-[302px] sm:min-w-[302px] snap-start shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-br from-gray-50 via-white to-gray-100/80 border-2 border-dashed border-gray-200 hover:border-primary/40 shadow-sm hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-500 group cursor-pointer relative overflow-hidden"
+            >
+              <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-primary/[0.03] group-hover:bg-primary/[0.06] transition-colors duration-500" />
+              <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full bg-gray-200/30 group-hover:bg-primary/[0.04] transition-colors duration-500" />
+              <div className="flex flex-col items-center gap-3 z-10 text-gray-400 group-hover:text-primary transition-colors duration-500">
+                <div className="relative w-14 h-14">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-primary/10 group-hover:to-primary/5 shadow-inner transition-all duration-500" />
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:text-primary transition-colors duration-500">
+                      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                  </div>
                 </div>
+                <span className="text-sm font-bold uppercase tracking-[0.15em]">View All</span>
+                <span className="text-[10px] text-gray-300 group-hover:text-primary/50 uppercase tracking-wider -mt-1.5 transition-colors duration-500">Browse Collection</span>
               </div>
-              <span className="text-sm font-bold uppercase tracking-[0.15em]">View All</span>
-              <span className="text-[10px] text-gray-300 group-hover:text-primary/50 uppercase tracking-wider -mt-1.5 transition-colors duration-500">
-                Browse Collection
-              </span>
-            </div>
-          </motion.button>
+            </motion.button>
+          </>
         )}
       </div>
 
-      {/* Left Arrow — glassmorphic */}
-      {canScrollLeft && (
-        <button
-          onClick={() => scrollByOffset('left')}
-          className="absolute -left-3.5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft size={18} />
-        </button>
+      {/* Desktop scroll arrows — premium glassmorphism with glow */}
+      {!isMobile && (
+        <>
+          <button
+            onClick={() => scrollByCard(-1)}
+            className={`absolute left-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
+              canScrollLeft ? 'opacity-100 md:opacity-0 md:group-hover/slider:opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            aria-label="Scroll left"
+          >
+            <ChevronLeft size={16} className="transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
+          </button>
+          <button
+            onClick={() => scrollByCard(1)}
+            className={`absolute right-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
+              canScrollRight ? 'opacity-100 md:opacity-0 md:group-hover/slider:opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            aria-label="Scroll right"
+          >
+            <ChevronRight size={16} className="transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
+          </button>
+        </>
       )}
 
-      {/* Right Arrow — glassmorphic */}
-      {canScrollRight && (
-        <button
-          onClick={() => scrollByOffset('right')}
-          className="absolute -right-3.5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 flex items-center justify-center text-gray-700 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95"
-          aria-label="Scroll right"
-        >
-          <ChevronRight size={18} />
-        </button>
-      )}
-
-      {/* Edge Fade Gradients */}
-      {canScrollLeft && (
-        <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-white to-transparent pointer-events-none z-10" />
-      )}
-      {canScrollRight && (
-        <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-white to-transparent pointer-events-none z-10" />
-      )}
-
-      {/* Dot Indicators */}
-      {products.length > 4 && (
-        <div className="flex justify-center gap-1.5 mt-3">
-          {Array.from({ length: Math.min(products.length - 3, 6) }).map((_, idx) => {
-            const dotProgress = idx / (Math.min(products.length - 3, 6) - 1 || 1);
-            const isActive = scrollProgress >= dotProgress - 0.08 && scrollProgress <= dotProgress + 0.08;
-            const dist = Math.abs(scrollProgress - dotProgress);
-            const isNear = dist < 0.12;
-            return (
-              <button
-                key={idx}
-                onClick={() => {
-                  const el = scrollRef.current;
-                  if (!el) return;
-                  const totalScroll = el.scrollWidth - el.clientWidth;
-                  el.scrollTo({ left: totalScroll * dotProgress, behavior: 'smooth' });
-                }}
-                className={`rounded-full transition-all duration-300 ${
-                  isActive
-                    ? 'bg-gray-800 w-4 h-1.5'
-                    : isNear
-                    ? 'bg-gray-400 w-2 h-1.5'
-                    : 'bg-gray-200 w-1.5 h-1.5'
-                }`}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
-            );
-          })}
+      {/* Scroll progress dots (desktop) — premium pill-style */}
+      {!isMobile && products.length > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-100/60 backdrop-blur-sm">
+            {products.slice(0, Math.min(products.length, 7)).map((_, idx) => {
+              const isActive = currentIdx === idx;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    const el = scrollRef.current;
+                    if (!el) return;
+                    const card = el.querySelector('.product-slide');
+                    if (!card) return;
+                    const cardWidth = card.offsetWidth;
+                    el.scrollTo({ left: (cardWidth + 12) * idx, behavior: 'smooth' });
+                  }}
+                  className={`rounded-full transition-all duration-500 ${
+                    isActive
+                      ? 'w-5 h-1.5 bg-gray-900 shadow-sm'
+                      : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-500 hover:scale-125'
+                  }`}
+                  aria-label={`Go to product ${idx + 1}`}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -728,7 +778,7 @@ function NewArrivalsSection({ products }) {
   return (
     <section className="py-10 md:py-14 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header — Centered */}
+        {/* Section Header — Editorial Centered */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -737,16 +787,27 @@ function NewArrivalsSection({ products }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-gray-200" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.fresh_drops')}</span>
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
+            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.seasonal')}</span>
           </div>
-          <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-gray-900">
             {t('home.new_arrivals')}
           </h2>
+          <p className="text-gray-400 text-xs md:text-sm mt-1 font-medium max-w-md mx-auto">
+            Fresh arrivals, crafted for the new season
+          </p>
+          <button
+            onClick={() => navigate('/products/section/new-arrivals')}
+            className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
+          >
+            <span className="border-b border-gray-300 group-hover:border-primary pb-0.5 transition-colors duration-300">
+              {t('home.browse_all')}
+            </span>
+            <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
+          </button>
         </motion.div>
 
-        <div className="-mx-4 sm:-mx-6 lg:mx-0">
+        <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
           <ProductSlider products={products} viewAllLink="/products/section/new-arrivals" />
         </div>
       </div>
@@ -789,28 +850,40 @@ function ProductRow({ title, products }) {
   if (!products || products.length === 0) return null;
 
   const tagline = title === 'Best Sellers' ? t('home.trending_now') : t('home.featured');
+  const sectionSlug = title === 'Best Sellers' ? 'best-sellers' : 'featured';
 
   return (
     <section className="py-10 md:py-14 bg-surface">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header — Centered (matching reference design) */}
+        {/* Section Header — Editorial Centered */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-40px' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-5 md:mb-6"
+          className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
             <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{tagline}</span>
-            <span className="h-px w-5 bg-gray-200" />
           </div>
-          <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">{title}</h2>
+          <h2 className="text-xl md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-gray-900">{title}</h2>
+          <p className="text-gray-400 text-xs md:text-sm mt-1 font-medium max-w-md mx-auto">
+            {title === 'Best Sellers' ? 'Most-loved pieces, trending right now' : 'Curated picks for the season'}
+          </p>
+          <button
+            onClick={() => navigate(`/products/section/${sectionSlug}`)}
+            className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
+          >
+            <span className="border-b border-gray-300 group-hover:border-primary pb-0.5 transition-colors duration-300">
+              {t('home.browse_all')}
+            </span>
+            <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
+          </button>
         </motion.div>
         
-        <div className="-mx-4 sm:-mx-6 lg:mx-0">
-          <ProductSlider products={products} viewAllLink="/products/section/best-sellers" />
+        <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
+          <ProductSlider products={products} viewAllLink={`/products/section/${sectionSlug}`} />
         </div>
       </div>
     </section>
@@ -845,9 +918,9 @@ function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
             <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.style_inspiration')}</span>
-            <span className="h-px w-5 bg-gray-200" />
+            <span className="h-px w-6 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full" />
           </div>
           <div className="relative inline-block">
             <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
@@ -1078,8 +1151,8 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-5 bg-white/12" />              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.testimonials')}</span>
-            <span className="h-px w-5 bg-white/12" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full" />              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.testimonials')}</span>
+            <span className="h-px w-6 bg-gradient-to-l from-transparent via-white/20 to-transparent rounded-full" />
           </div>
           <h2 className="text-lg md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-white">
             {t('home.what_customers_say')}
@@ -1113,6 +1186,10 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
 
         {/* ── Review Cards Carousel ── */}
         <div className="relative group/slider">
+          {/* Edge gradient overlays */}
+          <div className="absolute inset-y-0 left-0 w-20 z-10 pointer-events-none bg-gradient-to-r from-[#111] via-[#111]/90 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollLeft ? 1 : 0 }} />
+          <div className="absolute inset-y-0 right-0 w-20 z-10 pointer-events-none bg-gradient-to-l from-[#111] via-[#111]/90 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollRight ? 1 : 0 }} />
+
           <div
             ref={scrollRef}
             onMouseDown={(e) => onDragStart(e.clientX)}
@@ -1134,19 +1211,20 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
                   scale: { duration: 0.6, delay: idx * 0.06, ease: [0.12, 0.71, 0.33, 1] },
                   filter: { duration: 0.5, delay: idx * 0.06, ease: 'easeOut' },
                 }}
-                className="review-slide max-sm:w-[76vw] max-sm:min-w-[76vw] sm:w-[290px] sm:min-w-[290px] md:w-[330px] md:min-w-[330px] snap-start shrink-0"
+                className="review-slide max-sm:w-[70vw] max-sm:min-w-[70vw] sm:w-[290px] sm:min-w-[290px] md:w-[330px] md:min-w-[330px] snap-start shrink-0"
               >
-                <div className="relative h-full bg-white/[0.03] border border-white/[0.06] rounded-xl md:rounded-2xl p-4 md:p-5 transition-all duration-400 hover:bg-white/[0.05] hover:border-white/[0.1] hover:shadow-lg hover:shadow-black/20 group/card overflow-hidden">
+                <div className="relative h-full bg-white/[0.03] border border-white/[0.06] rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-5 transition-all duration-500 hover:bg-white/[0.06] hover:border-white/[0.12] hover:shadow-xl hover:shadow-black/25 group/card overflow-hidden">
                   {/* Subtle hover glow */}
-                  <div className="absolute -top-16 -right-16 w-28 h-28 bg-primary/6 rounded-full blur-2xl opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute -inset-20 bg-primary/[0.04] rounded-full blur-3xl opacity-0 group-hover/card:opacity-100 transition-opacity duration-700" />
+                  <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary/8 rounded-full blur-2xl opacity-0 group-hover/card:opacity-100 transition-opacity duration-500" />
 
                   {/* Stars */}
-                  <div className="flex items-center gap-0.5 mb-2.5">
+                  <div className="flex items-center gap-0.5 mb-2 relative z-10">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <motion.svg
                         key={i}
-                        width="12"
-                        height="12"
+                        width="11"
+                        height="11"
                         viewBox="0 0 24 24"
                         fill={i < review.rating ? '#ffb342' : 'none'}
                         stroke={i < review.rating ? '#ffb342' : 'rgba(255,255,255,0.07)'}
@@ -1156,6 +1234,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
                         viewport={{ once: true }}
                         transition={{ duration: 0.25, delay: 0.05 + i * 0.04 }}
                         className="transition-transform duration-300 group-hover/card:scale-110"
+                        style={{ transformOrigin: 'center' }}
                       >
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </motion.svg>
@@ -1163,13 +1242,13 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
                   </div>
 
                   {/* Review text */}
-                  <p className="text-white/70 text-xs sm:text-sm leading-relaxed mb-3 line-clamp-3">
+                  <p className="text-white/65 text-[11px] sm:text-sm leading-relaxed mb-2.5 line-clamp-2 relative z-10">
                     &ldquo;{review.text}&rdquo;
                   </p>
 
                   {/* Product tag */}
                   {review.product && (
-                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/[0.04] text-white/30 text-[8px] font-medium uppercase tracking-wider mb-2.5">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-white/30 text-[8px] font-medium uppercase tracking-wider mb-3 relative z-10 transition-all duration-300 group-hover/card:bg-white/[0.06] group-hover/card:border-white/[0.08]">
                       <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
                         <line x1="7" y1="7" x2="7.01" y2="7" />
@@ -1179,20 +1258,20 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
                   )}
 
                   {/* Author */}
-                  <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.05]">
-                    <div className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden ring-1 ring-white/10 flex-shrink-0">
+                  <div className="flex items-center gap-2 pt-2.5 border-t border-white/[0.06] relative z-10">
+                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full overflow-hidden ring-2 ring-white/10 flex-shrink-0 transition-all duration-300 group-hover/card:ring-primary/30">
                       <img src={review.avatar} alt={review.name} loading="lazy" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-white text-[11px] md:text-xs font-semibold tracking-tight truncate">{review.name}</h4>
-                      <div className="flex items-center gap-1 text-white/25 text-[9px] md:text-[10px]">
+                      <h4 className="text-white text-[10px] md:text-xs font-semibold tracking-tight truncate">{review.name}</h4>
+                      <div className="flex items-center gap-1 text-white/25 text-[8px] md:text-[10px]">
                         <span>{review.location}</span>
                         <span className="w-0.5 h-0.5 rounded-full bg-white/20" />
                         <span>{review.date}</span>
                       </div>
                     </div>
-                    <div className="flex-shrink-0 w-4 h-4 md:w-[18px] md:h-[18px] rounded-full bg-emerald-500/12 flex items-center justify-center">
-                      <svg width="7" height="7" className="md:w-[8px] md:h-[8px]" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <div className="flex-shrink-0 w-3.5 h-3.5 md:w-[18px] md:h-[18px] rounded-full bg-emerald-500/15 flex items-center justify-center transition-all duration-300 group-hover/card:bg-emerald-500/25 group-hover/card:scale-110">
+                      <svg width="6" height="6" className="md:w-[8px] md:h-[8px]" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </div>
@@ -1202,33 +1281,6 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
             ))}
           </div>
 
-          {/* Arrows */}
-          {canScrollLeft && (
-            <button
-              onClick={() => {
-                const el = scrollRef.current;
-                if (!el) return;
-                const cardWidth = el.querySelector('.review-slide')?.offsetWidth || 320;
-                el.scrollBy({ left: -(cardWidth + 16), behavior: 'smooth' });
-              }}
-              className="absolute left-1.5 md:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/8 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/60 hover:bg-white/15 hover:text-white hover:scale-105 transition-all duration-200 active:scale-95"
-            >
-              <ChevronLeft size={14} />
-            </button>
-          )}
-          {canScrollRight && (
-            <button
-              onClick={() => {
-                const el = scrollRef.current;
-                if (!el) return;
-                const cardWidth = el.querySelector('.review-slide')?.offsetWidth || 320;
-                el.scrollBy({ left: cardWidth + 16, behavior: 'smooth' });
-              }}
-              className="absolute right-1.5 md:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/8 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/60 hover:bg-white/15 hover:text-white hover:scale-105 transition-all duration-200 active:scale-95"
-            >
-              <ChevronRight size={14} />
-            </button>
-          )}
         </div>
 
         {/* Navigation Dots */}
@@ -1575,142 +1627,81 @@ export default function HomePage() {
   const navigate = useNavigate();
   const contentRef = useRef(null);
   const queryClient = useQueryClient();
-  const { getSetting } = useSettings();
-  const storeName = getSetting('storeName', 'THREVOLT');
-  const reviewsEnabled = getSetting('reviewsEnabled', 'true') !== 'false';
-  const bestSellersEnabled = getSetting('bestSellersEnabled', 'true') !== 'false';
-  const newArrivalsEnabled = getSetting('newArrivalsEnabled', 'true') !== 'false';
-  const curatedLooksEnabled = getSetting('curatedLooksEnabled', 'true') !== 'false';
-
-  // ── React Query hooks (cached, deduplicated, persisted to localStorage) ──
-
-  const { data: featuredProducts = [], isLoading: loadingFeatured } = useQuery({
-    queryKey: ['homepage', 'featured'],
+  // ── Consolidated homepage query — fetches ALL data in a single request ──
+  // This replaces 15+ separate API calls, eliminating redundant Laravel boots
+  // and dramatically improving page load time.
+  const { data: homepageData, isLoading } = useQuery({
+    queryKey: ['homepage', 'all'],
     queryFn: async () => {
-      const res = await productsAPI.getFeatured();
-      const data = res?.data?.data?.products || res?.data?.data;
-      return Array.isArray(data) ? data : [];
+      const res = await homepageAPI.getAll();
+      return res?.data?.data || {};
+    },
+    staleTime: 30000,
+  });
+
+  // Extract all data from the consolidated response
+  const featuredProducts = homepageData?.featured || [];
+  const newArrivals = homepageData?.newArrivals || [];
+  const bestSellers = homepageData?.bestSellers || [];
+  const banners = homepageData?.banners || [];
+  const categories = homepageData?.categories || [];
+  const homepageReviews = homepageData?.reviews?.reviews || [];
+  const reels = homepageData?.reels || [];
+  const curatedLooks = homepageData?.curatedLooks || [];
+  const flashSales = homepageData?.promotions || [];
+  const seoData = homepageData?.seo || { title: '', description: '' };
+  const settings = homepageData?.settings || {};
+
+  // Settings: prefer consolidated endpoint settings, fall back to useSettings store
+  const { getSetting: getStoreSetting } = useSettings();
+  const mergedGetSetting = (key, defaultValue) => {
+    if (settings?.[key] !== undefined && settings?.[key] !== null) {
+      return settings[key];
+    }
+    return getStoreSetting(key, defaultValue);
+  };
+
+  const storeName = mergedGetSetting('storeName', 'THREVOLT');
+  const reviewsEnabled = mergedGetSetting('reviewsEnabled', 'true') !== 'false';
+  const bestSellersEnabled = mergedGetSetting('bestSellersEnabled', 'true') !== 'false';
+  const newArrivalsEnabled = mergedGetSetting('newArrivalsEnabled', 'true') !== 'false';
+  const curatedLooksEnabled = mergedGetSetting('curatedLooksEnabled', 'true') !== 'false';
+  const newArrivalProductId = mergedGetSetting('newArrivalProductId', '');
+  const newArrivalExpiryDate = mergedGetSetting('newArrivalExpiryDate', '');
+
+  // ── Check if the featured product has expired (local date comparison) ──
+  const isExpired = newArrivalExpiryDate && (() => {
+    const now = new Date();
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expiryEnd = new Date(newArrivalExpiryDate + 'T23:59:59');
+    return expiryEnd < todayLocal;
+  })();
+
+  // ── Fetch specific New Arrival of the Week product if admin selected one (and not expired) ──
+  const { data: featuredNewArrival } = useQuery({
+    queryKey: ['homepage', 'featuredNewArrival', newArrivalProductId],
+    queryFn: async () => {
+      if (!newArrivalProductId) return null;
+      const res = await productsAPI.getById(newArrivalProductId);
+      return res?.data?.data || res?.data || null;
     },
     staleTime: 60000,
+    enabled: !!newArrivalProductId && !isExpired,
   });
 
-  const { data: newArrivals = [], isLoading: loadingNew } = useQuery({
-    queryKey: ['homepage', 'newArrivals'],
-    queryFn: async () => {
-      const res = await productsAPI.getNewArrivals();
-      const data = res?.data?.data?.products || res?.data?.data;
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 60000,
-  });
-
-  const { data: bestSellers = [], isLoading: loadingBest } = useQuery({
-    queryKey: ['homepage', 'bestSellers'],
-    queryFn: async () => {
-      const res = await productsAPI.getBestSellers();
-      const data = res?.data?.data?.products || res?.data?.data;
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 60000,
-  });
-
-  const { data: banners = [], isLoading: loadingBanners } = useQuery({
-    queryKey: ['homepage', 'banners'],
-    queryFn: async () => {
-      const res = await bannersAPI.getHero();
-      const data = res?.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 60000,
-  });
-
-  const { data: categories = [], isLoading: loadingCats } = useQuery({
-    queryKey: ['homepage', 'categories'],
-    queryFn: async () => {
-      const res = await categoriesAPI.getAll();
-      const data = res?.data?.data?.categories || res?.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 120000, // categories change less often
-  });
-
-  const { data: homepageReviews = [], isLoading: loadingReviews } = useQuery({
-    queryKey: ['homepage', 'reviews'],
-    queryFn: async () => {
-      const res = await reviewsAPI.getHomepage();
-      const data = res?.data?.data?.reviews || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 60000,
-  });
-
-  const { data: seoData = { title: '', description: '' } } = useQuery({
-    queryKey: ['homepage', 'seo'],
-    queryFn: async () => {
-      const res = await seoAPI.getGlobalSEO();
-      const seo = res?.data?.data || {};
-      return { title: seo.title || '', description: seo.description || '' };
-    },
-    staleTime: 300000, // SEO rarely changes
-  });
-
-  const { data: reels = [], isLoading: loadingReels } = useQuery({
-    queryKey: ['homepage', 'reels'],
-    queryFn: async () => {
-      const res = await reelsAPI.get();
-      const data = res?.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 10000,
-  });
-
-  const { data: curatedLooks = [], isLoading: loadingLooks } = useQuery({
-    queryKey: ['homepage', 'curatedLooks'],
-    queryFn: async () => {
-      const res = await curatedLooksAPI.get();
-      const data = res?.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 120000,
-  });
-
-  const { data: flashSales = [] } = useQuery({
-    queryKey: ['homepage', 'flashSales'],
-    queryFn: async () => {
-      const res = await promotionsAPI.getFlashSales();
-      const data = res?.data?.data || [];
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 15000,
-  });
-
-  // Combined loading state — true until every query completes at least once
-  const loading = loadingFeatured || loadingNew || loadingBest || loadingBanners || loadingCats || loadingReviews || loadingLooks || loadingReels;
-
-  // Pull-to-refresh: invalidate all homepage caches so they re-fetch
+  // Pull-to-refresh: invalidate the consolidated cache so it re-fetches
   const refetchAll = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'featured'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'newArrivals'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'bestSellers'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'banners'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'categories'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'reviews'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'seo'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'reels'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'curatedLooks'] }),
-      queryClient.invalidateQueries({ queryKey: ['homepage', 'flashSales'] }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] });
   }, [queryClient]);
 
   const { pullDistance, isRefreshing, isPulling } = usePullToRefresh({
     onRefresh: refetchAll,
     threshold: 80,
     maxPull: 130,
-    disabled: loading,
+    disabled: isLoading,
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex-1 bg-surface font-body">
         <HeroSkeleton />
@@ -1765,7 +1756,16 @@ export default function HomePage() {
 
         {flashSales.length > 0 && newArrivalsEnabled && <AnimatedDivider />}
 
-        {/* ══ 3. New Arrivals ══ */}
+        {/* ══ 3. New Arrival of the Week — Editorial Hero ══ */}
+        {newArrivalsEnabled && (featuredNewArrival || newArrivals.length > 0) && (
+          <AnimatedSection delay={0.05} margin="-40px">
+            <NewArrivalOfTheWeek product={featuredNewArrival || newArrivals[0]} />
+          </AnimatedSection>
+        )}
+
+        {newArrivalsEnabled && (featuredNewArrival || newArrivals.length > 0) && <AnimatedDivider />}
+
+        {/* ══ 4. New Arrivals Slider ══ */}
         {newArrivalsEnabled && (
           <AnimatedSection delay={0.05}>
             <NewArrivalsSection products={newArrivals} />
@@ -1778,7 +1778,7 @@ export default function HomePage() {
         {curatedLooksEnabled && (
           <AnimatedSection delay={0.05}>
             <CuratedLooksSection looks={curatedLooks}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'curatedLooks'] })} />
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
           </AnimatedSection>
         )}
 
@@ -1806,7 +1806,7 @@ export default function HomePage() {
         {/* ══ 7. Premium Review Slider ══ */}
         {reviewsEnabled && (
           <AnimatedSection delay={0.05}>
-            <PremiumReviewSlider reviews={homepageReviews} loading={loadingReviews} />
+            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} />
           </AnimatedSection>
         )}
 
@@ -1814,8 +1814,8 @@ export default function HomePage() {
 
         {/* ══ 8. Featured Reels ══ */}
         <AnimatedSection delay={0.05}>
-          <ReelsSection reels={reels} loading={loadingReels}
-            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'reels'] })} />
+          <ReelsSection reels={reels} loading={isLoading}
+            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
         </AnimatedSection>
 
       </div>

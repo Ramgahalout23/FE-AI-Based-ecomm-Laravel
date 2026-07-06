@@ -9,8 +9,17 @@ import OrderConfirmedToast from './OrderConfirmedToast';
 const toast = {
   success: (message, opts = {}) => hotToast.success(message, { duration: 3000, ...opts }),
   error: (message, opts = {}) => hotToast.error(message, { duration: 4000, ...opts }),
+  info: (message, opts = {}) => hotToast(message, { duration: 3000, ...opts }),
   custom: (component, opts = {}) => hotToast.custom(component, opts),
-  loading: (message, opts = {}) => hotToast.loading(message, opts),
+  loading: (message, opts = {}) => hotToast.loading(message, {
+    style: {
+      background: '#ffffff',
+      borderRadius: '16px',
+      padding: '14px 20px 18px',
+      boxShadow: '0 12px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)',
+    },
+    ...opts,
+  }),
   dismiss: (toastId) => hotToast.dismiss(toastId),
   promise: (promise, msgs, opts) => hotToast.promise(promise, msgs, opts),
   remove: (toastId) => hotToast.remove(toastId),

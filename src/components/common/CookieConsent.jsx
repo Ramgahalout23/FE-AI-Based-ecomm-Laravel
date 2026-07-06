@@ -2,17 +2,22 @@ import { Info, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export default function CookieConsent() {
+export default function CookieConsent({ enabled = true }) {
   const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
+    // Don't show if disabled via admin toggle
+    if (!enabled) return;
     const consent = localStorage.getItem('cookieConsent');
     if (!consent) {
       setTimeout(() => setShowModal(true), 1000);
     }
-  }, []);
+  }, [enabled]);
+
+  // If admin has disabled cookie consent, never render
+  if (!enabled) return null;
 
   const handleAcceptAll = () => {
     localStorage.setItem('cookieConsent', JSON.stringify({
