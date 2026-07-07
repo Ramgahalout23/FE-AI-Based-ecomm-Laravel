@@ -2,8 +2,9 @@ import client from './client';
 import { adminClient } from './client';
 
 export const reviewsAPI = {
-  create: (data) => client.post('/reviews', data),
+  create: (data) => data.type === 'store' ? client.post('/reviews/store', data) : client.post('/reviews', data),
   getByProduct: (productId, params) => client.get(`/reviews/product/${productId}`, { params }),
+  getStoreReviews: (params) => client.get('/reviews/store', { params }),
   getStats: (productId) => client.get(`/reviews/stats/${productId}`),
   getVerified: (productId) => client.get(`/reviews/verified/${productId}`),
   getUserReviews: () => client.get('/reviews/user'),

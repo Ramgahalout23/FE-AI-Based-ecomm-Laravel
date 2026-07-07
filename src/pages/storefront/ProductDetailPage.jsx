@@ -20,6 +20,7 @@ import { wishlistAPI } from '../../api/wishlist';
 import SizeGuideModal from '../../components/product/SizeGuideModal';
 import ReviewFormModal from '../../components/product/ReviewFormModal';
 import { formatCurrency, formatDate, getImageUrl, getProductImages } from '../../utils/formatters';
+import ReviewImageLightbox from '../../components/product/ReviewImageLightbox';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../store/useSettings';
 import useFlyToCart from '../../hooks/useFlyToCart';
@@ -1541,9 +1542,13 @@ function mapProductReview(review) {
 /* ════════════════════════════════════════ */
 
 function ReviewCardsWithImages({ reviews = [] }) {
+  const { t } = useTranslation();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const scrollRef = useRef(null);
+  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0, moved: false });
+  const [isDragActive, setIsDragActive] = useState(false);
 
   const openLightbox = (images, idx) => {
     setLightboxImages(images);
@@ -1556,9 +1561,59 @@ function ReviewCardsWithImages({ reviews = [] }) {
     setLightboxImages([]);
   };
 
+  /* ── Drag-to-scroll for mobile ── */
+  const onDragStart = useCallback((clientX) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    dragState.current = { isDragging: true, startX: clientX, scrollLeft: el.scrollLeft, moved: false };
+    setIsDragActive(true);
+  }, []);
+
+  const onDragMove = useCallback((clientX) => {
+    const ds = dragState.current;
+    if (!ds.isDragging) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const delta = clientX - ds.startX;
+    if (Math.abs(delta) > 5) ds.moved = true;
+    el.scrollLeft = ds.scrollLeft - delta;
+  }, []);
+
+  const onDragEnd = useCallback(() => {
+    setIsDragActive(false);
+    dragState.current.isDragging = false;
+    setTimeout(() => { dragState.current.moved = false; }, 50);
+  }, []);
+
+  // Prevent click after drag
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handlePreventClick = (e) => {
+      if (dragState.current.moved) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('click', handlePreventClick, { capture: true });
+    return () => el.removeEventListener('click', handlePreventClick, { capture: true });
+  }, []);
+
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-5">
+      {/* Mobile: horizontally scrollable carousel | Desktop: 2-column grid */}
+      <div
+        ref={scrollRef}
+        onMouseDown={(e) => onDragStart(e.clientX)}
+        onMouseMove={(e) => onDragMove(e.clientX)}
+        onMouseUp={onDragEnd}
+        onMouseLeave={onDragEnd}
+        onTouchStart={(e) => onDragStart(e.touches[0].clientX)}
+        onTouchMove={(e) => onDragMove(e.touches[0].clientX)}
+        onTouchEnd={onDragEnd}
+        className={`md:grid md:grid-cols-2 md:gap-5 flex md:block gap-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory scroll-smooth pb-2 md:pb-0 no-scrollbar select-none ${isDragActive ? 'cursor-grabbing' : 'cursor-grab md:cursor-default'}`}
+        style={{ scrollbarWidth: 'none' }}
+      >
         {reviews.map((r, idx) => {
           // Parse images — could be JSON string or array
           let reviewImages = [];
@@ -1575,7 +1630,7 @@ function ReviewCardsWithImages({ reviews = [] }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-30px' }}
               transition={{ duration: 0.4, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white rounded-xl md:rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col overflow-hidden group/review max-w-sm mx-auto md:max-w-none"
+              className="bg-white rounded-xl md:rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-md hover:border-gray-300/50 transition-all duration-300 flex flex-col overflow-hidden group/review snap-start shrink-0 min-w-[80vw] sm:min-w-[380px] md:min-w-0 md:max-w-none"
             >
               {/* Review Images — premium horizontal strip */}
               {reviewImages.length > 0 && (
@@ -1683,107 +1738,6 @@ function ReviewCardsWithImages({ reviews = [] }) {
         )}
       </AnimatePresence>
     </>
-  );
-}
-
-/* ── Review Image Lightbox ── */
-function ReviewImageLightbox({ images = [], initialIndex = 0, onClose }) {
-  const [currentIdx, setCurrentIdx] = useState(initialIndex);
-
-  const goNext = useCallback(() => {
-    setCurrentIdx(prev => (prev + 1) % images.length);
-  }, [images.length]);
-
-  const goPrev = useCallback(() => {
-    setCurrentIdx(prev => (prev - 1 + images.length) % images.length);
-  }, [images.length]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') goNext();
-      if (e.key === 'ArrowLeft') goPrev();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, goNext, goPrev]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200"
-      >
-        <X size={20} />
-      </button>
-
-      {/* Counter */}
-      <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-xs font-medium">
-        {currentIdx + 1} / {images.length}
-      </div>
-
-      {/* Prev button */}
-      {images.length > 1 && (
-        <button
-          onClick={(e) => { e.stopPropagation(); goPrev(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 active:scale-90"
-        >
-          <ChevronLeft size={24} />
-        </button>
-      )}
-
-      {/* Image */}
-      <motion.div
-        key={currentIdx}
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-[90vw] max-h-[85vh] flex items-center justify-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          src={getImageUrl(images[currentIdx])}
-          alt={`Review photo ${currentIdx + 1}`}
-          className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
-        />
-      </motion.div>
-
-      {/* Next button */}
-      {images.length > 1 && (
-        <button
-          onClick={(e) => { e.stopPropagation(); goNext(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white flex items-center justify-center transition-all duration-200 active:scale-90"
-        >
-          <ChevronRight size={24} />
-        </button>
-      )}
-
-      {/* Thumbnails strip at bottom */}
-      {images.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10 max-w-[80vw] overflow-x-auto no-scrollbar px-2 py-2" style={{ scrollbarWidth: 'none' }}>
-          {images.map((img, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => { e.stopPropagation(); setCurrentIdx(idx); }}
-              className={`w-10 h-10 rounded-lg overflow-hidden shrink-0 border-2 transition-all duration-200 ${
-                idx === currentIdx ? 'border-white opacity-100 scale-110 shadow-lg' : 'border-transparent opacity-50 hover:opacity-80'
-              }`}
-            >
-              <img src={getImageUrl(img)} alt="" className="w-full h-full object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
-    </motion.div>
   );
 }
 

@@ -15,6 +15,7 @@ import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../..
 import ReelsSection from '../../components/storefront/ReelsSection';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import NewArrivalOfTheWeek from '../../components/storefront/NewArrivalOfTheWeek';
+import AllReviewsModal from '../../components/reviews/AllReviewsModal';
 
 /* ═══════════ ANIMATION WRAPPERS — Premium Entrance ═══════════ */
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
@@ -987,10 +988,11 @@ function mapReview(review) {
   const user = review.user || {};
   const product = review.product || {};
   const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Customer';
-  const avatar = user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random&color=fff&size=120`;
+  const avatar = user.avatar ? getImageUrl(user.avatar) : `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=random&color=fff&size=120`;
   const date = review.created_at
     ? formatDate(review.created_at)
     : '';
+
   return {
     id: review.id, name: fullName, location: (user.city || 'IN') + (user.country ? ', ' + user.country : ''),
     avatar, rating: review.rating, text: review.comment || review.title || '',
@@ -998,17 +1000,22 @@ function mapReview(review) {
   };
 }
 
-function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
+function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
   const { t } = useTranslation();
   const REVIEWS_DATA = (reviewsProp.length > 0 ? reviewsProp : []).map(mapReview);
 
-  const scrollRef = useRef(null);
   const sectionRef = useRef(null);
+  const trackRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [slideWidth, setSlideWidth] = useState(0);
   const autoplayRef = useRef(null);
+
+
+
+  /* ── Touch/swipe drag state ── */
+  const touchDragRef = useRef({ startX: 0, startY: 0, isDragging: false, moved: false });
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
 
   /* ── Subtle scroll-linked parallax ── */
   const { scrollYProgress } = useScroll({
@@ -1019,62 +1026,23 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
   const glow1Y = useTransform(scrollYProgress, [0, 1], ['-12%', '12%']);
   const glow2Y = useTransform(scrollYProgress, [0, 1], ['8%', '-8%']);
 
-  /* ── Drag-to-scroll ── */
-  const dragState = useRef({ isDragging: false, startX: 0, scrollLeft: 0, moved: false });
-
-  const onDragStart = (clientX) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    dragState.current = { isDragging: true, startX: clientX, scrollLeft: el.scrollLeft, moved: false };
-  };
-
-  const onDragMove = (clientX) => {
-    const ds = dragState.current;
-    if (!ds.isDragging) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const dx = clientX - ds.startX;
-    if (Math.abs(dx) > 5) ds.moved = true;
-    el.scrollLeft = ds.scrollLeft - dx;
-  };
-
-  const onDragEnd = () => {
-    dragState.current.isDragging = false;
-    setTimeout(() => { dragState.current.moved = false; }, 50);
-  };
-
+  /* ── Measure card width for translate-based sliding ── */
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const updateScrollState = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      setCanScrollLeft(scrollLeft > 8);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
-      const cardWidth = el.querySelector('.review-slide')?.offsetWidth || 320;
-      const gap = 16;
-      const totalItemWidth = cardWidth + gap;
-      if (totalItemWidth > 0) {
-        const idx = Math.round(scrollLeft / totalItemWidth);
-        setCurrentIndex(Math.min(idx, REVIEWS_DATA.length - 1));
+    const calcWidth = () => {
+      if (trackRef.current) {
+        const firstCard = trackRef.current.querySelector('.review-slide');
+        if (firstCard) {
+          const gap = window.innerWidth >= 768 ? 16 : 12;
+          setSlideWidth(firstCard.offsetWidth + gap);
+        }
       }
     };
-
-    const handlePreventClick = (e) => {
-      if (dragState.current.moved) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    el.addEventListener('scroll', updateScrollState, { passive: true });
-    el.addEventListener('click', handlePreventClick, { capture: true });
-    updateScrollState();
-    return () => {
-      el.removeEventListener('scroll', updateScrollState);
-      el.removeEventListener('click', handlePreventClick, { capture: true });
-    };
+    calcWidth();
+    window.addEventListener('resize', calcWidth);
+    return () => window.removeEventListener('resize', calcWidth);
   }, [REVIEWS_DATA.length]);
+
+
 
   /* ── Autoplay ── */
   useEffect(() => {
@@ -1084,30 +1052,63 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
     }
 
     autoplayRef.current = setInterval(() => {
-      const el = scrollRef.current;
-      if (!el) return;
-      const cardWidth = el.querySelector('.review-slide')?.offsetWidth || 320;
-      const gap = 16;
-      const totalItemWidth = cardWidth + gap;
-      const maxScroll = el.scrollWidth - el.clientWidth;
-
-      let nextScroll = el.scrollLeft + totalItemWidth;
-      if (nextScroll >= maxScroll - 10) {
-        nextScroll = 0;
-      }
-      el.scrollTo({ left: nextScroll, behavior: 'smooth' });
+      setCurrentIndex((prev) => (prev + 1) % REVIEWS_DATA.length);
     }, 4000);
 
     return () => clearInterval(autoplayRef.current);
   }, [isPaused, REVIEWS_DATA.length]);
 
   const scrollToIndex = (idx) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const cardWidth = el.querySelector('.review-slide')?.offsetWidth || 320;
-    const gap = 16;
-    el.scrollTo({ left: (cardWidth + gap) * idx, behavior: 'smooth' });
+    setCurrentIndex(idx);
   };
+
+  /* ── Swipe to next/prev ── */
+  const goNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % REVIEWS_DATA.length);
+  }, [REVIEWS_DATA.length]);
+
+  const goPrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + REVIEWS_DATA.length) % REVIEWS_DATA.length);
+  }, [REVIEWS_DATA.length]);
+
+  /* ── Touch/drag swipe handlers ── */
+  const handleTouchStart = useCallback((e) => {
+    const touch = e.touches[0];
+    touchDragRef.current = { startX: touch.clientX, startY: touch.clientY, isDragging: true, moved: false };
+    setIsTouchDragging(true);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    const td = touchDragRef.current;
+    if (!td.isDragging) return;
+    const touch = e.touches[0];
+    const diffX = touch.clientX - td.startX;
+    const diffY = touch.clientY - td.startY;
+    // Only prevent default for horizontal swipes (not vertical scrolling)
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
+      e.preventDefault();
+      td.moved = true;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    const td = touchDragRef.current;
+    if (!td.isDragging) return;
+    td.isDragging = false;
+    setIsTouchDragging(false);
+    // Trigger swipe if moved enough
+    setTimeout(() => { td.moved = false; }, 100);
+  }, []);
+
+  const handleSwipe = useCallback((delta) => {
+    if (delta > 40) {
+      // Swiped right → prev
+      goPrev();
+    } else if (delta < -40) {
+      // Swiped left → next
+      goNext();
+    }
+  }, [goNext, goPrev]);
 
   const avgRating = REVIEWS_DATA.length > 0
     ? (REVIEWS_DATA.reduce((sum, r) => sum + r.rating, 0) / REVIEWS_DATA.length).toFixed(1)
@@ -1120,8 +1121,21 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
     <section
       ref={sectionRef}
       className="relative py-10 md:py-14 bg-gradient-to-br from-[#0c0c0c] via-[#111] to-[#0a0a0a] overflow-hidden"
+      style={{ touchAction: 'pan-y' }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={(e) => {
+        const td = touchDragRef.current;
+        if (td.isDragging) {
+          const touch = e.changedTouches[0];
+          if (touch) {
+            handleSwipe(touch.clientX - td.startX);
+          }
+        }
+        handleTouchEnd();
+      }}
     >
       {/* Subtle ambient glow with parallax — follows scroll for depth */}
       <motion.div
@@ -1142,7 +1156,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* ── Compact, elegant header ── */}
+        {/* ── Compact, elegant header — clickable to view all reviews ── */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1150,54 +1164,58 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-6 md:mb-8"
         >
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-6 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full" />              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em]">{t('home.testimonials')}</span>
-            <span className="h-px w-6 bg-gradient-to-l from-transparent via-white/20 to-transparent rounded-full" />
-          </div>
-          <h2 className="text-lg md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-white">
-            {t('home.what_customers_say')}
-          </h2>
-          {/* Compact social proof row */}
-          <div className="flex items-center justify-center gap-2.5 mt-2.5">
-            <div className="flex -space-x-1">
-              {[REVIEWS_DATA[0], REVIEWS_DATA[1], REVIEWS_DATA[2]].filter(Boolean).map((r, i) => (
-                <div key={i} className="w-5 h-5 md:w-[22px] md:h-[22px] rounded-full ring-2 ring-[#111] overflow-hidden">
-                  <img src={r.avatar} alt="" className="w-full h-full object-cover" loading="lazy" />
-                </div>
-              ))}
-              <div className="w-5 h-5 md:w-[22px] md:h-[22px] rounded-full ring-2 ring-[#111] bg-primary flex items-center justify-center">
-                <span className="text-white text-[7px] font-bold">{totalReviews}+</span>
-              </div>
+          <button onClick={onOpenAllReviews} className="text-center w-full group">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <span className="h-px w-6 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full" />
+              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em] group-hover:text-white/50 transition-colors">{t('home.testimonials')}</span>
+              <span className="h-px w-6 bg-gradient-to-l from-transparent via-white/20 to-transparent rounded-full" />
             </div>
-            <div className="flex items-center gap-1">
-              <div className="flex items-center gap-[1px]">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg key={i} width="10" height="10" viewBox="0 0 24 24" fill="#ffb342" className="max-sm:w-[9px] max-sm:h-[9px]">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
+            <h2 className="text-lg md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-white group-hover:text-white/90 transition-colors">
+              {t('home.what_customers_say')}
+            </h2>
+            {/* Compact social proof row */}
+            <div className="flex items-center justify-center gap-2.5 mt-2.5">
+              <div className="flex -space-x-1">
+                {[REVIEWS_DATA[0], REVIEWS_DATA[1], REVIEWS_DATA[2]].filter(Boolean).map((r, i) => (
+                  <div key={i} className="w-5 h-5 md:w-[22px] md:h-[22px] rounded-full ring-2 ring-[#111] overflow-hidden">
+                    <img src={r.avatar} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  </div>
                 ))}
+                <div className="w-5 h-5 md:w-[22px] md:h-[22px] rounded-full ring-2 ring-[#111] bg-primary flex items-center justify-center">
+                  <span className="text-white text-[7px] font-bold">{totalReviews}+</span>
+                </div>
               </div>
-              <span className="text-white/35 text-[10px] md:text-xs font-medium">
-                <span className="text-white font-semibold">{avgRating}</span> · {totalReviews}+ reviews
-              </span>
+              <div className="flex items-center gap-1">
+                <div className="flex items-center gap-[1px]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <svg key={i} width="10" height="10" viewBox="0 0 24 24" fill="#ffb342" className="max-sm:w-[9px] max-sm:h-[9px]">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  ))}
+                </div>
+                <span className="text-white/35 text-[10px] md:text-xs font-medium">
+                  <span className="text-white font-semibold">{avgRating}</span> · {totalReviews}+ reviews
+                </span>
+              </div>
             </div>
-          </div>
+            {/* View All Reviews CTA */}
+            <div className="mt-2.5 inline-flex items-center gap-1 text-[9px] font-bold text-white/20 group-hover:text-white/50 uppercase tracking-[0.2em] transition-colors">
+              <span>{t('reviews.view_all', 'View All Reviews')}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </div>
+          </button>
         </motion.div>
 
         {/* ── Review Cards Carousel ── */}
         <div className="relative group/slider">
-          {/* Edge gradient overlays */}
-          <div className="absolute inset-y-0 left-0 w-20 z-10 pointer-events-none bg-gradient-to-r from-[#111] via-[#111]/90 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollLeft ? 1 : 0 }} />
-          <div className="absolute inset-y-0 right-0 w-20 z-10 pointer-events-none bg-gradient-to-l from-[#111] via-[#111]/90 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollRight ? 1 : 0 }} />
-
-          <div
-            ref={scrollRef}
-            onMouseDown={(e) => onDragStart(e.clientX)}
-            onMouseMove={(e) => onDragMove(e.clientX)}
-            onMouseUp={onDragEnd}
-            onMouseLeave={onDragEnd}
-            className="flex gap-3 md:gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-3 select-none"
-          >
+          <div className="overflow-hidden rounded-xl">
+            <div
+              ref={trackRef}
+              className={`flex gap-3 md:gap-4 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pb-3 select-none ${isTouchDragging ? 'cursor-grabbing' : ''}`}
+              style={{ transform: slideWidth > 0 ? `translateX(-${currentIndex * slideWidth}px)` : undefined }}
+            >
             {REVIEWS_DATA.map((review, idx) => (
               <motion.div
                 key={review.id}
@@ -1248,7 +1266,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
 
                   {/* Product tag */}
                   {review.product && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-white/30 text-[8px] font-medium uppercase tracking-wider mb-3 relative z-10 transition-all duration-300 group-hover/card:bg-white/[0.06] group-hover/card:border-white/[0.08]">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-white/30 text-[8px] font-medium uppercase tracking-wider mb-2 relative z-10 transition-all duration-300 group-hover/card:bg-white/[0.06] group-hover/card:border-white/[0.08]">
                       <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
                         <line x1="7" y1="7" x2="7.01" y2="7" />
@@ -1279,8 +1297,22 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
                 </div>
               </motion.div>
             ))}
+            </div>
           </div>
 
+        </div>
+
+        {/* Mobile swipe indicator — subtle hint */}
+        <div className="md:hidden flex items-center justify-center gap-1 mt-1 mb-0.5">
+          <div className="flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-white/5">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span className="text-white/15 text-[7px] font-medium uppercase tracking-[0.2em]">Swipe</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
         </div>
 
         {/* Navigation Dots */}
@@ -1316,6 +1348,8 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], loading = false }) {
           <span className="h-px w-4 bg-white/8" />
         </div>
       </div>
+
+
     </section>
   );
 }
@@ -1694,6 +1728,9 @@ export default function HomePage() {
     await queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] });
   }, [queryClient]);
 
+  /* ── All Reviews Modal state ── */
+  const [allReviewsOpen, setAllReviewsOpen] = useState(false);
+
   const { pullDistance, isRefreshing, isPulling } = usePullToRefresh({
     onRefresh: refetchAll,
     threshold: 80,
@@ -1806,7 +1843,7 @@ export default function HomePage() {
         {/* ══ 7. Premium Review Slider ══ */}
         {reviewsEnabled && (
           <AnimatedSection delay={0.05}>
-            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} />
+            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} onReviewSuccess={refetchAll} onOpenAllReviews={() => setAllReviewsOpen(true)} />
           </AnimatedSection>
         )}
 
@@ -1819,6 +1856,14 @@ export default function HomePage() {
         </AnimatedSection>
 
       </div>
+
+      {/* All Reviews Modal — rendered OUTSIDE the transformed container so position: fixed works correctly */}
+      <AllReviewsModal
+        reviews={homepageReviews}
+        isOpen={allReviewsOpen}
+        onClose={() => setAllReviewsOpen(false)}
+        onReviewSuccess={refetchAll}
+      />
 
       {/* Scroll to Top Button — outside the pull-to-refresh transform container so position: fixed works correctly */}
       <ScrollToTopButton />

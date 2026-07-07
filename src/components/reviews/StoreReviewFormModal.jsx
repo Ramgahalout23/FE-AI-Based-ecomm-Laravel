@@ -1,8 +1,6 @@
-import { Star, X, RefreshCw, Camera, Image, Trash2 } from 'lucide-react';
+import { Star, X, RefreshCw, Camera, Image, Trash2, Store } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-;
 import { useTranslation } from 'react-i18next';
 import { reviewsAPI } from '../../api/reviews';
 import toast from '../../utils/toast';
@@ -10,26 +8,27 @@ import toast from '../../utils/toast';
 const MAX_IMAGES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-export default function ReviewFormModal({ isOpen, onClose, productId, productName, onSuccess, orderId }) {
+export default function StoreReviewFormModal({ isOpen, onClose, onSuccess }) {
   const { t } = useTranslation();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [title, setTitle] = useState('');
   const [comment, setComment] = useState('');
-  const [images, setImages] = useState([]); // Array of { file, preview }
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
   const resetForm = () => {
+    setName('');
+    setEmail('');
     setRating(0);
     setHoverRating(0);
-    setTitle('');
     setComment('');
     setImages([]);
     setError('');
-    // Revoke object URLs to prevent memory leaks
     images.forEach(img => {
       if (img.preview && img.preview.startsWith('blob:')) {
         URL.revokeObjectURL(img.preview);
@@ -42,7 +41,6 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
     onClose();
   };
 
-  // ── Image Selection ──
   const handleFileSelect = useCallback((e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -84,7 +82,6 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
     });
   }, []);
 
-  // ── Drag & Drop ──
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDragOver = useCallback((e) => {
@@ -125,11 +122,18 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
     }
   }, [images.length]);
 
-  // ── Submit ──
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    if (!name.trim()) {
+      setError(t('store_review.name_required', 'Name is required'));
+      return;
+    }
+    if (!email.trim()) {
+      setError(t('store_review.email_required', 'Email is required'));
+      return;
+    }
     if (rating === 0) {
       setError(t('reviews.select_rating_error'));
       return;
@@ -141,12 +145,11 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
 
     setSubmitting(true);
     try {
-      // Upload images first if any
       let imageUrls = [];
       if (images.length > 0) {
         setUploading(true);
         const files = images.map(img => img.file);
-        
+
         if (files.length === 1) {
           const res = await reviewsAPI.uploadImage(files[0]);
           const url = res.data?.data?.url || '';
@@ -160,22 +163,21 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
       }
 
       const payload = {
-        product_id: productId,
+        type: 'store',
+        name: name.trim(),
+        email: email.trim(),
         rating,
-        title: title.trim() || undefined,
         comment: comment.trim(),
         images: imageUrls.length > 0 ? imageUrls : undefined,
       };
 
-      if (orderId) {
-        payload.order_id = orderId;
-      }
-
-      await reviewsAPI.create(payload);        toast.success(t('reviews.submitted_success'));
+      await reviewsAPI.create(payload);
+      toast.success(t('reviews.submitted_success'));
       resetForm();
       onSuccess?.();
       onClose();
-    } catch (err) {                    const msg = err?.response?.data?.message || err?.response?.data?.error || t('reviews.submit_failed');
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.response?.data?.error || t('reviews.submit_failed');
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -211,9 +213,18 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
               {/* Header */}
               <div className="flex items-center justify-between p-5 pb-3 border-b border-gray-100">
-                <div>
-                  <h3 className="text-lg font-display font-extrabold text-black">{t('reviews.write_title')}</h3>
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{productName}</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-black/5 flex items-center justify-center">
+                    <Store size={16} className="text-gray-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-display font-extrabold text-black">
+                      {t('store_review.write_title', 'Write a Store Review')}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {t('store_review.header_desc', 'Share your overall shopping experience')}
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={handleClose}
@@ -223,7 +234,37 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-5 space-y-5">
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-bold text-black mb-1.5">
+                    {t('store_review.name', 'Your Name')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('store_review.name_placeholder', 'Enter your full name')}
+                    maxLength={255}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-black focus:ring-1 focus:ring-black/10 outline-none transition-all placeholder:text-gray-400"
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-bold text-black mb-1.5">
+                    {t('store_review.email', 'Email Address')} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t('store_review.email_placeholder', 'your@email.com')}
+                    maxLength={255}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-black focus:ring-1 focus:ring-black/10 outline-none transition-all placeholder:text-gray-400"
+                  />
+                </div>
+
                 {/* Star Rating */}
                 <div>
                   <label className="block text-sm font-bold text-black mb-2">
@@ -240,31 +281,14 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                           onMouseLeave={() => setHoverRating(0)}
                           className="p-0.5 transition-transform hover:scale-110 active:scale-90"
                         >
-                          <Star size={28} className={`transition-colors duration-150 ${ star <= (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200' }`} />
+                          <Star size={28} className={`transition-colors duration-150 ${star <= (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'fill-gray-200 text-gray-200'}`} />
                         </button>
                       ))}
                     </div>
                     {rating > 0 && (
-                      <span className="text-sm font-medium text-gray-600 ml-1">
-                        {starLabels[rating]}
-                      </span>
+                      <span className="text-sm font-medium text-gray-600 ml-1">{starLabels[rating]}</span>
                     )}
                   </div>
-                </div>
-
-                {/* Title */}
-                <div>
-                  <label className="block text-sm font-bold text-black mb-1.5">
-                    {t('reviews.review_title')} <span className="text-gray-400 font-normal">{t('reviews.optional')}</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t('reviews.title_placeholder')}
-                    maxLength={255}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-black focus:ring-1 focus:ring-black/10 outline-none transition-all placeholder:text-gray-400"
-                  />
                 </div>
 
                 {/* Comment */}
@@ -275,25 +299,24 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                   <textarea
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder={t('reviews.comment_placeholder')}
+                    placeholder={t('store_review.comment_placeholder', 'Tell us about your experience with our store — quality, shipping, service, and more...')}
                     rows={4}
                     maxLength={1000}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-black focus:ring-1 focus:ring-black/10 outline-none transition-all resize-none placeholder:text-gray-400"
                   />
                   <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-gray-400">                    {t('reviews.share_details')}</span>
+                    <span className="text-[10px] text-gray-400">{t('reviews.share_details')}</span>
                     <span className="text-[10px] text-gray-400">{comment.length}/1000</span>
                   </div>
                 </div>
 
-                {/* ── Premium Photo Upload ── */}
+                {/* Image Upload */}
                 <div>
                   <label className="block text-sm font-bold text-black mb-2 flex items-center gap-1.5">
                     <Camera size={14} />
                     {t('reviews.add_photos')} <span className="text-gray-400 font-normal text-xs">({images.length}/{MAX_IMAGES} · {t('reviews.optional')})</span>
                   </label>
 
-                  {/* Image previews */}
                   {images.length > 0 && (
                     <div className="grid grid-cols-5 gap-2 mb-3">
                       {images.map((img, idx) => (
@@ -304,11 +327,7 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                           transition={{ duration: 0.2, delay: idx * 0.05 }}
                           className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 group"
                         >
-                          <img
-                            src={img.preview}
-                            alt={`Review photo ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={img.preview} alt={`Review photo ${idx + 1}`} className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}
@@ -325,13 +344,12 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                           onClick={() => fileInputRef.current?.click()}
                           className="aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-400 hover:bg-gray-50/50 flex items-center justify-center transition-all duration-200 group"
                         >
-                          <Image size={16} Icon />
+                          <Image size={16} />
                         </button>
                       )}
                     </div>
                   )}
 
-                  {/* Upload zone */}
                   <div
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -354,13 +372,12 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                       className="hidden"
                       disabled={images.length >= MAX_IMAGES}
                     />
-
                     {uploading ? (
-                      <RefreshCw size={20} />
+                      <RefreshCw size={20} className="animate-spin" />
                     ) : images.length >= MAX_IMAGES ? (
                       <>
                         <Camera size={18} />
-                        <span className="text-xs font-semibold text-green-600">                        {t('reviews.max_photos')}</span>
+                        <span className="text-xs font-semibold text-green-600">{t('reviews.max_photos')}</span>
                       </>
                     ) : (
                       <>
@@ -368,7 +385,7 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                         <div className="text-xs font-semibold text-gray-600">
                           {isDragOver ? t('reviews.drop_images_here') : t('reviews.drag_drop_or_click')}
                         </div>
-                        <p className="text-[10px] text-gray-400">                        {t('reviews.photo_formats')}</p>
+                        <p className="text-[10px] text-gray-400">{t('reviews.photo_formats')}</p>
                       </>
                     )}
                   </div>
@@ -394,13 +411,13 @@ export default function ReviewFormModal({ isOpen, onClose, productId, productNam
                 >
                   {submitting ? (
                     <>
-                      <RefreshCw size={16} />
+                      <RefreshCw size={16} className="animate-spin" />
                       {uploading ? t('reviews.uploading_photos') : t('reviews.submitting')}
                     </>
                   ) : (
                     <>
-                      <Star size={14} />
-                      {t('reviews.submit_review')}
+                      <Store size={14} />
+                      {t('store_review.submit', 'Submit Store Review')}
                     </>
                   )}
                 </button>

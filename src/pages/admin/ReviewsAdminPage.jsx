@@ -1,8 +1,9 @@
-import { Star, Search, CheckCircle, XCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Star, Search, CheckCircle, XCircle, AlertCircle, Trash2, Store } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { reviewsAPI } from '../../api/reviews';
+import { adminAPI } from '../../api/admin';
 import AdminPageShell from '../../components/admin/AdminPageShell';
-import { getStars, formatDate } from '../../utils/formatters';
+import { getStars, formatDate, getImageUrl } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import { downloadBlob } from '../../utils/download';
 
@@ -17,11 +18,18 @@ const TABS = [
   { key: 'rejected', label: 'Rejected', icon: XCircle },
 ];
 
+const TYPE_TABS = [
+  { key: 'all', label: 'All Types' },
+  { key: 'product', label: 'Product Reviews' },
+  { key: 'store', label: 'Store Reviews' },
+];
+
 export default function ReviewsAdminPage() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending');
+  const [reviewType, setReviewType] = useState('all');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -37,6 +45,7 @@ export default function ReviewsAdminPage() {
     { key: 'customerName', label: 'Customer' },
     { key: 'customerEmail', label: 'Email' },
     { key: 'productName', label: 'Product' },
+    { key: 'type', label: 'Type' },
     { key: 'rating', label: 'Rating' },
     { key: 'title', label: 'Title' },
     { key: 'comment', label: 'Comment' },
@@ -98,7 +107,7 @@ export default function ReviewsAdminPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, debouncedSearch, pageSize]);
+  }, [activeTab, reviewType, debouncedSearch, pageSize]);
 
   const loadReviews = useCallback(async (page = 1) => {
     setLoading(true);
@@ -106,6 +115,7 @@ export default function ReviewsAdminPage() {
     try {
       let r;
       const params = { page, limit: pageSize, search: debouncedSearch || undefined };
+      if (reviewType !== 'all') params.type = reviewType;
 
       if (activeTab === 'pending') {
         r = await reviewsAPI.getPending(params);
@@ -128,7 +138,7 @@ export default function ReviewsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch]);
+  }, [activeTab, reviewType, debouncedSearch]);
 
   // Load reviews on mount and when dependencies change
   useEffect(() => {
@@ -137,6 +147,8 @@ export default function ReviewsAdminPage() {
 
   const getUserName = (review) => {
     if (!review) return 'Customer';
+    // Store reviews store the name directly on the review record
+    if (review.type === 'store') return review.name || review.userName || 'Customer';
     if (review.user) {
       const name = [review.user.first_name, review.user.last_name].filter(Boolean).join(' ');
       return name || review.user.email || 'Customer';
@@ -144,8 +156,15 @@ export default function ReviewsAdminPage() {
     return review.userName || review.userEmail || 'Customer';
   };
 
+  const getCustomerEmail = (review) => {
+    if (!review) return '';
+    if (review.type === 'store') return review.email || review.userEmail || '';
+    return review.user?.email || review.userEmail || '';
+  };
+
   const getProductName = (review) => {
     if (!review) return '—';
+    if (review.type === 'store') return null; // null = show store badge instead
     if (review.product) return review.product.name || '—';
     return review.productName || '—';
   };
@@ -233,7 +252,7 @@ export default function ReviewsAdminPage() {
       {/* Tab Navigation */}
       <div className="admin-tabs-wrap" style={{
         display: 'flex', gap: '0', borderBottom: '2px solid var(--border)',
-        marginBottom: '1rem', overflowX: 'auto',
+        marginBottom: '0.5rem', overflowX: 'auto',
       }}>
         {TABS.map(tab => {
           const Icon = tab.icon;
@@ -260,13 +279,42 @@ export default function ReviewsAdminPage() {
         })}
       </div>
 
+      {/* Review Type Filter */}
+      <div className="admin-tabs-wrap" style={{
+        display: 'flex', gap: '0', borderBottom: '1px solid var(--border)',
+        marginBottom: '1rem', overflowX: 'auto',
+      }}>
+        {TYPE_TABS.map(tab => {
+          const isActive = reviewType === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setReviewType(tab.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                padding: '0.45rem 1rem', fontSize: '0.78rem',
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--primary)' : 'var(--muted, #888)',
+                background: 'transparent', border: 'none',
+                borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                marginBottom: '-1px', cursor: 'pointer', transition: 'all 0.2s',
+                whiteSpace: 'nowrap', opacity: isActive ? 1 : 0.6,
+              }}
+            >
+              {tab.key === 'store' && <Store size={12} />}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="table-card">
         <div className="table-toolbar">
           <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
             <input
               className="table-search"
-              placeholder="Search by comment or title..."
+              placeholder="Search reviews..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{ paddingLeft: '2rem' }}
@@ -279,14 +327,14 @@ export default function ReviewsAdminPage() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Customer</th><th>Product</th><th>Rating</th>
+                <th>Customer</th><th>Contact</th><th>Product</th><th>Rating</th>
                 <th>Comment</th><th>Status</th><th>Date</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {reviews.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="empty-state" style={{ padding: '3rem' }}>
                       <div className="empty-state-icon" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
                         {activeTab === 'pending' ? '✅' : activeTab === 'approved' ? '⭐' : activeTab === 'rejected' ? '🗑️' : '📝'}
@@ -309,17 +357,41 @@ export default function ReviewsAdminPage() {
                 <tr key={r.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {r.user?.avatar && (
-                        <img src={r.user.avatar} alt=""
+                      {r.type !== 'store' && r.user?.avatar ? (
+                        <img src={getImageUrl(r.user.avatar)} alt=""
                           style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
                           onError={e => { e.target.style.display = 'none'; }}
                         />
-                      )}
+                      ) : r.type === 'store' ? (
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%',
+                          background: 'var(--primary-light, #eef2ff)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--primary, #6366f1)', fontSize: '0.7rem', fontWeight: 600,
+                        }}>
+                          <Store size={14} />
+                        </div>
+                      ) : null}
                       <strong style={{ fontSize: '0.85rem' }}>{getUserName(r)}</strong>
                     </div>
                   </td>
+                  <td style={{ fontSize: '0.78rem', color: '#888' }}>
+                    {getCustomerEmail(r) || '—'}
+                  </td>
                   <td style={{ fontSize: '0.82rem', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {getProductName(r)}
+                    {getProductName(r) !== null ? (
+                      getProductName(r)
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                        padding: '0.15rem 0.45rem', borderRadius: '4px',
+                        background: 'var(--primary-light, #eef2ff)',
+                        color: 'var(--primary, #6366f1)',
+                        fontSize: '0.75rem', fontWeight: 600,
+                      }}>
+                        <Store size={11} /> Store Review
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
