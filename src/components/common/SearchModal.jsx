@@ -254,7 +254,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                     ) : popularProducts.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {popularProducts.map((product) => (
-                          <Search ProductCard key={product.id} product={product} />
+                          <SearchProductCard key={product.id} product={product} />
                         ))}
                       </div>
                     ) : (

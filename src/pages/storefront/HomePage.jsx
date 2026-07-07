@@ -488,14 +488,12 @@ function CategorySection({ categories }) {
 }
 
 /* ═══════════ PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) ═══════════ */
-function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
-  const navigate = useNavigate();
+function ProductSlider({ products, skeletonCount = 6, cardClassName = '' }) {
   const scrollRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [currentIdx, setCurrentIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const autoplayRef = useRef(null);
 
@@ -531,7 +529,7 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
     return () => clearInterval(autoplayRef.current);
   }, [isMobile, isHovered, products.length]);
 
-  // Update scroll button visibility and current index on scroll
+  // Update scroll button visibility on scroll
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -539,16 +537,6 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
       const { scrollLeft, scrollWidth, clientWidth } = el;
       setCanScrollLeft(scrollLeft > 8);
       setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
-      const card = el.querySelector('.product-slide');
-      if (card) {
-        const cardWidth = card.offsetWidth;
-        const gap = 12;
-        const totalWidth = cardWidth + gap;
-        if (totalWidth > 0) {
-          const idx = Math.round(scrollLeft / totalWidth);
-          setCurrentIdx(Math.min(idx, products.length - 1));
-        }
-      }
     };
     el.addEventListener('scroll', update, { passive: true });
     update();
@@ -647,9 +635,7 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Edge gradient overlays — hint at scrollable content (desktop only) */}
-      <div className="max-sm:hidden absolute inset-y-0 left-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-r from-white via-white/95 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollLeft ? 1 : 0 }} />
-      <div className="max-sm:hidden absolute inset-y-0 right-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-l from-white via-white/95 to-transparent opacity-0 md:opacity-100 transition-opacity duration-500" style={{ opacity: canScrollRight ? 1 : 0 }} />
+
 
       {/* Scrollable Track */}
       <div
@@ -669,49 +655,11 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
             transition={{ duration: 0.6, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
             className={cardClass}
           >
-            <ProductCard product={p} />
+            <ProductCard product={p} className={cardClassName} />
           </motion.div>
         ))}
 
-        {/* View All */}
-        {viewAllLink && (
-          <>
-            {/* Mobile: simple button */}
-            <button
-              data-no-drag="true"
-              onClick={() => navigate(viewAllLink)}
-              className="sm:hidden col-span-2 w-full mt-2.5 py-3.5 rounded-xl bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 font-bold text-sm uppercase tracking-wider hover:from-gray-900 hover:to-gray-800 hover:text-white hover:shadow-lg hover:shadow-black/10 transition-all duration-300 flex items-center justify-center gap-2 group active:scale-[0.98]"
-            >
-              <span className="transition-all duration-300 group-hover:tracking-[0.2em]">View All</span>
-              <ArrowRight size={15} className="transition-all duration-300 group-hover:translate-x-1" />
-            </button>
-            {/* Desktop: card */}
-            <motion.button
-              data-no-drag="true"
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: '-30px' }}
-              transition={{ duration: 0.6, delay: products.length * 0.04, ease: [0.16, 1, 0.3, 1] }}
-              onClick={() => navigate(viewAllLink)}
-              className="max-sm:hidden sm:w-[302px] sm:min-w-[302px] snap-start shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-br from-gray-50 via-white to-gray-100/80 border-2 border-dashed border-gray-200 hover:border-primary/40 shadow-sm hover:shadow-md hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-500 group cursor-pointer relative overflow-hidden"
-            >
-              <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-primary/[0.03] group-hover:bg-primary/[0.06] transition-colors duration-500" />
-              <div className="absolute -bottom-6 -left-6 w-16 h-16 rounded-full bg-gray-200/30 group-hover:bg-primary/[0.04] transition-colors duration-500" />
-              <div className="flex flex-col items-center gap-3 z-10 text-gray-400 group-hover:text-primary transition-colors duration-500">
-                <div className="relative w-14 h-14">
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-primary/10 group-hover:to-primary/5 shadow-inner transition-all duration-500" />
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 group-hover:text-primary transition-colors duration-500">
-                      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-                    </svg>
-                  </div>
-                </div>
-                <span className="text-sm font-bold uppercase tracking-[0.15em]">View All</span>
-                <span className="text-[10px] text-gray-300 group-hover:text-primary/50 uppercase tracking-wider -mt-1.5 transition-colors duration-500">Browse Collection</span>
-              </div>
-            </motion.button>
-          </>
-        )}
+
       </div>
 
       {/* Desktop scroll arrows — premium glassmorphism with glow */}
@@ -738,35 +686,7 @@ function ProductSlider({ products, skeletonCount = 6, viewAllLink }) {
         </>
       )}
 
-      {/* Scroll progress dots (desktop) — premium pill-style */}
-      {!isMobile && products.length > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gray-100/60 backdrop-blur-sm">
-            {products.slice(0, Math.min(products.length, 7)).map((_, idx) => {
-              const isActive = currentIdx === idx;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    const el = scrollRef.current;
-                    if (!el) return;
-                    const card = el.querySelector('.product-slide');
-                    if (!card) return;
-                    const cardWidth = card.offsetWidth;
-                    el.scrollTo({ left: (cardWidth + 12) * idx, behavior: 'smooth' });
-                  }}
-                  className={`rounded-full transition-all duration-500 ${
-                    isActive
-                      ? 'w-5 h-1.5 bg-gray-900 shadow-sm'
-                      : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-500 hover:scale-125'
-                  }`}
-                  aria-label={`Go to product ${idx + 1}`}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -809,7 +729,7 @@ function NewArrivalsSection({ products }) {
         </motion.div>
 
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
-          <ProductSlider products={products} viewAllLink="/products/section/new-arrivals" />
+          <ProductSlider products={products} cardClassName="!rounded-none" />
         </div>
       </div>
     </section>
@@ -884,7 +804,7 @@ function ProductRow({ title, products }) {
         </motion.div>
         
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
-          <ProductSlider products={products} viewAllLink={`/products/section/${sectionSlug}`} />
+          <ProductSlider products={products} cardClassName="!rounded-none" />
         </div>
       </div>
     </section>

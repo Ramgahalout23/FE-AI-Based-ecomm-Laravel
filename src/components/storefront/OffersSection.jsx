@@ -1,5 +1,6 @@
 import { Gift, Tag, Percent, Zap, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { formatCurrency } from '../../utils/formatters';
 
 const OFFER_ICONS = {
   FIRST_ORDER: Gift,
@@ -34,20 +35,20 @@ function formatOfferDescription(promo) {
     if (promo.type === 'PERCENTAGE' || promo.type === 'FIRST_ORDER') {
       parts.push(`${promo.discount}% off`);
     } else {
-      parts.push(`Save ₹${Math.round(promo.discount)}`);
+      parts.push(`Save ${formatCurrency(Math.round(promo.discount))}`);
     }
   } else {
     parts.push(promo.title || 'Special offer');
   }
   
   if (promo.min_purchase && parseFloat(promo.min_purchase) > 0) {
-    parts.push(`on orders above ₹${Math.round(promo.min_purchase)}`);
+    parts.push(`on orders above ${formatCurrency(Math.round(promo.min_purchase))}`);
   } else {
     parts.push('on all orders');
   }
   
   if (promo.max_discount) {
-    parts.push(`(up to ₹${Math.round(promo.max_discount)})`);
+    parts.push(`(up to ${formatCurrency(Math.round(promo.max_discount))})`);
   }
   
   return parts.join(' ');
@@ -123,12 +124,12 @@ export default function OffersSection({ promotions = [] }) {
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${colors.badge}`}>
                         {promo.type === 'FIRST_ORDER' || promo.type === 'PERCENTAGE'
                           ? `${Math.round(promo.discount)}% off`
-                          : `₹${Math.round(promo.discount)} off`}
+                          : `${formatCurrency(Math.round(promo.discount))} off`}
                       </span>
                     )}
                     {promo.min_purchase && parseFloat(promo.min_purchase) > 0 && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                        Min. ₹{Math.round(promo.min_purchase)}
+                        Min. {formatCurrency(Math.round(promo.min_purchase))}
                       </span>
                     )}
                     {promo.coupon_code && (
@@ -139,7 +140,7 @@ export default function OffersSection({ promotions = [] }) {
                     )}
                     {promo.max_discount && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                        Up to ₹{Math.round(promo.max_discount)}
+                        Up to {formatCurrency(Math.round(promo.max_discount))}
                       </span>
                     )}
                   </div>

@@ -2,7 +2,7 @@ import { ArrowRight, Sparkles, ShoppingBag, Minus, Plus, Truck, ShieldCheck, Ref
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency, getImageUrl, getProductImage, slugify } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import useCartStore from '../../store/cartStore';
@@ -471,7 +471,19 @@ export default function NewArrivalOfTheWeek({ product }) {
                   ) : !hasAllSelections && (hasColorOptions || hasSizeOptions) ? (
                     <span className="flex items-center gap-2"><ShoppingBag size={16} /> {t('product.select_options') || 'Select Options'}</span>
                   ) : isSimpleProduct || (hasAllSelections && matchedVariant) ? (
-                    <span className="flex items-center gap-2"><ShoppingBag size={16} /> {t('product.add_to_bag') || 'Add to Bag'} · {formatCurrency(displayPrice * qty)}</span>
+                    <AnimatePresence mode="popLayout">
+                          <motion.span
+                            key={displayPrice * qty}
+                            initial={{ y: 6, opacity: 0, scale: 0.95 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -6, opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="inline-flex items-center gap-2 whitespace-nowrap"
+                          >
+                            <ShoppingBag size={16} />
+                            <span>{t('product.add_price', { price: formatCurrency(displayPrice * qty) })}</span>
+                          </motion.span>
+                        </AnimatePresence>
                   ) : (
                     <span className="flex items-center gap-2"><ShoppingBag size={16} /> {t('product.select_options') || 'Select Options'}</span>
                   )}

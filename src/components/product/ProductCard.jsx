@@ -1,4 +1,4 @@
-import { ShoppingBag, Plus, Minus, X, Heart } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Heart, Eye } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,7 @@ import useAuthStore from '../../store/authStore';
 import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
-function ProductCard({ product }) {
+function ProductCard({ product, className = '' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
@@ -55,6 +55,8 @@ function ProductCard({ product }) {
     return { colors: colorArr, sizes: sizeArr };
   }, [hasVariants, variants, product.colors, product.sizes]);
 
+  const hasSelectableOptions = colors.length > 0 || sizes.length > 0;
+
   /* ── OOS colors/sizes ── */
   const { oosColors, oosSizes } = useMemo(() => {
     if (!hasVariants) return { oosColors: new Set(), oosSizes: new Set() };
@@ -85,17 +87,19 @@ function ProductCard({ product }) {
     ) || null;
   }, [hasVariants, variants, selectedColor, selectedSize]);
 
-  const displayPrice = matchedVariant?.price ?? product.price;
-  const hasAllSelections = (!colors.length || selectedColor) && (!sizes.length || selectedSize);
-  const canAdd = hasVariants
-    ? (hasAllSelections && matchedVariant && (matchedVariant.quantity || 0) > 0)
-    : ((product.quantity ?? 0) > 0);
-
   /* ── Auto-first variant for no-selection quick add ── */
   const firstAvailVariant = useMemo(() => {
     if (!hasVariants) return null;
     return variants.find((v) => (v.quantity || 0) > 0) || variants[0] || null;
   }, [hasVariants, variants]);
+
+  const displayPrice = matchedVariant?.price ?? product.price;
+  const hasAllSelections = (!colors.length || selectedColor) && (!sizes.length || selectedSize);
+  const canAdd = hasVariants && hasSelectableOptions
+    ? (hasAllSelections && matchedVariant && (matchedVariant.quantity || 0) > 0)
+    : hasVariants
+      ? (firstAvailVariant && (firstAvailVariant.quantity || 0) > 0)
+      : ((product.quantity ?? 0) > 0);
 
   const handleWishlist = async (e) => {
     e.stopPropagation();
@@ -138,6 +142,30 @@ function ProductCard({ product }) {
           price: product.price,
           image: getProductImage(product),
           quantity: qty,
+        });
+        if (isAuthenticated) {
+          await cartAPI.add({ productId: product.id, quantity: qty }).catch(() => {});
+        }
+        addedToCart(product.name);
+      } finally {
+        setIsAdding(false);
+      }
+      return;
+    }
+
+    // Variants with no selectable attributes → add first available directly
+    if (hasVariants && !hasSelectableOptions) {
+      if (!firstAvailVariant) return;
+      setIsAdding(true);
+      try {
+        addToCart({
+          id: product.id,
+          productId: product.id,
+          name: product.name,
+          price: firstAvailVariant.price ?? product.price,
+          image: getProductImage(product),
+          quantity: qty,
+          variantId: firstAvailVariant.id,
         });
         if (isAuthenticated) {
           await cartAPI.add({ productId: product.id, quantity: qty }).catch(() => {});
@@ -192,7 +220,7 @@ function ProductCard({ product }) {
     }
 
     setShowQuickAdd(true);
-  }, [hasVariants, hasAllSelections, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, isAuthenticated, colors, sizes]);
+  }, [hasVariants, hasAllSelections, hasSelectableOptions, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, isAuthenticated, colors, sizes]);
 
   /* ── Add from panel (after selections made) ── */
   const handlePanelAdd = useCallback(async () => {
@@ -288,14 +316,14 @@ function ProductCard({ product }) {
     <>
       {/* ════ Product Card ════ */}
       <div
-        className="group bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift border border-border cursor-pointer flex flex-col h-full"
+        className={`group bg-white ${className} overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
         onClick={() => navigate(`/products/${productSlug}`)}
       >
         {/* Image Container */}
         <div className="relative aspect-[3/4] max-sm:aspect-[4/5] bg-surface overflow-hidden shrink-0">
           {/* Top-left Badge */}
           {topLeftBadge && (
-            <div className={`absolute top-3 left-3 max-sm:top-2 max-sm:left-2 z-10 text-[10px] max-sm:text-[9px] font-bold px-3 max-sm:px-2 py-1 max-sm:py-0.5 rounded-full uppercase tracking-wide shadow-sm ${topLeftBadge.className}`}>
+            <div className={`absolute top-3 left-3 max-sm:top-2 max-sm:left-2 z-10 text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-wider ${topLeftBadge.className}`}>
               {topLeftBadge.label}
             </div>
           )}
@@ -303,13 +331,21 @@ function ProductCard({ product }) {
           {/* Wishlist */}
           <button
             onClick={handleWishlist}
-            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 ${
               inWishlist
                 ? 'bg-danger text-white shadow-md'
                 : 'bg-white/90 backdrop-blur-sm text-text-muted hover:text-danger hover:bg-white shadow-soft'
             }`}
           >
             <Heart size={16} fill={inWishlist ? 'currentColor' : 'none'} />
+          </button>
+
+          {/* Quick View */}
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
+            className="absolute top-[52px] right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm text-text-muted hover:text-black hover:bg-white shadow-soft"
+          >
+            <Eye size={16} />
           </button>
 
           {/* Product Image */}
@@ -331,10 +367,8 @@ function ProductCard({ product }) {
 
           {/* Out of Stock overlay on image */}
           {isOutOfStock && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10">
-              <div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
-                {t('product.sold_out')}
-              </div>
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10"><div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
+                {t('product.sold_out')}</div>
             </div>
           )}
 
@@ -372,17 +406,17 @@ function ProductCard({ product }) {
 
                 {/* Scrollable options area */}
                 <div className="flex-1 overflow-y-auto px-3 no-scrollbar">
-                  <div className="space-y-2.5 pb-3">
+                  <div className="space-y-2 pb-2.5">
                     {/* Product Name */}
                     <p className="text-[11px] font-medium text-gray-900 truncate leading-tight">{product.name}</p>
 
                     {/* Colors */}
                     {colors.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Color{selectedColor ? <span className="text-gray-800 ml-1 font-bold">· {selectedColor}</span> : ''}
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {colors.map((c) => {
                             const isOOS = oosColors.has(c);
                             const isSelected = selectedColor === c;
@@ -391,7 +425,7 @@ function ProductCard({ product }) {
                                 key={c}
                                 disabled={isOOS}
                                 onClick={() => setSelectedColor(c)}
-                                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
                                   isSelected
                                     ? 'border-black scale-110 shadow-sm'
                                     : isOOS
@@ -401,7 +435,7 @@ function ProductCard({ product }) {
                                 title={c}
                               >
                                 <div
-                                  className={`w-[18px] h-[18px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
+                                  className={`w-[14px] h-[14px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
                                   style={{ background: getColorHex(c) }}
                                 />
                                 {isOOS && (
@@ -421,10 +455,10 @@ function ProductCard({ product }) {
                     {/* Sizes */}
                     {sizes.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                           Size{selectedSize ? <span className="text-gray-800 ml-1 font-bold">· {selectedSize}</span> : ''}
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1">
                           {sizes.map((s) => {
                             const isOOS = oosSizes.has(s);
                             const isSelected = selectedSize === s;
@@ -433,7 +467,7 @@ function ProductCard({ product }) {
                                 key={s}
                                 disabled={isOOS}
                                 onClick={() => setSelectedSize(s)}
-                                className={`px-3 py-1.5 text-[10px] font-bold rounded-[3px] transition-all duration-150 ${
+                                className={`px-2 py-1 text-[10px] font-bold rounded-[3px] transition-all duration-150 ${
                                   isOOS
                                     ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                     : isSelected
@@ -492,7 +526,7 @@ function ProductCard({ product }) {
                         <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : !hasAllSelections ? (
                         <span>{t('product.select') || 'Select'}</span>
-                      ) : !matchedVariant && hasVariants ? (
+                      ) : !matchedVariant && hasVariants && hasSelectableOptions ? (
                         <span>{t('product.unavailable') || 'Unavailable'}</span>
                       ) : !canAdd ? (
                         <span>{t('product.sold_out') || 'Sold Out'}</span>
@@ -544,19 +578,15 @@ function ProductCard({ product }) {
 
         {/* Details */}
         <div className={`max-sm:p-2.5 p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          <p className="text-[11px] max-sm:text-[10px] font-medium text-primary uppercase tracking-wider mb-1 truncate">
-            {typeof product.category === 'object' ? product.category?.name || product.categoryName || 'T-Shirt' : product.category || product.categoryName || 'T-Shirt'}
-          </p>
-
           <h3 className="text-sm max-sm:text-xs font-medium text-gray-900 line-clamp-1 group-hover:text-primary transition-colors mb-1.5 md:mb-2 tracking-wide">
             {product.name}
           </h3>
 
           <div className="mt-auto">
             <div className="flex items-center gap-1 md:gap-2">
-              <span className="text-lg max-sm:text-sm font-display font-extrabold text-text-primary">{formatCurrency(product.price)}</span>
+              <span className="text-lg max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(product.price)}</span>
               {product.oldPrice && (
-                <span className="text-sm max-sm:text-xs text-text-muted line-through font-medium">{formatCurrency(product.oldPrice)}</span>
+                <span className="text-sm max-sm:text-xs text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
               )}
             </div>
           </div>
@@ -630,14 +660,14 @@ function ProductCard({ product }) {
 
                   {/* Scrollable Options */}
                   <div className="flex-1 overflow-y-auto px-4 no-scrollbar">
-                    <div className="py-3 space-y-4">
+                    <div className="py-3 space-y-3">
                       {/* Colors */}
                       {colors.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                             Color · <span className="text-gray-900">{selectedColor || 'Select'}</span>
                           </p>
-                          <div className="flex flex-wrap gap-2.5">
+                          <div className="flex flex-wrap gap-2">
                             {colors.map((c) => {
                               const isOOS = oosColors.has(c);
                               const isSelected = selectedColor === c;
@@ -646,7 +676,7 @@ function ProductCard({ product }) {
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => setSelectedColor(c)}
-                                  className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -656,7 +686,7 @@ function ProductCard({ product }) {
                                     title={c}
                                   >
                                     <div
-                                      className={`w-7 h-7 rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
+                                      className={`w-[22px] h-[22px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
                                       style={{ background: getColorHex(c) }}
                                     />
                                     {isOOS && (
@@ -676,10 +706,10 @@ function ProductCard({ product }) {
                       {/* Sizes */}
                       {sizes.length > 0 && (
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                             Size · <span className="text-gray-900">{selectedSize || 'Select'}</span>
                           </p>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {sizes.map((s) => {
                               const isOOS = oosSizes.has(s);
                               const isSelected = selectedSize === s;
@@ -688,7 +718,7 @@ function ProductCard({ product }) {
                                   key={s}
                                   disabled={isOOS}
                                   onClick={() => setSelectedSize(s)}
-                                  className={`px-4 py-2.5 text-xs font-bold rounded-lg transition-all duration-150 ${
+                                  className={`px-3 py-2 text-xs font-bold rounded-lg transition-all duration-150 ${
                                     isOOS
                                       ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                       : isSelected
@@ -747,7 +777,7 @@ function ProductCard({ product }) {
                           <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : !hasAllSelections ? (
                           <span>{t('product.select') || 'Select'}</span>
-                        ) : !matchedVariant && hasVariants ? (
+                        ) : !matchedVariant && hasVariants && hasSelectableOptions ? (
                           <span>{t('product.unavailable') || 'Unavailable'}</span>
                         ) : !canAdd ? (
                           <span>{t('product.sold_out') || 'Sold Out'}</span>

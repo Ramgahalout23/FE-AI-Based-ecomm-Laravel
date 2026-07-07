@@ -4,16 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../../utils/formatters';
 
 /* ═══════════════════════════════════════════════════════════
    WATCH & BUY — TikTok-style shoppable video reels
    ═══════════════════════════════════════════════════════════ */
 
 function discountPercent(oldPrice, price) {
-  const o = parseInt(String(oldPrice).replace(/[^0-9]/g, ''));
-  const c = parseInt(String(price).replace(/[^0-9]/g, ''));
-  if (!o || !c) return 0;
-  return Math.round(((o - c) / o) * 100);
+  if (!oldPrice || !price) return 0;
+  const oNum = Number(oldPrice);
+  const pNum = Number(price);
+  if (!oNum || !pNum) return 0;
+  return Math.round(((oNum - pNum) / oNum) * 100);
 }
 
 function getReelBadge(reel) {
@@ -270,8 +272,8 @@ function FashionShowcase({ reels, onRefresh }) {
                             <div className="min-w-0 flex-1">
                               <p className="text-[10px] font-semibold text-gray-900 leading-tight line-clamp-1">{p?.name || reel.title}</p>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                {p?.price && <span className="text-xs font-bold text-gray-900">₹{p.price}</span>}
-                                {p?.old_price && <span className="text-[9px] text-gray-400 line-through">₹{p.old_price}</span>}
+                                {p?.price && <span className="text-xs font-bold text-gray-900">{formatCurrency(p.price)}</span>}
+                                {p?.old_price && <span className="text-[9px] text-gray-400 line-through">{formatCurrency(p.old_price)}</span>}
                                 {p?.old_price && p?.price && (
                                   <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[6px] font-bold">
                                     {t('reels.off', { percent: discountPercent(p.old_price, p.price) })}
@@ -827,8 +829,8 @@ function ReelPlayer({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-900 leading-tight line-clamp-1">{prodName}</p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {prodPrice && <span className="text-base font-bold text-gray-900">₹{prodPrice}</span>}
-                      {prodOld && <span className="text-xs text-gray-400 line-through">₹{prodOld}</span>}
+                      {prodPrice && <span className="text-base font-bold text-gray-900">{formatCurrency(prodPrice)}</span>}
+                      {prodOld && <span className="text-xs text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
                       {prodOld && prodPrice && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[8px] font-bold">
                           {discountPercent(prodOld, prodPrice)}% OFF

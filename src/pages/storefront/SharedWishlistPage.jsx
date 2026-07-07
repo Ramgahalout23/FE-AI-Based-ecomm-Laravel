@@ -2,6 +2,7 @@ import { ShoppingBag, AlertTriangle, Share2, Heart, ArrowRight, Package, User } 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
@@ -189,6 +190,7 @@ export default function SharedWishlistPage() {
             const discount = itemOldPrice
               ? Math.round(((itemOldPrice - itemPrice) / itemOldPrice) * 100)
               : null;
+            const displayPrice = itemPrice;
 
             return (
               <div
@@ -248,17 +250,29 @@ export default function SharedWishlistPage() {
                       className={`wishlist-add-cart-btn ${isOutOfStock || isAdding ? 'disabled' : ''}`}
                       onClick={(e) => !isOutOfStock && handleAddToCart(item, e)}
                       disabled={isOutOfStock || isAdding}
-                    >                          {isAdding ? (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                              {t('wishlist.moving')}
-                            </span>
-                          ) : (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <ShoppingBag size={14} />
-                              {isOutOfStock ? t('wishlist.out_of_stock') : t('wishlist.add_to_cart')}
-                            </span>
-                          )}
+                    >
+                      {isAdding ? (
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : isOutOfStock ? (
+                        <span className="flex items-center gap-1.5">
+                          <ShoppingBag size={14} />
+                          {t('wishlist.out_of_stock')}
+                        </span>
+                      ) : (
+                        <AnimatePresence mode="popLayout">
+                          <motion.span
+                            key={displayPrice}
+                            initial={{ y: 6, opacity: 0, scale: 0.95 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            exit={{ y: -6, opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            <ShoppingBag size={14} />
+                            <span>{t('product.add_price', { price: formatCurrency(displayPrice) })}</span>
+                          </motion.span>
+                        </AnimatePresence>
+                      )}
                     </button>
                   </div>
                 </div>
