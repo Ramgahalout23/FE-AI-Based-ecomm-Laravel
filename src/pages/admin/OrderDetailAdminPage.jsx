@@ -3,7 +3,7 @@ import '../../styles/order-detail.css';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { formatCurrency, formatDate, formatDateTime, getImageUrl, getProductImage } from '../../utils/formatters';
-import { ORDER_STATUSES } from '../../utils/constants';
+import { ORDER_STATUSES, CUSTOM_TEE_PRODUCT_ID } from '../../utils/constants';
 import '../../styles/shipping-label.css';
 import toast from '../../utils/toast';
 import { showSuccess, showError } from '../../utils/toast';
@@ -650,21 +650,64 @@ export default function OrderDetailAdminPage() {
                 {(editing ? editItems : detail.items).map((item, i) => {
                   const productName = item.name || item.product?.name || item.productName || `Product #${(item.product_id || item.productId || '').slice(0, 8)}`;
                   const productSku = item.sku || item.product?.sku || '';
-                  const productImage = item.image || getProductImage(item.product);
+                  const isCustomItem = (item.product_id === CUSTOM_TEE_PRODUCT_ID || item.productId === CUSTOM_TEE_PRODUCT_ID);
+                  const customDesignImage = isCustomItem ? (item.image || null) : null;
+                  const productImage = getProductImage(item.product);
+                  // Check for back design URL (from customDesign on order items, or parsed from design_notes)
+                  let backDesignUrl = isCustomItem ? (item.customDesign?.backUrl || item.customDesign?.backServerUrl || null) : null;
+                  // Also check design_notes for JSON with backDesignUrl
+                  if (!backDesignUrl && isCustomItem && item.customDesign?.design_notes) {
+                    try {
+                      const parsed = JSON.parse(item.customDesign.design_notes);
+                      if (parsed && parsed.backDesignUrl) {
+                        backDesignUrl = parsed.backDesignUrl;
+                      }
+                    } catch {}
+                  }
                   const unitPrice = editing ? Number(item.price) || 0 : (Number(item.price) || 0);
                   const qty = editing ? Number(item.quantity) || 1 : (Number(item.quantity ?? 1));
                   const itemTotal = unitPrice * qty;
                   return (
                     <div key={i} className="items-table-row">
                       <div className="it-col-product">
-                        {productImage ? (
-                          <img loading="lazy" src={getImageUrl(productImage)} alt={productName} title={productName} className="it-product-img" />
+                        {isCustomItem && customDesignImage ? (
+                          /* Show BOTH product image and custom design image(s) side by side */
+                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                            {/* Front design artwork */}
+                            <div style={{ position: 'relative' }}>
+                              <img loading="lazy" src={getImageUrl(customDesignImage)} alt="Front design" title="Front design" className="it-product-img" style={{ border: '2px solid #f59e0b' }} />
+                              <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#f59e0b', color: 'white', fontSize: '6px', fontWeight: 'bold', padding: '1px 3px', borderRadius: '2px', lineHeight: 1 }}>FRONT</span>
+                            </div>
+                            {/* Back design artwork (if placement is both) */}
+                            {backDesignUrl && (
+                              <div style={{ position: 'relative' }}>
+                                <img loading="lazy" src={getImageUrl(backDesignUrl)} alt="Back design" title="Back design" className="it-product-img" style={{ border: '2px solid #6366f1' }} />
+                                <span style={{ position: 'absolute', bottom: '-2px', right: '-2px', background: '#6366f1', color: 'white', fontSize: '6px', fontWeight: 'bold', padding: '1px 3px', borderRadius: '2px', lineHeight: 1 }}>BACK</span>
+                              </div>
+                            )}
+                            {/* Original product image */}
+                            {productImage ? (
+                              <img loading="lazy" src={getImageUrl(productImage)} alt={productName} title={productName} className="it-product-img" />
+                            ) : (
+                              <div className="it-product-img-placeholder" title={productName}><Package size={16} /></div>
+                            )}
+                          </div>
+                        ) : productImage || customDesignImage ? (
+                          <img loading="lazy" src={getImageUrl(productImage || customDesignImage)} alt={productName} title={productName} className="it-product-img" />
                         ) : (
                           <div className="it-product-img-placeholder" title={productName}><Package size={16} /></div>
                         )}
                         <div className="it-product-info">
-                          <div className="it-product-name">{productName}</div>
-                          {productSku && <div className="it-product-meta">SKU: <span style={{ fontFamily: 'monospace' }}>{productSku}</span></div>}
+                          <div className="it-product-name">
+                            {productName}
+                            {isCustomItem && <span style={{ marginLeft: '4px', fontSize: '8px', fontWeight: 700, color: '#f59e0b', background: '#fffbeb', padding: '1px 4px', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', verticalAlign: 'middle' }}>Custom</span>}
+                          </div>
+                          {isCustomItem && item.customDesign?.placement && (
+                            <div className="it-product-meta">
+                              Print placement: <span style={{ fontWeight: 600 }}>{item.customDesign.placement === 'both' ? 'Front & Back' : item.customDesign.placement.charAt(0).toUpperCase() + item.customDesign.placement.slice(1)}</span>
+                            </div>
+                          )}
+                          {productSku && !isCustomItem && <div className="it-product-meta">SKU: <span style={{ fontFamily: 'monospace' }}>{productSku}</span></div>}
                         </div>
                       </div>
                       <div className="it-col-price">

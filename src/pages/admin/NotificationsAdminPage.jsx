@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import { NOTIFICATION_TYPES } from '../../utils/constants';
 import { formatDateTime } from '../../utils/formatters';
@@ -20,6 +22,7 @@ const NOTIFICATION_COLUMNS = [
 ];
 
 export default function NotificationsAdminPage() {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -245,6 +248,27 @@ export default function NotificationsAdminPage() {
     setUserOptions([]);
   };
 
+  // Navigate to the related resource based on notification data
+  const navigateToResource = useCallback((n) => {
+    const refData = n.data || {};
+    const notifType = n.type || '';
+
+    if (refData.orderId) {
+      navigate(`/admin/orders/${refData.orderId}`);
+    } else if (refData.userId) {
+      navigate(`/admin/users/${refData.userId}`);
+    } else if (refData.productId) {
+      navigate(`/admin/products/${refData.productId}`);
+    } else if (notifType === 'PROMOTION') {
+      navigate('/admin/promotions');
+    } else if (refData.reviewId) {
+      navigate(`/admin/reviews/${refData.reviewId}`);
+    } else if (notifType === 'REVIEW') {
+      navigate('/admin/reviews');
+    }
+    // If no matching resource, do nothing (stay on notifications page)
+  }, [navigate]);
+
   return (
     <div>
       <div className="admin-header admin-header-row">
@@ -271,16 +295,42 @@ export default function NotificationsAdminPage() {
           <tbody>
             {loading ? <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr> :
             notifications.length === 0 ? <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">🔔</div><h3>No notifications</h3></div></td></tr> :
-            notifications.map(n => (
-              <tr key={n.id}>
-                <td><strong>{n.title}</strong></td>
-                <td style={{ maxWidth: 280, fontSize: '0.82rem', color: 'var(--muted)' }}>{n.message || n.body || '—'}</td>
-                <td><span className={`status-badge ${n.type === 'PROMOTION' ? 'status-info' : n.type === 'ORDER' ? 'status-active' : 'status-pending'}`}>{n.type}</span></td>
-                <td>{n.targetAudience || 'ALL'}</td>
-                <td style={{ fontSize: '0.82rem' }}>{formatDateTime(n.createdAt)}</td>
-                <td><div className="row-actions"><button className="btn-del" onClick={() => handleDelete(n.id)}>Delete</button></div></td>
-              </tr>
-            ))}
+            notifications.map(n => {
+              const refData = n.data || {};
+              const notifType = n.type || '';
+              const hasResource = refData.orderId || refData.userId || refData.productId || refData.reviewId || notifType === 'PROMOTION' || notifType === 'REVIEW';
+              return (
+                <tr
+                  key={n.id}
+                  onClick={() => navigateToResource(n)}
+                  className={hasResource ? 'clickable-row' : ''}
+                  style={hasResource ? { cursor: 'pointer' } : undefined}
+                >
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <strong>{n.title}</strong>
+                      {hasResource && (
+                        <ExternalLink size={12} style={{ opacity: 0.4, flexShrink: 0 }} />
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ maxWidth: 280, fontSize: '0.82rem', color: 'var(--muted)' }}>{n.message || n.body || '—'}</td>
+                  <td><span className={`status-badge ${n.type === 'PROMOTION' ? 'status-info' : n.type === 'ORDER' ? 'status-active' : 'status-pending'}`}>{n.type}</span></td>
+                  <td>{n.targetAudience || 'ALL'}</td>
+                  <td style={{ fontSize: '0.82rem' }}>{formatDateTime(n.createdAt)}</td>
+                  <td>
+                    <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+                      {hasResource && (
+                        <button className="btn-view" onClick={() => navigateToResource(n)}>
+                          View
+                        </button>
+                      )}
+                      <button className="btn-del" onClick={() => handleDelete(n.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

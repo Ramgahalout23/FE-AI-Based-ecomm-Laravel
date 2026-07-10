@@ -1,5 +1,5 @@
-import { X, Minus, Send, MessageCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { X, Minus, Send, MessageCircle, GripVertical, Save } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
@@ -36,6 +36,20 @@ const AVAILABLE_CURRENCIES = [
   { code: 'AED', symbol: 'AED', name: 'UAE Dirham' },
   { code: 'SAR', symbol: 'SR', name: 'Saudi Riyal' },
 ];
+
+const HOMEPAGE_SECTIONS = [
+  { key: 'hero_banner', label: 'Hero Banner', icon: '🖼️', description: 'Full-width hero banner slider' },
+  { key: 'flash_sales', label: 'Flash Sales', icon: '⚡', description: 'Active promotion banners with countdown' },
+  { key: 'new_arrival_week', label: 'New Arrival of the Week', icon: '⭐', description: 'Editorial featured product hero' },
+  { key: 'new_arrivals', label: 'New Arrivals', icon: '🆕', description: 'New arrivals product carousel' },
+  { key: 'curated_looks', label: 'Curated Looks', icon: '👕', description: 'Style inspiration gallery' },
+  { key: 'tshirt_customizer', label: 'T-Shirt Customizer', icon: '🎨', description: 'Design your own custom t-shirt CTA' },
+  { key: 'categories', label: 'Shop by Category', icon: '📦', description: 'Category grid with editorial layout' },
+  { key: 'best_sellers', label: 'Best Sellers', icon: '🔥', description: 'Trending products carousel' },
+  { key: 'reviews', label: 'Customer Reviews', icon: '⭐', description: 'Testimonial slider' },
+  { key: 'reels', label: 'Featured Reels', icon: '🎥', description: 'Video reels slider' },
+];
+const DEFAULT_SECTION_ORDER = HOMEPAGE_SECTIONS.map(s => s.key);
 
 const AVAILABLE_TIMEZONES = [
   { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
@@ -106,6 +120,12 @@ export default function SettingsAdminPage() {
     timeEnd: '04:00',
   });
 
+  const [sectionOrder, setSectionOrder] = useState([]);
+  const [dragSectionIdx, setDragSectionIdx] = useState(null);
+  const [dragOverSectionIdx, setDragOverSectionIdx] = useState(null);
+  const [sectionOrderChanged, setSectionOrderChanged] = useState(false);
+  const [savingSectionOrder, setSavingSectionOrder] = useState(false);
+
   // Dynamic system health metrics state
   const [systemHealth, setSystemHealth] = useState({
     databaseConnection: false,
@@ -117,6 +137,21 @@ export default function SettingsAdminPage() {
 
   // Backup history state
   const [backups, setBackups] = useState([]);
+
+  // Initialize sectionOrder from settings
+  useEffect(() => {
+    if (settings.homepageSectionOrder) {
+      try {
+        const parsed = JSON.parse(settings.homepageSectionOrder);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSectionOrder(parsed);
+          return;
+        }
+      } catch {}
+    }
+    setSectionOrder([...DEFAULT_SECTION_ORDER]);
+  }, [settings.homepageSectionOrder]);
+
   const [backupsLoading, setBackupsLoading] = useState(false);
 
   // Sync context settings with local state
@@ -311,7 +346,8 @@ export default function SettingsAdminPage() {
     'general': [
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
       'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
-      'newArrivalProductId', 'newArrivalExpiryDate',
+      'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
+      'tshirtCustomizerEnabled', 'homepageSectionOrder',
       'cookieConsentEnabled',
       'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
     ],
@@ -345,6 +381,15 @@ export default function SettingsAdminPage() {
       'footerShopLinks', 'footerHelpLinks', 'footerBottomLinks', 'footerTrustBadges',
     ],
     'maintenance': [
+      'maintenanceMode', 'maintenanceMessage', 'maintenanceAllowedIPs',
+    ],
+    'custom-design': [
+      'customDesignEnabled', 'customDesignSectionEnabled',
+      'customDesignSinglePrintPrice', 'customDesignBothSidesPrice',
+      'customDesignColors', 'customDesignSizes', 'customDesignPlacements',
+      'customDesignMaxFileSize', 'customDesignAcceptedFormats',
+    ],
+    'chat': [
       'maintenanceMode', 'maintenanceMessage', 'maintenanceAllowedIPs',
     ],
     'chat': [
@@ -531,6 +576,48 @@ export default function SettingsAdminPage() {
       toast.error('Failed to delete schedule');
     }
   };
+
+  // ── Section Order Drag Handlers ──
+  const handleSectionDragStart = useCallback((index) => {
+    setDragSectionIdx(index);
+    setDragOverSectionIdx(null);
+  }, []);
+
+  const handleSectionDragEnter = useCallback((index) => {
+    setDragOverSectionIdx(index);
+  }, []);
+
+  const handleSectionDragEnd = useCallback(() => {
+    const fromIdx = dragSectionIdx;
+    const toIdx = dragOverSectionIdx;
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) {
+      setDragSectionIdx(null);
+      setDragOverSectionIdx(null);
+      return;
+    }
+    setSectionOrder((prev) => {
+      const reordered = [...prev];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      return reordered;
+    });
+    setSectionOrderChanged(true);
+    setDragSectionIdx(null);
+    setDragOverSectionIdx(null);
+  }, [dragSectionIdx, dragOverSectionIdx]);
+
+  const handleSaveSectionOrder = useCallback(async () => {
+    setSavingSectionOrder(true);
+    try {
+      await updateContextSettings({ homepageSectionOrder: JSON.stringify(sectionOrder) });
+      setSectionOrderChanged(false);
+      toast.success('Section order saved');
+    } catch {
+      toast.error('Failed to save section order');
+    } finally {
+      setSavingSectionOrder(false);
+    }
+  }, [sectionOrder, updateContextSettings]);
 
   const handleToggleSchedule = async (schedule) => {
     try {
@@ -808,6 +895,68 @@ export default function SettingsAdminPage() {
                 </label>
               </div>
 
+              {/* T-Shirt Customizer Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🎨</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>T-Shirt Customizer</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Advanced t-shirt design &amp; customization showcase on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.tshirtCustomizerEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, tshirtCustomizerEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.tshirtCustomizerEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.tshirtCustomizerEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Reels Section Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🎥</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Featured Reels</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Video reels slider section on the homepage
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.reelsEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, reelsEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={"status-badge " + (settings.reelsEnabled !== 'false' ? 'status-active' : 'status-pending')}>
+                    {settings.reelsEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
               {/* Curated Looks Section Toggle */}
               <div style={{
                 display: 'flex',
@@ -856,6 +1005,28 @@ export default function SettingsAdminPage() {
                     Choose a product to feature in the editorial hero section on the homepage
                   </p>
                 </div>
+              </div>
+              {/* ── Visibility Toggle ── */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', padding: '0.75rem 1rem', background: 'white', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1rem' }}>👁️</span>
+                  <div>
+                    <strong style={{ fontSize: '0.85rem' }}>Show on Homepage</strong>
+                    <p style={{ fontSize: '0.72rem', color: 'var(--muted)', margin: '0.1rem 0 0' }}>
+                      Toggle the editorial hero section visibility
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.newArrivalWeekEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, newArrivalWeekEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.newArrivalWeekEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.newArrivalWeekEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
               </div>
               <select
                 value={settings.newArrivalProductId || ''}
@@ -1103,6 +1274,75 @@ export default function SettingsAdminPage() {
               <span style={{ fontSize: '0.72rem', color: '#999', marginTop: '0.25rem', display: 'block' }}>
                 Set an optional expiry date. After this date, the featured product will auto-hide on the homepage. Leave empty for no expiry.
               </span>
+            </div>
+
+            {/* ── Section Order Drag-and-Drop Reorder ── */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', marginTop: '1.25rem' }}>
+              <div className="detail-header" style={{ marginBottom: '0.5rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <GripVertical size={16} /> Section Order
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                  Drag and drop to reorder homepage sections. Changes apply immediately after saving.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {sectionOrder.map((sectionKey, idx) => {
+                  const section = HOMEPAGE_SECTIONS.find(s => s.key === sectionKey);
+                  if (!section) return null;
+                  return (
+                    <div
+                      key={section.key}
+                      draggable
+                      onDragStart={() => handleSectionDragStart(idx)}
+                      onDragEnter={() => handleSectionDragEnter(idx)}
+                      onDragEnd={handleSectionDragEnd}
+                      onDragOver={(e) => e.preventDefault()}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.7rem 1rem',
+                        background: dragSectionIdx === idx ? 'var(--bg-muted, #f0f0f0)' : 'var(--off-white)',
+                        borderRadius: 'var(--radius-md)',
+                        border: `1px solid ${dragOverSectionIdx === idx ? 'var(--primary)' : 'var(--border)'}`,
+                        opacity: dragSectionIdx === idx ? 0.4 : 1,
+                        transition: 'all 0.15s ease',
+                        cursor: 'grab',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span style={{ color: '#bbb', display: 'flex', alignItems: 'center', fontSize: '0.85rem' }}>
+                        <GripVertical size={16} />
+                      </span>
+                      <span style={{ fontSize: '1.1rem' }}>{section.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ fontSize: '0.82rem' }}>{section.label}</strong>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {section.description}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.72rem', color: '#999', fontWeight: 500 }}>#{idx + 1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="form-actions" style={{ marginTop: '0.75rem' }}>
+                <button
+                  className="btn-dark btn-sm"
+                  onClick={handleSaveSectionOrder}
+                  disabled={savingSectionOrder || !sectionOrderChanged}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  {savingSectionOrder ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Save size={14} />}
+                  {savingSectionOrder ? 'Saving...' : 'Save Section Order'}
+                </button>
+                {sectionOrderChanged && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, marginLeft: '0.5rem' }}>
+                    ⚠ Order changed
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="form-actions" style={{ marginTop: '1rem' }}>

@@ -7,12 +7,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notificationsAPI } from '../../api/notifications';
 import { useSocketEvent } from '../../hooks/useSocket';
 import { formatDateTime } from '../../utils/formatters';
+import useAuthStore from '../../store/authStore';
 
 export default function NotificationBell() {
   const { t } = useTranslation();
   const [show, setShow] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
+  const { isAdmin } = useAuthStore();
   const queryClient = useQueryClient();
 
   // Invalidate all notification queries (used by socket listener & mutation handlers)
@@ -164,7 +166,39 @@ export default function NotificationBell() {
                     onClick={() => {
                       if (!n.isRead) handleMarkAsRead(n.id);
                       setShow(false);
-                      navigate('/notifications');
+                      // Navigate to the relevant page based on notification data & user role
+                      const refData = n.data || {};
+                      const notifType = n.type || '';
+
+                      if (isAdmin) {
+                        // ─── Admin routes ───
+                        if (refData.orderId) {
+                          navigate(`/admin/orders/${refData.orderId}`);
+                        } else if (refData.userId) {
+                          navigate(`/admin/users/${refData.userId}`);
+                        } else if (refData.productId) {
+                          navigate(`/admin/products/${refData.productId}`);
+                        } else if (refData.reviewId) {
+                          navigate(`/admin/reviews/${refData.reviewId}`);
+                        } else if (refData.productSlug) {
+                          navigate(`/admin/products`);
+                        } else if (notifType === 'PROMOTION') {
+                          navigate('/admin/promotions');
+                        } else {
+                          navigate('/admin/notifications');
+                        }
+                      } else {
+                        // ─── Storefront routes (regular user) ───
+                        if (refData.orderId) {
+                          navigate(`/orders/${refData.orderId}`);
+                        } else if (refData.productSlug) {
+                          navigate(`/products/${refData.productSlug}`);
+                        } else if (notifType === 'PROMOTION') {
+                          navigate('/sales');
+                        } else {
+                          navigate('/notifications');
+                        }
+                      }
                     }}
                     className={`px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors ${
                       n.isRead

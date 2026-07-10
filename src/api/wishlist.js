@@ -8,7 +8,11 @@ export const wishlistAPI = {
   getCount: () => client.get('/wishlist/count'),
   clear: () => client.delete('/wishlist'),
   bulkAdd: (data) => client.post('/wishlist/bulk', data),
-  moveToCart: (productId) => client.post(`/wishlist/${productId}/move-to-cart`),
+  moveToCart: (productId, data = {}) => client.post(`/wishlist/${productId}/move-to-cart`, {
+    size: data.size,
+    color: data.color,
+    variantId: data.variantId,
+  }),
 
   // ── Sharing ──
   share: () => client.post('/wishlist/share'),

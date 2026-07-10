@@ -42,8 +42,6 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [matchedVariant, setMatchedVariant] = useState(null);
-  const [variantLoading, setVariantLoading] = useState(false);
-  const [variantNotFound, setVariantNotFound] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const mobileGalleryRef = useRef(null);
@@ -69,7 +67,7 @@ export default function ProductDetailPage() {
       if (!prod) throw new Error('Product not found');
       return prod;
     },
-    staleTime: 60000,
+    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
   });
 
   const queryClient = useQueryClient();
@@ -191,42 +189,6 @@ export default function ProductDetailPage() {
     return () => { cancelled = true; };
   }, [product?.id, isAuthenticated]);
 
-  // Fetch matching variant when user selects size/color
-  useEffect(() => {
-    if (!product?.id) return;
-    const needsSize = product.sizes?.length > 0;
-    const needsColor = product.colors?.length > 0;
-
-    // Clear variant when not all required attributes are selected
-    if ((needsSize && !selectedSize) || (needsColor && !selectedColor)) {
-      if (matchedVariant) setMatchedVariant(null);
-      return;
-    }
-
-    // Fetch the matching variant from backend
-    const fetchVariant = async () => {
-      setVariantLoading(true);
-      setVariantNotFound(false);
-      try {
-        const attrs = {};
-        if (selectedSize) attrs.size = selectedSize;
-        if (selectedColor) attrs.color = selectedColor;
-        const res = await productsAPI.getVariantByAttributes(product.id, {
-          attributes: JSON.stringify(attrs),
-        });
-        const variant = res.data?.data || null;
-        setMatchedVariant(variant);
-        setVariantNotFound(!variant);
-      } catch {
-        setMatchedVariant(null);
-        setVariantNotFound(true);
-      } finally {
-        setVariantLoading(false);
-      }
-    };
-    fetchVariant();
-  }, [selectedSize, selectedColor, product?.id]);
-
   // Reset image index when variant/color changes
   useEffect(() => {
     setSelectedImageIdx(0);
@@ -314,6 +276,36 @@ export default function ProductDetailPage() {
     const stock = getColorStock(color);
     return stock > 0 && stock <= LOW_STOCK_THRESHOLD;
   };
+
+  // ── Client-side variant matching (consistent with ProductCard, SearchProductCard, etc.) ──
+  const isSizeRequired = product.sizes?.length > 0;
+  const isColorRequired = product.colors?.length > 0;
+  const needsSize = isSizeRequired;
+  const needsColor = isColorRequired;
+  const hasAllSelections = (!needsSize || selectedSize) && (!needsColor || selectedColor);
+  const hasVariants = needsSize || needsColor;
+  const variantNotFound = hasAllSelections && hasVariants
+    && (!variantsList.length || !variantsList.some(v => {
+        const attrs = v.attributes || {};
+        const sizeMatch = !needsSize || attrs.size === selectedSize;
+        const colorMatch = !needsColor || attrs.color === selectedColor;
+        return sizeMatch && colorMatch;
+      }));
+
+  // Sync matchedVariant from client data whenever selections change
+  useEffect(() => {
+    if (!product?.id || !hasAllSelections || !hasVariants) {
+      setMatchedVariant(null);
+      return;
+    }
+    const variant = variantsList.find(v => {
+      const attrs = v.attributes || {};
+      const sizeMatch = !needsSize || attrs.size === selectedSize;
+      const colorMatch = !needsColor || attrs.color === selectedColor;
+      return sizeMatch && colorMatch;
+    }) || null;
+    setMatchedVariant(variant);
+  }, [selectedSize, selectedColor, product?.id, needsSize, needsColor, hasAllSelections, hasVariants, variantsList]);
 
   /* ── Back-to-top visibility ── */
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -537,10 +529,6 @@ export default function ProductDetailPage() {
     }
   };
 
-  const isSizeRequired = product.sizes && product.sizes.length > 0;
-  const isColorRequired = product.colors && product.colors.length > 0;
-  const hasAllSelections = (!isSizeRequired || selectedSize) && (!isColorRequired || selectedColor);
-
   // ── Stock calculations ──
   // Simple product (no size/color variants) uses product-level stock
   const isSimpleProduct = !product.sizes?.length && !product.colors?.length;
@@ -551,19 +539,20 @@ export default function ProductDetailPage() {
   // Is the selected combination out of stock?
   const isOutOfStock = !isSimpleProduct && matchedVariant && (matchedVariant.quantity || 0) <= 0;
   const isSimpleOutOfStock = isSimpleProduct && (product.quantity || 0) <= 0;
-  const isStockUnavailable = isOutOfStock || isSimpleOutOfStock;
-  // Low stock threshold
-  const isLowStock = !isStockUnavailable && availableStock > 0 && availableStock <= 5;
-  // Max selectable quantity
-  const maxQty = Math.max(availableStock, 1);
 
   // Out of Stock badge in heading — covers: simple product with no stock, variant product where all variants OOS
   const showOutOfStockBadge = isSimpleProduct
     ? (product.quantity || 0) <= 0
     : !variantsList.length || variantsList.every(v => (v.quantity || 0) <= 0);
 
+  const isStockUnavailable = isOutOfStock || isSimpleOutOfStock || showOutOfStockBadge;
+  // Low stock threshold
+  const isLowStock = !isStockUnavailable && availableStock > 0 && availableStock <= 5;
+  // Max selectable quantity
+  const maxQty = Math.max(availableStock, 1);
+
   const variantUnavailable = variantNotFound && hasAllSelections && !isSimpleProduct;
-  const canAddToCart = hasAllSelections && !isStockUnavailable && !variantLoading && !variantUnavailable && availableStock > 0;
+  const canAddToCart = hasAllSelections && !isStockUnavailable && !variantUnavailable && availableStock > 0;
 
   const handleWishlist = async () => {
     // Optimistic update first.
@@ -995,13 +984,6 @@ export default function ProductDetailPage() {
                   {t('product.combination_unavailable')}
                 </div>
               )}
-              {/* Variant loading */}
-              {!isSimpleProduct && variantLoading && (
-                <div className="px-4 py-3 rounded-xl bg-gray-50 text-sm text-gray-500 font-medium flex items-center gap-2.5 border border-gray-200/60">
-                  <div className="spinner w-4 h-4" /> {t('product.checking_availability')}
-                </div>
-              )}
-
               {/* Actions: Add to Cart & Wishlist */}
               <div className="flex flex-col gap-3 pt-4">
                 <div className="flex gap-3">
@@ -1045,8 +1027,6 @@ export default function ProductDetailPage() {
                       <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> {t('product.adding')}...</>
                     ) : isStockUnavailable ? (
                       <><span>✕</span> {t('product.out_of_stock')}</>
-                    ) : variantLoading ? (
-                      <><div className="spinner w-4 h-4 border-2 border-gray-400/30 border-t-gray-400 rounded-full" /> {t('product.checking')}</>
                     ) : variantUnavailable ? (
                       <><span>✕</span> {t('product.unavailable')}</>
                     ) : !hasAllSelections ? (
@@ -1482,8 +1462,6 @@ export default function ProductDetailPage() {
               <><div className="spinner w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> {t('product.adding')}</>
             ) : isStockUnavailable ? (
               t('product.out_of_stock')
-            ) : variantLoading ? (
-              t('product.checking')
             ) : variantUnavailable ? (
               t('product.unavailable')
             ) : !hasAllSelections ? (

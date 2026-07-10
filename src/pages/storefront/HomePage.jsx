@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ChevronUp, RefreshCw, ArrowRight } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,7 @@ import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../..
 import ReelsSection from '../../components/storefront/ReelsSection';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import NewArrivalOfTheWeek from '../../components/storefront/NewArrivalOfTheWeek';
+import ProfessionalDesignCTA from '../../components/storefront/ProfessionalDesignCTA';
 import AllReviewsModal from '../../components/reviews/AllReviewsModal';
 
 /* ═══════════ ANIMATION WRAPPERS — Premium Entrance ═══════════ */
@@ -1590,7 +1591,7 @@ export default function HomePage() {
       const res = await homepageAPI.getAll();
       return res?.data?.data || {};
     },
-    staleTime: 30000,
+    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
   });
 
   // Extract all data from the consolidated response
@@ -1622,6 +1623,93 @@ export default function HomePage() {
   const curatedLooksEnabled = mergedGetSetting('curatedLooksEnabled', 'true') !== 'false';
   const newArrivalProductId = mergedGetSetting('newArrivalProductId', '');
   const newArrivalExpiryDate = mergedGetSetting('newArrivalExpiryDate', '');
+  const tshirtCustomizerEnabled = mergedGetSetting('tshirtCustomizerEnabled', 'false') !== 'false';
+  const reelsEnabled = mergedGetSetting('reelsEnabled', 'true') !== 'false';
+
+  // ── Read section order from settings (with fallback to default) ──
+  const sectionOrder = (() => {
+    const raw = mergedGetSetting('homepageSectionOrder', '');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return ['hero_banner','flash_sales','new_arrival_week','new_arrivals','curated_looks','tshirt_customizer','categories','best_sellers','reviews','reels'];
+  })();
+
+  // ── Section renderer map — maps section keys to JSX ──
+  const renderSection = (key) => {
+    switch (key) {
+      case 'hero_banner':
+        return banners.length > 0 && (
+          <AnimatedSection key="hero_banner" delay={0} margin="-40px">
+            <HeroBanner banners={banners} />
+          </AnimatedSection>
+        );
+      case 'flash_sales':
+        return flashSales.length > 0 && (
+          <AnimatedSection key="flash_sales" delay={0.05}>
+            <FlashSaleSection promotions={flashSales} />
+          </AnimatedSection>
+        );
+      case 'new_arrival_week':
+        return newArrivalProductId && !isExpired && featuredNewArrival && (
+          <AnimatedSection key="new_arrival_week" delay={0.05} margin="-40px">
+            <NewArrivalOfTheWeek product={featuredNewArrival} />
+          </AnimatedSection>
+        );
+      case 'new_arrivals':
+        return newArrivalsEnabled && (
+          <AnimatedSection key="new_arrivals" delay={0.05}>
+            <NewArrivalsSection products={newArrivals} />
+          </AnimatedSection>
+        );
+      case 'curated_looks':
+        return curatedLooksEnabled && (
+          <AnimatedSection key="curated_looks" delay={0.05}>
+            <CuratedLooksSection looks={curatedLooks}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
+          </AnimatedSection>
+        );
+      case 'tshirt_customizer':
+        return tshirtCustomizerEnabled && (
+          <AnimatedSection key="tshirt_customizer" delay={0.05}>
+            <ProfessionalDesignCTA />
+          </AnimatedSection>
+        );
+      case 'categories':
+        return (
+          <AnimatedSection key="categories" delay={0.05}>
+            <CategorySection categories={categories} />
+          </AnimatedSection>
+        );
+      case 'best_sellers':
+        return bestSellersEnabled && (
+          <AnimatedSection key="best_sellers" delay={0.05}>
+            <ProductRow
+              title="Best Sellers"
+              products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
+            />
+          </AnimatedSection>
+        );
+      case 'reviews':
+        return reviewsEnabled && (
+          <AnimatedSection key="reviews" delay={0.05}>
+            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} onReviewSuccess={refetchAll} onOpenAllReviews={() => setAllReviewsOpen(true)} />
+          </AnimatedSection>
+        );
+      case 'reels':
+        return reelsEnabled && (
+          <AnimatedSection key="reels" delay={0.05}>
+            <ReelsSection reels={reels} loading={isLoading}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
+          </AnimatedSection>
+        );
+      default:
+        return null;
+    }
+  };
 
   // ── Check if the featured product has expired (local date comparison) ──
   const isExpired = newArrivalExpiryDate && (() => {
@@ -1639,7 +1727,7 @@ export default function HomePage() {
       const res = await productsAPI.getById(newArrivalProductId);
       return res?.data?.data || res?.data || null;
     },
-    staleTime: 60000,
+    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
     enabled: !!newArrivalProductId && !isExpired,
   });
 
@@ -1695,85 +1783,17 @@ export default function HomePage() {
             : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* ══ 1. Full Bleed Hero Banner ══ */}
-        {banners.length > 0 && (
-          <AnimatedSection delay={0} margin="-40px">
-            <HeroBanner banners={banners} />
-          </AnimatedSection>
-        )}
-
-        <AnimatedDivider />
-
-        {/* ══ 2. Flash Sales Banner ══ */}
-        {flashSales.length > 0 && (
-          <AnimatedSection delay={0.05}>
-            <FlashSaleSection promotions={flashSales} />
-          </AnimatedSection>
-        )}
-
-        {flashSales.length > 0 && newArrivalsEnabled && <AnimatedDivider />}
-
-        {/* ══ 3. New Arrival of the Week — Editorial Hero ══ */}
-        {newArrivalsEnabled && (featuredNewArrival || newArrivals.length > 0) && (
-          <AnimatedSection delay={0.05} margin="-40px">
-            <NewArrivalOfTheWeek product={featuredNewArrival || newArrivals[0]} />
-          </AnimatedSection>
-        )}
-
-        {newArrivalsEnabled && (featuredNewArrival || newArrivals.length > 0) && <AnimatedDivider />}
-
-        {/* ══ 4. New Arrivals Slider ══ */}
-        {newArrivalsEnabled && (
-          <AnimatedSection delay={0.05}>
-            <NewArrivalsSection products={newArrivals} />
-          </AnimatedSection>
-        )}
-
-        {newArrivalsEnabled && curatedLooksEnabled && <AnimatedDivider />}
-
-        {/* ══ 4. Curated Looks ══ */}
-        {curatedLooksEnabled && (
-          <AnimatedSection delay={0.05}>
-            <CuratedLooksSection looks={curatedLooks}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
-          </AnimatedSection>
-        )}
-
-        {(curatedLooksEnabled || newArrivalsEnabled) && <AnimatedDivider />}
-
-        {/* ══ 5. Shop by Category ══ */}
-        <AnimatedSection delay={0.05}>
-          <CategorySection categories={categories} />
-        </AnimatedSection>
-
-        <AnimatedDivider />
-
-        {/* ══ 6. Best Sellers / Trending ══ */}
-        {bestSellersEnabled && (
-          <AnimatedSection delay={0.05}>
-            <ProductRow
-              title="Best Sellers"
-              products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
-            />
-          </AnimatedSection>
-        )}
-
-        {bestSellersEnabled && reviewsEnabled && <AnimatedDivider />}
-
-        {/* ══ 7. Premium Review Slider ══ */}
-        {reviewsEnabled && (
-          <AnimatedSection delay={0.05}>
-            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} onReviewSuccess={refetchAll} onOpenAllReviews={() => setAllReviewsOpen(true)} />
-          </AnimatedSection>
-        )}
-
-        {reviewsEnabled && <AnimatedDivider />}
-
-        {/* ══ 8. Featured Reels ══ */}
-        <AnimatedSection delay={0.05}>
-          <ReelsSection reels={reels} loading={isLoading}
-            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
-        </AnimatedSection>
+        {/* ══ Dynamic Section Rendering from Admin Order ══ */}
+        {sectionOrder.map((key, idx) => {
+          const section = renderSection(key);
+          if (!section) return null;
+          return (
+            <React.Fragment key={key}>
+              {idx > 0 && <AnimatedDivider />}
+              {section}
+            </React.Fragment>
+          );
+        })}
 
       </div>
 

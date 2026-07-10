@@ -173,6 +173,7 @@ function getDefaultSettings() {
     curatedLooksEnabled: 'true',
     newArrivalProductId: '',
     newArrivalExpiryDate: '',
+    tshirtCustomizerEnabled: 'true',
     // Social Login
     googleLoginEnabled: 'true',
     facebookLoginEnabled: 'true',
@@ -192,6 +193,16 @@ function getDefaultSettings() {
     phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',
     phoneLeadBannerOfferText: 'Enter your phone number to receive exclusive offers, updates, and instant ₹100 discount on your first purchase!',
     // Chatbot / Live Chat
+    // Custom Design
+    customDesignEnabled: 'true',
+    customDesignSectionEnabled: 'true',
+    customDesignSinglePrintPrice: '699',
+    customDesignBothSidesPrice: '899',
+    customDesignColors: 'White, Black, Navy, Charcoal, Olive, Burgundy, Forest Green, Royal Blue',
+    customDesignSizes: 'XS, S, M, L, XL, XXL, 3XL',
+    customDesignPlacements: 'front,back,left-chest',
+    customDesignMaxFileSize: '10',
+    customDesignAcceptedFormats: 'image/png,.png,image/jpeg,.jpg,.jpeg,image/svg+xml,.svg,.ai,.eps',
     // Navbar Options
     languageSwitcherEnabled: 'true',
     currencySwitcherEnabled: 'true',

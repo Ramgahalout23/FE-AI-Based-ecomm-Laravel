@@ -36,6 +36,7 @@ const links = [
     icon: ShoppingBag,
     items: [
       { to: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
+      { to: '/admin/custom-designs', icon: Palette, label: 'Custom Designs' },
       { to: '/admin/abandoned-carts', icon: ShoppingCart, label: 'Abandoned Carts' },
       { to: '/admin/coupons', icon: Ticket, label: 'Coupons' },
       { to: '/admin/promotions', icon: Sparkles, label: 'Promotions' },

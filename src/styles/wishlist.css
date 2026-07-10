@@ -315,6 +315,10 @@
   background: #232323;
 }
 
+.wishlist-stock-badge.unavailable {
+  background: #57534e;
+}
+
 .wishlist-stock-badge.low-stock {
   background: #232323;
 }
@@ -427,6 +431,10 @@
 
 .wishlist-item-stock.out {
   color: #ef4444;
+}
+
+.wishlist-item-stock.unavailable {
+  color: #57534e;
 }
 
 /* ── Action Buttons ─────────────────────────────── */

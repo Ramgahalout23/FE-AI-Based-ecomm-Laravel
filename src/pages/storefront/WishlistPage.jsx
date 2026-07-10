@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { wishlistAPI } from '../../api/wishlist';
+import { cartAPI } from '../../api/cart';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
 import { useSettings } from '../../store/useSettings';
@@ -61,7 +62,7 @@ export default function WishlistPage() {
   const getVariantInfo = useCallback((product) => {
     if (!product) return { colors: [], sizes: [], variants: [] };
     const p = product.product || product;
-    const variants = p.productvariant || [];
+    const variants = p.variants || p.productvariant || [];
     const colorsFromVariants = [...new Set(
       variants.map(v => v.attributes?.color).filter(Boolean)
     )];
@@ -131,7 +132,11 @@ export default function WishlistPage() {
 
     setMovingIds(prev => new Set(prev).add(id));
     try {
-      await wishlistAPI.moveToCart(id);
+      await wishlistAPI.moveToCart(id, {
+        size: selection.selectedSize || undefined,
+        color: selection.selectedColor || undefined,
+        variantId: matchedVariant?.id || undefined,
+      });
       addItem({
         ...item,
         productId: id,
@@ -139,6 +144,7 @@ export default function WishlistPage() {
         size: selection.selectedSize || undefined,
         color: selection.selectedColor || undefined,
         variantId: matchedVariant?.id || undefined,
+        variantStock: matchedVariant?.quantity ?? undefined,
       });
       // Animate removal after brief delay
       setTimeout(() => {
@@ -161,8 +167,47 @@ export default function WishlistPage() {
         { duration: 2500 }
       );
       openCart();
-    } catch {
-      showError('Failed to move item to cart');
+    } catch (err) {
+      const isNotFound = err?.response?.status === 404 ||
+        err?.response?.data?.error?.type === 'not_found' ||
+        err?.response?.data?.message === 'Product not in wishlist';
+
+      if (isNotFound) {
+        // Item is in local wishlist but not on server — add to local cart anyway
+        // and try to add directly to server cart as a fallback
+        try { await cartAPI.add({ productId: id, quantity: 1, size: selection.selectedSize, color: selection.selectedColor, variantId: matchedVariant?.id }); } catch {}
+        addItem({
+          ...item,
+          productId: id,
+          quantity: 1,
+          size: selection.selectedSize || undefined,
+          color: selection.selectedColor || undefined,
+          variantId: matchedVariant?.id || undefined,
+          variantStock: matchedVariant?.quantity ?? undefined,
+        });
+        setTimeout(() => {
+          removeItem(id);
+          setMovingIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          setExpandedIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }, 300);
+        showSuccess(
+          <span className="wishlist-toast-moved">
+            <ShoppingBag size={14} /> Moved {item.name || 'item'} to cart
+          </span>,
+          { duration: 2500 }
+        );
+        openCart();
+      } else {
+        showError('Failed to move item to cart');
+      }
       setMovingIds(prev => {
         const next = new Set(prev);
         next.delete(id);
@@ -259,12 +304,20 @@ export default function WishlistPage() {
     navigate(`/products/${slug}`);
   }, [navigate]);
 
-  const getStockInfo = (item) => {
+  const getStockInfo = (item, matchedVariant = null) => {
+    // If a variant is matched, use its stock info
+    if (matchedVariant) {
+      const vQty = matchedVariant.quantity ?? matchedVariant.stockQuantity;
+      if (vQty !== undefined && vQty !== null && vQty <= 0) return { status: 'unavailable', label: t('wishlist.unavailable'), qty: vQty };
+      if (vQty !== undefined && vQty !== null && vQty <= 5) return { status: 'low', label: t('wishlist.low_stock', { count: vQty }), qty: vQty };
+      return { status: 'in', label: t('wishlist.in_stock') };
+    }
+    // Fallback to base product stock
     const p = item.product || item;
     const qty = p.quantity ?? p.stockQuantity ?? item.quantity ?? item.stockQuantity;
-    if (qty !== undefined && qty !== null && qty <= 0) return { status: 'out', label: 'Out of Stock' };
-    if (qty !== undefined && qty !== null && qty <= 5) return { status: 'low', label: `Only ${qty} left` };
-    return { status: 'in', label: 'In Stock' };
+    if (qty !== undefined && qty !== null && qty <= 0) return { status: 'out', label: t('wishlist.out_of_stock'), qty };
+    if (qty !== undefined && qty !== null && qty <= 5) return { status: 'low', label: t('wishlist.low_stock', { count: qty }), qty };
+    return { status: 'in', label: t('wishlist.in_stock') };
   };
 
   return (
@@ -372,8 +425,6 @@ export default function WishlistPage() {
             const isRemoving = removingIds.has(itemId);
             const isMoving = movingIds.has(itemId);
             const p = item.product || item;
-            const stock = getStockInfo(item);
-            const isOutOfStock = stock.status === 'out';
             const imgUrl = item.image || getProductImage(p);
             const itemPrice = p.price ?? item.price;
             const itemOldPrice = p.oldPrice ?? item.oldPrice;
@@ -392,14 +443,22 @@ export default function WishlistPage() {
             const matchedVariant = hasVariants ? findMatchedVariant(p, selColor, selSize) : null;
             const hasAllSelections = (!productColors.length || selColor) && (!productSizes.length || selSize);
             const isExpanded = expandedIds.has(itemId);
-            const variantReady = !hasVariants || (hasAllSelections && matchedVariant && (matchedVariant.quantity || 0) > 0);
-            const canAddToCart = !isOutOfStock && variantReady;
+
+            // Stock info is now variant-aware
+            const stock = getStockInfo(item, matchedVariant);
+            const isOutOfStock = stock.status === 'out';
+            const isUnavailable = stock.status === 'unavailable';
+            // Product is unavailable when: base product OOS, OR variant selection complete & no match found, OR variant found but OOS
+            const productUnavailable = isOutOfStock || (hasVariants && hasAllSelections && (!matchedVariant || isUnavailable));
+
+            // A variant is addable when: not unavailable (base OOS, no match, or variant OOS), and variant selection is complete
+            const canAddToCart = !productUnavailable && (!hasVariants || hasAllSelections);
             const displayPrice = matchedVariant?.price ?? itemPrice;
 
             return (
               <div
                 key={itemId}
-                className={`wishlist-item ${isOutOfStock ? 'out-of-stock' : ''} ${isRemoving ? 'removing' : ''}`}
+                className={`wishlist-item ${(isOutOfStock && !hasVariants) ? 'out-of-stock' : ''} ${isRemoving ? 'removing' : ''}`}
               >
                 {/* Image */}
                 <div className="wishlist-item-img">
@@ -415,8 +474,8 @@ export default function WishlistPage() {
 
                   {/* Stock Badge */}
                   {stock.status !== 'in' && (
-                    <span className={`wishlist-stock-badge ${stock.status === 'out' ? 'out-of-stock' : 'low-stock'}`}>
-                      {stock.status === 'out' ? 'Out of Stock' : 'Low Stock'}
+                    <span className={`wishlist-stock-badge ${stock.status === 'out' ? 'out-of-stock' : stock.status === 'unavailable' ? 'unavailable' : 'low-stock'}`}>
+                      {stock.status === 'out' ? t('wishlist.out_of_stock') : stock.status === 'unavailable' ? t('wishlist.unavailable') : stock.status === 'low' ? t('wishlist.low_stock', { count: stock.qty }) : 'Low Stock'}
                     </span>
                   )}
 
@@ -454,25 +513,27 @@ export default function WishlistPage() {
                   </div>
 
                   {/* Stock indicator */}
-                  <div className={`wishlist-item-stock ${stock.status === 'in' ? 'in-stock' : stock.status === 'low' ? 'low' : 'out'}`}>
+                  <div className={`wishlist-item-stock ${stock.status === 'in' ? 'in-stock' : stock.status === 'low' ? 'low' : stock.status === 'unavailable' ? 'unavailable' : 'out'}`}>
                     {stock.status === 'in' ? (
-                      <>✓ In Stock</>
+                      <>✓ {t('wishlist.in_stock')}</>
                     ) : stock.status === 'low' ? (
                       <><AlertTriangle size={11} /> {stock.label}</>
+                    ) : stock.status === 'unavailable' ? (
+                      <><AlertTriangle size={11} /> {t('wishlist.unavailable')}</>
                     ) : (
-                      <><AlertTriangle size={11} /> Out of Stock</>
+                      <><AlertTriangle size={11} /> {t('wishlist.out_of_stock')}</>
                     )}
                   </div>
 
                   {/* Variant Selector (toggleable) */}
-                  {hasVariants && !isOutOfStock && (
+                  {hasVariants && (
                     <div className="wishlist-variant-section">
                       <button
                         className="wishlist-variant-toggle"
                         onClick={(e) => { e.stopPropagation(); toggleExpanded(itemId); }}
                       >
                         <ShoppingBag size={12} />
-                        {isExpanded ? 'Hide Options' : 'Select Options'}
+                        {isExpanded ? t('wishlist.hide_options', 'Hide Options') : t('wishlist.select_options', 'Select Options')}
                         <ChevronDown size={12} className={`wishlist-chevron ${isExpanded ? 'open' : ''}`} />
                       </button>
 
@@ -529,7 +590,7 @@ export default function WishlistPage() {
                   {/* Actions */}
                   <div className="wishlist-item-actions">
                     <button
-                      className={`wishlist-add-cart-btn ${isOutOfStock || (hasVariants && hasAllSelections && (!matchedVariant || (matchedVariant.quantity || 0) <= 0)) || isMoving ? 'disabled' : ''}`}
+                      className={`wishlist-add-cart-btn ${productUnavailable || (hasVariants && !hasAllSelections) || isMoving ? 'disabled' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (isMoving) return;
@@ -539,29 +600,34 @@ export default function WishlistPage() {
                           handleMoveToCart(item, e);
                         }
                       }}
-                      disabled={isMoving || isOutOfStock || (hasVariants && hasAllSelections && (!matchedVariant || (matchedVariant.quantity || 0) <= 0))}
+                      disabled={isMoving || productUnavailable || (hasVariants && !hasAllSelections)}
                     >
                       {isMoving ? (
                         <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       ) : isOutOfStock ? (
                         <span className="flex items-center gap-1.5">
                           <ShoppingBag size={14} />
-                          Out of Stock
+                          {t('wishlist.out_of_stock')}
                         </span>
                       ) : hasVariants && !hasAllSelections && !isExpanded ? (
                         <span className="flex items-center gap-1.5">
                           <ShoppingBag size={14} />
-                          Select Options
+                          {t('wishlist.select_options', 'Select Options')}
                         </span>
                       ) : hasVariants && !hasAllSelections && isExpanded ? (
                         <span className="flex items-center gap-1.5">
                           <ChevronDown size={14} />
-                          Select Variant
+                          {t('wishlist.select_variant', 'Select Variant')}
                         </span>
-                      ) : hasVariants && hasAllSelections && (!matchedVariant || (matchedVariant.quantity || 0) <= 0) ? (
+                      ) : hasVariants && hasAllSelections && !matchedVariant ? (
                         <span className="flex items-center gap-1.5">
                           <ShoppingBag size={14} />
-                          Unavailable
+                          {t('wishlist.unavailable')}
+                        </span>
+                      ) : hasVariants && hasAllSelections && isUnavailable ? (
+                        <span className="flex items-center gap-1.5">
+                          <ShoppingBag size={14} />
+                          {t('wishlist.out_of_stock')}
                         </span>
                       ) : (
                         <AnimatePresence mode="popLayout">

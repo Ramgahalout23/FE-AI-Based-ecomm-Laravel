@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { getProductImage } from '../utils/formatters';
 import { showError } from '../utils/toast';
 
-const CART_VERSION = 1;
+const CART_VERSION = 2;
 const CART_VERSION_KEY = 'LUXE_CART_VERSION';
 
 // On boot, clear persisted cart data if the version has changed.
@@ -29,10 +29,39 @@ const useCartStore = create(
       subtotal: 0,
       isOpen: false,
 
+      /** Strips old base64 data URLs from cart items that were stored
+       *  before the design upload fix switched from FileReader base64 to
+       *  server-uploaded URLs (July 2026). Keeps the item intact but
+       *  removes large base64 payloads to avoid localStorage bloat.
+       */
+      sanitizeItem: (item) => {
+        if (!item) return item;
+        const sanitized = { ...item };
+        // Clear image field if it contains a base64 data URL (old custom design preview)
+        if (typeof sanitized.image === 'string' && sanitized.image.startsWith('data:image/')) {
+          sanitized.image = '';
+        }
+        // Same for imageUrl
+        if (typeof sanitized.imageUrl === 'string' && sanitized.imageUrl.startsWith('data:image/')) {
+          sanitized.imageUrl = '';
+        }
+        // Clean customDesign metadata — strip any base64 URLs stored in the design
+        if (sanitized.customDesign) {
+          if (sanitized.customDesign.serverUrl && sanitized.customDesign.serverUrl.startsWith('data:image/')) {
+            sanitized.customDesign = { ...sanitized.customDesign, serverUrl: null };
+          }
+          if (sanitized.customDesign.url && sanitized.customDesign.url.startsWith('data:image/')) {
+            sanitized.customDesign = { ...sanitized.customDesign, url: null };
+          }
+        }
+        return sanitized;
+      },
+
       setItems: (items) => {
         // Normalize server cart items so `cartItemId` (server id) and `id` (product id)
         // are both available, and `quantity` is set.
         const normalized = (items || []).map((i) => {
+          i = get().sanitizeItem(i);
           const cartItemId = i.cartItemId ?? i.id;
           const productId = i.productId ?? i.product_id ?? i.product?.id ?? i.id;
           // Extract stock info from nested relations (for stock/availability display)

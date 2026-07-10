@@ -47,3 +47,16 @@ export const getColorHex = (colorName) => {
   };
   return colors[colorName] || '#cccccc';
 };
+
+/**
+ * Custom T-Shirt design product constants.
+ *
+ * CUSTOM_TEE_PRODUCT_ID — The UUID of the dedicated "Custom T-Shirt Design"
+ * product in the database. Both frontend cart items and backend checkout
+ * use this ID so custom items flow through the normal order pipeline.
+ */
+export const CUSTOM_TEE_PRODUCT_ID = 'c5b8e3f0-3a1c-4b7e-9d6f-1a2b3c4d5e6f';
+
+export const CUSTOM_TEE_BASE_PRICE = 499;
+export const CUSTOM_TEE_DESIGN_FEE = 200;
+export const CUSTOM_TEE_TOTAL_PRICE = CUSTOM_TEE_BASE_PRICE + CUSTOM_TEE_DESIGN_FEE; // 699

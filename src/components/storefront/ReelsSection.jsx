@@ -45,7 +45,7 @@ function ReelsSectionSkeleton() {
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="shrink-0 w-[220px] sm:w-[260px] xl:w-[280px]">
-              <div className="bg-gray-100 rounded-2xl overflow-hidden">
+              <div className="bg-gray-100 overflow-hidden">
                 <div className="aspect-[9/16] bg-gray-200 animate-pulse" />
                 <div className="p-3 space-y-2 bg-white">
                   <div className="w-full h-3 bg-gray-100 rounded animate-pulse" />
@@ -210,7 +210,7 @@ function FashionShowcase({ reels, onRefresh }) {
                   className="reel-card snap-start shrink-0 w-[220px] sm:w-[260px] xl:w-[280px] cursor-pointer group/card"
                   onClick={() => openReel(idx)}
                 >
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80">
+                  <div className="bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80">
                     <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
                       {(hasVideoError || isUnsupportedVideoUrl(reel.videoUrl)) && reel.imageUrl ? (
                         <div className="relative w-full h-full">

@@ -115,6 +115,14 @@ export default function OrdersPage() {
                               onError={(e) => { e.target.style.display = 'none'; }}
                             />
                           </div>
+                        ) : item.customDesign?.design_file_url ? (
+                          <div key={idx} className="w-10 h-10 rounded-lg overflow-hidden border border-amber-200 shrink-0 group/thumb" title={`${item.name || item.productName} (Custom Design)`}>
+                            <img loading="lazy" src={item.customDesign.design_file_url}
+                              alt="Custom design"
+                              className="w-full h-full object-contain p-0.5"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          </div>
                         ) : (
                           <div key={idx} className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-sm shrink-0 border border-gray-100" title={item.name || item.productName}>
                             📦
@@ -183,6 +191,13 @@ export default function OrdersPage() {
                                         alt={item.name || item.productName}
                                         title={item.name || item.productName}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                      />
+                                    ) : item.customDesign?.design_file_url ? (
+                                      <img loading="lazy" src={item.customDesign.design_file_url}
+                                        alt="Custom design"
+                                        title={`${item.name || item.productName} (Custom Design)`}
+                                        className="w-full h-full object-contain p-0.5"
                                         onError={(e) => { e.target.style.display = 'none'; }}
                                       />
                                     ) : (

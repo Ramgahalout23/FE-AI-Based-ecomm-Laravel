@@ -44,6 +44,7 @@ import useIdleTimer from './hooks/useIdleTimer';
 // Pages are loaded on-demand, reducing the initial JS bundle significantly.
 
 // Storefront pages
+const CustomizePage = lazy(() => import('./pages/storefront/CustomizePage'));
 const HomePage = lazy(() => import('./pages/storefront/HomePage'));
 const ProductsPage = lazy(() => import('./pages/storefront/ProductsPage'));
 const ProductDetailPage = lazy(() => import('./pages/storefront/ProductDetailPage'));
@@ -83,10 +84,13 @@ const ProductsAdminPage = lazy(() => import('./pages/admin/ProductsAdminPage'));
 const OrdersAdminPage = lazy(() => import('./pages/admin/OrdersAdminPage'));
 const OrderDetailAdminPage = lazy(() => import('./pages/admin/OrderDetailAdminPage'));
 const UsersAdminPage = lazy(() => import('./pages/admin/UsersAdminPage'));
+const UserDetailAdminPage = lazy(() => import('./pages/admin/UserDetailAdminPage'));
+const ProductDetailAdminPage = lazy(() => import('./pages/admin/ProductDetailAdminPage'));
 const CategoriesAdminPage = lazy(() => import('./pages/admin/CategoriesAdminPage'));
 const InventoryAdminPage = lazy(() => import('./pages/admin/InventoryAdminPage'));
 const CouponsAdminPage = lazy(() => import('./pages/admin/CouponsAdminPage'));
 const ReviewsAdminPage = lazy(() => import('./pages/admin/ReviewsAdminPage'));
+const ReviewDetailAdminPage = lazy(() => import('./pages/admin/ReviewDetailAdminPage'));
 const PaymentsAdminPage = lazy(() => import('./pages/admin/PaymentsAdminPage'));
 const ShippingAdminPage = lazy(() => import('./pages/admin/ShippingAdminPage'));
 const NotificationsAdminPage = lazy(() => import('./pages/admin/NotificationsAdminPage'));
@@ -117,6 +121,7 @@ const ReelsAdminPage = lazy(() => import('./pages/admin/ReelsAdminPage'));
 const TranslationsAdminPage = lazy(() => import('./pages/admin/TranslationsAdminPage'));
 const CampaignTemplatesAdminPage = lazy(() => import('./pages/admin/CampaignTemplatesAdminPage'));
 const CurrencyAdminPage = lazy(() => import('./pages/admin/CurrencyAdminPage'));
+const CustomDesignsAdminPage = lazy(() => import('./pages/admin/CustomDesignsAdminPage'));
 const ReturnsAdminPage = lazy(() => import('./pages/admin/ReturnsAdminPage'));
 const TaxAdminPage = lazy(() => import('./pages/admin/TaxAdminPage'));
 const SmsAdminPage = lazy(() => import('./pages/admin/SmsAdminPage'));
@@ -373,7 +378,7 @@ function AppContent() {
     <BrowserRouter>
       <ThemeInjector />
       <Toaster
-        position="top-right"
+        position="top-center"
         gutter={12}
         containerClassName="toaster-container"
         reverseOrder={false}
@@ -440,6 +445,7 @@ function AppContent() {
           <Route path="/addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/returns" element={<ProtectedRoute><ReturnsPage /></ProtectedRoute>} />
+          <Route path="/customize" element={<CustomizePage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
@@ -463,13 +469,16 @@ function AppContent() {
           <Route path="/admin/analytics" element={<ErrorBoundary title="Analytics Error" description="The analytics page encountered an error. Try refreshing or check the console for details."><AnalyticsAdminPage /></ErrorBoundary>} />
           <Route path="/admin/products" element={<ProductsAdminPage />} />
           <Route path="/admin/products/import" element={<ProductImportAdminPage />} />
+          <Route path="/admin/products/:id" element={<ProductDetailAdminPage />} />
           <Route path="/admin/orders" element={<OrdersAdminPage />} />
           <Route path="/admin/orders/:id" element={<OrderDetailAdminPage />} />
           <Route path="/admin/users" element={<UsersAdminPage />} />
+          <Route path="/admin/users/:id" element={<UserDetailAdminPage />} />
           <Route path="/admin/categories" element={<CategoriesAdminPage />} />
           <Route path="/admin/inventory" element={<InventoryAdminPage />} />
           <Route path="/admin/coupons" element={<CouponsAdminPage />} />
           <Route path="/admin/reviews" element={<ReviewsAdminPage />} />
+          <Route path="/admin/reviews/:id" element={<ReviewDetailAdminPage />} />
           <Route path="/admin/payments" element={<PaymentsAdminPage />} />
           <Route path="/admin/shipping" element={<ShippingAdminPage />} />
           <Route path="/admin/notifications" element={<NotificationsAdminPage />} />
@@ -492,6 +501,7 @@ function AppContent() {
           <Route path="/admin/tracking" element={<TrackingAdminPage />} />
           <Route path="/admin/curated-looks" element={<CuratedLooksAdminPage />} />
           <Route path="/admin/reels" element={<ReelsAdminPage />} />
+          <Route path="/admin/custom-designs" element={<CustomDesignsAdminPage />} />
           <Route path="/admin/returns" element={<ReturnsAdminPage />} />
           <Route path="/admin/campaign-templates" element={<CampaignTemplatesAdminPage />} />
           <Route path="/admin/currencies" element={<CurrencyAdminPage />} />

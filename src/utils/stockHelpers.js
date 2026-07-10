@@ -1,11 +1,12 @@
 /**
  * Computes stock availability status for a product.
  *
- * For variant products (products with `productvariant` array), sums stock
- * across all variants. For simple products, uses `product.quantity` directly.
+ * For variant products (products with `variants` or `productvariant` array),
+ * sums stock across all variants. For simple products, uses `product.quantity` directly.
  *
  * @param {Object} product - The product object from API response
- * @param {Array}  [product.productvariant] - Variants array with { quantity, attributes }
+ * @param {Array}  [product.variants] - Variants array (camelCase, from Eloquent API)
+ * @param {Array}  [product.productvariant] - Variants array (snake_case, legacy)
  * @param {number} [product.quantity] - Parent product quantity (used for simple products)
  * @param {number} [threshold=5] - Low stock threshold
  * @returns {{ effectiveStockQty: number, isOutOfStock: boolean, isLowStock: boolean, hasStockIssue: boolean }}
@@ -15,7 +16,7 @@ export function computeStockStatus(product, threshold = 5) {
     return { effectiveStockQty: 0, isOutOfStock: true, isLowStock: false, hasStockIssue: true };
   }
 
-  const variants = product.productvariant;
+  const variants = product.variants || product.productvariant;
   const hasVariants = Array.isArray(variants) && variants.length > 0;
 
   const effectiveStockQty = hasVariants

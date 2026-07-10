@@ -271,7 +271,8 @@ function ProductCard({ product, className = '' }) {
 
   /* ── Prevent body scroll when mobile bottom sheet is open ── */
   useEffect(() => {
-    if (showQuickAdd) {
+    const isMobile = window.innerWidth < 768;
+    if (showQuickAdd && isMobile) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';

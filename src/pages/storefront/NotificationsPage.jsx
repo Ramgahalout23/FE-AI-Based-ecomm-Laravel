@@ -1,6 +1,7 @@
 import { Check, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
@@ -9,11 +10,14 @@ import { notificationsAPI } from '../../api/notifications';
 import NotificationsSkeleton from '../../components/ui/NotificationsSkeleton';
 import { formatDateTime } from '../../utils/formatters';
 import { useSettings } from '../../store/useSettings';
+import useAuthStore from '../../store/authStore';
 import toast from '../../utils/toast';
 
 export default function NotificationsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { getSetting } = useSettings();
+  const { isAdmin } = useAuthStore();
   const storeName = getSetting('storeName', 'THREVOLT');
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +109,41 @@ export default function NotificationsPage() {
             {notifications.map((n) => (
               <button
                 key={n.id}
-                onClick={() => !n.isRead && handleMarkOne(n.id)}
+                onClick={async () => {
+                  // Mark as read if not already
+                  if (!n.isRead) {
+                    await handleMarkOne(n.id);
+                  }
+                  // Navigate to the relevant page based on notification data & user role
+                  const refData = n.data || {};
+                  const notifType = n.type || '';
+
+                  if (isAdmin) {
+                    // ─── Admin routes ───
+                    if (refData.orderId) {
+                      navigate(`/admin/orders/${refData.orderId}`);
+                    } else if (refData.userId) {
+                      navigate(`/admin/users/${refData.userId}`);
+                    } else if (refData.productId) {
+                      navigate(`/admin/products/${refData.productId}`);
+                    } else if (refData.reviewId) {
+                      navigate(`/admin/reviews/${refData.reviewId}`);
+                    } else if (refData.productSlug) {
+                      navigate('/admin/products');
+                    } else if (notifType === 'PROMOTION') {
+                      navigate('/admin/promotions');
+                    }
+                  } else {
+                    // ─── Storefront routes (regular user) ───
+                    if (refData.orderId) {
+                      navigate(`/orders/${refData.orderId}`);
+                    } else if (refData.productSlug) {
+                      navigate(`/products/${refData.productSlug}`);
+                    } else if (notifType === 'PROMOTION') {
+                      navigate('/sales');
+                    }
+                  }
+                }}
                 className={`w-full text-left rounded-xl p-4 md:p-5 border transition-all ${
                   n.isRead
                     ? 'bg-white border-gray-100'

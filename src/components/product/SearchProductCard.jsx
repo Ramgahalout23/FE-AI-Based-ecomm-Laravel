@@ -36,17 +36,19 @@ export default memo(function SearchProductCard({ product }) {
   const [qty, setQty] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
 
+  const variants = product.variants || product.productvariant || [];
+
   const colorsFromVariants = [...new Set(
-    (product.productvariant || []).map(v => v.attributes?.color).filter(Boolean)
+    variants.map(v => v.attributes?.color).filter(Boolean)
   )];
   const sizesFromVariants = [...new Set(
-    (product.productvariant || []).map(v => v.attributes?.size).filter(Boolean)
+    variants.map(v => v.attributes?.size).filter(Boolean)
   )];
   const productColors = (product.colors?.length ? product.colors : colorsFromVariants);
   const productSizes = (product.sizes?.length ? product.sizes : sizesFromVariants);
 
   const hasVariants = (productColors.length > 0 || productSizes.length > 0);
-  const variantsList = product.productvariant || [];
+  const variantsList = variants;
 
   // OOS sets — colors/sizes with zero stock across all variants
   const oosColors = useMemo(() => {

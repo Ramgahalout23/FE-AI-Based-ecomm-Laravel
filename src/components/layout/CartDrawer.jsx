@@ -188,6 +188,11 @@ export default memo(function CartDrawer() {
                       <div className="text-xs text-text-muted mt-0.5 truncate">
                         {typeof item.category === 'object' ? item.category.name || item.category.slug : item.category || t('cart.drawer.category')}
                       </div>
+                      {(item.size || item.color) && (
+                        <p className="text-[11px] text-text-muted mt-0.5">
+                          {[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                       {/* Stock badge */}
                       {(() => {
                         if (isItemOOS) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ShieldCheck, Truck, RefreshCw, Lock, ArrowRight, User, ExternalLink, UserPlus, ExternalLink as ExternalLinkIcon, AlertTriangle } from 'lucide-react';
 import { trackCheckoutStart, trackCheckoutComplete } from '../../services/tracker';
 import SEOHead from '../../components/seo/SEOHead';
@@ -22,6 +23,7 @@ export default function CheckoutPage() {
   const { items, subtotal, clearCart, setItems } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [createAccount, setCreateAccount] = useState(false);
   const [password, setPassword] = useState('');
   const [coupon, setCoupon] = useState('');
@@ -150,14 +152,22 @@ export default function CheckoutPage() {
     });
   };
 
-  // Handle account creation tokens from checkout response
-  const handleAccountCreation = (data) => {
-    if (data?.accountCreated && data?.tokens) {
+  // Handle authentication tokens from checkout response
+  // Guest users always receive a token so the thank-you page can authenticate.
+  // Account creation is separate — only fire the toast + set user if opted in.
+  const handleCheckoutAuth = (data) => {
+    // Save token for ALL guest users (regardless of createAccount)
+    if (data?.tokens?.accessToken) {
       localStorage.setItem('authToken', data.tokens.accessToken);
       if (data.tokens.refreshToken) {
         localStorage.setItem('refreshToken', data.tokens.refreshToken);
       }
-      useAuthStore.getState().setUser(data.user);
+    }
+    // Only create account state if the user explicitly opted in
+    if (data?.accountCreated) {
+      if (data?.user) {
+        useAuthStore.getState().setUser(data.user);
+      }
       accountCreated();
     }
   };
@@ -192,6 +202,9 @@ export default function CheckoutPage() {
         size: i.size,
         color: i.color,
         variantId: i.variantId,
+        price: i.price,
+        isCustom: i.isCustom || false,
+        customDesign: i.customDesign || null,
       }));
       // Debug: log items being sent
       console.log('[Checkout] Sending items:', JSON.stringify(checkoutItems));
@@ -218,7 +231,7 @@ export default function CheckoutPage() {
         throw new Error('No order ID returned');
       }
 
-      handleAccountCreation(data);
+      handleCheckoutAuth(data);
 
       // Step 2: Handle payment flow based on payment method
       if (paymentMethod === 'RAZORPAY') {
@@ -226,6 +239,8 @@ export default function CheckoutPage() {
       } else if (['COD', 'CASH'].includes(paymentMethod)) {
         // COD — order placed, just redirect
         clearCart();
+        queryClient.invalidateQueries({ queryKey: ['product'] });
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
         trackCheckoutComplete(orderId, total);
         orderPlaced(orderId);
         navigate(`/order/thank-you/${orderId}`);
@@ -253,6 +268,8 @@ export default function CheckoutPage() {
           } else {
             // No redirect URL — just go to thank-you page
             clearCart();
+            queryClient.invalidateQueries({ queryKey: ['product'] });
+            queryClient.invalidateQueries({ queryKey: ['cart'] });
             trackCheckoutComplete(orderId, total);
             orderPlaced(orderId);
             navigate(`/order/thank-you/${orderId}`);
@@ -262,6 +279,8 @@ export default function CheckoutPage() {
           console.warn('[Checkout] Custom gateway error:', msg);
           // Order was already created — redirect to thank-you page anyway
           clearCart();
+          queryClient.invalidateQueries({ queryKey: ['product'] });
+          queryClient.invalidateQueries({ queryKey: ['cart'] });
           orderPlaced(orderId);
           navigate(`/order/thank-you/${orderId}`);
         }
@@ -326,6 +345,8 @@ export default function CheckoutPage() {
             });
 
             clearCart();
+            queryClient.invalidateQueries({ queryKey: ['product'] });
+            queryClient.invalidateQueries({ queryKey: ['cart'] });
             trackCheckoutComplete(orderId, total);
             paymentSuccessful(orderId);
             navigate(`/order/thank-you/${orderId}`);
@@ -373,6 +394,8 @@ export default function CheckoutPage() {
 
       if (paymentStatus === 'COMPLETED' || orderStatus === 'CONFIRMED' || orderStatus === 'PROCESSING') {        setPollingStatus('paid');
                 clearCart();
+        queryClient.invalidateQueries({ queryKey: ['product'] });
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
         trackCheckoutComplete(gatewayRedirect.orderId, total);
                 setTimeout(() => {
           navigate(`/order/thank-you/${gatewayRedirect.orderId}`);
@@ -387,7 +410,7 @@ export default function CheckoutPage() {
     }
     setPollingStatus('waiting');
     return false;
-  }, [gatewayRedirect, navigate, clearCart]);
+  }, [gatewayRedirect, navigate, clearCart, queryClient]);
 
   // Auto-poll every 5 seconds while on this page
   useEffect(() => {

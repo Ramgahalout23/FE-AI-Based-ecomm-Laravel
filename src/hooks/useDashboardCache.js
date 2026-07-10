@@ -20,8 +20,8 @@ function loadFromStorage(prefix, key) {
       const parsed = JSON.parse(raw);
       // Check version — discard if data shape has changed
       if (parsed.v !== CACHE_VERSION) return null;
-      // Check freshness — expire after 5 minutes
-      if (parsed.ts && Date.now() - parsed.ts < 5 * 60 * 1000) {
+      // Check freshness — expire after 30 seconds so order-related metrics update quickly
+      if (parsed.ts && Date.now() - parsed.ts < 30 * 1000) {
         return parsed.data;
       }
     }

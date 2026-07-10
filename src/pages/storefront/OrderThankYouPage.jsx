@@ -1,6 +1,8 @@
-import { Check, MapPin, ChevronRight, ShoppingBag, Share2, Copy, RefreshCw, Info, Smartphone, Package, Truck, Calendar, CheckCircle, Clock, Heart, ArrowLeft, ExternalLink, Mail, Printer, ShieldCheck, Tag, Phone, Bell } from 'lucide-react';
+import { Check, MapPin, ChevronRight, ShoppingBag, Share2, Copy, RefreshCw, Info, Smartphone, Package, Truck, Calendar, CheckCircle, Clock, Heart, ArrowLeft, ExternalLink, Mail, Printer, ShieldCheck, Tag, Phone, Bell, Paintbrush } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import useCartStore from '../../store/cartStore';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +16,7 @@ import { useSettings } from '../../store/useSettings';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
 import { ORDER_STATUSES, SHIPPING_STATUSES } from '../../utils/constants';
 import toast from '../../utils/toast';
+import { CUSTOM_TEE_PRODUCT_ID } from '../../utils/constants';
 
 /* ═══════════════ CONFETTI COMPONENT ═══════════════ */
 function Confetti() {
@@ -397,8 +400,30 @@ function OrderTimeline({ order }) {
 }
 
 /* ═══════════════ ORDER ITEM CARD ═══════════════ */
-function OrderItemCard({ item, index }) {
+function OrderItemCard({ item, index, customDesign }) {
+  const isCustom = item.product_id === CUSTOM_TEE_PRODUCT_ID || item.productId === CUSTOM_TEE_PRODUCT_ID;
   const { t } = useTranslation();
+
+  // Check if design_notes contains JSON with back design data
+  let backDesignUrl = null;
+  let displayNotes = customDesign?.design_notes || null;
+  if (isCustom && customDesign?.design_notes) {
+    try {
+      const parsed = JSON.parse(customDesign.design_notes);
+      if (parsed && parsed.backDesignUrl) {
+        backDesignUrl = parsed.backDesignUrl;
+        displayNotes = parsed.text || null;
+      }
+    } catch {
+      // Plain text — use as-is
+    }
+  }
+
+  // Fallback: check cart item customDesign for backUrl
+  if (!backDesignUrl && isCustom) {
+    backDesignUrl = item.customDesign?.backUrl || item.customDesign?.backServerUrl || null;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -406,29 +431,82 @@ function OrderItemCard({ item, index }) {
       transition={{ duration: 0.4, delay: 0.6 + index * 0.08 }}
       className="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-300 group"
     >
-      {/* Product Image */}
-      <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gray-50 overflow-hidden shrink-0 border border-gray-100">
-        {item.imageUrl ? (
-          <img loading="lazy" src={getImageUrl(item.imageUrl)}
-            alt={item.name || item.productName}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-3xl">
-            👕
+      {/* Product Image(s) */}
+      <div className="flex gap-2 shrink-0">
+        {/* Front Design */}
+        <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gray-50 overflow-hidden border border-gray-100 relative">
+          {isCustom && customDesign?.design_file_url ? (
+            <img loading="lazy" src={customDesign.design_file_url}
+              alt="Front design"
+              className="w-full h-full object-contain p-1"
+            />
+          ) : item.imageUrl ? (
+            <img loading="lazy" src={getImageUrl(item.imageUrl)}
+              alt={item.name || item.productName}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl">👕</div>
+          )}
+          {isCustom && (
+            <div className="absolute top-0.5 right-0.5 bg-black/70 backdrop-blur-sm text-white text-[6px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wider">
+              Front
+            </div>
+          )}
+        </div>
+        {/* Back Design (if placement is both) */}
+        {backDesignUrl && (
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl bg-gray-50 overflow-hidden border border-gray-100 relative">
+            <img loading="lazy" src={backDesignUrl}
+              alt="Back design"
+              className="w-full h-full object-contain p-1"
+            />
+            <div className="absolute top-0.5 right-0.5 bg-black/70 backdrop-blur-sm text-white text-[6px] font-bold px-1 py-0.5 rounded-[3px] uppercase tracking-wider">
+              Back
+            </div>
           </div>
         )}
       </div>
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">
-          {item.name || item.productName || t('orders.detail.product_fallback', { id: item.productId })}
+        <h4 className="font-semibold text-gray-900 text-sm line-clamp-1 flex items-center gap-1.5">
+          {isCustom ? (
+            <>
+              <Paintbrush size={13} className="text-gray-400 shrink-0" />
+              Custom Design {backDesignUrl ? '(Front & Back)' : ''}
+            </>
+          ) : (
+            item.name || item.productName || t('orders.detail.product_fallback', { id: item.productId })
+          )}
         </h4>
-        {(item.size || item.color) && (
-          <p className="text-xs text-gray-500 mt-0.5">
-            {[item.size, item.color].filter(Boolean).join(' / ')}
-          </p>
+        {isCustom ? (
+          <>
+            {(customDesign?.color || customDesign?.size || item.size) && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {[customDesign?.color || item.color, customDesign?.size || item.size].filter(Boolean).join(' / ')}
+              </p>
+            )}
+            {customDesign?.placement && (
+              <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                <span className="inline-block w-1 h-1 rounded-full bg-gray-300" />
+                Print: {customDesign.placement === 'both' ? 'Front & Back' : customDesign.placement.charAt(0).toUpperCase() + customDesign.placement.slice(1)}
+              </p>
+            )}
+            {displayNotes && (
+              <div className="mt-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                <p className="text-[10px] text-amber-800 font-medium leading-relaxed line-clamp-2">
+                  "{displayNotes}"
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          (item.size || item.color) && (
+            <p className="text-xs text-gray-500 mt-0.5">
+              {[item.size, item.color].filter(Boolean).join(' / ')}
+            </p>
+          )
         )}
         <div className="flex items-center justify-between mt-2">
           <div>
@@ -772,6 +850,7 @@ export default function OrderThankYouPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
   const currency = getSetting('currency', 'INR');
@@ -812,6 +891,11 @@ export default function OrderThankYouPage() {
           sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, _cachedAt: Date.now() }));
         }
         setOrder(data);
+        // Invalidate cached product queries so stock counts are fresh on next visit
+        queryClient.invalidateQueries({ queryKey: ['product'] });
+        // Invalidate cart and clear local state — the cart was cleared server-side during checkout
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
+        useCartStore.getState().clearCart();
       } catch {
         toast.error(t('orders.detail.failed_load_order'));
       } finally {
@@ -1659,7 +1743,8 @@ export default function OrderThankYouPage() {
                   </div>
                   <div className="space-y-3">
                     {(order.items || []).map((item, idx) => (
-                      <OrderItemCard key={item.id || idx} item={item} index={idx} />
+                      <OrderItemCard key={item.id || idx} item={item} index={idx}
+                        customDesign={item.customDesign} />
                     ))}
                   </div>
                 </motion.div>

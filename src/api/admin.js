@@ -24,6 +24,7 @@ export const adminAPI = {
   exportUsers: (params) => adminClient.get('/admin/users/export', { params, responseType: 'blob' }),
   // Products
   getProducts: (params) => adminClient.get('/admin/products', { params }),
+  getProduct: (id) => adminClient.get(`/admin/products/${id}`),
   createProduct: (data) => adminClient.post('/admin/products', data),
   updateProduct: (id, data) => adminClient.put(`/admin/products/${id}`, data),
   deleteProduct: (id) => adminClient.delete(`/admin/products/${id}`),
@@ -53,6 +54,7 @@ export const adminAPI = {
   // Reviews
   getPendingReviews: () => adminClient.get('/admin/reviews/pending'),
   getAllReviews: (params) => adminClient.get('/admin/reviews', { params }),
+  getReview: (id) => adminClient.get(`/admin/reviews/${id}`),
   approveReview: (id) => adminClient.post(`/admin/reviews/${id}/approve`),
   rejectReview: (id) => adminClient.post(`/admin/reviews/${id}/reject`),
   deleteReview: (id) => adminClient.delete(`/admin/reviews/${id}`),
@@ -235,6 +237,13 @@ export const adminAPI = {
   updateNotificationTemplate: (id, data) => adminClient.put(`/admin/notification-templates/${id}`, data),
   toggleNotificationTemplate: (id) => adminClient.patch(`/admin/notification-templates/${id}/toggle`),
   previewNotificationTemplate: (id, data) => adminClient.post(`/admin/notification-templates/${id}/preview`, data),
+
+  // ── Custom Designs (Admin) ──
+  getCustomDesigns: (params) => adminClient.get('/admin/custom-designs', { params }),
+  getCustomDesign: (id) => adminClient.get(`/admin/custom-designs/${id}`),
+  updateCustomDesignStatus: (id, data) => adminClient.patch(`/admin/custom-designs/${id}/status`, data),
+  updateCustomDesignNotes: (id, data) => adminClient.patch(`/admin/custom-designs/${id}/notes`, data),
+  getCustomDesignStats: () => adminClient.get('/admin/custom-designs/stats'),
 
   // ── Return Requests (Admin) ──
   getReturnRequests: (params) => adminClient.get('/admin/return-requests', { params }),

@@ -135,17 +135,23 @@ const DEFAULT_PRODUCTS = [
 ];
 
 /* ─── Helpers for extracting data from both mock & API products ─── */
+function getProductVariants(product) {
+  return product.variants || product.productvariant || [];
+}
+
 function getProductColors(product) {
   if (Array.isArray(product.colors) && product.colors.length > 0) return product.colors;
-  if (Array.isArray(product.productvariant) && product.productvariant.length > 0) {
-    return [...new Set(product.productvariant.map(v => v.attributes?.color).filter(Boolean))];
+  const variants = getProductVariants(product);
+  if (variants.length > 0) {
+    return [...new Set(variants.map(v => v.attributes?.color).filter(Boolean))];
   }
   return [];
 }
 function getProductSizes(product) {
   if (Array.isArray(product.sizes) && product.sizes.length > 0) return product.sizes;
-  if (Array.isArray(product.productvariant) && product.productvariant.length > 0) {
-    return [...new Set(product.productvariant.map(v => v.attributes?.size).filter(Boolean))];
+  const variants = getProductVariants(product);
+  if (variants.length > 0) {
+    return [...new Set(variants.map(v => v.attributes?.size).filter(Boolean))];
   }
   return [];
 }
@@ -184,7 +190,7 @@ function NewArrivalCard({ product, index }) {
   const hoverImage = productImages[1] || productImages[0] || '';
   const productColors = useMemo(() => getProductColors(product), [product]);
   const productSizes = useMemo(() => getProductSizes(product), [product]);
-  const variantsList = product.productvariant || [];
+  const variantsList = getProductVariants(product);
 
   const hasVariants = (productColors.length > 0 || productSizes.length > 0);
 
