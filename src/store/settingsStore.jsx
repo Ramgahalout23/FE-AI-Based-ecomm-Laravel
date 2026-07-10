@@ -193,6 +193,8 @@ function getDefaultSettings() {
     phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',
     phoneLeadBannerOfferText: 'Enter your phone number to receive exclusive offers, updates, and instant ₹100 discount on your first purchase!',
     // Chatbot / Live Chat
+    // Bundle Offer (Buy More, Save More)
+    bundleOfferEnabled: 'true',
     // Custom Design
     customDesignEnabled: 'true',
     customDesignSectionEnabled: 'true',

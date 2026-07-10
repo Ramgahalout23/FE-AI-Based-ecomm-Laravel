@@ -5,6 +5,7 @@ import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
+import { Sparkles } from 'lucide-react';
 
 export default function PromotionsAdminPage() {
   const [promotions, setPromotions] = useState([]);
@@ -12,7 +13,7 @@ export default function PromotionsAdminPage() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [] });
+  const [form, setForm] = useState({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [], offerBadge: '', offerHighlight: '', offerTagline: '', offerTheme: '', autoApply: false });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -113,22 +114,27 @@ export default function PromotionsAdminPage() {
     } finally { setExporting(false); }
   };
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [] }); setShowModal(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ name: p.title || '', type: 'PERCENTAGE', value: p.discount || '', imageUrl: getPromotionImage(p) || '', startDate: p.startDate?.split('T')[0] || '', endDate: p.endDate?.split('T')[0] || '', active: p.status === 'ACTIVE' || p.isActive, productIds: p.productIds || p.products?.map(pr => pr.id) || [], categoryIds: p.categoryIds || p.categories?.map(c => c.id) || [] }); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [], offerBadge: '', offerHighlight: '', offerTagline: '', offerTheme: '', autoApply: false }); setShowModal(true); };
+  const openEdit = (p) => { setEditing(p); setForm({ name: p.title || '', type: 'PERCENTAGE', value: p.discount || '', imageUrl: getPromotionImage(p) || '', startDate: p.startDate?.split('T')[0] || '', endDate: p.endDate?.split('T')[0] || '', active: p.status === 'ACTIVE' || p.isActive, productIds: p.productIds || p.products?.map(pr => pr.id) || [], categoryIds: p.categoryIds || p.categories?.map(c => c.id) || [], offerBadge: p.offerBadge || '', offerHighlight: p.offerHighlight || '', offerTagline: p.offerTagline || '', offerTheme: p.offerTheme || '', autoApply: p.autoApply ?? false }); setShowModal(true); };
 
   const handleSave = async () => {
     try {
       const payload = {
         title: form.name,
-        type: 'FLASH_SALE',
-        discount: Number(form.value),
+        type: form.offerBadge || form.offerHighlight ? 'SEASONAL' : 'FLASH_SALE',
+        discount: Number(form.value) || undefined,
         imageUrl: form.imageUrl || undefined,
-        startDate: new Date(form.startDate).toISOString(),
-        endDate: new Date(form.endDate).toISOString(),
+        startDate: form.startDate ? new Date(form.startDate).toISOString() : undefined,
+        endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
         isActive: form.active,
         status: form.active ? 'ACTIVE' : 'PAUSED',
         productIds: form.productIds.length > 0 ? form.productIds : [],
         categoryIds: form.categoryIds.length > 0 ? form.categoryIds : [],
+        offerBadge: form.offerBadge || undefined,
+        offerHighlight: form.offerHighlight || undefined,
+        offerTagline: form.offerTagline || undefined,
+        offerTheme: form.offerTheme || undefined,
+        autoApply: form.autoApply,
       };
       if (editing) {
         await adminAPI.updatePromotion(editing.id, payload);
@@ -150,6 +156,17 @@ export default function PromotionsAdminPage() {
       await load(currentPage);
     } catch {
       toast.error('Failed to toggle campaign status');
+    }
+  };
+
+  const handleDelete = async (p) => {
+    if (!window.confirm(`Delete promotion "${p.title || p.name || ''}"? This cannot be undone.`)) return;
+    try {
+      await adminAPI.deletePromotion(p.id);
+      toast.success('Promotion deleted');
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to delete promotion');
     }
   };
 
@@ -199,6 +216,7 @@ export default function PromotionsAdminPage() {
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(p)}>Edit</button>
                     <button className={p.status === 'ACTIVE' ? 'btn-del' : 'btn-approve'} onClick={() => handleToggle(p)}>{p.status === 'ACTIVE' ? 'Pause' : 'Activate'}</button>
+                    <button className="btn-del" onClick={() => handleDelete(p)} style={{ opacity: 0.7, fontSize: '0.72rem' }}>Delete</button>
                   </div>
                 </td>
               </tr>
@@ -245,15 +263,97 @@ export default function PromotionsAdminPage() {
                 <div className="form-group"><label>Start Date</label><input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></div>
                 <div className="form-group"><label>End Date</label><input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} /></div>
               </div>
-              <div className="form-group form-full" style={{ marginTop: '1rem' }}>
-                <label>Linked Products</label>
-                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 6 }}>Select products for this promotion. Leave empty for all products.</p>
-                <ProductMultiSelect selected={form.productIds} onChange={ids => setForm({ ...form, productIds: ids })} />
+              {/* ── Offer Card Section ── */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Sparkles size={14} />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-main)' }}>Offer Card</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--muted)', background: '#f3f4f6', padding: '2px 8px', borderRadius: 999 }}>Appears on product pages</span>
+                </div>
+                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 10 }}>Configure how this promotion appears as an offer card below variant selection on product detail pages.</p>
+
+                {/* ── Auto-Apply Toggle ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '10px 14px', borderRadius: 10, border: '1px solid ' + (form.autoApply ? '#f59e0b' : 'var(--border)'), background: form.autoApply ? '#fffbeb' : '#fafafa' }}>
+                  <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.autoApply}
+                      onChange={e => setForm({ ...form, autoApply: e.target.checked })}
+                      style={{ opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span style={{
+                      position: 'absolute', inset: 0, borderRadius: 24,
+                      background: form.autoApply ? '#f59e0b' : '#d1d5db',
+                      transition: 'background 0.2s',
+                    }}>
+                      <span style={{
+                        position: 'absolute', top: 2, left: form.autoApply ? 22 : 2,
+                        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                        transition: 'left 0.2s',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                      }} />
+                    </span>
+                  </label>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: form.autoApply ? '#92400e' : 'var(--text-main)' }}>
+                      Auto-Apply at Checkout
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: form.autoApply ? '#b45309' : 'var(--muted)', marginTop: 1 }}>
+                      {form.autoApply
+                        ? 'This offer will be automatically applied to all items in the cart'
+                        : 'Toggle on to auto-apply this offer as a store-wide discount'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-grid">
+                  <div className="form-group"><label>Badge</label><input value={form.offerBadge} onChange={e => setForm({ ...form, offerBadge: e.target.value })} placeholder="e.g. BUY 2" /></div>
+                  <div className="form-group"><label>Highlight</label><input value={form.offerHighlight} onChange={e => setForm({ ...form, offerHighlight: e.target.value })} placeholder="e.g. GET 10% OFF" /></div>
+                  <div className="form-group"><label>Tagline</label><input value={form.offerTagline} onChange={e => setForm({ ...form, offerTagline: e.target.value })} placeholder="e.g. Auto-applied at checkout" /></div>
+                  <div className="form-group"><label>Color Theme</label>
+                    <select value={form.offerTheme} onChange={e => setForm({ ...form, offerTheme: e.target.value })}>
+                      <option value="">Auto (cycle)</option>
+                      <option value="smart-deal">Amber (Smart Deal)</option>
+                      <option value="prepaid-offer">Violet (Prepaid)</option>
+                      <option value="summer-bonus">Pink (Bonus)</option>
+                      <option value="emerald">Emerald</option>
+                      <option value="blue">Blue</option>
+                      <option value="cyan">Cyan</option>
+                      <option value="red">Red</option>
+                      <option value="black">Black</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Live Offer Card Preview */}
+                {(form.offerBadge || form.offerHighlight || form.offerTagline) && (
+                  <div style={{ marginTop: 12, borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fafafa' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '6px 12px', background: '#f3f4f6', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>Live Preview</div>
+                    <div style={{ padding: 12 }}>
+                      <OfferCardPreview
+                        title={form.name || 'Offer'}
+                        badge={form.offerBadge}
+                        highlight={form.offerHighlight}
+                        tagline={form.offerTagline}
+                        themeName={form.offerTheme}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="form-group form-full">
-                <label>Linked Categories</label>
-                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 6 }}>Select categories for this promotion.</p>
-                <CategoryMultiSelect selected={form.categoryIds} onChange={ids => setForm({ ...form, categoryIds: ids })} />
+
+              {/* ── Linked Products / Categories ── */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <div className="form-group form-full">
+                  <label>Linked Products</label>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 6 }}>Select products for this promotion. Leave empty for all products.</p>
+                  <ProductMultiSelect selected={form.productIds} onChange={ids => setForm({ ...form, productIds: ids })} />
+                </div>
+                <div className="form-group form-full">
+                  <label>Linked Categories</label>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 6 }}>Select categories for this promotion.</p>
+                  <CategoryMultiSelect selected={form.categoryIds} onChange={ids => setForm({ ...form, categoryIds: ids })} />
+                </div>
               </div>
             </div>
             <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update' : 'Create'}</button></div>
@@ -343,6 +443,88 @@ function ProductMultiSelect({ selected, onChange }) {
 }
 
 /* -- Category Multi-Select -- */
+/* ── Offer Card Live Preview ── */
+const THEME_COLORS = {
+  'smart-deal': { from: '#f59e0b', to: '#ea580c', iconColor: '#d97706', iconBg: '#fef3c7', badgeBg: '#fef3c7', badgeText: '#92400e', tagBg: '#fffbeb', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'prepaid-offer': { from: '#8b5cf6', to: '#7c3aed', iconColor: '#7c3aed', iconBg: '#ede9fe', badgeBg: '#ede9fe', badgeText: '#5b21b6', tagBg: '#f5f3ff', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'summer-bonus': { from: '#ec4899', to: '#f43f5e', iconColor: '#db2777', iconBg: '#fce7f3', badgeBg: '#fce7f3', badgeText: '#9d174d', tagBg: '#fff1f2', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'emerald': { from: '#10b981', to: '#0d9488', iconColor: '#059669', iconBg: '#d1fae5', badgeBg: '#d1fae5', badgeText: '#065f46', tagBg: '#ecfdf5', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'blue': { from: '#3b82f6', to: '#4f46e5', iconColor: '#2563eb', iconBg: '#dbeafe', badgeBg: '#dbeafe', badgeText: '#1e40af', tagBg: '#eff6ff', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'cyan': { from: '#06b6d4', to: '#0e7490', iconColor: '#06b6d4', iconBg: '#cffafe', badgeBg: '#cffafe', badgeText: '#155e75', tagBg: '#ecfeff', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' },
+  'red': { from: '#f59e0b', to: '#eab308', iconColor: '#ffffff', iconBg: 'rgba(255,255,255,0.2)', badgeBg: '#ffffff', badgeText: '#8B0000', tagBg: 'rgba(255,255,255,0.15)', cardBg: '#8B0000', titleColor: '#ffffff', highlightColor: '#ffffff' },
+  'black': { from: 'rgba(255,255,255,0.3)', to: 'transparent', iconColor: '#e5e7eb', iconBg: 'rgba(255,255,255,0.1)', badgeBg: 'rgba(255,255,255,0.9)', badgeText: '#111827', tagBg: '#2a2a2a', cardBg: '#1a1a1a', titleColor: '#ffffff', highlightColor: '#ffffff' },
+};
+
+function OfferCardPreview({ title, badge, highlight, tagline, themeName }) {
+  const colors = THEME_COLORS[themeName] || { from: '#9ca3af', to: '#6b7280', iconColor: '#6b7280', iconBg: '#f3f4f6', badgeBg: '#f3f4f6', badgeText: '#374151', tagBg: '#f9fafb', cardBg: '#ffffff', titleColor: '#111827', highlightColor: '#111827' };
+
+  return (
+    <div style={{
+      position: 'relative',
+      borderRadius: 10,
+      border: '1px solid ' + (themeName === 'black' ? '#374151' : '#e5e7eb'),
+      overflow: 'hidden',
+      background: colors.cardBg,
+      minWidth: 180,
+      maxHeight: 120,
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '12px 14px',
+      gap: 4,
+    }}>
+      {/* Accent bar */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(to right, ${colors.from}, ${colors.to})`, opacity: 0.8 }} />
+
+      {/* Glass shine overlay */}
+      <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'linear-gradient(to bottom, rgba(255,255,255,0.4), transparent)', pointerEvents: 'none' }} />
+
+      {/* offer-label */}
+      <span style={{
+        fontSize: 10,
+        fontWeight: 600,
+        color: colors.titleColor,
+        opacity: 0.8,
+        lineHeight: 1.25,
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        {title}
+      </span>
+
+      {/* offer-headline — wraps to 2 lines */}
+      <div style={{
+        fontSize: 15,
+        fontWeight: 900,
+        color: colors.highlightColor,
+        lineHeight: 1.2,
+        flex: 1,
+        whiteSpace: 'pre-line',
+        position: 'relative',
+        zIndex: 1,
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+      }}>
+        {badge ? `${badge} ` : ''}{highlight}
+      </div>
+
+      {/* offer-sub */}
+      <span style={{
+        fontSize: 8,
+        fontWeight: 500,
+        color: colors.highlightColor,
+        opacity: 0.6,
+        lineHeight: 1.25,
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        {tagline}
+      </span>
+    </div>
+  );
+}
+
 function CategoryMultiSelect({ selected, onChange }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);

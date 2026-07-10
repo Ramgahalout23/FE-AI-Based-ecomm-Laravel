@@ -45,6 +45,10 @@ export default function ProductDetailPage() {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const mobileGalleryRef = useRef(null);
+  const offersRef = useRef(null);
+  const sentinelRef = useRef(null);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const hasAutoSelected = useRef(false);
 
   // Accordion state
   const [openAccordion, setOpenAccordion] = useState('details'); // 'details', 'shipping', 'care'
@@ -110,6 +114,17 @@ export default function ProductDetailPage() {
     staleTime: 15000,
   });
 
+  // ── Store Offers (Smart Deal, Prepaid Offer, Summer Bonus) ──
+  const { data: storeOffers = [] } = useQuery({
+    queryKey: ['store-offers'],
+    queryFn: async () => {
+      const res = await promotionsAPI.getStoreOffers();
+      const data = res?.data?.data || [];
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60000,
+  });
+
   // Find an active flash sale that applies to this product
   const activeFlashSale = (() => {
     if (!flashPromotions.length || !product) return null;
@@ -147,6 +162,52 @@ export default function ProductDetailPage() {
     enabled: !!product?.id,
     staleTime: 60000,
   });
+
+  // ── Auto-select first in-stock size & color on initial product load ──
+  useEffect(() => {
+    if (!product || hasAutoSelected.current) return;
+
+    const variants = product?.variants || product?.productvariant || [];
+    if (!variants.length) return;
+
+    // Find first variant with stock > 0
+    const inStockVariant = variants.find(v => (v.quantity || 0) > 0);
+    if (!inStockVariant) return;
+
+    const attrs = inStockVariant.attributes || {};
+    let nextSize = '';
+    let nextColor = '';
+
+    if (product.sizes?.length && attrs.size) {
+      nextSize = attrs.size;
+    } else if (product.sizes?.length) {
+      // No in-stock variant found with a size — pick first available size
+      const firstAvailableSize = product.sizes.find(s =>
+        variants.some(v => {
+          const a = v.attributes || {};
+          return a.size === s && (v.quantity || 0) > 0;
+        })
+      );
+      if (firstAvailableSize) nextSize = firstAvailableSize;
+    }
+
+    if (product.colors?.length && attrs.color) {
+      nextColor = attrs.color;
+    } else if (product.colors?.length) {
+      const firstAvailableColor = product.colors.find(c =>
+        variants.some(v => {
+          const a = v.attributes || {};
+          return a.color === c && (v.quantity || 0) > 0;
+        })
+      );
+      if (firstAvailableColor) nextColor = firstAvailableColor;
+    }
+
+    if (nextSize) setSelectedSize(nextSize);
+    if (nextColor) setSelectedColor(nextColor);
+
+    hasAutoSelected.current = true;
+  }, [product]);
 
   // ── Side effects (tracking, recently viewed) ──
   useEffect(() => {
@@ -278,8 +339,8 @@ export default function ProductDetailPage() {
   };
 
   // ── Client-side variant matching (consistent with ProductCard, SearchProductCard, etc.) ──
-  const isSizeRequired = product.sizes?.length > 0;
-  const isColorRequired = product.colors?.length > 0;
+  const isSizeRequired = product?.sizes?.length > 0;
+  const isColorRequired = product?.colors?.length > 0;
   const needsSize = isSizeRequired;
   const needsColor = isColorRequired;
   const hasAllSelections = (!needsSize || selectedSize) && (!needsColor || selectedColor);
@@ -315,8 +376,37 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // ── Sticky bottom bar: observe a sentinel AFTER the product info section ──
+  // On desktop, the product info card is sticky (lg:sticky) so IntersectionObserver
+  // on elements inside it never fires. Instead, observe a sentinel placed after
+  // the product layout. When it enters the viewport, user has scrolled past the
+  // product info → show the sticky bar.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowStickyBar(entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: '0px 0px -30% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [product]);
+
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // ── Scroll to offers section (mobile only) when a variant is selected ──
+  const scrollToOffers = useCallback(() => {
+    // Only on mobile (below lg breakpoint)
+    if (window.innerWidth >= 1024) return;
+    // Small delay to let state update + DOM settle
+    requestAnimationFrame(() => {
+      offersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }, []);
 
   const handleShare = useCallback(async () => {
@@ -824,6 +914,7 @@ export default function ProductDetailPage() {
                             onClick={() => {
                               if (isOOS) return;
                               setSelectedColor(color);
+                              scrollToOffers();
                             }}
                             disabled={isOOS}
                             className={`relative w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
@@ -900,6 +991,7 @@ export default function ProductDetailPage() {
                           onClick={() => {
                             if (isOOS) return;
                             setSelectedSize(size);
+                            scrollToOffers();
                           }}
                           disabled={isOOS}
                           className={`py-2.5 md:py-3.5 rounded-xl border-2 font-bold text-xs md:text-sm transition-all duration-200 relative active:scale-[0.97] ${
@@ -937,6 +1029,19 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Offers Section — below variant selection */}
+              <div ref={offersRef} className="flex flex-col gap-2">
+                <OffersSection promotions={storeOffers} />
+                {getSetting('bundleOfferEnabled', 'true') !== 'false' && (
+                  <BundleOffer
+                    basePrice={matchedVariant && matchedVariant.price != null ? matchedVariant.price : product.price}
+                    onSelectTier={(minQty) => setQty(minQty)}
+                    selectedQty={qty}
+                    isInStock={!isStockUnavailable}
+                  />
+                )}
+              </div>
 
               {/* Stock Status — shown only when NOT out of stock (OOS is shown via heading badge) */}
               {!showOutOfStockBadge && (() => {
@@ -1133,9 +1238,6 @@ export default function ProductDetailPage() {
                 })}
               </motion.div>
 
-              {/* Offers Section */}
-              <OffersSection promotions={flashPromotions} />
-
               {/* Accordions */}
               <div className="flex flex-col divide-y divide-gray-100">
                 {/* Details */}
@@ -1249,6 +1351,8 @@ export default function ProductDetailPage() {
               </div>
 
             </div>
+            {/* ── Sentinel right after sticky card (tracks when actions scroll past) ── */}
+            <div ref={sentinelRef} className="h-px" />
           </div>
 
         </div>
@@ -1431,31 +1535,57 @@ export default function ProductDetailPage() {
       {/* Size Guide Modal */}
       <SizeGuideModal isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
 
-      {/* ── Sticky mobile bottom bar ── */}
-      <div className="fixed bottom-0 inset-x-0 z-50 block lg:hidden bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col min-w-0">
+      {/* ── Sticky bottom bar (slides up on desktop when actions scroll past; always visible on mobile) ── */}
+      <div
+        className={`fixed bottom-0 inset-x-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-y-full ${
+          showStickyBar ? 'lg:translate-y-0' : ''
+        }`}
+      >
+        <div className="flex items-center gap-3 max-w-[1400px] mx-auto">
+          {/* Price + selections info */}
+          <div className="flex flex-col min-w-0 shrink-0 mr-auto">
             <span className="text-lg font-display font-extrabold text-black truncate">
               {matchedVariant && matchedVariant.price != null
                 ? formatCurrency(matchedVariant.price)
                 : formatCurrency(product.price)}
             </span>
-            {product.oldPrice && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500 line-through">{formatCurrency(product.oldPrice)}</span>
-                {discount && <span className="text-[10px] font-bold text-red-600">{t('product.percent_off', { percent: discount })}</span>}
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-500 leading-tight">
+              {selectedSize && <span>{selectedSize}</span>}
+              {selectedSize && selectedColor && <span>·</span>}
+              {selectedColor && <span>{selectedColor}</span>}
+              {!selectedSize && !selectedColor && <span className="text-gray-400">{t('product.select_options')}</span>}
+            </div>
           </div>
+
+          {/* Quantity */}
+          <div className="flex items-center gap-1 bg-gray-50 rounded-lg border border-gray-200">
+            <button
+              onClick={() => setQty(Math.max(1, qty - 1))}
+              disabled={qty <= 1}
+              className="p-2 text-gray-400 hover:text-black disabled:text-gray-200 disabled:cursor-not-allowed transition-colors"
+            >
+              <Minus size={16} />
+            </button>
+            <span className="w-7 text-center text-sm font-bold tabular-nums">{qty}</span>
+            <button
+              onClick={() => setQty(qty + 1)}
+              disabled={qty >= maxQty || availableStock <= 0}
+              className={`p-2 transition-colors ${qty >= maxQty || availableStock <= 0 ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:text-black'}`}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          {/* Add to Cart */}
           <button
             onClick={handleAddToCart}
             disabled={!canAddToCart || isAddingToCart}
-            className={`flex-1 max-w-[220px] h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] ${
+            className={`h-11 px-5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] ${
               canAddToCart && !isAddingToCart
                 ? 'bg-black text-white hover:bg-gray-800 shadow-lg'
                 : isStockUnavailable
-                ? 'bg-red-100 text-red-500 cursor-not-allowed'
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                ? 'bg-red-50 text-red-500 cursor-not-allowed border border-red-200/60'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
             {isAddingToCart ? (
@@ -1469,6 +1599,41 @@ export default function ProductDetailPage() {
             ) : (
               t('product.add_to_bag')
             )}
+          </button>
+
+          {/* Buy It Now */}
+          <button
+            onClick={async () => {
+              if (!canAddToCart || isAddingToCart) return;
+              setIsAddingToCart(true);
+              try {
+                addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined });
+                if (isAuthenticated) {
+                  try {
+                    await cartAPI.add({
+                      productId: product.id,
+                      quantity: qty,
+                      size: selectedSize || undefined,
+                      color: selectedColor || undefined,
+                      variantId: matchedVariant?.id || undefined,
+                    });
+                  } catch {}
+                }
+                navigate('/checkout');
+              } finally {
+                setIsAddingToCart(false);
+              }
+            }}
+            disabled={!canAddToCart || isAddingToCart}
+            className={`h-11 px-5 rounded-xl font-bold text-sm items-center justify-center gap-2 transition-all duration-200 active:scale-[0.97] border-2 hidden sm:inline-flex ${
+              canAddToCart && !isAddingToCart
+                ? 'bg-black text-white hover:bg-gray-800 shadow-md border-black'
+                : isStockUnavailable
+                ? 'bg-red-50 text-red-500 cursor-not-allowed border-red-200/60'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-100'
+            }`}
+          >
+            {isAddingToCart ? `${t('product.adding')}...` : isStockUnavailable ? t('product.out_of_stock') : t('product.buy_now')}
           </button>
         </div>
       </div>

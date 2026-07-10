@@ -1,171 +1,159 @@
-import { Gift, Tag, Percent, Zap, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { formatCurrency } from '../../utils/formatters';
 
-const OFFER_ICONS = {
-  FIRST_ORDER: Gift,
-  PERCENTAGE: Percent,
-  FIXED: Tag,
-  FREE_SHIPPING: Zap,
-};
+function formatPromoCard(promo) {
+  const title = promo.title || 'Special Offer';
 
-function getOfferIcon(type) {
-  const Icon = OFFER_ICONS[type] || Tag;
-  return Icon;
+  if (promo.offerBadge || promo.offerHighlight || promo.offerTagline) {
+    return {
+      id: promo.id,
+      title,
+      badge: promo.offerBadge || null,
+      highlight: promo.offerHighlight || promo.description || 'Special offer',
+      tagline: promo.offerTagline || (promo.couponCode ? `Use code: ${promo.couponCode}` : 'Auto-applied at checkout'),
+    };
+  }
+
+  const highlight = promo.description || (promo.minPurchase
+    ? `On orders above \u20B9${Math.round(promo.minPurchase)}`
+    : 'On all orders');
+
+  const tagline = promo.couponCode
+    ? `Use code: ${promo.couponCode}`
+    : promo.maxDiscount
+      ? `Up to \u20B9${Math.round(promo.maxDiscount)} off`
+      : 'Auto-applied at checkout';
+
+  return { id: promo.id, title, badge: null, highlight, tagline };
 }
 
-function getOfferGradient(type) {
-  switch (type) {
-    case 'FIRST_ORDER': return { bg: 'from-rose-500 to-pink-600', badge: 'bg-rose-100 text-rose-700 border-rose-200', iconBg: 'bg-rose-100', iconColor: 'text-rose-600' };
-    case 'PERCENTAGE': return { bg: 'from-violet-500 to-purple-600', badge: 'bg-violet-100 text-violet-700 border-violet-200', iconBg: 'bg-violet-100', iconColor: 'text-violet-600' };
-    case 'FIXED': return { bg: 'from-emerald-500 to-teal-600', badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600' };
-    case 'FREE_SHIPPING': return { bg: 'from-amber-500 to-orange-600', badge: 'bg-amber-100 text-amber-700 border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600' };
-    default: return { bg: 'from-blue-500 to-indigo-600', badge: 'bg-blue-100 text-blue-700 border-blue-200', iconBg: 'bg-blue-100', iconColor: 'text-blue-600' };
-  }
-}
-
-function formatOfferDescription(promo) {
-  const parts = [];
-  
-  if (promo.type === 'FIRST_ORDER' || promo.title?.toLowerCase().includes('first')) {
-    parts.push('First order');
-  }
-  
-  if (promo.discount) {
-    if (promo.type === 'PERCENTAGE' || promo.type === 'FIRST_ORDER') {
-      parts.push(`${promo.discount}% off`);
-    } else {
-      parts.push(`Save ${formatCurrency(Math.round(promo.discount))}`);
-    }
-  } else {
-    parts.push(promo.title || 'Special offer');
-  }
-  
-  if (promo.min_purchase && parseFloat(promo.min_purchase) > 0) {
-    parts.push(`on orders above ${formatCurrency(Math.round(promo.min_purchase))}`);
-  } else {
-    parts.push('on all orders');
-  }
-  
-  if (promo.max_discount) {
-    parts.push(`(up to ${formatCurrency(Math.round(promo.max_discount))})`);
-  }
-  
-  return parts.join(' ');
-}
+/**
+ * Premium gradient backgrounds for each offer card — cycles through
+ * an elegant palette of dark, saturated tones with gold/caramel accents.
+ */
+const CARD_GRADIENTS = [
+  { bg: 'linear-gradient(135deg, #1C1C1E, #2A2722, #1C1C1E)', accent: '#C9A96E', shadow: 'rgba(201,169,110,0.08)' },
+  { bg: 'linear-gradient(135deg, #1A1A24, #252236, #1A1A24)', accent: '#A78BFA', shadow: 'rgba(167,139,250,0.08)' },
+  { bg: 'linear-gradient(135deg, #1C1E1C, #1F2A1E, #1C1E1C)', accent: '#6EE7B7', shadow: 'rgba(110,231,183,0.08)' },
+  { bg: 'linear-gradient(135deg, #1E1C1C, #2A1F1E, #1E1C1C)', accent: '#FCA5A5', shadow: 'rgba(252,165,165,0.08)' },
+];
 
 export default function OffersSection({ promotions = [] }) {
-  // Filter to get non-flash-sale general offers
-  // General offers are site-wide (no product/category restrictions, or no end date)
-  const generalOffers = promotions.filter(p => {
-    const isFlashSale = p.endDate || (p.products?.length > 0) || (p.categories?.length > 0);
-    return !isFlashSale && p.isActive !== false;
+  const activeOffers = promotions.filter(p => {
+    if (p.isActive === false) return false;
+    if (p.status && p.status !== 'ACTIVE') return false;
+    return true;
   });
 
-  if (!generalOffers.length) return null;
+  const allOffers = activeOffers.map(formatPromoCard);
+
+  if (!allOffers.length) return null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="pt-4 mt-2"
+      viewport={{ once: true, margin: '-20px' }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="flex items-center gap-2 mb-3">
+      {/* Section header — refined, minimal */}
+      <div className="flex items-center gap-2 mb-3.5">
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-violet-500 to-pink-500" />
-          <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider">Available Offers</h3>
+          <div className="w-1 h-4 rounded-full bg-gradient-to-b from-[#C9A96E] to-[#A68B4E]" />
+          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.15em]">
+            Offers for you
+          </h3>
         </div>
-        <div className="flex-1 h-px bg-gradient-to-r from-gray-200 via-gray-200 to-transparent" />
+        <div className="flex-1 h-px bg-gradient-to-r from-gray-200/60 via-gray-200/30 to-transparent" />
       </div>
 
-      <div className="space-y-2.5">
-        {generalOffers.map((promo, idx) => {
-          const Icon = getOfferIcon(promo.type);
-          const colors = getOfferGradient(promo.type);
-          const description = formatOfferDescription(promo);
-          
+      {/* Scrollable row — single line, never wraps */}
+      <div
+        className="flex flex-row gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {allOffers.map((offer, idx) => {
+          const gradient = CARD_GRADIENTS[idx % CARD_GRADIENTS.length];
           return (
             <motion.div
-              key={promo.id || idx}
-              initial={{ opacity: 0, x: -10 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              key={offer.id || idx}
+              initial={{ opacity: 0, y: 14, scale: 0.96 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.35, delay: idx * 0.07, ease: [0.16, 1, 0.3, 1] }}
-              className="group relative bg-white rounded-xl border border-gray-200/80 hover:border-gray-300/80 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
+              transition={{ duration: 0.4, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ y: -3, scale: 1.01, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+              className="group relative rounded-[14px] border border-white/[0.06] shadow-sm hover:shadow-xl transition-all duration-300 cursor-default min-w-[195px] max-h-[135px] shrink-0 snap-start flex flex-col overflow-hidden"
+              style={{
+                background: gradient.bg,
+                boxShadow: `0 4px 20px ${gradient.shadow}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+              }}
             >
-              {/* Left gradient accent bar */}
-              <div className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${colors.bg} group-hover:w-[4px] transition-all duration-300`} />
-              
-              <div className="flex items-start gap-3 p-3.5 pl-[18px] group-hover:pl-[19px] transition-all duration-300">
-                {/* Icon */}
-                <div className={`w-9 h-9 rounded-lg ${colors.iconBg} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300`}>
-                  <Icon size={16} className={colors.iconColor} />
+              {/* Glass-morphism overlay */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+
+              {/* Subtle radial glow */}
+              <div
+                className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-20 blur-2xl pointer-events-none"
+                style={{ background: `radial-gradient(circle, ${gradient.accent}40 0%, transparent 70%)` }}
+              />
+
+              {/* Decorative corner accent */}
+              <div
+                className="absolute top-0 right-0 w-16 h-16 opacity-[0.03] pointer-events-none"
+                style={{
+                  background: `radial-gradient(circle at top right, ${gradient.accent} 0%, transparent 70%)`,
+                }}
+              />
+
+              {/* Thin top accent bar with gradient */}
+              <div
+                className="absolute top-0 inset-x-0 h-[2px] opacity-60"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${gradient.accent}60, transparent)`,
+                }}
+              />
+
+              {/* Content — inner padding */}
+              <div className="relative z-10 flex flex-col gap-1 p-[14px_16px] flex-1">
+                {/* Offer title badge */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: `${gradient.accent}CC` }}>
+                    {offer.title}
+                  </span>
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[13px] font-bold text-gray-900 leading-tight block truncate">
-                        {promo.title || 'Special Offer'}
-                      </span>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
-                        {promo.description || description}
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all duration-200 shrink-0 mt-0.5" />
-                  </div>
+                {/* Highlight — main offer text */}
+                <div
+                  className="text-[16px] font-black leading-tight text-white flex-1 whitespace-pre-line drop-shadow-sm"
+                  style={{ fontFamily: "'Jost', sans-serif" }}
+                >
+                  {offer.highlight}
+                </div>
 
-                  {/* Badges row */}
-                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                    {promo.discount && (
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${colors.badge}`}>
-                        {promo.type === 'FIRST_ORDER' || promo.type === 'PERCENTAGE'
-                          ? `${Math.round(promo.discount)}% off`
-                          : `${formatCurrency(Math.round(promo.discount))} off`}
-                      </span>
-                    )}
-                    {promo.min_purchase && parseFloat(promo.min_purchase) > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                        Min. {formatCurrency(Math.round(promo.min_purchase))}
-                      </span>
-                    )}
-                    {promo.coupon_code && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        <Tag size={9} />
-                        {promo.coupon_code}
-                      </span>
-                    )}
-                    {promo.max_discount && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                        Up to {formatCurrency(Math.round(promo.max_discount))}
-                      </span>
-                    )}
-                  </div>
+                {/* Tagline + subtle decorative dot */}
+                <div className="flex items-center gap-1.5 mt-auto">
+                  <span
+                    className="w-1 h-1 rounded-full shrink-0"
+                    style={{ background: gradient.accent }}
+                  />
+                  <span className="text-[8px] font-medium leading-tight text-white/50 group-hover:text-white/70 transition-colors duration-300">
+                    {offer.tagline}
+                  </span>
                 </div>
               </div>
 
-              {/* Hover shimmer effect */}
-              <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="absolute top-0 left-1/3 w-1/3 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] animate-shimmer" />
+              {/* Hover shine effect */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(105deg, transparent 40%, ${gradient.accent}08 50%, transparent 60%)`,
+                  }}
+                />
               </div>
             </motion.div>
           );
         })}
       </div>
-
-      {/* Shimmer animation keyframes */}
-      <style>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%) skewX(-20deg); }
-          100% { transform: translateX(200%) skewX(-20deg); }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s ease-in-out infinite;
-        }
-      `}</style>
     </motion.div>
   );
 }

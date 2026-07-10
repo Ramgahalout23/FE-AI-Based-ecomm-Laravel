@@ -347,7 +347,7 @@ export default function SettingsAdminPage() {
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
       'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
       'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
-      'tshirtCustomizerEnabled', 'homepageSectionOrder',
+      'bundleOfferEnabled', 'tshirtCustomizerEnabled', 'homepageSectionOrder',
       'cookieConsentEnabled',
       'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
     ],
@@ -891,6 +891,37 @@ export default function SettingsAdminPage() {
                   />
                   <span className={`status-badge ${settings.newArrivalsEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
                     {settings.newArrivalsEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* Bundle Offer (Buy More, Save More) Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>📦</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>Bundle Offer — Buy More, Save More</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      Volume discount tier cards on the product detail page
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.bundleOfferEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, bundleOfferEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.bundleOfferEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.bundleOfferEnabled !== 'false' ? 'Visible' : 'Hidden'}
                   </span>
                 </label>
               </div>

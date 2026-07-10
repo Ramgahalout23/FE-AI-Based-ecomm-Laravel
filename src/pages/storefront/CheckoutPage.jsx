@@ -11,6 +11,7 @@ import useAuthStore from '../../store/authStore';
 import { cartAPI } from '../../api/cart';
 import { checkoutAPI } from '../../api/checkout';
 import { couponsAPI } from '../../api/coupons';
+import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
 import { showError, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
 import { paymentsAPI } from '../../api/payments';
@@ -41,8 +42,62 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [gatewayRedirect, setGatewayRedirect] = useState(null);
+  const [autoDiscount, setAutoDiscount] = useState(0);
+  const [autoDiscountPromos, setAutoDiscountPromos] = useState([]);
+  const [storeOffers, setStoreOffers] = useState([]);
 
-  // Sync cart from server on mount (ensures authenticated users see their server cart)
+  // ── Client-side store offer calculation (works for ALL users, guest or authenticated) ──
+  // Mirrors backend FlashSaleService logic: picks the BEST single offer, does NOT stack.
+  useEffect(() => {
+    const fetchOffers = async () => {
+      try {
+        const res = await promotionsAPI.getStoreOffers();
+        const data = res.data?.data || res.data || [];
+        setStoreOffers(Array.isArray(data) ? data : []);
+      } catch {
+        // Offers are optional
+      }
+    };
+    fetchOffers();
+  }, []);
+
+  // Calculate auto-discount from store offers based on cart subtotal
+  useEffect(() => {
+    const offers = Array.isArray(storeOffers) ? storeOffers : [];
+    let bestDiscount = 0;
+    let bestOffer = null;
+
+    for (const offer of offers) {
+      const discountPct = parseFloat(offer.discount) || 0;
+      if (discountPct <= 0) continue;
+      const discountAmount = subtotal * (discountPct / 100);
+      if (discountAmount > bestDiscount) {
+        bestDiscount = discountAmount;
+        bestOffer = offer;
+      }
+    }
+
+    const roundedDiscount = Math.round(bestDiscount * 100) / 100;
+    if (roundedDiscount > 0 && bestOffer) {
+      setAutoDiscount(roundedDiscount);
+      setAutoDiscountPromos([{
+        id: bestOffer.id,
+        title: bestOffer.title,
+        discountLabel: `-${formatCurrency(roundedDiscount)}`,
+        offerBadge: bestOffer.offerBadge || 'OFFER',
+        offerHighlight: bestOffer.offerHighlight || bestOffer.title,
+        offerTagline: bestOffer.offerTagline,
+      }]);
+    } else if (roundedDiscount <= 0 && !isAuthenticated) {
+      // For guest users, clear auto discount if no offers qualify
+      // (authenticated users will get the server summary, which may have flash sales too)
+      setAutoDiscount(0);
+      setAutoDiscountPromos([]);
+    }
+  }, [storeOffers, subtotal, isAuthenticated]);
+
+  // ── Server summary fetch (authenticated users only — includes flash sales + exact server calc) ──
+  // Sync cart from server on mount
   useEffect(() => {
     if (!isAuthenticated) return;
     const syncCart = async () => {
@@ -58,6 +113,26 @@ export default function CheckoutPage() {
     };
     syncCart();
   }, [setItems, isAuthenticated]);
+
+  // Fetch checkout summary to get auto-applied discounts (flash sales, store offers)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const fetchSummary = async () => {
+      try {
+        const res = await checkoutAPI.getSummary();
+        const data = res.data?.data || res.data || {};
+        if (data.flashSaleDiscount > 0) {
+          setAutoDiscount(data.flashSaleDiscount);
+        }
+        if (data.flashSalePromotions?.length > 0) {
+          setAutoDiscountPromos(data.flashSalePromotions);
+        }
+      } catch {
+        // Summary is optional — silently ignore
+      }
+    };
+    fetchSummary();
+  }, [isAuthenticated]);
 
   // Fetch available coupons for user to pick from
   useEffect(() => {
@@ -100,7 +175,8 @@ export default function CheckoutPage() {
   }, []);
 
   const shippingCost = subtotal >= 499 ? 0 : 50;
-  const total = subtotal - discount + shippingCost;
+  const totalDiscount = discount + autoDiscount;
+  const total = subtotal - totalDiscount + shippingCost;
 
   const handleApplyCoupon = async (code) => {
     const codeToApply = code || coupon.trim();
@@ -930,8 +1006,31 @@ export default function CheckoutPage() {
                 );})}
               </div>
 
-              {/* Coupon */}
-              {discount > 0 && appliedCoupon ? (
+              {/* Coupon */}                {/* Auto-applied store offers / flash sales */}
+                {autoDiscountPromos.length > 0 && (
+                  <div className="mb-3 flex flex-col gap-2">
+                    {autoDiscountPromos.map((promo) => (
+                      <div
+                        key={promo.id}
+                        className="flex items-center justify-between px-3 py-2.5 bg-gray-900 border border-gray-700/50 rounded-lg shadow-sm"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-bold text-white bg-white/15 px-1.5 py-0.5 rounded shrink-0">
+                            {promo.offerBadge || 'OFFER'}
+                          </span>
+                          <span className="text-xs font-semibold text-white/90 truncate">
+                            {promo.offerHighlight || promo.title}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-white/70 font-medium shrink-0 ml-2">
+                          {promo.discountLabel}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {discount > 0 && appliedCoupon ? (
                 <div className="flex items-center justify-between mb-6 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
                   <div className="flex items-center gap-2">
                     <span className="text-green-700 font-semibold text-sm uppercase">{appliedCoupon}</span>
@@ -1018,9 +1117,15 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Subtotal</span>
                   <span className="text-black">{formatCurrency(subtotal)}</span>
                 </div>
+                {autoDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Store Offer Discount</span>
+                    <span className="text-gray-700">-{formatCurrency(autoDiscount)}</span>
+                  </div>
+                )}
                 {discount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Discount</span>
+                    <span className="text-green-600">Coupon Discount</span>
                     <span className="text-green-600">-{formatCurrency(discount)}</span>
                   </div>
                 )}

@@ -42,6 +42,17 @@ export default function CartPage() {
     retry: false,
   });
 
+  // ── Fetch store offer cards (Smart Deal, Prepaid Offer, etc.) ──
+  const { data: storeOffers = [] } = useQuery({
+    queryKey: ['store-offers'],
+    queryFn: async () => {
+      const res = await promotionsAPI.getStoreOffers();
+      const data = res?.data?.data || [];
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 60000,
+  });
+
   // Build flash sale product and category lookup maps
   const flashSaleProductIds = useMemo(() => {
     const promos = Array.isArray(promotionsData) ? promotionsData : [];
@@ -91,8 +102,46 @@ export default function CartPage() {
     (sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0
   );
   const availableCount = availableItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+  // Calculate auto-applied store offer discounts.
+  // Mirrors backend FlashSaleService logic: picks the BEST single offer, does NOT stack.
+  // Uses plain IIFE instead of useMemo to avoid React hooks ordering issues after conditional early return.
+  const { autoDiscount, autoDiscountOffers } = (() => {
+    const offers = Array.isArray(storeOffers) ? storeOffers : [];
+    let bestDiscount = 0;
+    let bestOffer = null;
+
+    offers.forEach((offer) => {
+      if (offer.isActive === false) return;
+      if (offer.status && offer.status !== 'ACTIVE') return;
+      if (!offer.discount || offer.discount <= 0) return;
+
+      const discountAmount = availableSubtotal * (offer.discount / 100);
+      if (discountAmount > bestDiscount) {
+        bestDiscount = discountAmount;
+        bestOffer = {
+          id: offer.id,
+          title: offer.title,
+          badge: offer.offerBadge || 'OFFER',
+          highlight: offer.offerHighlight || offer.title,
+          tagline: offer.offerTagline,
+          discountLabel: `-${formatCurrency(discountAmount)}`,
+          discountAmount,
+        };
+      }
+    });
+
+    return {
+      autoDiscount: Math.round(bestDiscount * 100) / 100,
+      autoDiscountOffers: bestOffer ? [bestOffer] : [],
+    };
+  })();
+
   const shipping = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
-  const total = availableSubtotal + shipping;
+  const afterDiscount = Math.max(0, availableSubtotal - autoDiscount);
+  const total = afterDiscount + shipping;
+
+  // ── Event handlers ──
 
   const handleQuantityChange = async (item, newQty) => {
     if (newQty < 1 || newQty > 10) return;
@@ -368,11 +417,41 @@ export default function CartPage() {
             <div className="bg-gray-50 rounded-2xl p-6">
               <h2 className="font-display text-xl font-bold text-black mb-6">{t('cart.order_summary')}</h2>
 
+              {/* Auto-applied store offer cards */}
+              {autoDiscountOffers.length > 0 && (
+                <div className="flex flex-col gap-1.5 mb-3">
+                  {autoDiscountOffers.map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="flex items-center justify-between px-3 py-2.5 bg-gray-900 border border-gray-700/50 rounded-lg shadow-sm"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] font-bold text-white bg-white/15 px-1.5 py-0.5 rounded shrink-0">
+                          {offer.badge}
+                        </span>
+                        <span className="text-xs font-semibold text-white/90 truncate">
+                          {offer.highlight}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-white/70 font-medium shrink-0 ml-2">
+                        {offer.discountLabel}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-3 border-t pt-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('cart.subtotal', { count: availableCount })}</span>
                   <span className="text-black font-medium">{formatCurrency(availableSubtotal)}</span>
                 </div>
+                {autoDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 text-sm font-medium">Store Offers</span>
+                    <span className="text-gray-700 text-sm font-medium">-{formatCurrency(autoDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('cart.shipping')}</span>
                   <span className="text-black">
