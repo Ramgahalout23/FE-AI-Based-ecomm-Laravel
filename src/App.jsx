@@ -21,6 +21,7 @@ import AdminSidebar from './components/layout/AdminSidebar';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import CookieConsent from './components/common/CookieConsent';
 import ScrollToTop from './components/layout/ScrollToTop';
+import ScrollToTopButton from './components/common/ScrollToTopButton';
 import PageTransition from './components/common/PageTransition';
 import SessionTimeoutModal from './components/common/SessionTimeoutModal';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -35,7 +36,7 @@ import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
 import ThemeInjector from './components/common/ThemeInjector';
 import LiveChatWidget from './components/chat/LiveChatWidget';
-import WhatsAppButton from './components/chat/WhatsAppButton';
+import WhatsAppChatWidget from './components/chat/WhatsAppChatWidget';
 import PhoneLeadBanner from './components/common/PhoneLeadBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
@@ -207,6 +208,15 @@ function StorefrontLayout() {
   const whatsappNumber = appSettings.whatsappButtonNumber || '';
   const whatsappMessage = appSettings.whatsappButtonMessage || '';
   const whatsappPosition = appSettings.whatsappButtonPosition || 'left';
+  const brandPrimaryColor = appSettings.primaryColor || '#1a1a1a';
+  // Parse quick replies from settings (JSON string), or undefined to use widget defaults
+  let whatsappQuickReplies;
+  try {
+    const parsed = JSON.parse(appSettings.whatsappQuickReplies || '[]');
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      whatsappQuickReplies = parsed;
+    }
+  } catch {}
 
   // Initialize user tracking on first mount
   useEffect(() => {
@@ -239,7 +249,8 @@ function StorefrontLayout() {
       <MobileNav />
       <PhoneLeadBanner />
       {chatbotEnabled && <LiveChatWidget />}
-      {whatsappEnabled && whatsappNumber && <WhatsAppButton phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} />}
+      {whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} buttonColor={brandPrimaryColor} headerColor={brandPrimaryColor} accentColor={brandPrimaryColor} quickReplies={whatsappQuickReplies} />}
+      <ScrollToTopButton />
     </div>
   );
 }
@@ -287,8 +298,8 @@ function AdminLayout() {
   }, [logout]);
 
   const { resetTimer } = useIdleTimer({
-    idleTimeout: 30 * 60 * 1000,    // 30 min → auto-logout
-    warningTimeout: 25 * 60 * 1000,  // 25 min → warning modal
+    idleTimeout: 8 * 60 * 60 * 1000,        // 8 hr → auto-logout
+    warningTimeout: 7 * 60 * 60 * 1000 + 55 * 60 * 1000, // 7h55m → warning modal (5 min heads-up)
     onWarning: handleTimeoutWarning,
     onTimeout: handleTimeout,
     enabled: true,

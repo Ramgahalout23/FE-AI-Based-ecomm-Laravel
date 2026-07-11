@@ -345,7 +345,7 @@ export default function SettingsAdminPage() {
   const TAB_SETTING_KEYS = {
     'general': [
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
-      'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
+      'salesEnabled', 'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
       'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
       'bundleOfferEnabled', 'tshirtCustomizerEnabled', 'homepageSectionOrder',
       'cookieConsentEnabled',
@@ -401,6 +401,7 @@ export default function SettingsAdminPage() {
       'whatsappButtonNumber',
       'whatsappButtonMessage',
       'whatsappButtonPosition',
+      'whatsappQuickReplies',
       'phoneLeadBannerEnabled',
       'phoneLeadBannerHeading',
       'phoneLeadBannerOfferText',
@@ -781,6 +782,81 @@ export default function SettingsAdminPage() {
       <div className="dashboard-content-enter">
       {tab === 'general' && (
         <div className="detail-panel">
+          {/* ═══════════ GLOBAL SALES MASTER SWITCH (auto-saves) ═══════════ */}
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '1.25rem 1.5rem',
+            background: settings.salesEnabled !== 'false' ? '#f0fdf4' : '#fef2f2',
+            borderRadius: 'var(--radius-lg)',
+            border: `1px solid ${settings.salesEnabled !== 'false' ? '#bbf7d0' : '#fecaca'}`,
+            transition: 'all 0.3s ease',
+            position: 'relative',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🛍️</span>
+                <div>
+                  <strong style={{ fontSize: '1rem' }}>All Sales & Promotions</strong>
+                  <p style={{ fontSize: '0.78rem', color: settings.salesEnabled !== 'false' ? '#166534' : '#991b1b', margin: '0.15rem 0 0' }}>
+                    {settings.salesEnabled !== 'false'
+                      ? 'Flash sales, auto-promotions, store offers, and sale banners are active across your store.'
+                      : 'All sales, promotions, flash sales, and store offers are disabled across your store.'}
+                  </p>
+                </div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={settings.salesEnabled !== 'false'}
+                  onChange={async e => {
+                    const newVal = e.target.checked ? 'true' : 'false';
+                    setSettings({ ...settings, salesEnabled: newVal });
+                    try {
+                      await updateContextSettings({ salesEnabled: newVal });
+                      toast.success(newVal === 'true' ? 'Sales activated' : 'Sales disabled');
+                    } catch {
+                      toast.error('Failed to save');
+                      setSettings({ ...settings, salesEnabled: settings.salesEnabled });
+                    }
+                  }}
+                  style={{ width: '18px', height: '18px', accentColor: settings.salesEnabled !== 'false' ? '#16a34a' : '#dc2626' }}
+                />
+                <span
+                  className="status-badge"
+                  style={{
+                    background: settings.salesEnabled !== 'false' ? '#dcfce7' : '#fee2e2',
+                    color: settings.salesEnabled !== 'false' ? '#166534' : '#991b1b',
+                    border: `1px solid ${settings.salesEnabled !== 'false' ? '#bbf7d0' : '#fecaca'}`,
+                    fontWeight: 700,
+                  }}
+                >
+                  {settings.salesEnabled !== 'false' ? '🟢 Sales Active' : '🔴 Sales Disabled'}
+                </span>
+              </label>
+            </div>
+            {settings.salesEnabled === 'false' && (
+              <div style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem 1rem',
+                background: '#fff',
+                borderRadius: '8px',
+                border: '1px solid #fecaca',
+                fontSize: '0.78rem',
+                color: '#92400e',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}>
+                <span>⚠️</span>
+                <span>
+                  <strong>What happens:</strong> No promotions will appear on the homepage, sales page, or at checkout.
+                  The "Sales" navigation link will be hidden. All flash sale discounts are paused.
+                  Individual promotion records are preserved — re-enable to restore them.
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="detail-header"><h3>Store Configuration</h3></div>
           <div className="form-grid">
             <div className="form-group"><label>Store Name</label><input value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} /></div>

@@ -64,6 +64,9 @@ export function SettingsProvider({ children }) {
       const response = await settingsAPI.updateSettings(updates);
       const serverData = response.data?.data || response.data || updates;
       setSettings(prev => ({ ...(prev || {}), ...serverData }));
+      // Refetch app-init data so layout components (Navbar, etc.) get fresh
+      // promotions, currencies, and other app-level data immediately
+      refetchAppInit();
       toast.success('Settings updated successfully');
       return serverData;
     } catch (err) {
@@ -188,6 +191,17 @@ function getDefaultSettings() {
     whatsappButtonNumber: '',
     whatsappButtonMessage: 'Hi, I need help with my order',
     whatsappButtonPosition: 'left',
+    // WhatsApp Quick Replies (JSON stringified array of {label, message})
+    whatsappQuickReplies: JSON.stringify([
+      { label: '👋 Hi!', message: 'Hi, I have a question about your products.' },
+      { label: '💰 Pricing', message: 'Hi, I\'d like to know more about your pricing and any ongoing discounts.' },
+      { label: '📏 Sizing Help', message: 'Hi, I need help with sizing. Can you guide me on which size to pick?' },
+      { label: '🕐 Store Hours', message: 'Hi, what are your store hours and when do you process orders?' },
+      { label: '📦 Order Status', message: 'Hi, I want to check my order status.' },
+      { label: '🔄 Returns', message: 'Hi, I need help with a return or exchange.' },
+      { label: '💳 Payment', message: 'Hi, I\'m facing an issue with payment.' },
+      { label: '🚚 Shipping', message: 'Hi, what are your shipping options and delivery times?' },
+    ]),
     // Phone Lead Banner
     phoneLeadBannerEnabled: 'false',
     phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',

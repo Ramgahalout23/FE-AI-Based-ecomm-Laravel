@@ -1,4 +1,4 @@
-import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Menu, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, Percent, BellPlus, Grid, Languages, Terminal, ShieldCheck, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode } from 'lucide-react';
+import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, BellPlus, Grid, Languages, Terminal, ShieldCheck, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode, Percent, Menu, X } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
@@ -8,7 +8,7 @@ import { getImageUrl } from '../../utils/formatters';
 import { useSocketEvent, useSocketConnection, useOrderCreated, useReviewCreated } from '../../hooks/useSocket';
 import { notificationsAPI } from '../../api/notifications';
 
-const links = [
+const sections = [
   {
     section: 'Overview',
     icon: BarChart3,
@@ -85,7 +85,7 @@ const links = [
       { to: '/admin/translations', icon: Languages, label: 'Translations' },
       { to: '/admin/seo', icon: SearchCode, label: 'SEO Settings' },
       { to: '/admin/audit-logs', icon: History, label: 'Audit Log' },
-      { to: '/admin/sms', icon: Smartphone, label: 'SMS Management' },
+      { to: '/admin/sms', icon: Smartphone, label: 'SMS Mgmt' },
       { to: '/admin/logs', icon: Terminal, label: 'Server Logs' },
       { to: '/admin/staff', icon: ShieldCheck, label: 'Staff Roles' },
       { to: '/admin/backups', icon: Download, label: 'Backups' },
@@ -101,17 +101,14 @@ export default function AdminSidebar() {
   const { getSetting } = useSettings();
   const { user } = useAuthStore();
   const adminLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('adminSidebarCollapsed') === 'true');
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLinkActive = useCallback((to, end) => {
     if (end) return location.pathname === to;
     return location.pathname === to || location.pathname.startsWith(to + '/');
   }, [location.pathname]);
 
-  // ── Determine active tab from current route ──
-  const getActiveTab = useCallback(() => {
-    for (const group of links) {
+  const getActiveSection = useCallback(() => {
+    for (const group of sections) {
       if (group.items.some(link => isLinkActive(link.to, link.end))) {
         return group.section;
       }
@@ -119,13 +116,12 @@ export default function AdminSidebar() {
     return 'Overview';
   }, [isLinkActive]);
 
-  const [activeTab, setActiveTab] = useState(getActiveTab());
+  const [activeSection, setActiveSection] = useState(getActiveSection());
 
   useEffect(() => {
-    setActiveTab(getActiveTab());
-  }, [location.pathname, getActiveTab]);
+    setActiveSection(getActiveSection());
+  }, [location.pathname, getActiveSection]);
 
-  // ── Badge counts ──
   const [badgeCounts, setBadgeCounts] = useState({ products: null, orders: null, abandoned: null, reviews: null, notifications: null });
 
   useEffect(() => {
@@ -190,20 +186,154 @@ export default function AdminSidebar() {
     }
   };
 
-  const toggleCollapsed = () => {
-    setCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('adminSidebarCollapsed', String(next));
-      return next;
-    });
-  };
-
-  const activeGroup = links.find(g => g.section === activeTab) || links[0];
-
-  // ── Admin initials ──
   const initials = user?.firstName
     ? `${user.firstName[0]}${user.lastName?.[0] || ''}`.toUpperCase()
     : user?.email?.[0]?.toUpperCase() || 'A';
+
+  const currentGroup = sections.find(g => g.section === activeSection) || sections[0];
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const sidebarContent = (
+    <>
+      {/* ── Logo Header ── */}
+      <div className="flex items-center gap-2.5 px-4 h-[60px] shrink-0 border-b border-white/5">
+        <div className="flex items-center gap-2.5 w-full">
+          {mobileOpen && (
+            <button onClick={() => setMobileOpen(false)} className="md:hidden mr-1 text-white/40 hover:text-white">
+              <X size={20} />
+            </button>
+          )}
+          {adminLogo ? (
+            <div className="h-7 flex items-center">
+              <img src={getImageUrl(adminLogo)} alt="Store"
+                className="h-full w-auto max-w-[140px] object-contain"
+                onError={(e) => { e.target.style.display = 'none'; }} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#C9A96E] to-[#A8864A] flex items-center justify-center">
+                <span className="text-white font-bold text-sm">A</span>
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-white/90 leading-tight">Admin</div>
+                <div className="text-[8px] text-white/30 uppercase tracking-wider">Console</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section Tabs ── */}
+      <div className="flex flex-col gap-0.5 px-2 py-3">
+        {sections.map((group) => {
+          const isActive = group.section === activeSection;
+          const Icon = group.icon;
+          const tabBadge = getBadgeValue(
+            group.items.find(l => ['Products','Orders','Abandoned Carts','Reviews','Notifications'].includes(l.label))?.label || ''
+          );
+
+          return (
+            <button
+              key={group.section}
+              onClick={() => setActiveSection(group.section)}
+              className={`
+                flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm w-full
+                transition-all duration-150
+                ${isActive
+                  ? 'bg-[#C9A96E]/15 text-white font-medium'
+                  : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                }
+              `}
+            >
+              <Icon size={17} />
+              <span className="text-sm flex-1 text-left">{group.section}</span>
+              {tabBadge !== null && tabBadge > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#C9A96E]/20 text-[#C9A96E] leading-none">
+                  {tabBadge > 99 ? '99+' : tabBadge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="mx-3 h-px bg-white/5" />
+
+      {/* ── Sub-links ── */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
+        <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+          <currentGroup.icon size={13} className="text-[#C9A96E]/60" />
+          <span className="text-[9px] font-semibold tracking-wider uppercase text-white/25">{currentGroup.section}</span>
+          <span className="flex-1 h-px bg-white/5" />
+        </div>
+
+        <div className="flex flex-col gap-0.5">
+          {currentGroup.items.map((link) => {
+            const active = isLinkActive(link.to, link.end);
+            const LinkIcon = link.icon;
+            const badgeVal = getBadgeValue(link.label);
+
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={`
+                  flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm
+                  transition-all duration-150
+                  ${active
+                    ? 'bg-white/10 text-white font-medium'
+                    : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+                  }
+                `}
+              >
+                <LinkIcon size={16} />
+                <span className="text-sm flex-1">{link.label}</span>
+                {badgeVal !== null && badgeVal > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none
+                    ${link.label === 'Orders' ? 'bg-red-500/20 text-red-400' : 'bg-[#C9A96E]/20 text-[#C9A96E]'}`}>
+                    {badgeVal > 99 ? '99+' : badgeVal}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Footer: User Info ── */}
+      <div className="shrink-0 border-t border-white/5 px-3 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-bold text-white/50">{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-white/60 truncate leading-tight">
+              {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin'}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className={`text-[9px] font-medium ${socketConnected ? 'text-green-400/60' : 'text-red-400/50'}`}>
+                {socketConnected ? 'Live' : 'Offline'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => { useAuthStore.getState().logout(); window.location.href = '/admin/login'; }}
+            className="w-7 h-7 flex items-center justify-center rounded text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            title="Logout"
+          >
+            <LogOut size={14} />
+          </button>
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -220,186 +350,21 @@ export default function AdminSidebar() {
         <div className="md:hidden fixed inset-0 bg-black/60 z-30" onClick={() => setMobileOpen(false)} />
       )}
 
-      {/* ═══ Sidebar ═══ */}
+      {/* Mobile Sidebar */}
       <aside className={`
-        fixed md:sticky top-0 md:top-[60px] z-30 md:z-auto
-        h-screen md:h-[calc(100vh-60px)]
-        transition-all duration-300
-        flex flex-col
-        ${collapsed ? 'md:w-[72px]' : 'md:w-[240px]'}
-        ${mobileOpen ? 'left-0' : '-left-full md:left-0'}
-        bg-[#111] text-white border-r border-white/5
+        md:hidden fixed top-0 left-0 z-40 h-screen w-[280px]
+        bg-[#111] text-white
+        transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         shadow-2xl shadow-black/50
-        shrink-0
+        overflow-y-auto
       `}>
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between px-4 h-[60px] shrink-0 border-b border-white/5">
-          <div className={`flex items-center gap-3 overflow-hidden transition-all duration-300 ${collapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-            {adminLogo ? (
-              <div className="h-7 flex items-center">
-                <img src={getImageUrl(adminLogo)} alt="Store" className="h-full w-auto max-w-[140px] object-contain"
-                  onError={(e) => { e.target.style.display = 'none'; }} />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#C9A96E] to-[#A8864A] flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">A</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-sm text-white/90 block leading-tight">Admin</span>
-                  <span className="text-[8px] text-white/30 uppercase tracking-wider">Console</span>
-                </div>
-              </div>
-            )}
-          </div>
+        {sidebarContent}
+      </aside>
 
-          <div className="flex items-center gap-1">
-            {/* Mobile Close */}
-            <button onClick={() => setMobileOpen(false)}
-              className="md:hidden w-7 h-7 flex items-center justify-center rounded text-white/40 hover:text-white hover:bg-white/10">
-              ✕
-            </button>
-
-            {/* Collapse Toggle */}
-            <button onClick={toggleCollapsed}
-              className="hidden md:flex w-7 h-7 items-center justify-center rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors"
-              title={collapsed ? 'Expand' : 'Collapse'}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                className={`transition-transform ${collapsed ? 'rotate-180' : ''}`}>
-                <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* ── Main Tabs ── */}
-        <div className="shrink-0">
-          <div className={`flex flex-col gap-0.5 px-2 py-2 ${collapsed ? 'items-center' : ''}`}>
-            {links.map((group) => {
-              const isActive = group.section === activeTab;
-              const Icon = group.icon;
-              const tabBadge = getBadgeValue(
-                group.items.find(l => ['Products','Orders','Abandoned Carts','Reviews','Notifications'].includes(l.label))?.label || ''
-              );
-
-              return (
-                <button
-                  key={group.section}
-                  onClick={() => setActiveTab(group.section)}
-                  className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-                    transition-all duration-150
-                    ${collapsed ? 'justify-center w-10 h-10 p-0' : 'w-full min-h-[44px]'}
-                    ${isActive
-                      ? 'bg-[#C9A96E]/15 text-white font-medium'
-                      : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-                    }
-                  `}
-                  title={group.section}
-                >
-                  <Icon size={18} />
-                  {!collapsed && <span className="text-sm">{group.section}</span>}
-                  {!collapsed && tabBadge !== null && tabBadge > 0 && (
-                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C9A96E]/20 text-[#C9A96E]">
-                      {tabBadge > 99 ? '99+' : tabBadge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Divider */}
-          <div className="mx-4 h-px bg-white/5" />
-        </div>
-
-        {/* ── Subtabs ── */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="px-2 py-2">
-            {/* Section label */}
-            {!collapsed && (
-              <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-                <activeGroup.icon size={14} className="text-[#C9A96E]/60" />
-                <span className="text-[9px] font-semibold tracking-wider uppercase text-white/25">{activeGroup.section}</span>
-                <span className="flex-1 h-px bg-white/5" />
-              </div>
-            )}
-
-            {/* Subtab links */}
-            <div className="flex flex-col gap-0.5">
-              {activeGroup.items.map((link) => {
-                const active = isLinkActive(link.to, link.end);
-                const LinkIcon = link.icon;
-                const badgeVal = getBadgeValue(link.label);
-
-                return (
-                  <NavLink
-                    key={link.to}
-                    to={link.to}
-                    end={link.end}
-                    onClick={() => setMobileOpen(false)}
-                    className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
-                      transition-all duration-150
-                      ${collapsed ? 'justify-center w-10 h-10 p-0' : 'w-full min-h-[44px]'}
-                      ${active
-                        ? 'bg-white/10 text-white font-medium'
-                        : 'text-white/40 hover:text-white/70 hover:bg-white/5'
-                      }
-                    `}
-                    title={collapsed ? link.label : undefined}
-                  >
-                    <LinkIcon size={18} />
-                    {!collapsed && (
-                      <>
-                        <span className="text-sm">{link.label}</span>
-                        {badgeVal !== null && badgeVal > 0 && (
-                          <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full
-                            ${link.label === 'Orders' ? 'bg-red-500/20 text-red-400' : 'bg-[#C9A96E]/20 text-[#C9A96E]'}`}>
-                            {badgeVal > 99 ? '99+' : badgeVal}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-white/5">
-          {/* User section */}
-          <div className={`flex items-center gap-2.5 px-3 py-2.5 ${collapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-bold text-white/50">{initials}</span>
-            </div>
-
-            {!collapsed && (
-              <>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-white/60 truncate leading-tight">
-                    {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin'}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span className={`text-[9px] font-medium ${socketConnected ? 'text-green-400/60' : 'text-red-400/50'}`}>
-                      {socketConnected ? 'Live' : 'Offline'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { useAuthStore.getState().logout(); window.location.href = '/admin/login'; }}
-                  className="w-7 h-7 flex items-center justify-center rounded text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  title="Logout"
-                >
-                  <LogOut size={14} />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex flex-col w-[220px] shrink-0 bg-[#111] text-white border-r border-white/5">
+        {sidebarContent}
       </aside>
     </>
   );

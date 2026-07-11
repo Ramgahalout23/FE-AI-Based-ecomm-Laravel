@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronDown, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Filter, Package } from 'lucide-react';
+import { ChevronDown, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Filter, Package } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -273,8 +273,6 @@ export default function SectionProductsPage() {
   const [priceRange, setPriceRange] = useState([0, MAX_PRICE]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-
   const observerRef = useRef(null);
   const hasMoreRef = useRef(false);
   hasMoreRef.current = products.length < total;
@@ -306,17 +304,6 @@ export default function SectionProductsPage() {
   const activeFiltersCount =
     (priceRange[0] > 0 || priceRange[1] < MAX_PRICE ? 1 : 0) +
     selectedSizes.length;
-
-  // Track scroll position
-  useEffect(() => {
-    const handleScroll = () => setShowScrollTop(window.scrollY > 800);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   // Reset filters
   const clearFilters = () => {
@@ -691,21 +678,7 @@ export default function SectionProductsPage() {
         total={total}
       />
 
-      {/* Scroll to Top Button */}
-      <motion.button
-        onClick={scrollToTop}
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{
-          opacity: showScrollTop ? 1 : 0,
-          scale: showScrollTop ? 1 : 0.8,
-          pointerEvents: showScrollTop ? 'auto' : 'none',
-        }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed bottom-[160px] lg:bottom-8 right-6 z-50 w-12 h-12 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 hover:shadow-xl active:scale-95 transition-[background,box-shadow] flex items-center justify-center"
-        aria-label={t('products.sort_by')}
-      >
-        <ArrowUp size={20} />
-      </motion.button>
+
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, ChevronUp, RefreshCw, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -1506,77 +1506,6 @@ function FlashSaleSection({ promotions }) {
   );
 }
 
-/* ═══════════ SCROLL TO TOP ═══════════ */
-function ScrollToTopButton() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 500);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  return (
-    <>
-      <style>{`
-        .scroll-top-btn {
-          position: fixed;
-          bottom: 160px;
-          right: 20px;
-          z-index: 9999;
-          width: 42px;
-          height: 42px;
-          border-radius: 50%;
-          background: #111;
-          color: white;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-          transition: all 0.25s ease;
-          opacity: 0;
-          transform: translateY(12px) scale(0.9);
-          pointer-events: none;
-        }
-        @media (min-width: 1024px) {
-          .scroll-top-btn {
-            bottom: 88px;
-            right: 24px;
-            width: 46px;
-            height: 46px;
-          }
-        }
-        .scroll-top-btn.visible {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-          pointer-events: auto;
-        }
-        .scroll-top-btn:hover {
-          background: #000;
-          transform: translateY(-2px) scale(1.05);
-          box-shadow: 0 8px 28px rgba(0,0,0,0.25);
-        }
-        .scroll-top-btn:active {
-          transform: translateY(0) scale(0.95);
-        }
-      `}</style>
-      <button
-        className={`scroll-top-btn ${visible ? 'visible' : ''}`}
-        onClick={scrollToTop}
-        aria-label="Scroll to top"
-      >
-        <ChevronUp size={20} />
-      </button>
-    </>
-  );
-}
-
 /* ═══════════ MAIN HOMEPAGE ═══════════ */
 export default function HomePage() {
   const navigate = useNavigate();
@@ -1805,8 +1734,6 @@ export default function HomePage() {
         onReviewSuccess={refetchAll}
       />
 
-      {/* Scroll to Top Button — outside the pull-to-refresh transform container so position: fixed works correctly */}
-      <ScrollToTopButton />
     </div>
   );
 }

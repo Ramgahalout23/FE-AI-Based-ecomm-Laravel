@@ -1,8 +1,7 @@
-import { ShoppingCart, Search, User, Menu, X, Heart, LogOut } from 'lucide-react';
+import { ShoppingCart, Search, User, Menu, X, Heart, LogOut, Home, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
 
 import NotificationBell from '../common/NotificationBell';
 import SearchModal from '../common/SearchModal';
@@ -32,6 +31,7 @@ export default function Navbar() {
 
   const [showAccount, setShowAccount] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef(null);
 
   const { getSetting } = useSettings();
@@ -101,9 +101,11 @@ export default function Navbar() {
   return (
     <header className={`sticky top-0 z-sticky transition-all duration-300 flex flex-col ${
       scrolled 
-        ? 'bg-charcoal/95 backdrop-blur-md shadow-card' 
+        ? 'bg-charcoal/95 backdrop-blur-md shadow-card border-b border-white/[0.04]' 
         : 'bg-charcoal shadow-soft'
-    }`}>
+    }`}
+      style={scrolled ? { boxShadow: '0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.3)' } : {}}
+    >
       {/* Announcement Bar - above main navigation */}
       <AnnouncementBar />
       {/* Main Navbar */}
@@ -244,7 +246,9 @@ export default function Navbar() {
               >
                 <ShoppingCart size={22} />
                 {count > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full animate-count-pulse shadow-glow-orange">
+                  <span className="absolute -top-1 -right-1 bg-white text-[#1A1A1A] text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full animate-count-pulse shadow-lg"
+                    style={{ boxShadow: '0 2px 8px rgba(255,255,255,0.25)' }}
+                  >
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
@@ -262,68 +266,291 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu — full remaining viewport with safe-area */}
+        {/* Mobile Menu — premium fullscreen overlay with glass-morphism & gold accents */}
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-charcoal border-t border-white/10 overflow-hidden"
-            >
-              <div className="px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] space-y-4"
-                style={{ minHeight: 'calc(100dvh - 4rem)', overscrollBehavior: 'contain' }}>
-                {/* Mobile Search */}
-                <form onSubmit={handleSearch} className="relative">
-                  <input
-                    type="text"
-                    placeholder={t('search.placeholder')}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full border-2 border-white/10 bg-white/5 rounded-xl py-3.5 px-4 pl-11 text-sm text-white focus:border-primary outline-none placeholder:text-white/50"
-                  />
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
-                </form>
+            <>
+              {/* Backdrop */}
+              <motion.div
+                key="menu-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="fixed inset-0 z-40 lg:hidden"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.65)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                }}
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
 
-                {/* Mobile Currency & Language Switchers */}
-                <div className="flex items-center gap-1 border-t border-white/10 pt-3 pb-2">
-                  {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="mobile" />}
-                  {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="mobile" />}
+              {/* Menu panel — slides up from bottom */}
+              <motion.div
+                key="menu-panel"
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.85 }}
+                className="fixed bottom-0 left-0 right-0 z-50 lg:hidden rounded-t-[32px] overflow-hidden"
+                style={{
+                  maxHeight: '92dvh',
+                  background: 'rgba(22, 22, 24, 0.98)',
+                  backdropFilter: 'blur(40px) saturate(1.4)',
+                  WebkitBackdropFilter: 'blur(40px) saturate(1.4)',
+                  boxShadow: '0 -8px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+              >
+                {/* White top accent bar */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-[3px] rounded-full bg-white/30" />
+
+                {/* Drag handle */}
+                <div className="flex justify-center pt-4 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-white/15" />
                 </div>
 
-                {/* Mobile Links */}
-                <div className="flex flex-col gap-1 pt-2">
-                  {isAdmin && (
-                    <Link to="/admin" className="px-4 py-3.5 rounded-xl text-sm font-medium text-amber-400 hover:bg-white/10">Admin Dashboard</Link>
-                  )}
-                  <Link to="/" className="px-4 py-3.5 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10">{t('nav.home')}</Link>
-                  <Link to="/products" className="px-4 py-3.5 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10">{t('nav.products')}</Link>
-                  {hasActivePromotions && (
-                    <Link to="/sales" className="px-4 py-3.5 rounded-xl text-sm font-medium text-red-400 hover:bg-white/10 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                      Sales
-                    </Link>
-                  )}
-                  {/* Custom pages */}
-                  {customPages.slice(0, 5).map((page) => (
-                    <Link
-                      key={page.slug}
-                      to={`/pages/${page.slug}`}
-                      className="px-4 py-3.5 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10"
+                {/* Top glass edge */}
+                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+                {/* Close button */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
+                >
+                  <X size={15} className="text-white/60" />
+                </button>
+
+                <div className="px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] overflow-y-auto"
+                  style={{ maxHeight: 'calc(92dvh - 44px)', overscrollBehavior: 'contain' }}>
+
+                  <div className="space-y-6">
+                    {/* ── Profile Section ── */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05, type: 'spring', stiffness: 300, damping: 28 }}
                     >
-                      {page.title}
-                    </Link>
-                  ))}
-                  <Link to="/wishlist" className="px-4 py-3.5 rounded-xl text-sm font-medium text-white/80 hover:bg-white/10">{t('nav.wishlist')}</Link>
-                  {!isAuthenticated && !isAdmin && (
-                    <Link to="/login" className="mt-2 text-center py-3 rounded-xl text-sm font-bold bg-primary text-white">{t('nav.sign_in')}</Link>
-                  )}
-                  {(isAuthenticated || isAdmin) && (
-                    <button onClick={async () => { await logout(); localStorage.removeItem('adminToken'); navigate('/'); }} className="mt-2 text-center py-3 rounded-xl text-sm font-bold bg-red-600 text-white">{t('nav.sign_out')}</button>
-                  )}
+                      <div className="flex items-center gap-4 pb-4 border-b border-white/[0.06]">
+                        <div
+                          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
+                          style={{
+                            background: isAuthenticated
+                              ? 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06))'
+                              : 'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))',
+                            border: isAuthenticated ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          <User size={20} className={isAuthenticated ? 'text-white' : 'text-white/50'} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-semibold text-base truncate">
+                            {isAuthenticated ? (user?.firstName || 'User') : 'Guest'}
+                          </div>
+                          <div className="text-white/35 text-sm truncate">
+                            {isAuthenticated ? (user?.email || '') : 'Sign in for personalized experience'}
+                          </div>
+                        </div>
+                        {!isAuthenticated && !isAdmin && (
+                          <Link
+                            to="/login"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                            style={{
+                              background: 'rgba(255,255,255,0.1)',
+                              color: '#fff',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                            }}
+                          >
+                            Sign In
+                          </Link>
+                        )}
+                      </div>
+                    </motion.div>
+
+                    {/* ── Mobile Search ── */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 28 }}
+                    >
+                      <form onSubmit={handleSearch} className="relative group">
+                        <input
+                          type="text"
+                          placeholder={t('search.placeholder')}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onFocus={() => setSearchFocused(true)}
+                          onBlur={() => setSearchFocused(false)}
+                          className="w-full rounded-2xl py-3.5 px-4 pl-11 text-sm outline-none transition-all duration-200 placeholder:text-white/30"
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${searchFocused ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                            color: '#fff',
+                            boxShadow: searchFocused ? '0 0 0 3px rgba(255,255,255,0.1)' : 'none',
+                          }}
+                        />
+                        <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: 'rgba(255,255,255,0.25)' }} />
+                      </form>
+                    </motion.div>
+
+                    {/* ── Navigation Links ── */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 28 }}
+                    >
+                      <div className="flex items-center gap-2 px-1 mb-3">
+                        <div className="w-1 h-4 rounded-full bg-white/30" />
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Navigate</span>
+                        <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)' }} />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        {isAdmin && (
+                          <Link
+                            to="/admin"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{
+                              color: '#fff',
+                              background: 'rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
+                              <LayoutDashboard size={15} className="text-white/80" />
+                            </span>
+                            <span className="flex-1">Admin Dashboard</span>
+                            <ArrowRight size={14} className="text-white/30" />
+                          </Link>
+                        )}
+
+                        {[
+                          { to: '/', label: t('nav.home') },
+                          { to: '/products', label: t('nav.products') },
+                          { to: '/wishlist', label: t('nav.wishlist') },
+                          { to: '/cart', label: t('nav.cart') },
+                        ].map((link, idx) => {
+                          const Icon = [Home, Search, Heart, ShoppingCart][idx];
+                          const isLinkActive = location.pathname === link.to ||
+                            (link.to === '/products' && location.pathname.startsWith('/products'));
+                          return (
+                            <Link
+                              key={link.to}
+                              to={link.to}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                              style={{
+                                color: isLinkActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                                background: isLinkActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              }}
+                            >
+                              <span
+                                className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
+                                style={{
+                                  background: isLinkActive
+                                    ? 'rgba(255,255,255,0.12)'
+                                    : 'rgba(255,255,255,0.04)',
+                                  border: isLinkActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                                }}
+                              >
+                                <Icon size={16} className={isLinkActive ? 'text-white' : 'text-white/40'} />
+                              </span>
+                              <span className="flex-1">{link.label}</span>
+                              {link.to === '/cart' && count > 0 && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-[#1A1A1A]">
+                                  {count > 9 ? '9+' : count}
+                                </span>
+                              )}
+                              {!isLinkActive && (
+                                <ArrowRight size={14} style={{ color: 'rgba(255,255,255,0.15)' }} />
+                              )}
+                            </Link>
+                          );
+                        })}
+
+                        {/* Promotions link */}
+                        {hasActivePromotions && (
+                          <Link
+                            to="/sales"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{ color: '#F87171', background: 'rgba(248, 113, 113, 0.06)' }}
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.12)' }}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                            </span>
+                            <span className="flex-1">Sales</span>
+                            <span className="text-[10px] font-medium text-red-400/60">Active</span>
+                          </Link>
+                        )}
+
+                        {/* Custom pages */}
+                        {customPages.slice(0, 5).map((page) => {
+                          const isActive = location.pathname === `/pages/${page.slug}`;
+                          return (
+                            <Link
+                              key={page.slug}
+                              to={`/pages/${page.slug}`}
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                              style={{
+                                color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                                background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
+                              }}
+                            >
+                              <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{
+                                background: isActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                                border: isActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                              }}>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive ? 'text-white' : 'text-white/40'}>
+                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                                </svg>
+                              </span>
+                              {page.title}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+
+                    {/* ── Bottom Stack ── */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, type: 'spring', stiffness: 300, damping: 28 }}
+                    >
+                      <div className="pt-3 pb-2 border-t border-white/[0.06] space-y-3">
+                        {/* Currency & Language */}
+                        <div className="flex items-center gap-2 px-4">
+                          {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="mobile" />}
+                          {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="mobile" />}
+                        </div>
+
+                        {/* Sign Out */}
+                        {(isAuthenticated || isAdmin) && (
+                          <button
+                            onClick={async () => {
+                              await logout();
+                              localStorage.removeItem('adminToken');
+                              navigate('/');
+                            }}
+                            className="flex items-center gap-3.5 w-full px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{ color: 'rgba(255,255,255,0.35)' }}
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                            </span>
+                            Sign Out
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>

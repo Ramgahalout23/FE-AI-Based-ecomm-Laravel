@@ -5,8 +5,8 @@
  *
  * Usage:
  *   const { idleWarning, idleExpired, resetTimer } = useIdleTimer({
- *     idleTimeout: 30 * 60 * 1000,   // 30 min — auto-logout
- *     warningTimeout: 25 * 60 * 1000, // 25 min — show warning
+ *     idleTimeout: 8 * 60 * 60 * 1000,        // 8 hr — auto-logout
+ *     warningTimeout: 7 * 60 * 60 * 1000 + 55 * 60 * 1000, // 7h55m — show warning
  *     onWarning: () => setShowWarning(true),
  *     onTimeout: () => logout(),
  *   });
@@ -16,8 +16,8 @@ import { useEffect, useRef, useCallback } from 'react';
 const DEFAULT_EVENTS = ['mousemove', 'mousedown', 'click', 'keydown', 'scroll', 'touchstart', 'touchmove', 'wheel'];
 
 export default function useIdleTimer({
-  idleTimeout = 30 * 60 * 1000,   // 30 minutes
-  warningTimeout = 25 * 60 * 1000, // 25 minutes
+  idleTimeout = 8 * 60 * 60 * 1000,        // 8 hours
+  warningTimeout = 7 * 60 * 60 * 1000 + 55 * 60 * 1000, // 7 hours 55 minutes
   onWarning = () => {},
   onTimeout = () => {},
   enabled = true,

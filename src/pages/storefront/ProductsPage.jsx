@@ -1,4 +1,4 @@
-import { Search, SlidersHorizontal, ChevronDown, X, ChevronLeft, ChevronRight, RefreshCw, Package, ChevronUp } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown, X, ChevronLeft, ChevronRight, RefreshCw, Package } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -685,27 +685,10 @@ export default function ProductsPage() {
   );
   const seoImage = selectedCategorySeo?.ogImage || (categoryImage ? getImageUrl(categoryImage) : '');
 
-  /* ── Scroll-to-top button ── */
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  useEffect(() => {
-    const handleScroll = () => setShowScrollTop(window.scrollY > 600);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+
 
   return (
     <div className="page-content bg-white flex-1">
-      {/* Scroll to top button */}
-      <button
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-        className={`fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-primary text-white shadow-lg shadow-primary/25 flex items-center justify-center transition-all duration-300 hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 ${
-          showScrollTop ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'
-        }`}
-        aria-label="Scroll to top"
-      >
-        <ChevronUp size={20} />
-      </button>
-
       {/* SEO meta tags */}
       <SEOHead
         title={seoTitle}
