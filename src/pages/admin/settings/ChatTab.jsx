@@ -1,11 +1,51 @@
-import { X, Minus, Send, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { X, Minus, Send, MessageCircle, Plus, Trash2, GripVertical } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import { formatTime } from '../../../utils/formatters';
 
 ;
 
+function parseQuickReplies(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function ChatTab({ settings, setSettings, loading, handleSaveSettings }) {
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Parse quick replies from settings (JSON string), with fallback
+  const quickReplies = parseQuickReplies(settings.whatsappQuickReplies);
+
+  const updateQuickReplies = useCallback((updated) => {
+    setSettings({ ...settings, whatsappQuickReplies: JSON.stringify(updated) });
+  }, [settings, setSettings]);
+
+  const addQuickReply = useCallback(() => {
+    updateQuickReplies([...quickReplies, { label: '📌 New Topic', message: 'Hi, I have a question about...' }]);
+  }, [quickReplies, updateQuickReplies]);
+
+  const removeQuickReply = useCallback((idx) => {
+    const updated = quickReplies.filter((_, i) => i !== idx);
+    updateQuickReplies(updated);
+  }, [quickReplies, updateQuickReplies]);
+
+  const updateQuickReply = useCallback((idx, field, value) => {
+    const updated = quickReplies.map((reply, i) =>
+      i === idx ? { ...reply, [field]: value } : reply
+    );
+    updateQuickReplies(updated);
+  }, [quickReplies, updateQuickReplies]);
+
+  const moveQuickReply = useCallback((idx, direction) => {
+    const target = idx + direction;
+    if (target < 0 || target >= quickReplies.length) return;
+    const updated = [...quickReplies];
+    [updated[idx], updated[target]] = [updated[target], updated[idx]];
+    updateQuickReplies(updated);
+  }, [quickReplies, updateQuickReplies]);
 
   return (
     <div>
@@ -248,6 +288,173 @@ export default function ChatTab({ settings, setSettings, loading, handleSaveSett
       </div>
 
       
+      {/* -- WhatsApp Quick Replies -- */}
+      <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
+        <div className="detail-header" style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3>WhatsApp Quick Replies</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                Customize the quick reply chips shown in the WhatsApp chat popup.
+                Clicking a chip sends the customer directly to WhatsApp with that message.
+              </p>
+            </div>
+            <button className="btn-dark btn-sm" onClick={addQuickReply} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <Plus size={14} /> Add Reply
+            </button>
+          </div>
+        </div>
+
+        {quickReplies.length === 0 ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}>
+            <p>No quick replies configured. Add one to get started.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {quickReplies.map((reply, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+              }}>
+                {/* Drag Handle */}
+                <div style={{ color: '#bbb', cursor: 'grab', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                  <GripVertical size={16} />
+                </div>
+
+                {/* Index */}
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '50%',
+                  background: 'var(--charcoal)', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: 700, flexShrink: 0,
+                }}>
+                  {idx + 1}
+                </div>
+
+                {/* Label */}
+                <div style={{ flex: '0 0 30%', minWidth: '120px' }}>
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '0.2rem' }}>
+                    Label
+                  </label>
+                  <input
+                    value={reply.label}
+                    onChange={(e) => updateQuickReply(idx, 'label', e.target.value)}
+                    placeholder="👋 Hi!"
+                    style={{
+                      width: '100%', padding: '0.4rem 0.6rem', borderRadius: '6px',
+                      border: '1px solid var(--border)', fontSize: '0.82rem',
+                      fontFamily: 'inherit', background: 'white',
+                    }}
+                  />
+                </div>
+
+                {/* Message */}
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#555', display: 'block', marginBottom: '0.2rem' }}>
+                    WhatsApp Message
+                  </label>
+                  <input
+                    value={reply.message}
+                    onChange={(e) => updateQuickReply(idx, 'message', e.target.value)}
+                    placeholder="Hi, I have a question..."
+                    style={{
+                      width: '100%', padding: '0.4rem 0.6rem', borderRadius: '6px',
+                      border: '1px solid var(--border)', fontSize: '0.82rem',
+                      fontFamily: 'inherit', background: 'white',
+                    }}
+                  />
+                </div>
+
+                {/* Move up / down */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => moveQuickReply(idx, -1)}
+                    disabled={idx === 0}
+                    style={{
+                      width: '24px', height: '20px', borderRadius: '4px',
+                      border: '1px solid var(--border)', background: 'white',
+                      cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                      opacity: idx === 0 ? 0.3 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', color: '#555', padding: 0,
+                    }}
+                    aria-label="Move up"
+                  >▲</button>
+                  <button
+                    onClick={() => moveQuickReply(idx, 1)}
+                    disabled={idx === quickReplies.length - 1}
+                    style={{
+                      width: '24px', height: '20px', borderRadius: '4px',
+                      border: '1px solid var(--border)', background: 'white',
+                      cursor: idx === quickReplies.length - 1 ? 'not-allowed' : 'pointer',
+                      opacity: idx === quickReplies.length - 1 ? 0.3 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '10px', color: '#555', padding: 0,
+                    }}
+                    aria-label="Move down"
+                  >▼</button>
+                </div>
+
+                {/* Remove */}
+                <button
+                  onClick={() => removeQuickReply(idx)}
+                  style={{
+                    width: '32px', height: '32px', borderRadius: '8px',
+                    border: '1px solid #fecaca', background: '#fef2f2',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', flexShrink: 0, color: '#dc2626',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#fee2e2'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
+                  aria-label="Remove reply"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Preview of how replies look */}
+        {quickReplies.length > 0 && (
+          <div style={{
+            marginTop: '0.75rem',
+            padding: '0.75rem',
+            borderRadius: 'var(--radius-md)',
+            background: 'white',
+            border: '1px dashed var(--border)',
+          }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#999', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Preview
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {quickReplies.map((reply, idx) => (
+                <span key={idx} style={{
+                  padding: '6px 12px', borderRadius: '20px',
+                  border: '1px solid #ddd', background: '#f5f5f5',
+                  fontSize: '12px', fontWeight: 600, color: '#555',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {reply.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="form-actions" style={{ marginTop: '1rem' }}>
+          <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Quick Replies'}
+          </button>
+        </div>
+      </div>
+
       {/* -- Phone Lead Banner -- */}
       <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
         <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

@@ -926,7 +926,7 @@ export default function ProductDetailPage() {
                                 ? 'scale-105'
                                 : 'hover:scale-110 hover:-translate-y-0.5'
                             }`}
-                            title={isOOS ? `${color} - ${t('product.out_of_stock')}` : isLow ? `${color} - ${t('product.only_left', { count: stockCount })}` : color}
+                            title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                           >
                             {/* Selection ring */}
                             <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
@@ -948,21 +948,13 @@ export default function ProductDetailPage() {
                                 </svg>
                               </span>
                             )}
-                            {isLow && !isOOS && (
-                              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full border-[1.5px] border-white flex items-center justify-center shadow-sm">
-                                <span className="text-white text-[6px] font-bold">!</span>
-                              </span>
-                            )}
+                            {/* low stock indicator removed */}
                           </button>
                           {/* Tooltip on hover */}
                           <span className="text-[9px] font-medium text-gray-400 opacity-0 group-hover/swatch:opacity-100 transition-opacity duration-200 leading-none mt-0.5">
                             {color}
                           </span>
-                          {isLow && !isOOS && (
-                            <span className="text-[9px] font-semibold text-amber-600 leading-none whitespace-nowrap">
-                              {t('product.only_left', { count: stockCount })}
-                            </span>
-                          )}
+                          {/* removed stock count */}
                         </div>
                       );
                     })}
@@ -1002,27 +994,18 @@ export default function ProductDetailPage() {
                               : isLow
                               ? 'border-amber-300 bg-amber-50/40 text-black hover:border-amber-400 hover:bg-amber-50/60 hover:shadow-sm'
                               : 'border-gray-200 text-black hover:border-gray-400 hover:bg-gray-50/50 hover:shadow-sm'
-                          }`}
-                          title={isOOS ? `${size} - Out of Stock` : isLow ? `${size} - Only ${stockCount} left` : size}
+                          }`}                            title={isOOS ? `${size} - Out of Stock` : size}
                         >
                           <span className="flex flex-col items-center gap-0.5 min-h-[2rem] justify-center">
                             <span>{size}</span>
-                            {isLow && !isOOS ? (
-                              <span className="text-[9px] font-semibold text-amber-600 leading-none">
-                                {stockCount} left
-                              </span>
-                            ) : (
-                              !isOOS && <span className="text-[9px] leading-none invisible">- left</span>
-                            )}
+                            <span className="text-[9px] leading-none invisible">-</span>
                           </span>
                           {isOOS && (
                             <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-bold px-1 rounded leading-tight">
                               {t('product.oos')}
                             </span>
                           )}
-                          {isLow && !isOOS && selectedSize !== size && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border border-white" />
-                          )}
+                          {/* low stock indicator removed */}
                         </button>
                       );
                     })}
@@ -1047,14 +1030,6 @@ export default function ProductDetailPage() {
               {!showOutOfStockBadge && (() => {
                 // Determine which stock message to show
                 if (isSimpleProduct) {
-                  if (isLowStock) {
-                    return (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50/80 border border-amber-200/60 px-4 py-2.5 rounded-xl">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-                        <span>{t('product.low_stock', { count: product.quantity })}</span>
-                      </div>
-                    );
-                  }
                   return (
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-4 py-2.5 rounded-xl">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -1063,14 +1038,6 @@ export default function ProductDetailPage() {
                   );
                 }
                 if (matchedVariant) {
-                  if (isLowStock) {
-                    return (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 bg-amber-50/80 border border-amber-200/60 px-4 py-2.5 rounded-xl">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-                        <span>{t('product.low_stock', { count: matchedVariant.quantity })}</span>
-                      </div>
-                    );
-                  }
                   return (
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-4 py-2.5 rounded-xl">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
