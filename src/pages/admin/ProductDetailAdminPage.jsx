@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
+import { reviewsAPI } from '../../api/reviews';
 import { formatCurrency, getProductImage, getImageUrl } from '../../utils/formatters';
 import { ArrowLeft, Tag, Package, DollarSign, Star, Archive } from 'lucide-react';
 import toast from '../../utils/toast';
@@ -12,6 +13,7 @@ export default function ProductDetailAdminPage() {
   const [loading, setLoading] = useState(true);
   const [variants, setVariants] = useState([]);
   const [variantsLoading, setVariantsLoading] = useState(false);
+  const [reviewCount, setReviewCount] = useState(0);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -44,6 +46,17 @@ export default function ProductDetailAdminPage() {
       }
     };
     fetchVariants();
+  }, [product?.id]);
+
+  // Fetch real review count
+  useEffect(() => {
+    if (!product?.id) return;
+    reviewsAPI.getStats(product.id).then(r => {
+      const count = r.data?.data?.total_reviews ?? r.data?.data?.count ?? r.data?.total ?? null;
+      if (count !== null) setReviewCount(count);
+    }).catch(() => {
+      // Fallback to product.reviewCount — already initialized as 0
+    });
   }, [product?.id]);
 
   const handlePublish = async () => {
@@ -208,7 +221,7 @@ export default function ProductDetailAdminPage() {
           <div className="detail-item">
             <span className="label"><Star size={12} /> Rating</span>
             <span className="value" style={{ color: 'var(--warning)' }}>
-              {'★'.repeat(Math.floor(product.rating || 0))} ({product.reviewCount || 0} reviews)
+              {'★'.repeat(Math.floor(product.rating || 0))} ({reviewCount || 0} reviews)
             </span>
           </div>
           <div className="detail-item">

@@ -152,7 +152,7 @@ export default function WhatsAppChatWidget({
         style={{
           position: 'fixed',
           [side]: '20px',
-          zIndex: 9998,
+          zIndex: 10001,
           width: '58px',
           height: '58px',
           borderRadius: '50%',
@@ -246,8 +246,7 @@ export default function WhatsAppChatWidget({
           style={{
             position: 'fixed',
             [side]: '20px',
-            bottom: '92px',
-            zIndex: 9999,
+            zIndex: 10002,
             width: '360px',
             maxWidth: 'calc(100vw - 48px)',
             height: '480px',
@@ -543,9 +542,9 @@ export default function WhatsAppChatWidget({
           className="whatsapp-chat-tooltip"
           style={{
             position: 'fixed',
-            bottom: '156px',
+            bottom: '86px',
             [side]: '28px',
-            zIndex: 9998,
+            zIndex: 10001,
             background: '#1a1a1a',
             color: 'white',
             padding: '10px 18px',
@@ -583,7 +582,7 @@ export default function WhatsAppChatWidget({
 
       <style>{`
         .whatsapp-chat-float-btn {
-          bottom: 90px;
+          bottom: 20px;
           animation: whatsappChatEntry 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
         }
 
@@ -622,10 +621,12 @@ export default function WhatsAppChatWidget({
           50% { opacity: 1; }
         }
 
-        @media (min-width: 1024px) {
-          .whatsapp-chat-float-btn {
-            bottom: 24px;
-          }
+        .whatsapp-chat-window {
+          bottom: 82px;
+        }
+
+        .whatsapp-chat-tooltip {
+          bottom: 86px;
         }
       `}</style>
     </>

@@ -36,7 +36,7 @@ export default function PwaUpdatePrompt() {
   if (!needRefresh || dismissed) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-slide-up">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10001] animate-slide-up">
       <div className="bg-[#0a0a0a] text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-4 min-w-[320px] max-w-md border border-white/10 backdrop-blur-xl">
         <div className="flex-1">
           <p className="text-sm font-semibold">{t('pwa.update_available')}</p>

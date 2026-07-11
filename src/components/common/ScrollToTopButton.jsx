@@ -4,7 +4,7 @@
  * Positioned safely above the WhatsApp button and MobileNav on mobile,
  * and above the WhatsApp button on desktop.
  *
- * Mobile:   170px from bottom (above MobileNav + WhatsApp)
+ * Mobile:   120px from bottom (above MobileNav + WhatsApp)
  * Desktop:  88px from bottom (above WhatsApp at 24px)
  */
 import { useState, useEffect, useCallback } from 'react';
@@ -35,7 +35,7 @@ export default function ScrollToTopButton() {
           onClick={scrollToTop}
           className="scroll-to-top-desktop fixed z-[9997] flex items-center justify-center"
           style={{
-            bottom: '170px',
+            bottom: '120px',
             right: '20px',
             width: '44px',
             height: '44px',

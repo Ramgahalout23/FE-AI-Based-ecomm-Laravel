@@ -10,6 +10,8 @@ export const ordersAPI = {
   requestReturn: (id, data) => client.post(`/orders/${id}/return`, data),
   trackByNumber: (orderNumber) => client.get(`/orders/track-by-number/${orderNumber}`),
   subscribeUpdates: (id, data) => client.post(`/orders/${id}/subscribe-updates`, data),
+  // Public: Recent orders for FOMO purchase notifications
+  getRecentOrders: () => client.get('/orders/recent'),
   // Admin
   getAll: (params) => adminClient.get('/admin/orders', { params }),
   updateStatus: (id, data) => adminClient.patch(`/admin/orders/${id}/status`, data),

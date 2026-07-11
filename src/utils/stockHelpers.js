@@ -1,8 +1,10 @@
 /**
  * Computes stock availability status for a product.
  *
- * For variant products (products with `variants` or `productvariant` array),
- * sums stock across all variants. For simple products, uses `product.quantity` directly.
+ * Matches the product detail page's logic:
+ * - Variant product: out of stock ONLY when EVERY variant has quantity <= 0
+ * - Simple product: out of stock when product.quantity <= 0
+ * - Low stock when total stock is 1-threshold (for both variant and simple products)
  *
  * @param {Object} product - The product object from API response
  * @param {Array}  [product.variants] - Variants array (camelCase, from Eloquent API)
@@ -19,13 +21,19 @@ export function computeStockStatus(product, threshold = 5) {
   const variants = product.variants || product.productvariant;
   const hasVariants = Array.isArray(variants) && variants.length > 0;
 
+  // ── Determine if out of stock (matches detail page logic) ──
+  const isOutOfStock = hasVariants
+    ? variants.every(v => (v.quantity || 0) <= 0)
+    : (product.quantity ?? 0) <= 0;
+
+  // ── Total effective stock (for low stock check & display) ──
   const effectiveStockQty = hasVariants
     ? variants.reduce((sum, v) => sum + (v.quantity || 0), 0)
     : (product.quantity ?? 0);
 
-  const hasStockIssue = effectiveStockQty <= threshold;
-  const isOutOfStock = hasStockIssue && effectiveStockQty <= 0;
-  const isLowStock = hasStockIssue && effectiveStockQty > 0 && effectiveStockQty <= threshold;
+  // ── Low stock: not out of stock, but total stock is 1-threshold ──
+  const isLowStock = !isOutOfStock && effectiveStockQty > 0 && effectiveStockQty <= threshold;
+  const hasStockIssue = isOutOfStock || isLowStock;
 
   return { effectiveStockQty, isOutOfStock, isLowStock, hasStockIssue };
 }
