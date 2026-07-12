@@ -318,6 +318,16 @@ const DEFAULT_EN_TRANSLATIONS = {
   'product.swipe_scroll': 'Swipe or scroll',
   'product.scroll_left': 'Scroll left',
   'product.scroll_right': 'Scroll right',
+  'product.why_choose': 'Why Choose {{name}}?',
+  'product.premium': 'Premium',
+  'product.embroidery': 'Embroidery',
+  'product.free': 'Free',
+  'product.shipping_short': 'Shipping',
+  'product.available': 'Available',
+  'product.orders': 'Orders',
+  'product.rating_label': 'Rating',
+  'product.support': 'Support',
+  'product.cotton': 'Cotton',
 
   // ── Checkout ──
   'checkout.title': 'Secure Checkout',

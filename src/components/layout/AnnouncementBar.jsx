@@ -36,7 +36,8 @@ export default memo(function AnnouncementBar() {
           position: relative;
           z-index: var(--z-sticky, 100);
           width: 100%;
-          overflow: hidden;
+          max-width: 100%;
+          overflow-x: hidden;
           background: #1A1A1A;
           border-bottom: 1px solid rgba(201, 169, 110, 0.15);
           height: 36px;

@@ -27,7 +27,7 @@ const FORMAT_CURRENCY_LOCALE = (v) => '₹' + Number(v).toLocaleString();
 const FORMAT_DATE_SLICE = (v) => v ? v.slice(5) : '';
 const FORMAT_TOOLTIP_CURRENCY = (v, name) => name === 'revenue' ? '₹' + Number(v).toLocaleString() : v;
 const FORMAT_AVG_RATING = (v) => [Number(v).toFixed(2), 'Avg Rating'];
-const FORMAT_PIE_PCT = (v) => v.toFixed(1) + '%';
+const FORMAT_PIE_PCT = (v) => (v ?? 0).toFixed(1) + '%';
 
 // ── Stable element-level config constants (stable references prevent re-render loops) ──
 const BAR_RADIUS_4 = [4, 4, 0, 0];
@@ -484,7 +484,7 @@ export default function DashboardPage() {
             const rev = metrics.revenueChangePercent;
             const revLabel = (rev != null && !isNaN(rev)) ? (rev >= 0 ? '\u2191 ' : '\u2193 ') + Math.abs(rev).toFixed(1) + '% vs prev' : '— vs prev';
             const revColor = (rev != null && !isNaN(rev)) ? (rev >= 0 ? 'text-success bg-success-bg' : 'text-danger bg-danger-bg') : 'text-text-muted bg-surface';
-            return { icon: '\uD83D\uDCB0', title: 'Total Revenue', value: '\u20B9' + (metrics.totalRevenue / 1000).toFixed(1) + 'k', change: revLabel, changeColor: revColor, gradient: 'from-brand-orange to-secondary' };
+            return { icon: '\uD83D\uDCB0', title: 'Total Revenue', value: '\u20B9' + ((metrics.totalRevenue ?? 0) / 1000).toFixed(1) + 'k', change: revLabel, changeColor: revColor, gradient: 'from-brand-orange to-secondary' };
           })(),
           (() => {
             const ord = metrics.ordersChangePercent;
@@ -798,7 +798,7 @@ export default function DashboardPage() {
                         <div className="text-xs text-text-muted mt-0.5">{p.count} reviews</div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                        <span className="text-sm font-bold text-yellow-600">{p.avg_rating.toFixed(1)}</span>
+                        <span className="text-sm font-bold text-yellow-600">{(p.avg_rating ?? 0).toFixed(1)}</span>
                         <span className="text-xs text-yellow-500">{'\u2605'}</span>
                       </div>
                     </div>

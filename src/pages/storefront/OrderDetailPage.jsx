@@ -36,7 +36,28 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     const fetch = async () => {
-      try { const res = await ordersAPI.getById(id); setOrder(res.data?.data || null); } catch { toast.error(t('orders.detail.not_found')); } finally { setLoading(false); }
+      try {
+        const res = await ordersAPI.getById(id);
+        setOrder(res.data?.data || null);
+      } catch (err) {
+        const status = err?.response?.status;
+        const serverMsg = err?.response?.data?.error?.message || err?.response?.data?.message || '';
+
+        if (status === 404) {
+          toast.error(t('orders.detail.not_found'));
+        } else if (status === 403) {
+          toast.error(t('orders.detail.forbidden', { defaultValue: 'You do not have permission to view this order' }));
+        } else if (status === 401) {
+          toast.error(t('orders.detail.login_required', { defaultValue: 'Please log in to view this order' }));
+        } else if (status >= 500) {
+          toast.error(serverMsg || t('orders.detail.server_error', { defaultValue: 'Server error. Please try again later.' }));
+        } else {
+          toast.error(serverMsg || t('orders.detail.not_found'));
+        }
+
+        // Log the full error for debugging
+        console.warn('[OrderDetailPage] Failed to fetch order:', { id, status, message: serverMsg || err.message });
+      } finally { setLoading(false); }
     };
     fetch();
   }, [id]);
@@ -52,7 +73,32 @@ export default function OrderDetailPage() {
   const isDelivered = order?.status === 'DELIVERED' || order?.status === 'COMPLETED';
 
   if (loading) return <OrderDetailSkeleton />;
-  if (!order) return <div className="empty-state"><h3>{t('orders.detail.not_found')}</h3></div>;
+  if (!order) return (
+    <div className="section">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        <div className="empty-state">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <h3 className="font-display text-lg font-bold text-gray-900 mb-2">{t('orders.detail.not_found')}</h3>
+          <p className="text-sm text-gray-500 mb-6">{t('orders.detail.not_found_desc', { defaultValue: 'We couldn\'t find this order. It may have been removed or you may not have access.' })}</p>
+          <button
+            onClick={() => navigate('/orders')}
+            className="px-5 py-2.5 rounded-xl bg-charcoal text-white text-sm font-bold hover:bg-charcoal/90 transition-all duration-200 inline-flex items-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            {t('orders.back_to_orders', { defaultValue: 'Back to Orders' })}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const steps = SHIPPING_STATUSES;
   const currentStep = steps.indexOf(order.shippingStatus || 'PENDING');

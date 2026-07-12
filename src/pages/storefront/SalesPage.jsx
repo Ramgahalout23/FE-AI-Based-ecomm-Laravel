@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
+import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { promotionsAPI } from '../../api/promotions';
@@ -93,7 +94,7 @@ function PromotionHero({ promo }) {
 function PromotionSection({ promo, isActive }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const products = promo.products || [];
+  const products = (promo.products || []).filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const categories = promo.categories || [];
   const imgUrl = promo.imageUrl || promo.image_url || promo.image;
 

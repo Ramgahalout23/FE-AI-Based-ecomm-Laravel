@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { QueryClient } from '@tanstack/react-query';
@@ -444,6 +444,8 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/section/:section" element={<SectionProductsPage />} />
+          {/* Custom tee design product — redirect to the customize page */}
+          <Route path="/products/custom-t-shirt-design" element={<Navigate to="/customize" replace />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
           <Route path="/track-order" element={<TrackOrderPage />} />
           <Route path="/cart" element={<CartPage />} />

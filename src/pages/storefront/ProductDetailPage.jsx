@@ -46,6 +46,7 @@ export default function ProductDetailPage() {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const mobileGalleryRef = useRef(null);
+  const verticalThumbRef = useRef(null);
   const offersRef = useRef(null);
   const sentinelRef = useRef(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -317,6 +318,15 @@ export default function ProductDetailPage() {
     setSelectedImageIdx(0);
   }, [selectedColor, selectedSize]);
 
+  // Auto-scroll vertical thumbnail strip to center the active thumbnail
+  useEffect(() => {
+    const container = verticalThumbRef.current;
+    if (!container) return;
+    const thumb = container.children[selectedImageIdx];
+    if (!thumb) return;
+    thumb.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [selectedImageIdx]);
+
   // ── Variant availability maps (from product variants already in the API response) ──
   const variantsList = product?.variants || product?.productvariant || [];
   const variantStockMap = new Map();
@@ -461,6 +471,13 @@ export default function ProductDetailPage() {
     requestAnimationFrame(() => {
       offersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
+  }, []);
+
+  // Safe rating formatter — handles null, undefined, objects, arrays, etc.
+  const formatRating = useCallback((rating, fallback = '4.8') => {
+    if (rating == null) return fallback;
+    const num = Number(rating);
+    return !isNaN(num) ? num.toFixed(1) : fallback;
   }, []);
 
   const handleShare = useCallback(async () => {
@@ -763,7 +780,7 @@ export default function ProductDetailPage() {
   })();
 
   return (
-    <div className="bg-white min-h-screen pb-24 lg:pb-20">
+    <div className="bg-white min-h-screen pb-28 lg:pb-24">
       
       {/* SEO meta tags — prefer custom SEO from backend, fall back to product data */}
       <SEOHead
@@ -797,94 +814,111 @@ export default function ProductDetailPage() {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-16">
           
-          {/* Left Column: Premium Image Gallery */}
-          <div className="w-full lg:w-[55%]">
-            {/* Main Image Slider — clickable for lightbox, swipeable on all screens */}
-            <div ref={flyRef} className="w-full bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm mb-4 relative group/gallery">
-              <div
-                ref={mobileGalleryRef}
-                className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
-                style={{ scrollbarWidth: 'none' }}
-              >
+          {/* Left Column: Premium Image Gallery — sticky on desktop, matches Zellee behavior */}
+          <div className="w-full lg:w-[55%] lg:sticky lg:top-24 lg:self-start">
+            {/* Desktop: flex row with vertical thumbs left + main image right */}
+            <div className="lg:flex lg:flex-row lg:gap-4 lg:items-start">
+              
+              {/* Desktop Vertical Thumbnails — left side strip (hidden below lg) */}
+              <div ref={verticalThumbRef} className="hidden lg:flex lg:flex-col lg:gap-2 lg:shrink-0 lg:max-h-none lg:overflow-y-auto lg:snap-y lg:snap-mandatory lg:scroll-smooth no-scrollbar">
                 {galleryImages.map((img, idx) => (
-                  <button
+                  <motion.button
                     key={idx}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      setGalleryLightboxIdx(idx);
-                      setGalleryLightboxOpen(true);
+                      setSelectedImageIdx(idx);
+                      mobileGalleryRef.current?.children[idx]?.scrollIntoView({ behavior: 'smooth', inline: 'start' });
                     }}
-                    className="snap-start shrink-0 w-full aspect-[3/4] text-left"
+                    className={`relative aspect-[3/4] rounded-[10px] overflow-hidden transition-all duration-300 w-[64px] snap-start border ${
+                      selectedImageIdx === idx
+                        ? 'border-2 border-black'
+                        : 'border-gray-200/80 hover:border-gray-400'
+                    }`}
                   >
-                    <div className="w-full h-full bg-white relative flex items-center justify-center">
-                      <img loading="lazy" src={img}
-                        alt={`${product.name} - View ${idx + 1}`}
-                        className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover/gallery:scale-105"
-                        draggable={false}
-                      />
-                      {/* Desktop hover zoom indicator */}
-                      <div className="absolute inset-0 bg-black/0 group-hover/gallery:bg-black/5 transition-colors duration-300 pointer-events-none" />
-                    </div>
-                  </button>
+                    <img loading="lazy" src={img}
+                      alt={`Thumbnail ${idx + 1}`}
+                      className="w-full h-full object-cover bg-white transition-opacity duration-300 hover:opacity-85"
+                      draggable={false}
+                    />
+                  </motion.button>
                 ))}
               </div>
 
-              {/* Floating zoom button — desktop only */}
-              <button
-                onClick={() => {
-                  setGalleryLightboxIdx(selectedImageIdx);
-                  setGalleryLightboxOpen(true);
-                }}
-                className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-md hover:scale-105 transition-all duration-200 opacity-0 group-hover/gallery:opacity-100"
-                aria-label={t('product.zoom')}
-              >
-                <ZoomIn size={16} />
-              </button>
+              {/* Main Image Slider — clickable for lightbox, swipeable on all screens */}
+              <div ref={flyRef} className="w-full lg:flex-1 bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm mb-4 lg:mb-0 relative group/gallery">
+                <div
+                  ref={mobileGalleryRef}
+                  className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar"
+                  style={{ scrollbarWidth: 'none' }}
+                >
+                  {galleryImages.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setGalleryLightboxIdx(idx);
+                        setGalleryLightboxOpen(true);
+                      }}
+                      className="snap-start shrink-0 w-full aspect-[3/4] text-left"
+                    >
+                      <div className="w-full h-full bg-white relative flex items-center justify-center">
+                      <img loading="lazy" src={img}
+                        alt={`${product.name} - View ${idx + 1}`}
+                        className="w-full h-full object-contain p-2"
+                        draggable={false}
+                      />
+                      </div>
+                    </button>
+                  ))}
+                </div>
 
-              {/* Image counter badge */}
-              <div className="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium tabular-nums">
-                {selectedImageIdx + 1} / {galleryImages.length}
+                {/* Floating zoom button — desktop only */}
+                <button
+                  onClick={() => {
+                    setGalleryLightboxIdx(selectedImageIdx);
+                    setGalleryLightboxOpen(true);
+                  }}
+                  className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/60 shadow-sm flex items-center justify-center text-gray-600 hover:text-black hover:bg-white hover:shadow-md hover:scale-105 transition-all duration-200 opacity-0 group-hover/gallery:opacity-100"
+                  aria-label={t('product.zoom')}
+                >
+                  <ZoomIn size={16} />
+                </button>
+
+                {/* Image counter badge */}
+                <div className="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium tabular-nums">
+                  {selectedImageIdx + 1} / {galleryImages.length}
+                </div>
               </div>
             </div>
 
-            {/* Premium Thumbnails — scrollable strip with enhanced interactions */}
-            <div className="flex gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar pb-1" style={{ scrollbarWidth: 'none' }}>
+            {/* Mobile/Tablet Thumbnails — horizontal scrollable strip (hidden on lg+) */}
+            <div className="flex lg:hidden gap-2.5 sm:gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1" style={{ scrollbarWidth: 'none' }}>
               {galleryImages.map((img, idx) => (
                 <motion.button
                   key={idx}
-                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     setSelectedImageIdx(idx);
                     mobileGalleryRef.current?.children[idx]?.scrollIntoView({ behavior: 'smooth', inline: 'start' });
                   }}
-                  className={`relative aspect-[3/4] rounded-xl overflow-hidden border-2 transition-all duration-300 shrink-0 w-1/4 max-w-[120px] ${
+                  className={`relative aspect-[3/4] rounded-[10px] overflow-hidden transition-all duration-300 shrink-0 w-[64px] sm:w-[72px] snap-start border ${
                     selectedImageIdx === idx
-                      ? 'border-black ring-2 ring-black/20 shadow-lg shadow-black/10 scale-[1.02]'
-                      : 'border-gray-200/80 hover:border-gray-400 hover:shadow-md hover:-translate-y-0.5'
+                      ? 'border-2 border-black'
+                      : 'border-gray-200/80 hover:border-gray-400'
                   }`}
                 >
                   <img loading="lazy" src={img}
                     alt={`Thumbnail ${idx + 1}`}
-                    className={`w-full h-full object-contain p-1 bg-white transition-all duration-300 ${
-                      selectedImageIdx === idx ? 'scale-105' : 'hover:scale-110'
-                    }`}
+                    className="w-full h-full object-cover bg-white transition-opacity duration-300 hover:opacity-85"
                     draggable={false}
                   />
-                  {selectedImageIdx === idx && (
-                    <motion.span
-                      layoutId="thumbnail-indicator"
-                      className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-black rounded-full"
-                      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                    />
-                  )}
                 </motion.button>
               ))}
             </div>
           </div>
 
-          {/* Right Column: Sticky Product Info */}
+          {/* Right Column: Product Info — scrolls on desktop, matching Zellee */}
           <div className="w-full lg:w-[45%] relative">
-            <div className="lg:sticky lg:top-24 flex flex-col gap-4 md:gap-6 bg-white p-4 md:p-8 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col gap-4 md:gap-6 bg-white p-4 md:p-8 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               
               {/* Header Info */}
               <motion.div
@@ -1004,6 +1038,69 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
+
+              {/* ── Why Choose {storeName} — Premium Trust Section ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                className="pt-1"
+              >
+                {/* Heading with gradient line */}
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-[0.12em]">
+                    {t('product.why_choose', { name: storeName })}
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
+                </div>
+
+                {/* Features Grid — 4 premium icons */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { icon: '🧵', label: t('product.premium'), sub: t('product.embroidery') },
+                    { icon: '👕', label: '100%', sub: t('product.cotton') },
+                    { icon: '🚚', label: t('product.free'), sub: t('product.shipping_short') },
+                    { icon: '💳', label: 'COD', sub: t('product.available') },
+                  ].map((feature, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 + idx * 0.06, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex flex-col items-center gap-1 rounded-xl bg-gray-50/80 border border-gray-100/80 px-1.5 py-2.5 transition-all duration-200 hover:bg-gray-100 hover:border-gray-200 hover:shadow-sm hover:-translate-y-0.5"
+                    >
+                      <span className="text-lg leading-none" aria-hidden="true">{feature.icon}</span>
+                      <div className="text-center leading-tight">
+                        <span className="block text-[10px] font-bold text-gray-800 leading-tight">{feature.label}</span>
+                        <span className="block text-[8px] text-gray-400 leading-tight">{feature.sub}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Stats Row — Dark premium background */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="mt-2.5 grid grid-cols-4 gap-px bg-gray-900 rounded-xl overflow-hidden shadow-sm"
+                >
+                  {[
+                    { label: `${(product.soldCount ?? 8647).toLocaleString()}+`, sub: t('product.orders') },
+                    { label: `${formatRating(product.rating)}★`, sub: t('product.rating_label') },
+                    { label: '100%', sub: t('product.cotton') },
+                    { label: '24/7', sub: t('product.support') },
+                  ].map((stat, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-gray-900 px-1 py-2.5 flex flex-col items-center text-center gap-0"
+                    >
+                      <span className="text-[11px] font-bold text-white leading-tight tabular-nums">{stat.label}</span>
+                      <span className="text-[8px] text-gray-400 leading-tight uppercase tracking-[0.04em]">{stat.sub}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              </motion.div>
 
               {/* Color Selection */}
               {product.colors && product.colors.length > 0 && (
@@ -1323,7 +1420,7 @@ export default function ProductDetailPage() {
               </motion.div>
 
               {/* Accordions */}
-              <div className="-mx-5 md:-mx-10 px-5 md:px-10 border-t border-gray-100">
+              <div className="border-t border-gray-100">
                 {/* Details */}
                 <div className="py-1">
                   <button
@@ -1461,7 +1558,7 @@ export default function ProductDetailPage() {
                   </h2>
                   <div className="flex items-center gap-3">
                     <span className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-extrabold text-black leading-none tracking-tight">
-                      {product?.rating ? (typeof product.rating === 'number' ? product.rating.toFixed(1) : product.rating) : '4.8'}
+                      {formatRating(product?.rating)}
                     </span>
                     <div className="flex flex-col gap-0.5">
                       <div className="flex text-amber-400 gap-0.5">

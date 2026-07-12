@@ -2,8 +2,11 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import ProductCard from './ProductCard';
+import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 
 export default memo(function ProductGrid({ products = [], loading = false }) {
+  // Hide the custom t-shirt design product from user listings
+  const filteredProducts = products.filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const { t } = useTranslation();
   if (loading) {
     return (
@@ -22,7 +25,7 @@ export default memo(function ProductGrid({ products = [], loading = false }) {
     );
   }
 
-  if (!products.length) {
+  if (!filteredProducts.length) {
     return (
       <div className="empty-state">
         <div className="empty-state-icon">🔍</div>
@@ -34,7 +37,7 @@ export default memo(function ProductGrid({ products = [], loading = false }) {
 
   return (
     <div className="product-grid">
-      {products.map((p, idx) => (
+      {filteredProducts.map((p, idx) => (
         <motion.div
           key={p.id}
           initial={{ opacity: 0, y: 24 }}

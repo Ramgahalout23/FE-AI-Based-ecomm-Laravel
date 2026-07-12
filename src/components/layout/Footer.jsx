@@ -209,6 +209,8 @@ export default function Footer() {
             <div className="flex gap-2">
               <input
                 type="email"
+                id="footer-email-mobile"
+                name="email"
                 placeholder={t('footer.newsletter.placeholder')}
                 className="flex-1 bg-white/10 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-primary transition-colors min-w-0"
                 autoComplete="email"
@@ -301,6 +303,8 @@ export default function Footer() {
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="email"
+                  id="footer-email-desktop"
+                  name="email"
                   placeholder={t('footer.newsletter.placeholder_desktop')}
                   className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/60 transition-colors min-w-0"
                   autoComplete="email"

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { productsAPI } from '../../api/products';
 import SearchProductCard from '../../components/product/SearchProductCard';
+import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 
 const TRENDING_SEARCHES = [
   'Oversized T-Shirt',
@@ -49,13 +50,13 @@ export default memo(function SearchModal({ isOpen, onClose }) {
       try {
         const res = await productsAPI.getFeatured();
         const products = res.data?.data?.products || res.data?.data || [];
-        setPopularProducts(products.slice(0, 8));
+        setPopularProducts(products.filter(p => p.slug !== CUSTOM_TEE_SLUG).slice(0, 8));
       } catch {
         // Fallback to best sellers
         try {
           const res = await productsAPI.getBestSellers();
           const products = res.data?.data?.products || res.data?.data || [];
-          setPopularProducts(products.slice(0, 8));
+          setPopularProducts(products.filter(p => p.slug !== CUSTOM_TEE_SLUG).slice(0, 8));
         } catch {
           setPopularProducts([]);
         }

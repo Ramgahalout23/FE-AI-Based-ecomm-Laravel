@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
+import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 import { useSettings } from '../../store/useSettings';
 import { homepageAPI } from '../../api/homepage';
 import { productsAPI } from '../../api/products';
@@ -489,7 +490,9 @@ function CategorySection({ categories }) {
 }
 
 /* ═══════════ PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) ═══════════ */
-function ProductSlider({ products, skeletonCount = 6, cardClassName = '' }) {
+function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName = '' }) {
+  // Hide the custom t-shirt design product from all homepage listings
+  const products = (rawProducts || []).filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const scrollRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);

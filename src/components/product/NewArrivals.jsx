@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 ;
 import { useTranslation } from 'react-i18next';
 import { getImageUrl, getProductImages, formatCurrency, slugify } from '../../utils/formatters';
-import { getColorHex } from '../../utils/constants';
+import { getColorHex, CUSTOM_TEE_SLUG } from '../../utils/constants';
 import { buildHighlights, getStyleTagline } from '../../utils/productHelpers';
 import useCartStore from '../../store/cartStore';
 import useWishlistStore from '../../store/wishlistStore';
@@ -1033,7 +1033,8 @@ function NewArrivalCard({ product, index }) {
 /* ─── New Arrivals Grid ─── */
 export default memo(function NewArrivals({ products, title = 'NEW ARRIVALS' }) {
   const { t: tOuter } = useTranslation();
-  const items = products && products.length > 0 ? products : DEFAULT_PRODUCTS;
+  const items = (products && products.length > 0 ? products : DEFAULT_PRODUCTS)
+    .filter(p => p.slug !== CUSTOM_TEE_SLUG);
 
   return (
     <section className="py-12 md:py-16 bg-white">
