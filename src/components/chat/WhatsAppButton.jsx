@@ -125,7 +125,6 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
           className="whatsapp-tooltip"
           style={{
             position: 'fixed',
-            bottom: '86px',
             [side]: '28px',
             zIndex: 9998,
             background: '#1a1a1a',
@@ -170,6 +169,10 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
           animation: whatsappEntry 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
         }
 
+        .whatsapp-tooltip {
+          bottom: 86px;
+        }
+
         @keyframes whatsappEntry {
           from { opacity: 0; transform: scale(0.6) translateY(16px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
@@ -188,6 +191,16 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
         @keyframes chatSlideUp {
           from { opacity: 0; transform: translateY(10px) scale(0.95); }
           to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* On mobile (below lg breakpoint), move above the 80px MobileNav bar */
+        @media (max-width: 1023px) {
+          .whatsapp-float-btn {
+            bottom: 100px;
+          }
+          .whatsapp-tooltip {
+            bottom: 166px;
+          }
         }
       `}</style>
     </>

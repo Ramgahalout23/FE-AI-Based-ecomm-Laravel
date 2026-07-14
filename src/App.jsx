@@ -71,6 +71,7 @@ const NotFoundPage = lazy(() => import('./pages/storefront/NotFoundPage'));
 import MaintenancePage from './pages/storefront/MaintenancePage';
 const UnsubscribePage = lazy(() => import('./pages/storefront/UnsubscribePage'));
 const ReturnsPage = lazy(() => import('./pages/storefront/ReturnsPage'));
+const WatchAndBuyPage = lazy(() => import('./pages/storefront/WatchAndBuyPage'));
 
 // MaintenancePage kept as static import — used eagerly in MaintenanceWrapper (outside Suspense)
 // Auth pages
@@ -249,7 +250,7 @@ function StorefrontLayout() {
       <MobileNav />
       <PhoneLeadBanner />
       {chatbotEnabled && <LiveChatWidget />}
-      {whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} buttonColor={brandPrimaryColor} headerColor={brandPrimaryColor} accentColor={brandPrimaryColor} quickReplies={whatsappQuickReplies} />}
+      {whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} quickReplies={whatsappQuickReplies} />}
       <ScrollToTopButton />
     </div>
   );
@@ -459,6 +460,7 @@ function AppContent() {
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/returns" element={<ProtectedRoute><ReturnsPage /></ProtectedRoute>} />
           <Route path="/customize" element={<CustomizePage />} />
+          <Route path="/watch-and-buy" element={<WatchAndBuyPage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
@@ -540,7 +542,20 @@ function AppContent() {
 export default function App() {
   const { init, loading } = useAuthStore();
 
+  // Initialize auth — check for existing token and fetch user data
   useEffect(() => { init(); }, [init]);
+
+  // In dev mode, unregister any stale service worker that may have been
+  // cached from a previous production build — prevents CORB warnings when
+  // the SW intercepts cross-origin requests (images, fonts, etc.).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => reg.unregister());
+      }).catch(() => {});
+    }
+  }, []);
 
   // Change browser tab title & favicon when user leaves and comes back
   useEffect(() => {

@@ -8,6 +8,29 @@ import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 
+/* ── Video URL Helpers ── */
+function isYouTubeUrl(url) {
+  if (!url) return false;
+  return /youtube\.com\/shorts\//i.test(url) || /youtube\.com\/watch\?v=/i.test(url) || /youtu\.be\//i.test(url);
+}
+function isVimeoUrl(url) {
+  if (!url) return false;
+  return /vimeo\.com\//i.test(url);
+}
+function isEmbedPlatform(url) {
+  return isYouTubeUrl(url) || isVimeoUrl(url);
+}
+function getYouTubeEmbedUrl(url) {
+  if (!url) return null;
+  const m = url.match(/(?:youtube\.com\/(?:shorts\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+  return m?.[1] ? `https://www.youtube.com/embed/${m[1]}` : null;
+}
+function getVimeoEmbedUrl(url) {
+  if (!url) return null;
+  const m = url.match(/vimeo\.com\/(\d+)/);
+  return m?.[1] ? `https://player.vimeo.com/video/${m[1]}` : null;
+}
+
 const EMPTY_FORM = {
   title: '',
   description: '',
@@ -572,14 +595,14 @@ export default function ReelsAdminPage() {
             </div>
             <div className="modal-body">
               <div className="form-grid">
-                {/* Video URL */}
+                {/* Video URL — YouTube + MP4 + Vimeo all supported */}
                 <div className="form-group form-full">
-                  <label>Video URL (MP4/WebM)</label>
+                  <label>Video URL <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(YouTube / MP4 / Vimeo)</span></label>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <input
                       value={form.videoUrl}
                       onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-                      placeholder="https://example.com/reel.mp4"
+                      placeholder="https://youtube.com/shorts/... or https://example.com/reel.mp4"
                       style={{ flex: 1 }}
                     />
                     {form.videoUrl && (
@@ -593,8 +616,11 @@ export default function ReelsAdminPage() {
                       </button>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
-                    Upload a video or paste a direct video URL. MP4 format recommended.
+                  <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <span>✅ YouTube Shorts — <code>youtube.com/shorts/...</code></span>
+                    <span>✅ YouTube — <code>youtube.com/watch?v=...</code></span>
+                    <span>✅ Vimeo — <code>vimeo.com/...</code></span>
+                    <span>✅ MP4 — <code>*.mp4</code> direct URL</span>
                   </div>
                 </div>
 
@@ -682,7 +708,7 @@ export default function ReelsAdminPage() {
                   />
                 </div>
 
-                {/* Preview */}
+                {/* Preview — works with YouTube embed + MP4 + Vimeo */}
                 {(form.videoUrl || form.imageUrl) && (
                   <div className="form-group form-full">
                     <label>Preview</label>
@@ -691,12 +717,22 @@ export default function ReelsAdminPage() {
                         borderRadius: '12px',
                         overflow: 'hidden',
                         border: '1px solid var(--border)',
-                        maxWidth: '240px',
+                        maxWidth: '320px',
                         background: '#111',
                         position: 'relative',
                       }}
                     >
-                      {form.videoUrl ? (
+                      {form.videoUrl && isEmbedPlatform(form.videoUrl) ? (
+                        <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
+                          <iframe
+                            src={getYouTubeEmbedUrl(form.videoUrl) || getVimeoEmbedUrl(form.videoUrl)}
+                            title="Video preview"
+                            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px' }}
+                            allow="autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : form.videoUrl ? (
                         <video
                           src={form.videoUrl}
                           controls
@@ -715,6 +751,27 @@ export default function ReelsAdminPage() {
                           }}
                         />
                       )}
+                      {/* Badge showing platform type */}
+                      <div style={{
+                        position: 'absolute',
+                        top: 8,
+                        left: 8,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        background: form.videoUrl && isYouTubeUrl(form.videoUrl) ? '#ff0000' :
+                                     form.videoUrl && isVimeoUrl(form.videoUrl) ? '#1ab7ea' :
+                                     form.videoUrl ? '#22c55e' : '#666',
+                        color: '#fff',
+                        pointerEvents: 'none',
+                      }}>
+                        {form.videoUrl && isYouTubeUrl(form.videoUrl) ? 'YouTube' :
+                         form.videoUrl && isVimeoUrl(form.videoUrl) ? 'Vimeo' :
+                         form.videoUrl ? 'MP4' : 'Image'}
+                      </div>
                     </div>
                   </div>
                 )}

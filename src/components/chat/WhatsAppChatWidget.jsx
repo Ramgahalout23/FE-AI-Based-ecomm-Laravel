@@ -542,7 +542,6 @@ export default function WhatsAppChatWidget({
           className="whatsapp-chat-tooltip"
           style={{
             position: 'fixed',
-            bottom: '86px',
             [side]: '28px',
             zIndex: 10001,
             background: '#1a1a1a',
@@ -627,6 +626,19 @@ export default function WhatsAppChatWidget({
 
         .whatsapp-chat-tooltip {
           bottom: 86px;
+        }
+
+        /* On mobile (below lg breakpoint), move button above the 80px MobileNav bar */
+        @media (max-width: 1023px) {
+          .whatsapp-chat-float-btn {
+            bottom: 100px;
+          }
+          .whatsapp-chat-window {
+            bottom: 162px;
+          }
+          .whatsapp-chat-tooltip {
+            bottom: 166px;
+          }
         }
       `}</style>
     </>

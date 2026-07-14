@@ -133,6 +133,18 @@ export default function Navbar() {
 
             {/* Center Nav - Custom Pages */}
             <div className="hidden lg:flex items-center justify-center flex-1 gap-1">
+              {/* Watch & Buy */}
+              <Link
+                to="/watch-and-buy"
+                className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 ${
+                  location.pathname === '/watch-and-buy'
+                    ? 'text-white bg-white/15'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Watch & Buy
+              </Link>
               {hasActivePromotions && (
                 <Link
                   to="/sales"
@@ -425,6 +437,26 @@ export default function Navbar() {
                             <ArrowRight size={14} className="text-white/30" />
                           </Link>
                         )}
+
+                        {/* Watch & Buy */}
+                        <Link
+                          to="/watch-and-buy"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                          style={{
+                            color: location.pathname === '/watch-and-buy' ? '#fff' : 'rgba(255,255,255,0.6)',
+                            background: location.pathname === '/watch-and-buy' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.06)',
+                            border: location.pathname === '/watch-and-buy' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid transparent',
+                          }}
+                        >
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                              <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                            </svg>
+                          </span>
+                          <span className="flex-1 text-emerald-400">Watch & Buy</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        </Link>
 
                         {[
                           { to: '/', label: t('nav.home') },

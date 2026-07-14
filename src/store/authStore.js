@@ -161,9 +161,9 @@ async function mergeGuestCart() {
     const { items } = useCartStore.getState();
     if (!items || items.length === 0) return;
 
-    // Transform cart store items to IAddToCartDTO format
+    // Transform cart store items to match backend snake_case validation
     const cartItems = items.map((i) => ({
-      productId: i.productId ?? i.id,
+      product_id: i.productId ?? i.id,
       quantity: i.quantity ?? 1,
       size: i.size || null,
       color: i.color || null,

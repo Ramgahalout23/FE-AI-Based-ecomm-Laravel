@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
  * PwaUpdatePrompt
  * Shows a slide-up banner when a new version of the app is available.
  * Uses vite-plugin-pwa's virtual:pwa-register module.
+ * In dev mode (where VitePWA plugin is disabled), this component does nothing.
  */
 export default function PwaUpdatePrompt() {
   const { t } = useTranslation();
@@ -14,8 +15,14 @@ export default function PwaUpdatePrompt() {
   const [updateSW, setUpdateSW] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
+  // In dev mode, vite-plugin-pwa is not active so virtual:pwa-register doesn't exist.
+  // Early return avoids runtime errors. @vite-ignore prevents Vite's static analysis
+  // from trying to resolve the virtual module (which only exists in production builds).
+  if (import.meta.env.DEV) return null;
+
   useEffect(() => {
-    import('virtual:pwa-register').then(({ registerSW }) => {
+    const pwaModule = 'virtual:pwa-register';
+    import(/* @vite-ignore */ pwaModule).then(({ registerSW }) => {
       const swRegistration = registerSW({
         onNeedRefresh() {
           setNeedRefresh(true);
@@ -29,7 +36,7 @@ export default function PwaUpdatePrompt() {
         },
       });
     }).catch(() => {
-      // virtual:pwa-register not available in dev mode — that's fine
+      // virtual:pwa-register not available — that's fine
     });
   }, []);
 

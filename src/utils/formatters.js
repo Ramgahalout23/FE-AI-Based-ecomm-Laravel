@@ -249,8 +249,9 @@ export const getProductImage = (product) => {
     const first = product.images[0];
     return typeof first === 'object' ? (first?.url || null) : first;
   }
-  // Direct url fields
-  return product.imageUrl || product.image || null;
+  // Direct url fields (check both camelCase and snake_case)
+  return product.imageUrl || product.image_url || product.image || null;
+
 };
 
 /**
@@ -304,6 +305,7 @@ export const getProductImages = (product) => {
   }
   // Direct url fields
   if (product.imageUrl) return [product.imageUrl];
+  if (product.image_url) return [product.image_url];
   if (product.image) return [product.image];
   return [];
 };
