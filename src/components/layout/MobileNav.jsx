@@ -48,6 +48,7 @@ export default memo(function MobileNav() {
   // ── Hooks MUST be declared before any early return ──
   const lastScrollY = useRef(0);
   const [navVisible, setNavVisible] = useState(true);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const SCROLL_THRESHOLD = 10;
   const HIDE_OFFSET = 100;
 
@@ -82,8 +83,22 @@ export default memo(function MobileNav() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Watch body overflow & reel-player data attr — ReelPlayer sets both when open
+  useEffect(() => {
+    const checkOverlay = () => {
+      setIsOverlayOpen(
+        document.body.style.overflow === 'hidden' ||
+        document.body.getAttribute('data-reel-player') === 'active'
+      );
+    };
+    checkOverlay();
+    const observer = new MutationObserver(checkOverlay);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player'] });
+    return () => observer.disconnect();
+  }, []);
+
   // ── Early return (must come after all hooks) ──
-  if (location.pathname === '/checkout' || 
+  if (isOverlayOpen || location.pathname === '/checkout' || 
       (location.pathname.startsWith('/products/') && !location.pathname.startsWith('/products/section/'))) {
     return null;
   }

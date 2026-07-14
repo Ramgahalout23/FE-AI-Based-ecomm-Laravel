@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { reelsAPI } from '../../api/reels';
+import { adminAPI } from '../../api/admin';
 import { settingsAPI } from '../../api/settings';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
@@ -38,6 +39,7 @@ const EMPTY_FORM = {
   imageUrl: '',
   linkUrl: '',
   isActive: true,
+  productIds: [],
 };
 
 const REEL_COLUMNS = [
@@ -75,6 +77,10 @@ export default function ReelsAdminPage() {
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
   const [orderChanged, setOrderChanged] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [likesReel, setLikesReel] = useState(null);
+  const [reelLikes, setReelLikes] = useState([]);
+  const [loadingLikes, setLoadingLikes] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
@@ -210,16 +216,32 @@ export default function ReelsAdminPage() {
     setShowModal(true);
   };
 
-  const openEdit = (reel) => {
+  const openEdit = async (reel) => {
     setEditing(reel);
-    setForm({
-      title: reel.title || '',
-      description: reel.description || '',
-      videoUrl: reel.video_url || '',
-      imageUrl: reel.image_url || '',
-      linkUrl: reel.link_url || '',
-      isActive: reel.is_active !== undefined ? reel.is_active : true,
-    });
+    // Load reel with products
+    try {
+      const res = await reelsAPI.getById(reel.id);
+      const data = res.data?.data || reel;
+      setForm({
+        title: data.title || '',
+        description: data.description || '',
+        videoUrl: data.video_url || '',
+        imageUrl: data.image_url || '',
+        linkUrl: data.link_url || '',
+        isActive: data.is_active !== undefined ? data.is_active : true,
+        productIds: (data.products || []).map(p => p.id),
+      });
+    } catch {
+      setForm({
+        title: reel.title || '',
+        description: reel.description || '',
+        videoUrl: reel.video_url || '',
+        imageUrl: reel.image_url || '',
+        linkUrl: reel.link_url || '',
+        isActive: reel.is_active !== undefined ? reel.is_active : true,
+        productIds: [],
+      });
+    }
     setShowModal(true);
   };
 
@@ -236,6 +258,7 @@ export default function ReelsAdminPage() {
         imageUrl: form.imageUrl,
         linkUrl: form.linkUrl,
         isActive: form.isActive,
+        productIds: form.productIds,
       };
 
       if (editing) {
@@ -400,6 +423,7 @@ export default function ReelsAdminPage() {
               <th>Title</th>
               <th>Description</th>
               <th>Type</th>
+              <th>Likes</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -407,7 +431,7 @@ export default function ReelsAdminPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <div className="loading-page" style={{ padding: '2rem' }}>
                     <div className="spinner" />
                   </div>
@@ -415,7 +439,7 @@ export default function ReelsAdminPage() {
               </tr>
             ) : reels.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <div className="empty-state">
                     <div className="empty-state-icon">🎬</div>
                     <h3>No reels yet</h3>
@@ -541,6 +565,22 @@ export default function ReelsAdminPage() {
                   <td>
                     <span className="status-badge status-info" style={{ fontSize: '0.72rem' }}>
                       {reel.video_url ? '🎬 Video' : '🖼️ Image'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="status-badge status-info" style={{ fontSize: '0.72rem', cursor: 'pointer' }}
+                      onClick={() => {
+                        setLikesReel(reel);
+                        setShowLikesModal(true);
+                        setLoadingLikes(true);
+                        reelsAPI.getLikes(reel.id).then(r => {
+                          const data = r?.data?.data || [];
+                          setReelLikes(Array.isArray(data) ? data : []);
+                        }).catch(() => setReelLikes([]))
+                          .finally(() => setLoadingLikes(false));
+                      }}
+                    >
+                      ❤️ {reel.likes_count ?? 0}
                     </span>
                   </td>
                   <td>
@@ -708,6 +748,13 @@ export default function ReelsAdminPage() {
                   />
                 </div>
 
+                {/* Product Attachment */}
+                <div className="form-group form-full">
+                  <label>Attach Products</label>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: 6 }}>Select products to show in this reel. Only published products will be visible to customers.</p>
+                  <ProductMultiSelect selected={form.productIds} onChange={ids => setForm({ ...form, productIds: ids })} />
+                </div>
+
                 {/* Preview — works with YouTube embed + MP4 + Vimeo */}
                 {(form.videoUrl || form.imageUrl) && (
                   <div className="form-group form-full">
@@ -789,6 +836,84 @@ export default function ReelsAdminPage() {
         </div>
       )}
 
+      {/* ── Likes Modal ── */}
+      {showLikesModal && (
+        <div
+          className="modal-overlay open"
+          onClick={(e) => e.target === e.currentTarget && setShowLikesModal(false)}
+        >
+          <div className="modal" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3>❤️ Likes — {likesReel?.title || 'Reel'}</h3>
+              <button className="modal-close" onClick={() => setShowLikesModal(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {loadingLikes ? (
+                <div className="loading-page" style={{ padding: '2rem' }}>
+                  <div className="spinner" />
+                </div>
+              ) : reelLikes.length === 0 ? (
+                <div className="empty-state" style={{ padding: '2rem' }}>
+                  <div className="empty-state-icon" style={{ fontSize: '2rem' }}>💔</div>
+                  <h3>No likes yet</h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+                    This reel hasn't been liked by any users yet.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {reelLikes.map((like) => (
+                    <div key={like.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      background: '#f9f9f9',
+                      border: '1px solid #eee',
+                    }}>
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                      }}>
+                        {like.user_avatar ? (
+                          <img src={like.user_avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          like.user_name?.charAt(0)?.toUpperCase() || '?'
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#222' }}>
+                          {like.user_name || 'Unknown User'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                          {like.user_email}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', whiteSpace: 'nowrap' }}>
+                        {like.liked_at ? new Date(like.liked_at).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CSV Export Modal */}
       <ExportCSVModal
         isOpen={showExportModal}
@@ -841,6 +966,81 @@ export default function ReelsAdminPage() {
         exportStatus={exportStatus}
         exportError={exportError}
       />
+    </div>
+  );
+}
+
+/* ── Product Multi-Select ── */
+function ProductMultiSelect({ selected, onChange }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await adminAPI.getProducts({ search: query, limit: 10 });
+        const list = res.data?.data?.products || res.data?.products || res.data?.data || [];
+        setResults(Array.isArray(list) ? list : []);
+      } catch { setResults([]); } finally { setLoading(false); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const toggle = (pid) => {
+    onChange(selected.includes(pid) ? selected.filter(id => id !== pid) : [...selected, pid]);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: '#fff', minHeight: 38, cursor: 'text' }} onClick={() => setOpen(true)}>
+        {selected.map(pid => (
+          <span key={pid} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.72rem', padding: '2px 6px', borderRadius: 4, background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
+            {pid.slice(0, 8)}...
+            <button onClick={(e) => { e.stopPropagation(); toggle(pid); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: '0.72rem', lineHeight: 1 }}>x</button>
+          </span>
+        ))}
+        <input
+          placeholder={selected.length === 0 ? 'Search products...' : ''}
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          style={{ border: 'none', outline: 'none', flex: 1, fontSize: '0.78rem', minWidth: 80, background: 'transparent' }}
+          autoComplete="off"
+        />
+      </div>
+      {open && (query || results.length > 0) && (
+        <>
+          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: '#fff', borderRadius: 8, border: '1px solid var(--border)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, maxHeight: 220, overflow: 'auto', padding: '4px 0' }}>
+            {loading ? (
+              <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.78rem' }}>Searching...</div>
+            ) : results.length === 0 && query ? (
+              <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', fontSize: '0.78rem' }}>No products found</div>
+            ) : results.map(p => {
+              const isSelected = selected.includes(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggle(p.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '6px 10px', border: 'none', background: isSelected ? '#f3f4f6' : '#fff', cursor: 'pointer', fontSize: '0.82rem' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f3f4f6' : '#fff'; }}
+                >
+                  <input type="checkbox" checked={isSelected} readOnly style={{ accentColor: 'var(--primary)' }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                    {p.sku && <span style={{ fontSize: '0.65rem', color: '#6b7280', fontFamily: 'monospace' }}>{p.sku}</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+        </>
+      )}
     </div>
   );
 }

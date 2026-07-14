@@ -63,14 +63,17 @@ export default function WhatsAppChatWidget({
   const [showWelcome, setShowWelcome] = useState(true);
   const inputRef = useRef(null);
 
-  // Watch body overflow — all modals/sheets set overflow: hidden when open
+  // Watch body overflow & reel-player data attr — modals/sheets set overflow: hidden when open
   useEffect(() => {
-    const checkOverflow = () => {
-      setIsOverlayOpen(document.body.style.overflow === 'hidden');
+    const checkOverlay = () => {
+      setIsOverlayOpen(
+        document.body.style.overflow === 'hidden' ||
+        document.body.getAttribute('data-reel-player') === 'active'
+      );
     };
-    checkOverflow();
-    const observer = new MutationObserver(checkOverflow);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+    checkOverlay();
+    const observer = new MutationObserver(checkOverlay);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player'] });
     return () => observer.disconnect();
   }, []);
 

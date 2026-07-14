@@ -20,6 +20,7 @@ export const reelsAPI = {
     link_url: data.linkUrl ?? data.link_url ?? '',
     display_order: data.displayOrder ?? data.display_order ?? 0,
     is_active: data.isActive ?? data.is_active ?? true,
+    product_ids: data.productIds ?? data.product_ids ?? [],
   }),
 
   // Admin: Update reel
@@ -31,6 +32,7 @@ export const reelsAPI = {
     link_url: data.linkUrl ?? data.link_url,
     display_order: data.displayOrder ?? data.display_order,
     is_active: data.isActive ?? data.is_active,
+    product_ids: data.productIds ?? data.product_ids ?? [],
   }),
 
   // Admin: Delete reel
@@ -38,6 +40,9 @@ export const reelsAPI = {
 
   // Admin: Toggle reel status
   toggleStatus: (id) => adminClient.patch(`/admin/reels/${id}/toggle`),
+
+  // Admin: Get users who liked a reel
+  getLikes: (id) => adminClient.get(`/admin/reels/${id}/likes`),
 
   // Admin: Reorder reels
   reorder: (reels) => adminClient.patch('/admin/reels/reorder', {

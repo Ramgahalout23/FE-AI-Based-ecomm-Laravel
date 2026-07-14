@@ -1,10 +1,19 @@
-import { Share2, ShoppingCart, Play, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Image, Volume2, VolumeX } from 'lucide-react';
+import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../../utils/formatters';
+import { getColorHex } from '../../utils/constants';
+import useWishlistStore from '../../store/wishlistStore';
+import useAuthStore from '../../store/authStore';
+import { wishlistAPI } from '../../api/wishlist';
+import { reelLikesAPI } from '../../api/reelLikes';
+import { addedToWishlist, removedFromWishlist, addedToCart } from '../../utils/toast';
+import useCartStore from '../../store/cartStore';
+import { cartAPI } from '../../api/cart';
 
 /* ═══════════════════════════════════════════════════════════
    WATCH & BUY — TikTok-style shoppable video reels
@@ -31,6 +40,55 @@ function isUnsupportedVideoUrl(url) {
   // YouTube, Vimeo, and other embedded video URLs can't play in <video> elements
   if (!url) return false;
   return isYouTubeUrl(url) || /vimeo\.com\//i.test(url) || /dailymotion\.com\//i.test(url);
+}
+
+/* ── Shared variant extraction helper ── */
+function extractVariantData(variants, selectedColor = '', selectedSize = '') {
+  const pv = variants || [];
+  const hasVariants = pv.length > 0;
+
+  // Extract unique colors and sizes
+  const cSet = new Set();
+  const sSet = new Set();
+  pv.forEach(v => {
+    if (v.attributes?.color) cSet.add(v.attributes.color);
+    if (v.attributes?.size) sSet.add(v.attributes.size);
+  });
+  const colors = cSet.size > 0 ? [...cSet] : [];
+  const sizes = sSet.size > 0 ? [...sSet] : [];
+
+  // Compute OOS (out-of-stock) colors and sizes
+  const oosColors = new Set();
+  const oosSizes = new Set();
+  colors.forEach(c => {
+    if (!pv.some(v => v.attributes?.color === c && (v.quantity || 0) > 0)) oosColors.add(c);
+  });
+  sizes.forEach(s => {
+    if (!pv.some(v => v.attributes?.size === s && (v.quantity || 0) > 0)) oosSizes.add(s);
+  });
+
+  // Find matched variant based on selected color/size
+  const matched = pv.find(v =>
+    (!colors.length || v.attributes?.color === selectedColor) &&
+    (!sizes.length || v.attributes?.size === selectedSize)
+  ) || null;
+
+  // Find first available variant (for auto-selecting defaults)
+  const firstAvailable = pv.find(v => (v.quantity || 0) > 0) || pv[0] || null;
+
+  // Check if all required selections are made
+  const allSelected = (!colors.length || selectedColor) && (!sizes.length || selectedSize);
+
+  return {
+    colors,
+    sizes,
+    oosColors,
+    oosSizes,
+    matched,
+    firstAvailable,
+    allSelected,
+    hasVariants,
+  };
 }
 
 /* ── Skeleton ── */
@@ -76,7 +134,8 @@ export default function ReelsSection({ reels: _reelsProp = [], loading = false, 
    ═══════════════════════════════════════════════════════════ */
 function FashionShowcase({ reels, onRefresh }) {
   const { t } = useTranslation();
-  const [likedItems, setLikedItems] = useState(new Set());
+  const { isAuthenticated } = useAuthStore();
+  const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
   const [cartItems, setCartItems] = useState(new Set());
   const [justAdded, setJustAdded] = useState(null);
   const [activeReelIndex, setActiveReelIndex] = useState(null);
@@ -86,17 +145,56 @@ function FashionShowcase({ reels, onRefresh }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const justAddedTimer = useRef(null);
+  // ── Inline variant picker state for carousel cards ──
+  const [carouselVariantReelId, setCarouselVariantReelId] = useState(null);
+  const [carouselSelectedColor, setCarouselSelectedColor] = useState('');
+  const [carouselSelectedSize, setCarouselSelectedSize] = useState('');
+  const [carouselVariantQty, setCarouselVariantQty] = useState(1);
 
-  const toggleLike = useCallback((id) => {
-    setLikedItems((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  // Get the first product from a reel for wishlist checking
+  const getProductFromReel = useCallback((reel) => {
+    return reel?.products?.[0] || null;
   }, []);
 
-  const addToCart = useCallback((productId) => {
+  const toggleLike = useCallback(async (reel, productId) => {
+    // Always resolve the product from the reel for wishlist store
+    const product = getProductFromReel(reel);
+    if (!productId) {
+      productId = product?.id;
+    }
     if (!productId) return;
+
+    const currentlyLiked = isInWishlist(productId);
+
+    // Update wishlist store optimistically
+    if (currentlyLiked) {
+      removeFromWL(productId);
+      removedFromWishlist();
+    } else {
+      addToWL(product);
+      addedToWishlist();
+    }
+
+    // Sync with backend (fire-and-forget)
+    if (isAuthenticated) {
+      try {
+        if (currentlyLiked) {
+          await wishlistAPI.remove(productId);
+          await reelLikesAPI.unlike(reel.id).catch(() => {});
+        } else {
+          await wishlistAPI.add({ productId });
+          await reelLikesAPI.like(reel.id).catch(() => {});
+        }
+      } catch {}
+    }
+  }, [isAuthenticated, isInWishlist, addToWL, removeFromWL, getProductFromReel]);
+
+  const cartAddItem = useCartStore((s) => s.addItem);
+
+  const addToCart = useCallback((productId, color, size, variantId, qty = 1) => {
+    if (!productId) return;
+    const quantity = Math.max(1, qty || 1);
+    // Visual feedback in reel section
     setCartItems((prev) => {
       const next = new Set(prev);
       next.add(productId);
@@ -105,7 +203,31 @@ function FashionShowcase({ reels, onRefresh }) {
     setJustAdded(productId);
     if (justAddedTimer.current) clearTimeout(justAddedTimer.current);
     justAddedTimer.current = setTimeout(() => setJustAdded(null), 1500);
-  }, []);
+
+    // Add to real cart store
+    const product = reels.flatMap(r => r.products || []).find(p => p.id === productId);
+    if (product) {
+      cartAddItem({
+        id: productId,
+        productId,
+        name: product.name,
+        price: variantId
+          ? product.variants?.find(v => v.id === variantId)?.price ?? product.price
+          : product.price,
+        image: product.image_url,
+        quantity,
+        size,
+        color,
+        variantId,
+      });
+      addedToCart(product.name);
+    }
+
+    // Sync with backend if authenticated
+    if (isAuthenticated) {
+      cartAPI.add({ productId, quantity, size, color }).catch(() => {});
+    }
+  }, [isAuthenticated, reels, cartAddItem]);
 
   const handleShare = useCallback((reel) => {
     navigator.clipboard?.writeText(`Check out "${reel.title}" at Luxe!`);
@@ -136,7 +258,7 @@ function FashionShowcase({ reels, onRefresh }) {
     el.scrollBy({ left: (w + 16) * (dir === 'left' ? -2 : 2), behavior: 'smooth' });
   };
 
-  const openReel = useCallback((idx) => setActiveReelIndex(idx), []);
+  const openReel = useCallback((idx) => { setCarouselVariantReelId(null); setActiveReelIndex(idx); }, []);
   const closeReel = useCallback(() => setActiveReelIndex(null), []);
 
   const handleVideoError = useCallback((reelId) => {
@@ -210,7 +332,7 @@ function FashionShowcase({ reels, onRefresh }) {
                   className="reel-card snap-start shrink-0 w-[220px] sm:w-[260px] xl:w-[280px] cursor-pointer group/card"
                   onClick={() => openReel(idx)}
                 >
-                  <div className="bg-white overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80">
+                  <div className="bg-white shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80">
                     <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
                       {(hasVideoError || isUnsupportedVideoUrl(reel.videoUrl)) && reel.imageUrl ? (
                         <div className="relative w-full h-full">
@@ -282,16 +404,111 @@ function FashionShowcase({ reels, onRefresh }) {
                               </div>
                             </div>
                           </div>
+                          {/* ── Inline Variant Picker (within card) ── */}
+                          <AnimatePresence>
+                            {carouselVariantReelId === reel.id && p && (() => {
+                              const { colors, sizes, oosColors: oosColorsSet, oosSizes: oosSizesSet, matched, allSelected } = extractVariantData(p.variants, carouselSelectedColor, carouselSelectedSize);
+                              return (
+                                <motion.div
+                                  key={`variant-picker-${reel.id}`}
+                                  initial={{ opacity: 0, y: 12 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 12 }}
+                                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                  className="mt-2 pt-2 border-t border-gray-100"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                {/* Colors */}
+                                {colors.length > 0 && (
+                                  <div className="mb-2">
+                                    <p className="text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-1">Color</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {colors.map(c => {
+                                        const isColorOOS = oosColorsSet.has(c);
+                                        return (
+                                        <button key={c} onClick={() => !isColorOOS && setCarouselSelectedColor(c)}
+                                          disabled={isColorOOS}
+                                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                            isColorOOS ? 'border-gray-200 opacity-30 cursor-not-allowed' : carouselSelectedColor === c ? 'border-gray-900 scale-110' : 'border-gray-200 hover:border-gray-400'
+                                          }`}>
+                                          <div className={`w-3.5 h-3.5 rounded-full border border-black/10 ${isColorOOS ? 'opacity-50' : ''}`} style={{ background: getColorHex(c) }} />
+                                          {isColorOOS && (<span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" className="w-3 h-3 text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="4" x2="20" y2="20" /></svg></span>)}
+                                        </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Sizes */}
+                                {sizes.length > 0 && (
+                                  <div className="mb-2">
+                                    <p className="text-[7px] font-bold text-gray-400 uppercase tracking-wider mb-1">Size</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {sizes.map(s => {
+                                        const isSizeOOS = oosSizesSet.has(s);
+                                        return (
+                                        <button key={s} onClick={() => !isSizeOOS && setCarouselSelectedSize(s)}
+                                          disabled={isSizeOOS}
+                                          className={`px-2 py-1 text-[7px] font-bold rounded transition-all ${
+                                            isSizeOOS ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through' : carouselSelectedSize === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                          }`}>
+                                          {s}
+                                        </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Add to Cart + Qty */}
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center border border-gray-200 rounded overflow-hidden">
+                                    <button onClick={() => setCarouselVariantQty(q => Math.max(1, q - 1))}
+                                      className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-[10px]">−</button>
+                                    <span className="w-6 h-6 flex items-center justify-center text-[9px] font-bold bg-gray-50 border-x border-gray-200">{carouselVariantQty}</span>
+                                    <button onClick={() => setCarouselVariantQty(q => q + 1)}
+                                      className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-[10px]">+</button>
+                                  </div>
+                                  <button onClick={() => {
+                                    if (!allSelected || !matched || (matched?.quantity || 0) <= 0) return;
+                                    addToCart(p.id, carouselSelectedColor, carouselSelectedSize, matched.id, carouselVariantQty);
+                                    setCarouselVariantReelId(null);
+                                  }}
+                                    disabled={!allSelected || !matched || (matched?.quantity || 0) <= 0}
+                                    className={`flex-1 py-1.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all ${
+                                      allSelected && matched && (matched?.quantity || 0) > 0 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    }`}>
+                                    <span className="flex items-center justify-center gap-1">{allSelected && matched && (matched?.quantity || 0) <= 0 ? 'Unavailable' : <><ShoppingBag size={8} /> Add</>}</span>
+                                  </button>
+                                  <button onClick={() => setCarouselVariantReelId(null)}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200">
+                                    <X size={10} />
+                                  </button>
+                                </div>                                </motion.div>
+                              );
+                            })()}
+                          </AnimatePresence>
                           <div className="flex items-center gap-1.5 mt-2">
-                            <button onClick={(e) => { e.stopPropagation(); toggleLike(reel.id); }}
+                            <button onClick={(e) => { e.stopPropagation(); toggleLike(reel); }}
                               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider transition-all ${
-                                likedItems.has(reel.id) ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                                isInWishlist(p?.id) ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
                               }`}>
-                              <Heart size={9} className={likedItems.has(reel.id) ? 'fill-rose-500' : ''} />
-                              {likedItems.has(reel.id) ? t('reels.liked') : t('reels.like')}
+                              <Heart size={9} className={isInWishlist(p?.id) ? 'fill-rose-500' : ''} />
+                              {isInWishlist(p?.id) ? t('reels.liked') : t('reels.like')}
                             </button>
                             {p && (
-                              <button onClick={(e) => { e.stopPropagation(); addToCart(p.id); }}
+                              <button onClick={(e) => {
+                                e.stopPropagation();
+                                const { colors, sizes, hasVariants, firstAvailable } = extractVariantData(p.variants);
+                                if (hasVariants && (colors.length > 0 || sizes.length > 0)) {
+                                  // Show inline variant picker
+                                  setCarouselVariantReelId(reel.id);
+                                  setCarouselSelectedColor(firstAvailable?.attributes?.color || (colors.length > 0 ? colors[0] : ''));
+                                  setCarouselSelectedSize(firstAvailable?.attributes?.size || (sizes.length > 0 ? sizes[0] : ''));
+                                  setCarouselVariantQty(1);
+                                } else {
+                                  addToCart(p.id);
+                                }
+                              }}
                                 disabled={cartItems.has(p.id)}
                                 className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider transition-all ${
                                   cartItems.has(p.id) ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-gray-900 text-white border border-gray-900 hover:bg-gray-800'
@@ -318,21 +535,22 @@ function FashionShowcase({ reels, onRefresh }) {
         </div>
       </div>
 
-      <AnimatePresence>
-        {activeReelIndex !== null && (
-          <ReelPlayer reels={reels} initialIndex={activeReelIndex} onClose={closeReel}
-            likedItems={likedItems} cartItems={cartItems} justAdded={justAdded}
-            onToggleLike={toggleLike} onAddToCart={addToCart} onShare={handleShare} />
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {activeReelIndex !== null && (
+            <ReelPlayer reels={reels} initialIndex={activeReelIndex} onClose={closeReel}
+              isInWishlist={isInWishlist} cartItems={cartItems} justAdded={justAdded}
+              onToggleLike={toggleLike} onAddToCart={addToCart} onShare={handleShare} />
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       <style>{`
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .reel-video { width: 100%; height: 100%; object-fit: cover; }
-        .product-strip::-webkit-scrollbar { height: 3px; }
-        .product-strip::-webkit-scrollbar-track { background: transparent; }
-        .product-strip::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+
       `}</style>
     </section>
   );
@@ -347,78 +565,11 @@ const SWIPE_DURATION = 0.35;
 const SWIPE_TRANSITION = `transform ${SWIPE_DURATION}s ${SWIPE_EASE}`;
 
 /* ═══════════════════════════════════════════════════════════
-   PRODUCT CAROUSEL STRIP
-   ═══════════════════════════════════════════════════════════ */
-function ProductCarouselStrip({ products, selectedIdx, onSelect, cartItems, justAdded, onAddToCart, reelId }) {
-  const stripRef = useRef(null);
-
-  useEffect(() => {
-    if (stripRef.current && selectedIdx >= 0) {
-      const child = stripRef.current.children[selectedIdx];
-      child?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-  }, [selectedIdx]);
-
-  if (!products?.length) return null;
-
-  return (
-    <div className="relative">
-      <div ref={stripRef} className="product-strip flex gap-2 overflow-x-auto scroll-smooth py-1 px-0.5">
-        {products.map((product, idx) => {
-          const inCart = cartItems.has(product.id);
-          const sel = idx === selectedIdx;
-          return (
-            <motion.button key={product.id} layout onClick={() => onSelect(idx)}
-              className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                sel ? 'border-gray-900 ring-1 ring-gray-900/20' : 'border-gray-200/60 hover:border-gray-400'
-              } ${inCart ? 'ring-1 ring-emerald-400/40' : ''}`}
-              style={{ width: 56, height: 72 }}>
-              {product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                  <ShoppingCart size={12} />
-                </div>
-              )}
-              {sel && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />}
-              {inCart && (
-                <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 flex items-center justify-center">
-                  <Check size={7} />
-                </div>
-              )}
-              <div className={`absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity duration-200 ${sel ? 'opacity-100' : ''}`}>
-                {!inCart ? (
-                  <div onClick={(e) => { e.stopPropagation(); onAddToCart(product.id, reelId); }}
-                    className="w-5 h-5 rounded-full bg-white/90 flex items-center justify-center">
-                    <ShoppingCart size={9} />
-                  </div>
-                ) : (
-                  <Check size={10} />
-                )}
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-      {products.length > 1 && (
-        <div className="flex items-center justify-center gap-1 mt-1.5">
-          {products.map((_, idx) => (
-            <div key={idx} className={`rounded-full transition-all duration-300 ${
-              idx === selectedIdx ? 'w-3 h-1 bg-gray-800' : 'w-1 h-1 bg-gray-300'
-            }`} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
    2. REEL PLAYER — TikTok/Whatmore-style
    ═══════════════════════════════════════════════════════════ */
 function ReelPlayer({
   reels, initialIndex, onClose,
-  likedItems, cartItems, justAdded,
+  isInWishlist, cartItems, justAdded,
   onToggleLike, onAddToCart, onShare,
 }) {
   const { t } = useTranslation();
@@ -428,9 +579,16 @@ function ReelPlayer({
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [showProductCard, setShowProductCard] = useState(true);
-  const [selectedProductIdx, setSelectedProductIdx] = useState(0);
   const [showSwipeHint, setShowSwipeHint] = useState(true);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [variantQty, setVariantQty] = useState(1);
+  const [isAddingVariant, setIsAddingVariant] = useState(false);
+  const [showTapOverlay, setShowTapOverlay] = useState(false);
+  const [tapIconIsPlay, setTapIconIsPlay] = useState(false);
+  const tapOverlayTimer = useRef(null);
 
   // Swipe refs
   const swipeStart = useRef({ x: 0, y: 0 });
@@ -443,12 +601,27 @@ function ReelPlayer({
   const reel = reels[reelIndex];
   const total = reels.length;
   const products = reel?.products || [];
-  const selectedProduct = products[selectedProductIdx] || products[0] || null;
+  const selectedProduct = products[0] || null;
+
+  // ── Variant computation from selected product ──
+  const variantData = extractVariantData(selectedProduct?.variants, selectedColor, selectedSize);
+  const { colors, sizes, oosColors, oosSizes, matched: matchedVariant, firstAvailable: firstAvailVariant, hasVariants, allSelected: hasAllVariantSelections } = variantData;
+  const hasSelectableOptions = colors.length > 0 || sizes.length > 0;
+
+  // Drag-down-to-close: close player when swiping down on first reel
+  const shouldCloseOnSwipeDown = reelIndex === 0;
 
   useEffect(() => {
-    setSelectedProductIdx(0);
     setShowProductCard(true);
     setShowSwipeHint(true);
+    setSelectedColor('');
+    setSelectedSize('');
+    setShowVariantModal(false);
+    setVariantQty(1);
+    setIsAddingVariant(false);
+    setShowTapOverlay(false);
+    if (tapOverlayTimer.current) clearTimeout(tapOverlayTimer.current);
+
     swipeOffsetRef.current = 0;
     if (contentRef.current) {
       contentRef.current.style.transition = 'none';
@@ -498,10 +671,26 @@ function ReelPlayer({
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); };
+    document.body.setAttribute('data-reel-player', 'active');
+    return () => {
+      document.body.style.overflow = '';
+      document.body.removeAttribute('data-reel-player');
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      if (tapOverlayTimer.current) clearTimeout(tapOverlayTimer.current);
+    };
   }, []);
 
-  const togglePlay = useCallback(() => setIsPlaying((p) => !p), []);
+  const handleTapVideo = useCallback((e) => {
+    e.stopPropagation();
+    const nextPlaying = !isPlaying;
+    setIsPlaying(nextPlaying);
+    // Show animated overlay
+    setTapIconIsPlay(nextPlaying);
+    setShowTapOverlay(true);
+    if (tapOverlayTimer.current) clearTimeout(tapOverlayTimer.current);
+    tapOverlayTimer.current = setTimeout(() => setShowTapOverlay(false), 600);
+  }, [isPlaying]);
+
   const toggleMute = useCallback((e) => { e.stopPropagation(); setIsMuted((m) => !m); }, []);
 
   /* ══════════════════════════════════════════════════════════
@@ -536,6 +725,8 @@ function ReelPlayer({
   const handlePointerDown = useCallback((e) => {
     if (isSwiping) return;
     if (e.button !== 0) return;
+    // Don't capture pointer on interactive elements — let buttons work normally
+    if (e.target.closest('button, [role="button"], a, input, select, textarea')) return;
     // Capture pointer for reliable tracking even if finger leaves the element
     e.currentTarget.setPointerCapture(e.pointerId);
 
@@ -574,9 +765,20 @@ function ReelPlayer({
     if (!el) return;
 
     if (Math.abs(offset) > SWIPE_THRESHOLD) {
+      const direction = offset > 0 ? 1 : -1;
+
+      // ── DRAG DOWN TO CLOSE: On first reel, swipe down closes the player ──
+      if (direction > 0 && shouldCloseOnSwipeDown) {
+        setIsSwiping(true);
+        const cardHeight = getCardHeight();
+        animateTo(el, cardHeight, SWIPE_TRANSITION, () => {
+          onClose();
+        });
+        return;
+      }
+
       // ── PAST THRESHOLD: TikTok-style off-screen → switch → on-screen ──
       setIsSwiping(true);
-      const direction = offset > 0 ? 1 : -1;
       const cardHeight = getCardHeight();
       const targetY = direction * cardHeight;
 
@@ -602,9 +804,9 @@ function ReelPlayer({
       // ── BELOW THRESHOLD: Snap back ──
       animateTo(el, 0, SWIPE_TRANSITION);
     }
-  }, [getCardHeight, goPrev, goNext, animateTo, setIsSwiping]);
+  }, [getCardHeight, goPrev, goNext, animateTo, setIsSwiping, shouldCloseOnSwipeDown, onClose]);
 
-  const isLiked = likedItems.has(reel?.id);
+  const isLiked = isInWishlist(selectedProduct?.id);
   const isAddingProduct = justAdded === selectedProduct?.id;
   const inCartProduct = cartItems.has(selectedProduct?.id);
 
@@ -619,12 +821,13 @@ function ReelPlayer({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      exit={{ opacity: 0, y: 200 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className="fixed inset-0 z-50 bg-black overflow-hidden"
-      onClick={onClose}
     >
-      <div className="relative w-full h-full md:flex md:items-center md:justify-center md:gap-4 max-sm:flex max-sm:flex-col">
+      {/* Clickable overlay to close player (desktop: clicking outside center card) */}
+      <div className="absolute inset-0 z-0" onClick={onClose} />
+      <div className="relative w-full h-full md:flex md:items-center md:justify-center md:gap-4 max-sm:flex max-sm:flex-col z-10">
 
         {/* Prev peek */}
         <motion.div key={`prev-${reelIndex}`}
@@ -703,8 +906,35 @@ function ReelPlayer({
                 muted={isMuted} autoPlay playsInline loop={false} preload="auto"
                 poster={reel.imageUrl || undefined}
                 onCanPlay={() => setVideoReady(true)} onError={() => setVideoError(true)}
-                onClick={(e) => { e.stopPropagation(); togglePlay(); }} />
+                onClick={handleTapVideo} />
             )}
+
+            {/* Tap play/pause overlay */}
+            <AnimatePresence>
+              {showTapOverlay && (
+                <motion.div
+                  key="tap-overlay"
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none"
+                >
+                  <motion.div
+                    initial={{ scale: 0.3 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.35, bounce: 0.3 }}
+                    className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl"
+                  >
+                    {tapIconIsPlay ? (
+                      <Play size={28} className="text-white fill-white ml-0.5" />
+                    ) : (
+                      <Pause size={24} className="text-white" />
+                    )}
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Gradients */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent via-50% to-transparent pointer-events-none z-[2]" />
@@ -716,8 +946,13 @@ function ReelPlayer({
               transition={{ duration: 0.8, ease: 'easeOut' }}
               className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none">
               <ChevronUp size={14} />
-              <span className="text-white/30 text-[7px] font-bold uppercase tracking-wider">{t('reels.swipe')}</span>
+              <span className="text-white/30 text-[7px] font-bold uppercase tracking-wider">
+                {shouldCloseOnSwipeDown ? t('reels.swipe') : t('reels.swipe')}
+              </span>
               <ChevronDown size={14} />
+              {shouldCloseOnSwipeDown && (
+                <span className="text-white/20 text-[6px] font-bold uppercase tracking-wider -mt-1">{t('reels.down_to_close') || 'drag to close'}</span>
+              )}
             </motion.div>
 
             {/* Progress bar — hide when video errored or unsupported */}
@@ -730,24 +965,26 @@ function ReelPlayer({
               </div>
             )}
 
-            {/* Top bar */}
-            <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-3 pt-3 pb-2 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
-              <button onClick={(e) => { e.stopPropagation(); toggleMute(e); }}
-                className="pointer-events-auto w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-all">
-                {isMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-              </button>
+            {/* Top bar — only close, with centered counter */}
+            <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-center px-3 pt-3 pb-2 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
               <div className="pointer-events-auto px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white/60 text-[9px] font-bold tracking-wider">
                 {reelIndex + 1} / {total}
               </div>
               <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="pointer-events-auto w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
+                className="absolute right-3 pointer-events-auto w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
                 <X size={14} />
               </button>
             </div>
 
+            {/* Floating mute button — bottom-left, prominent */}
+            <button onClick={(e) => { e.stopPropagation(); toggleMute(e); }}
+              className="absolute bottom-28 left-3 z-30 pointer-events-auto w-10 h-10 rounded-full bg-black/60 backdrop-blur-lg border border-white/15 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all hover:scale-110 active:scale-95 shadow-lg">
+              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+
             {/* Floating sidebar */}
             <div className="absolute right-3 bottom-52 md:bottom-36 z-30 flex flex-col items-center gap-4 pointer-events-none">
-              <button onClick={(e) => { e.stopPropagation(); onToggleLike(reel.id); }}
+              <button onClick={(e) => { e.stopPropagation(); onToggleLike(reel, selectedProduct?.id); }}
                 className="pointer-events-auto flex flex-col items-center gap-0.5 group">
                 <div className={`w-11 h-11 rounded-full backdrop-blur-md border flex items-center justify-center transition-all duration-300 ${
                   isLiked ? 'bg-rose-500/20 border-rose-400/40 text-rose-400' : 'bg-black/50 border-white/15 text-white/70 hover:bg-white/20 hover:text-white'
@@ -765,6 +1002,7 @@ function ReelPlayer({
               </button>
             </div>
           </div>
+
         </div>
 
         {/* Next peek */}
@@ -782,6 +1020,13 @@ function ReelPlayer({
         </motion.div>
       </div>
 
+      {/* Close button — always visible, even above variant modal */}
+      <button onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="flex fixed top-4 left-4 z-[9999] px-4 py-3 rounded-full bg-black/70 backdrop-blur-md border border-white/20 items-center gap-2 text-white text-sm font-bold shadow-2xl hover:bg-black/90 hover:scale-105 transition-all active:scale-95">
+        <ChevronLeft size={20} />
+        <span>Back</span>
+      </button>
+
       {/* Desktop arrows */}
       <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
         className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm shadow-lg items-center justify-center text-gray-700 hover:bg-white hover:scale-105 transition-all active:scale-95"
@@ -794,64 +1039,285 @@ function ReelPlayer({
         <ChevronRight size={20} />
       </button>
 
-      {/* ── PRODUCT CARD ── */}
+      {/* ── Variant Selection Modal (rendered at root level to avoid overflow clipping) ── */}
+      <AnimatePresence>
+        {showVariantModal && (
+          <motion.div
+            key="variant-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[65] flex items-end justify-center"
+            onClick={() => setShowVariantModal(false)}
+          >
+            {/* Dark backdrop */}
+            <div className="absolute inset-0 bg-black/60" />
+
+            {/* Bottom Sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', duration: 0.4, bounce: 0.2 }}
+              className="relative w-full max-w-md mx-auto max-h-[70vh] bg-white rounded-t-2xl shadow-2xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag Handle */}
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-gray-300/70" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 pb-2 shrink-0 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center">
+                    <ShoppingBag size={13} className="text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">{t('reels.add_to_cart')}</span>
+                </div>
+                <button onClick={() => setShowVariantModal(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all duration-150 active:scale-[0.85]">
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Product Info Row */}
+              <div className="flex items-center gap-3 px-4 pb-3 pt-3 border-b border-gray-100 shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
+                  {prodImg ? (
+                    <img src={prodImg} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xl">👕</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-900 truncate">{prodName}</p>
+                  <p className="text-sm font-extrabold text-gray-900 mt-0.5">
+                    {formatCurrency(matchedVariant?.price ?? prodPrice)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Scrollable Options */}
+              <div className="flex-1 overflow-y-auto px-4">
+                <div className="py-3 space-y-3">
+                  {/* Colors */}
+                  {colors.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Color · <span className="text-gray-900 font-bold">{selectedColor || 'Select'}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {colors.map((c) => {
+                          const isOOS = oosColors.has(c);
+                          const isSelected = selectedColor === c;
+                          return (
+                            <button
+                              key={c}
+                              disabled={isOOS}
+                              onClick={() => setSelectedColor(c)}
+                              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                isSelected
+                                  ? 'border-gray-900 scale-110 shadow-sm'
+                                  : isOOS
+                                  ? 'border-gray-200 opacity-30 cursor-not-allowed'
+                                  : 'border-transparent hover:border-gray-300'
+                              }`}
+                              title={c}
+                            >
+                              <div
+                                className={`w-[22px] h-[22px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
+                                style={{ background: getColorHex(c) }}
+                              />
+                              {isOOS && (
+                                <span className="absolute inset-0 flex items-center justify-center">
+                                  <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                    <line x1="4" y1="4" x2="20" y2="20" />
+                                  </svg>
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sizes */}
+                  {sizes.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Size · <span className="text-gray-900 font-bold">{selectedSize || 'Select'}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {sizes.map((s) => {
+                          const isOOS = oosSizes.has(s);
+                          const isSelected = selectedSize === s;
+                          return (
+                            <button
+                              key={s}
+                              disabled={isOOS}
+                              onClick={() => setSelectedSize(s)}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-150 ${
+                                isOOS
+                                  ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
+                                  : isSelected
+                                  ? 'bg-gray-900 text-white shadow-sm scale-[1.02]'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {s}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sticky Bottom: Qty + Add to Cart */}
+              <div className="shrink-0 px-4 pb-4 pt-3 border-t border-gray-100 bg-white">
+                <div className="flex items-center gap-3">
+                  {/* Qty Stepper */}
+                  <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0">
+                    <button onClick={() => setVariantQty(Math.max(1, variantQty - 1))}
+                      disabled={variantQty <= 1}
+                      className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-all duration-150 active:scale-[0.88] disabled:opacity-30 disabled:cursor-not-allowed">
+                      <Minus size={12} />
+                    </button>
+                    <span className="w-9 h-9 flex items-center justify-center text-sm font-bold text-gray-800 bg-gray-50 border-x border-gray-200">
+                      {variantQty}
+                    </span>
+                    <button onClick={() => setVariantQty(variantQty + 1)}
+                      className="w-9 h-9 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-all duration-150 active:scale-[0.88]">
+                      <Plus size={12} />
+                    </button>
+                  </div>
+
+                  {/* Add to Cart */}
+                  <button
+                    onClick={() => {
+                      if (!hasAllVariantSelections || !selectedProduct?.id) return;
+                      setIsAddingVariant(true);
+                      onAddToCart(selectedProduct.id, selectedColor, selectedSize, matchedVariant?.id, variantQty);
+                      setTimeout(() => {
+                        setShowVariantModal(false);
+                        setIsAddingVariant(false);
+                      }, 300);
+                    }}
+                    disabled={!hasAllVariantSelections || isAddingVariant || (hasAllVariantSelections && (!matchedVariant || (matchedVariant?.quantity || 0) <= 0))}
+                    className={`flex-1 h-10 flex items-center justify-center gap-2 text-xs font-bold rounded-lg transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed ${
+                      hasAllVariantSelections && !isAddingVariant && matchedVariant && (matchedVariant?.quantity || 0) > 0
+                        ? 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm'
+                        : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {isAddingVariant ? (
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : !hasAllVariantSelections ? (
+                      <span>{t('product.select') || 'Select'}</span>
+                    ) : !matchedVariant && hasVariants && hasSelectableOptions ? (
+                      <span>{t('product.unavailable') || 'Unavailable'}</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <ShoppingBag size={12} />
+                        <span>{t('product.add_price', { price: formatCurrency((matchedVariant?.price ?? prodPrice) * variantQty) })}</span>
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── PRODUCT CARD — Compact ── */}
       <AnimatePresence>
         {showProductCard && (
-          <motion.div key={`product-${reelIndex}-${selectedProductIdx}`}
-            initial={{ y: 200, opacity: 0 }}
+          <motion.div key={`product-${reelIndex}-0`}
+            initial={{ y: 160, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 200, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ y: 160, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="absolute bottom-0 left-0 right-0 z-40 flex justify-center"
             onClick={(e) => e.stopPropagation()}>
             <motion.div drag="y"
               dragConstraints={{ top: 0, bottom: 200 }}
               dragElastic={0.5}
               onDragEnd={(_, info) => { if (info.offset.y > 60) setShowProductCard(false); }}
-              className="w-full max-w-[400px] mx-auto bg-white rounded-t-2xl shadow-2xl border border-gray-100/80 overflow-hidden">
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300" />
-              </div>
-              <div className="px-4 pb-4 pt-1">
-                {products.length > 1 && (
-                  <div className="mb-3">
-                    <ProductCarouselStrip products={products} selectedIdx={selectedProductIdx}
-                      onSelect={setSelectedProductIdx} cartItems={cartItems}
-                      justAdded={justAdded} onAddToCart={onAddToCart} reelId={reel.id} />
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  {prodImg && (
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
-                      <img src={prodImg} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 leading-tight line-clamp-1">{prodName}</p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {prodPrice && <span className="text-base font-bold text-gray-900">{formatCurrency(prodPrice)}</span>}
-                      {prodOld && <span className="text-xs text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
-                      {prodOld && prodPrice && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[8px] font-bold">
-                          {discountPercent(prodOld, prodPrice)}% OFF
-                        </span>
+              className="w-full max-w-[400px] mx-auto">
+              <div className="mx-3 mb-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+                <div className="flex justify-center pt-2.5 pb-0">
+                  <div className="w-9 h-1 rounded-full bg-gray-300/60" />
+                </div>
+                <div className="p-3 pt-1.5">
+                  <div className="flex items-start gap-3">
+                    {prodImg && (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200 shadow-sm">
+                        <img src={prodImg} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-1">{prodName}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {prodPrice && <span className="text-sm font-extrabold text-gray-900">{formatCurrency(prodPrice)}</span>}
+                        {prodOld && <span className="text-[10px] text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
+                        {prodOld && prodPrice && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[7px] font-bold">
+                            -{discountPercent(prodOld, prodPrice)}%
+                          </span>
+                        )}
+                      </div>
+                      {/* Color/size preview chips */}
+                      {hasSelectableOptions && selectedColor && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {selectedColor && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gray-100 text-[7px] font-bold text-gray-600">
+                              <span className="w-2 h-2 rounded-full border border-black/10" style={{ background: getColorHex(selectedColor) }} />
+                              {selectedColor}
+                            </span>
+                          )}
+                          {selectedSize && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-[7px] font-bold text-gray-600">
+                              {selectedSize}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
+                    {/* Add to Cart Button - prominent */}
+                    <motion.button whileTap={{ scale: 0.93 }}
+                      onClick={() => {
+                        if (inCartProduct || isAddingProduct) return;
+                        if (hasSelectableOptions) {
+                          setSelectedColor(firstAvailVariant?.attributes?.color || '');
+                          setSelectedSize(firstAvailVariant?.attributes?.size || '');
+                          setShowVariantModal(true);
+                        } else {
+                          if (selectedProduct?.id) {
+                            onAddToCart(selectedProduct.id);
+                          }
+                        }
+                      }}
+                      disabled={inCartProduct || isAddingProduct}
+                      className={`shrink-0 h-9 px-4 rounded-xl text-[9px] font-extrabold uppercase tracking-wider transition-all duration-200 shadow-sm ${
+                        inCartProduct
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          : 'bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950 hover:shadow-md'
+                      }`}>
+                      {isAddingProduct ? (
+                        <span className="flex items-center gap-1"><Check size={11} /></span>
+                      ) : inCartProduct ? (
+                        <span className="flex items-center gap-1.5"><Check size={11} /> {t('reels.added')}</span>
+                      ) : (
+                        <span className="flex items-center gap-1.5"><ShoppingCart size={11} /> {t('reels.cart')}</span>
+                      )}
+                    </motion.button>
                   </div>
                 </div>
-                <motion.button whileTap={{ scale: 0.97 }}
-                  onClick={() => { if (selectedProduct?.id) onAddToCart(selectedProduct.id); }}
-                  disabled={inCartProduct}
-                  className={`w-full mt-3 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
-                    inCartProduct ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950 shadow-sm'
-                  }`}>
-                  {isAddingProduct ? (                      <span className="flex items-center justify-center gap-2"><Check size={14} /> {t('reels.add_to_cart')}</span>
-                  ) : inCartProduct ? (
-                    <span className="flex items-center justify-center gap-2"><Check size={14} /> {t('reels.in_cart')}</span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2"><ShoppingCart size={14} /> {t('reels.add_to_cart')}</span>
-                  )}
-                </motion.button>
               </div>
             </motion.div>
           </motion.div>
@@ -859,12 +1325,12 @@ function ReelPlayer({
       </AnimatePresence>
 
       {!showProductCard && (
-        <motion.button initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        <motion.button initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           onClick={(e) => { e.stopPropagation(); setShowProductCard(true); }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/60 flex items-center gap-2 text-gray-700 text-xs font-bold uppercase tracking-wider hover:bg-white transition-all">
-          <ChevronUp size={14} /> {t('reels.show_product')}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200/60 flex items-center gap-1.5 text-gray-700 text-[10px] font-bold uppercase tracking-wider hover:bg-white transition-all">
+          <ChevronUp size={12} /> {t('reels.show_product')}
         </motion.button>
       )}
     </motion.div>

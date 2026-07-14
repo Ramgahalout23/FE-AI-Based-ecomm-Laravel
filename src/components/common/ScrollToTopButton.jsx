@@ -13,6 +13,21 @@ import { ArrowUp } from 'lucide-react';
 
 export default function ScrollToTopButton() {
   const [visible, setVisible] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+
+  // Watch body overflow & reel-player data attr — ReelPlayer sets both when open
+  useEffect(() => {
+    const checkOverlay = () => {
+      setIsOverlayOpen(
+        document.body.style.overflow === 'hidden' ||
+        document.body.getAttribute('data-reel-player') === 'active'
+      );
+    };
+    checkOverlay();
+    const observer = new MutationObserver(checkOverlay);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setVisible(window.scrollY > 500);
@@ -26,7 +41,7 @@ export default function ScrollToTopButton() {
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible && !isOverlayOpen && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
