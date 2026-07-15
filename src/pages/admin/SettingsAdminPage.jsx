@@ -2978,7 +2978,6 @@ export default function SettingsAdminPage() {
                       flex: 1,
                       padding: '16px',
                       background: '#e5ddd5',
-                      background: '#e5ddd5',
 
                       display: 'flex',
                       flexDirection: 'column',
