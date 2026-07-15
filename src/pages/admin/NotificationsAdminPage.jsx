@@ -89,11 +89,17 @@ export default function NotificationsAdminPage() {
   // Backend has no "audience" concept; it requires explicit userIds.
   const resolveAudienceUserIds = async (audience) => {
     // Fetch a large page; backend pagination caps may apply.
-    const res = await adminAPI.getAllUsers({ page: 1, limit: 1000 });
-    const payload = res.data?.data;
-    const users = Array.isArray(payload)
-      ? payload
-      : payload?.users || payload?.items || [];
+    let users;
+    if (_cachedAllUsers) {
+      users = _cachedAllUsers;
+    } else {
+      const res = await adminAPI.getAllUsers({ page: 1, limit: 1000 });
+      const payload = res.data?.data;
+      users = Array.isArray(payload)
+        ? payload
+        : payload?.users || payload?.items || [];
+      _cachedAllUsers = users;
+    }
     let filtered = users;
     if (audience === 'VIP') {
       // Best-effort: prefer a flag if present, else fall back to all
@@ -110,7 +116,10 @@ export default function NotificationsAdminPage() {
     return filtered.map((u) => u.id).filter(Boolean);
   };
 
-  const validateForm = () => {
+  // Module-level cache for user reference data (bulk notification recipient resolution)
+let _cachedAllUsers = null;
+
+const validateForm = () => {
     if (!form.title || form.title.trim().length < 3) {
       toast.error('Title must be at least 3 characters');
       return false;

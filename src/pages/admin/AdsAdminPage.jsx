@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, BarChart3, Building2, Sparkles, PieChart, GitCompare,
-  AlertCircle, Target, MessageCircle, Play, Plus, RefreshCw, CheckSquare
+  AlertCircle, Plus, RefreshCw, CheckSquare
 } from 'lucide-react';
 import { adsAPI } from '../../api/ads';
 import { adminAPI } from '../../api/admin';
@@ -50,10 +50,10 @@ export default function AdsAdminPage() {
   // Brand & AI state
   const [brandSettings, setBrandSettings] = useState(null);
   const [brandCampaigns, setBrandCampaigns] = useState([]);
-  const [aiTone, setAiTone] = useState('professional');
-  const [aiPlatform, setAiPlatform] = useState('FACEBOOK');
-  const [aiGeneratedCopy, setAiGeneratedCopy] = useState(null);
-  const [aiResultTab, setAiResultTab] = useState('copy');
+  const [, setAiTone] = useState('professional');
+  const [, setAiPlatform] = useState('FACEBOOK');
+  const [, setAiGeneratedCopy] = useState(null);
+  const [, setAiResultTab] = useState('copy');
 
   const loadBrandSettings = useCallback(async () => {
     try {

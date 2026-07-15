@@ -1,4 +1,4 @@
-import { Settings, Send, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Settings, Send, Activity, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { smsAPI } from '../../api/sms';
 import toast from '../../utils/toast';
@@ -41,9 +41,9 @@ export default function SmsAdminPage() {
   const getStatusIcon = () => {
     if (!health) return <Activity size={20} />;
     switch (health.status) {
-      case 'connected': return <Check size={20} Circle />;
+      case 'connected': return <span style={{ color: '#16a34a' }}>✅</span>;
       case 'not_configured': return <AlertTriangle size={20} />;
-      default: return <X size={20} Circle />;
+      default: return <span style={{ color: '#dc2626' }}>❌</span>;
     }
   };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
-import { formatDate, getInitials } from '../../utils/formatters';
+import { formatDate, formatCurrency, getInitials } from '../../utils/formatters';
 import { USER_ROLES } from '../../utils/constants';
 import { ArrowLeft, Mail, Phone, Calendar, Shield, Activity } from 'lucide-react';
 import toast from '../../utils/toast';

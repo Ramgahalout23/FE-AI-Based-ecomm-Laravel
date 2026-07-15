@@ -1,4 +1,4 @@
-import { Search, Plus, RefreshCw, Trash2, CheckCircle, AlertCircle, ExternalLink, Clock } from 'lucide-react';
+import { Search, Plus, RefreshCw, Trash2, CheckCircle, ExternalLink, Clock } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import { PageSkeleton } from '../../components/admin/pageSkeletonConfig';
@@ -302,7 +302,7 @@ export default function CurrencyAdminPage() {
                   <td>
                     {currency.is_default ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>
-                        <Check size={14} Circle /> Default
+                        <CheckCircle size={14} /> Default
                       </span>
                     ) : (
                       <button

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { adminAPI } from '../../api/admin';
 import { shippingAPI } from '../../api/shipping';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import { formatDate, formatDateTime } from '../../utils/formatters';
@@ -132,10 +133,12 @@ export default function ShippingAdminPage() {
     } else {
       loadShipments(1);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage checked intentionally; loadShipments changes on every render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     loadShipments(currentPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadShipments changes on every render; adding it would cause infinite re-fetch loop
   }, [currentPage]);
 
   const handleCreateShipment = async () => {

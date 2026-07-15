@@ -27,6 +27,9 @@ const CURATED_LOOK_COLUMNS = [
   { key: 'createdAt', label: 'Created Date' },
 ];
 
+// Module-level cache for product reference data
+let _cachedProducts = null;
+
 export default function CuratedLooksAdminPage() {
   const [looks, setLooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -189,12 +192,18 @@ export default function CuratedLooksAdminPage() {
   }, [currentPage]);
 
   const loadProducts = useCallback(async () => {
+    if (_cachedProducts) {
+      setAvailableProducts(_cachedProducts);
+      return;
+    }
     setProductsLoading(true);
     try {
       const r = await adminAPI.getProducts({ limit: 200 });
       const data = r.data?.data || r.data;
       const list = data?.items || data?.products || data?.data || (Array.isArray(data) ? data : []);
-      setAvailableProducts(Array.isArray(list) ? list : []);
+      const normalized = Array.isArray(list) ? list : [];
+      _cachedProducts = normalized;
+      setAvailableProducts(normalized);
     } catch {
       // silent — product loading is non-critical
     } finally {

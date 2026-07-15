@@ -76,7 +76,7 @@ export default function BackupsAdminPage() {
       const r = await adminAPI.listBackups();
       const payload = r.data?.data || [];
       setBackups(Array.isArray(payload) ? payload : []);
-    } catch (e) {
+    } catch {
       setError('Failed to load backups');
       setBackups([]);
     } finally { setLoading(false); }
@@ -129,7 +129,7 @@ export default function BackupsAdminPage() {
         fetchBackups();
       }
       // 'processing' — keep polling
-    } catch (e) {
+    } catch {
       // Poll error — keep trying
       if (!mountedRef.current) return;
     }

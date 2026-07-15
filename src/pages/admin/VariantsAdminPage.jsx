@@ -3,12 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 ;
 import Pagination from '../../components/admin/Pagination';
 import { adminAPI } from '../../api/admin';
-import { productsAPI } from '../../api/products';
 import { aiAPI } from '../../api/ai';
 import { inventoryAPI } from '../../api/inventory';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
 import { downloadBlob } from '../../utils/download';
-import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import AdminPageShell from '../../components/admin/AdminPageShell';
@@ -217,16 +215,8 @@ function ProductSelector({ value, onChange }) {
   );
 }
 
-const VARIANT_COLUMNS = [
-  { key: 'productName', label: 'Product' },
-  { key: 'variantName', label: 'Variant' },
-  { key: 'sku', label: 'SKU' },
-  { key: 'price', label: 'Price' },
-  { key: 'stock', label: 'Stock' },
-  { key: 'color', label: 'Color' },
-  { key: 'size', label: 'Size' },
-  { key: 'createdAt', label: 'Created Date' },
-];
+// Module-level cache — survives StrictMode double-mount and re-navigation within the session
+let _cachedProducts = null;
 
 export default function VariantsAdminPage() {
   const [variants, setVariants] = useState([]);
@@ -240,13 +230,24 @@ export default function VariantsAdminPage() {
   const [productFilter, setProductFilter] = useState('');
   const [products, setProducts] = useState([]);
 
-  // Load product list for filter dropdown
+  // Prevent duplicate fetch on StrictMode double-mount
+  const fetchedRef = useRef(false);
+
+  // Load product list for filter dropdown (cached to avoid redundant fetches)
   useEffect(() => {
+    if (_cachedProducts) {
+      setProducts(_cachedProducts);
+      return;
+    }
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     (async () => {
       try {
         const res = await adminAPI.getProducts({ limit: 200, page: 1 });
         const list = res.data?.data?.products || res.data?.products || res.data?.data || [];
-        setProducts(Array.isArray(list) ? list : []);
+        const normalized = Array.isArray(list) ? list : [];
+        _cachedProducts = normalized;
+        setProducts(normalized);
       } catch { /* non-critical */ }
     })();
   }, []);
@@ -257,12 +258,6 @@ export default function VariantsAdminPage() {
     }, 400);
     return () => clearTimeout(handler);
   }, [search]);
-
-  // CSV export
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportStatus, setExportStatus] = useState(null);
-  const [exportError, setExportError] = useState(null);
 
   // Batch barcode selection
   const [selectedVariantIds, setSelectedVariantIds] = useState(new Set());
@@ -343,7 +338,7 @@ export default function VariantsAdminPage() {
       downloadBlob(downloadRes, `barcode-variants-${variant_count}-${new Date().toISOString().split('T')[0]}.pdf`);
       toast.success(`Downloaded barcodes for ${variant_count} variant(s)`);
       setSelectedVariantIds(new Set());
-    } catch (err) {
+    } catch {
       toast.error('Failed to download batch barcodes');
     } finally {
       setBatchBarcoding(false);
@@ -386,6 +381,7 @@ export default function VariantsAdminPage() {
 
   useEffect(() => {
     load(currentPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   const openEdit = (v) => {
@@ -645,7 +641,7 @@ export default function VariantsAdminPage() {
 
           {/* Export button */}
           <button
-            onClick={() => setShowExportModal(true)}
+            onClick={() => toast('Export coming soon')}
             title="Export variants as CSV"
             style={{
               display: 'flex', alignItems: 'center', gap: '0.35rem',
@@ -891,7 +887,7 @@ export default function VariantsAdminPage() {
                       break;
                     }
                     if (status === 'failed') { toast.error('Generation failed'); break; }
-                  } catch {}
+                  } catch { /* noop */ }
                 }
               } catch { toast.error('Failed'); }
               setBarcodeProgress({ attempts: 0, maxAttempts: 30 });

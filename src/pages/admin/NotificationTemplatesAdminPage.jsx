@@ -14,21 +14,21 @@ export default function NotificationTemplatesAdminPage() {
   const [saving, setSaving] = useState(false);
   const [previewSample, setPreviewSample] = useState('');
 
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
   const loadTemplates = async () => {
     setLoading(true);
     try {
       const res = await adminAPI.getNotificationTemplates();
       setTemplates(res?.data?.data || []);
-    } catch (err) {
+    } catch {
       showError('Failed to load notification templates');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   const selectTemplate = async (id) => {
     try {
@@ -57,7 +57,7 @@ export default function NotificationTemplatesAdminPage() {
           message: t.custom_message || '',
         });
       }
-    } catch (err) {
+    } catch {
       showError('Failed to load template details');
     }
   };
@@ -70,7 +70,7 @@ export default function NotificationTemplatesAdminPage() {
       showSuccess('Template updated successfully');
       selectTemplate(selectedId);
       loadTemplates();
-    } catch (err) {
+    } catch {
       showError('Failed to update template');
     } finally {
       setSaving(false);
@@ -86,7 +86,7 @@ export default function NotificationTemplatesAdminPage() {
         setEditData((prev) => ({ ...prev, active: isActive }));
       }
       loadTemplates();
-    } catch (err) {
+    } catch {
       showError('Failed to toggle template');
     }
   };
@@ -102,7 +102,7 @@ export default function NotificationTemplatesAdminPage() {
       }
       const res = await adminAPI.previewNotificationTemplate(selectedId, { data: sampleData });
       setPreviewData(res?.data?.data);
-    } catch (err) {
+    } catch {
       showError('Failed to preview template');
     }
   };

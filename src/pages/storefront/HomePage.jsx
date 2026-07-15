@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
@@ -23,11 +23,12 @@ import AllReviewsModal from '../../components/reviews/AllReviewsModal';
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.98, filter: 'blur(4px)' }}
-      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin }}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
+      style={{ willChange: 'transform, opacity' }}
     >
       {children}
     </motion.div>
@@ -358,7 +359,7 @@ function CategorySection({ categories }) {
   const rest = cats.slice(1, 7); // up to 7 more cards
 
   return (
-    <section className="py-10 md:py-14 bg-white border-b border-border">
+    <section className="content-section py-10 md:py-14 bg-white border-b border-border">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header — Centered */}
         <motion.div
@@ -701,7 +702,7 @@ function NewArrivalsSection({ products }) {
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="py-10 md:py-14 bg-white">
+    <section className="content-section py-10 md:py-14 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header — Editorial Centered */}
         <motion.div
@@ -778,7 +779,7 @@ function ProductRow({ title, products }) {
   const sectionSlug = title === 'Best Sellers' ? 'best-sellers' : 'featured';
 
   return (
-    <section className="py-10 md:py-14 bg-surface">
+    <section className="content-section py-10 md:py-14 bg-surface">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header — Editorial Centered */}
         <motion.div
@@ -833,7 +834,7 @@ function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
   if (!curatedLooks || curatedLooks.length === 0) return null;
 
   return (
-    <section className="curated-section py-10 md:py-14 bg-surface">
+    <section className="content-section curated-section py-10 md:py-14 bg-surface">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -941,14 +942,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
   const touchDragRef = useRef({ startX: 0, startY: 0, isDragging: false, moved: false });
   const [isTouchDragging, setIsTouchDragging] = useState(false);
 
-  /* ── Subtle scroll-linked parallax ── */
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start end', 'end start'],
-  });
-  const bgParallaxY = useTransform(scrollYProgress, [0, 1], ['-8%', '8%']);
-  const glow1Y = useTransform(scrollYProgress, [0, 1], ['-12%', '12%']);
-  const glow2Y = useTransform(scrollYProgress, [0, 1], ['8%', '-8%']);
+  /* ── Subtle scroll-linked parallax (static fallback — avoids per-frame layout thrash from useScroll) ── */
 
   /* ── Measure card width for translate-based sliding ── */
   useEffect(() => {
@@ -1044,7 +1038,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
   return (
     <section
       ref={sectionRef}
-      className="relative py-10 md:py-14 bg-gradient-to-br from-[#0c0c0c] via-[#111] to-[#0a0a0a] overflow-hidden"
+      className="content-section relative py-10 md:py-14 bg-gradient-to-br from-[#0c0c0c] via-[#111] to-[#0a0a0a] overflow-hidden"
       style={{ touchAction: 'pan-y' }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -1061,22 +1055,21 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
         handleTouchEnd();
       }}
     >
-      {/* Subtle ambient glow with parallax — follows scroll for depth */}
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{ y: bgParallaxY }}
+      {/* Subtle ambient glow — static gradient (no per-frame parallax, avoids scroll jank) */}
+      <div className="absolute inset-0 pointer-events-none will-change-transform"
+        style={{ transform: 'translateZ(0)' }}
       >
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.5) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(255,255,255,0.2) 0%, transparent 50%)',
         }} />
-      </motion.div>
-      <motion.div
-        className="absolute top-[-120px] right-[-80px] w-[300px] h-[300px] rounded-full bg-primary/3 blur-[100px] opacity-60"
-        style={{ y: glow1Y }}
+      </div>
+      <div
+        className="absolute top-[-120px] right-[-80px] w-[300px] h-[300px] rounded-full bg-primary/3 blur-[100px] opacity-60 pointer-events-none"
+        style={{ transform: 'translateZ(0)' }}
       />
-      <motion.div
-        className="absolute bottom-[-100px] left-[-60px] w-[250px] h-[250px] rounded-full bg-white/[0.015] blur-[80px]"
-        style={{ y: glow2Y }}
+      <div
+        className="absolute bottom-[-100px] left-[-60px] w-[250px] h-[250px] rounded-full bg-white/[0.015] blur-[80px] pointer-events-none"
+        style={{ transform: 'translateZ(0)' }}
       />
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -1143,15 +1136,13 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
             {REVIEWS_DATA.map((review, idx) => (
               <motion.div
                 key={review.id}
-                initial={{ opacity: 0, y: 24, scale: 0.8, filter: 'blur(6px)' }}
-                whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-30px' }}
                 transition={{
-                  duration: 0.7,
-                  delay: idx * 0.06,
-                  ease: [0.12, 0.71, 0.33, 1],
-                  scale: { duration: 0.6, delay: idx * 0.06, ease: [0.12, 0.71, 0.33, 1] },
-                  filter: { duration: 0.5, delay: idx * 0.06, ease: 'easeOut' },
+                  duration: 0.5,
+                  delay: idx * 0.04,
+                  ease: [0.16, 1, 0.3, 1],
                 }}
                 className="review-slide max-sm:w-[70vw] max-sm:min-w-[70vw] sm:w-[290px] sm:min-w-[290px] md:w-[330px] md:min-w-[330px] snap-start shrink-0"
               >
@@ -1163,7 +1154,7 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
                   {/* Stars */}
                   <div className="flex items-center gap-0.5 mb-2 relative z-10">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <motion.svg
+                      <svg
                         key={i}
                         width="11"
                         height="11"
@@ -1171,15 +1162,11 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
                         fill={i < review.rating ? '#ffb342' : 'none'}
                         stroke={i < review.rating ? '#ffb342' : 'rgba(255,255,255,0.07)'}
                         strokeWidth="1.5"
-                        initial={{ opacity: 0, scale: 0 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.25, delay: 0.05 + i * 0.04 }}
                         className="transition-transform duration-300 group-hover/card:scale-110"
                         style={{ transformOrigin: 'center' }}
                       >
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                      </motion.svg>
+                      </svg>
                     ))}
                   </div>
 
@@ -1454,7 +1441,7 @@ function FlashSaleSection({ promotions }) {
   const promo = active[0];
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900">
+    <section className="content-section relative overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900">
       {/* Animated background orbs */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-red-500/20 blur-[80px] animate-pulse" />
@@ -1707,7 +1694,7 @@ export default function HomePage() {
       {/* Content wrapper — translates down during pull */}
       <div
         ref={contentRef}
-        className="relative bg-surface"
+        className="relative bg-surface gpu-layer"
         style={{
           transform: `translateY(${pullDistance}px)`,
           transition: isPulling && !isRefreshing

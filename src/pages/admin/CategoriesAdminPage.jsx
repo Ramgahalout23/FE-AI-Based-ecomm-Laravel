@@ -11,6 +11,9 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 
 const EMPTY = { name: '', description: '', parentId: '', image: '' };
 
+// Module-level cache for parent category dropdown reference data
+let _cachedAllCategories = null;
+
 export default function CategoriesAdminPage() {
   const [categories, setCategories] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
@@ -38,11 +41,18 @@ export default function CategoriesAdminPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const loadAllForDropdown = async () => {
+  const loadAllForDropdown = async (force = false) => {
+    if (!force && _cachedAllCategories) {
+      setAllCategories(_cachedAllCategories);
+      return;
+    }
+    _cachedAllCategories = null;
     try {
       const r = await adminAPI.getCategories({ limit: 1000 });
       const list = r.data?.data?.categories || r.data?.categories || r.data?.data || [];
-      setAllCategories(Array.isArray(list) ? list : []);
+      const normalized = Array.isArray(list) ? list : [];
+      _cachedAllCategories = normalized;
+      setAllCategories(normalized);
     } catch (err) {
       console.error('Failed to load category dropdown options:', err);
     }
@@ -174,7 +184,7 @@ export default function CategoriesAdminPage() {
         toast.success('Category created');
       }
       await load(currentPage);
-      await loadAllForDropdown();
+      await loadAllForDropdown(true);
       setShowModal(false);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
   };
@@ -231,7 +241,7 @@ export default function CategoriesAdminPage() {
       setCategories(categories.filter(c => c.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
-      await loadAllForDropdown();
+      await loadAllForDropdown(true);
     } catch (err) { 
       toast.error(err.response?.data?.message || 'Failed'); 
     }

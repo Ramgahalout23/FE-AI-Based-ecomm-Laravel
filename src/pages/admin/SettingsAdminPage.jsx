@@ -77,6 +77,9 @@ const AVAILABLE_TIMEZONES = [
   { value: 'NZST', label: 'NZST (New Zealand Standard Time)' },
 ];
 
+// Module-level cache for product reference data (New Arrival of the Week selector)
+let _cachedAvailableProducts = null;
+
 export default function SettingsAdminPage() {
   const { settings: contextSettings, loading: contextLoading, updateSettings: updateContextSettings } = useSettings();
   const [tab, setTab] = useState('general');
@@ -165,15 +168,21 @@ export default function SettingsAdminPage() {
     setLoading(contextLoading);
   }, [contextLoading]);
 
-  // Fetch products for the New Arrival of the Week selector
+  // Fetch products for the New Arrival of the Week selector (cached)
   useEffect(() => {
     if (tab === 'general') {
+      if (_cachedAvailableProducts) {
+        setAvailableProducts(_cachedAvailableProducts);
+        return;
+      }
       const fetchProducts = async () => {
         try {
           const res = await adminAPI.getProducts({ limit: 200, page: 1 });
           const data = res.data?.data || res.data;
           const list = data?.products || data?.data || (Array.isArray(data) ? data : []);
-          setAvailableProducts(list);
+          const normalized = Array.isArray(list) ? list : [];
+          _cachedAvailableProducts = normalized;
+          setAvailableProducts(normalized);
         } catch (err) {
           console.warn('Failed to load products for selector:', err);
         }
@@ -390,9 +399,6 @@ export default function SettingsAdminPage() {
       'customDesignMaxFileSize', 'customDesignAcceptedFormats',
     ],
     'chat': [
-      'maintenanceMode', 'maintenanceMessage', 'maintenanceAllowedIPs',
-    ],
-    'chat': [
       'chatbotEnabled', 'chatSupportName', 'chatResponseTime',
       'chatWelcomeMessage', 'chatOfflineMessage',
       'chatAutoReplyEnabled', 'chatAutoReplyMessage',
@@ -469,7 +475,7 @@ export default function SettingsAdminPage() {
     }
   }, [tab]);
 
-  const loadBackups = async () => {
+  async function loadBackups() {
     setBackupsLoading(true);
     try {
       const res = await adminAPI.listBackups();
@@ -495,7 +501,7 @@ export default function SettingsAdminPage() {
     }
   };
 
-  const loadSchedules = async () => {
+  async function loadSchedules() {
     setSchedulesLoading(true);
     try {
       const res = await settingsAPI.getSchedules();

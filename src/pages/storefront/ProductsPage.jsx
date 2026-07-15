@@ -688,7 +688,7 @@ export default function ProductsPage() {
 
 
   return (
-    <div className="page-content bg-white flex-1">
+    <div className="page-content bg-white flex-1 content-section">
       {/* SEO meta tags */}
       <SEOHead
         title={seoTitle}

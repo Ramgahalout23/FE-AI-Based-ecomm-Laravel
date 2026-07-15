@@ -16,4 +16,7 @@ export const trackingAPI = {
   getEvents: (params) => adminClient.get('/admin/tracking/events', { params }),
   getEventStats: (params) => adminClient.get('/admin/tracking/events/stats', { params }),
   getUserJourney: (userId) => adminClient.get(`/admin/tracking/journey/${userId}`),
+
+  // Traffic Source Analytics
+  getTrafficSources: (params) => adminClient.get('/admin/tracking/traffic-sources', { params }),
 };

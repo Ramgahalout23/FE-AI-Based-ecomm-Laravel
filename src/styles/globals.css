@@ -356,6 +356,21 @@
   to { stroke-dashoffset: 0; }
 }
 
+/* ── Scroll Performance: content-visibility for offscreen sections ── */
+.content-section {
+  content-visibility: auto;
+  contain: layout style paint;
+  contain-intrinsic-size: 1px 500px;
+}
+
+/* GPU-accelerated animation layer — promotes element to its own compositor layer */
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* ── Safe Area Insets for Modern Phones ──────────── */
 
 :root {

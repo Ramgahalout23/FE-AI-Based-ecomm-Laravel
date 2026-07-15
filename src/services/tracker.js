@@ -6,6 +6,12 @@
 
 import { trackingAPI } from '../api/tracking';
 import useAuthStore from '../store/authStore';
+import { detectTrafficSource } from '../utils/trafficSource';
+
+function getTrafficSourceFields() {
+  const { source, utm_source, utm_medium, utm_campaign, utm_term, utm_content } = detectTrafficSource();
+  return { source, utm_source, utm_medium, utm_campaign, utm_term, utm_content };
+}
 
 const TRACKING_ENABLED_KEY = '_trk_enabled';
 const SESSION_KEY = '_trk_session';
@@ -138,6 +144,7 @@ export function createTrackingSession() {
       referrer: document.referrer || null,
       landing_page: window.location.href,
       user_agent: navigator.userAgent,
+      ...getTrafficSourceFields(),
     })
     .catch(() => {
       // Silently fail
@@ -200,6 +207,7 @@ export function trackPageView(url, title) {
         referrer: document.referrer || null,
         user_agent: navigator.userAgent,
         device: getDeviceInfo().device,
+        ...getTrafficSourceFields(),
       })
       .catch(() => {});
   }, 500); // Track after 500ms on the page

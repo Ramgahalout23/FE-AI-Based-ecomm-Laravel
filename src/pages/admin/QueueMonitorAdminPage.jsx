@@ -111,7 +111,7 @@ export default function QueueMonitorAdminPage() {
         total: payload.total || items.length,
         total_pages: payload.total_pages || 1,
       });
-    } catch (e) {
+    } catch {
       setError('Failed to load failed jobs');
       setJobs([]);
     } finally {
@@ -119,6 +119,7 @@ export default function QueueMonitorAdminPage() {
     }
   }, [page, queueFilter, search]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchJobs(page); }, [page, queueFilter]);
 
   useEffect(() => {

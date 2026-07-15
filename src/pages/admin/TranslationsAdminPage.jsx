@@ -1,4 +1,4 @@
-import { Search, Plus, Globe, Check, X, ChevronDown, ChevronRight, Save, Download, Upload, Sparkles, Trash2, Pencil, RotateCcw, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Search, Plus, Globe, Check, ChevronDown, ChevronRight, Save, Download, Upload, Sparkles, Trash2, Pencil, RotateCcw, AlertCircle, FileText } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
@@ -385,6 +385,31 @@ function TranslationsTab() {
     return lang?.native_name || lang?.name || code;
   }, [languages]);
 
+  // Load translations when selected language or group changes
+  const loadTranslations = useCallback(async (lang, group) => {
+    setTranslationsLoading(true);
+    setSaveStatus(null);
+    setEditedValues({});
+    try {
+      const r = await adminAPI.getAdminTranslations(lang, group);
+      let data = r.data?.data || r.data || {};
+      // If data is an array (key-value pairs), convert to object
+      if (Array.isArray(data)) {
+        const map = {};
+        data.forEach(item => {
+          if (item.key) map[item.key] = item.value;
+        });
+        data = map;
+      }
+      setTranslations(data);
+    } catch {
+      setTranslations({});
+      toast.error('Failed to load translations');
+    } finally {
+      setTranslationsLoading(false);
+    }
+  }, []);
+
   const handleOpenAITranslate = useCallback(() => {
     if (!enTranslations || Object.keys(enTranslations).length === 0) {
       toast.error('Load English translations first (select "en" as the language)');
@@ -630,31 +655,6 @@ function TranslationsTab() {
       setEnTranslations({});
     }
   }, [selectedLang, selectedGroup]);
-
-  // Load translations when selected language or group changes
-  const loadTranslations = useCallback(async (lang, group) => {
-    setTranslationsLoading(true);
-    setSaveStatus(null);
-    setEditedValues({});
-    try {
-      const r = await adminAPI.getAdminTranslations(lang, group);
-      let data = r.data?.data || r.data || {};
-      // If data is an array (key-value pairs), convert to object
-      if (Array.isArray(data)) {
-        const map = {};
-        data.forEach(item => {
-          if (item.key) map[item.key] = item.value;
-        });
-        data = map;
-      }
-      setTranslations(data);
-    } catch {
-      setTranslations({});
-      toast.error('Failed to load translations');
-    } finally {
-      setTranslationsLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (selectedLang) {

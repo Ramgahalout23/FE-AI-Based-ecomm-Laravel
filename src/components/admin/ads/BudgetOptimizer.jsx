@@ -1,10 +1,10 @@
-import { TrendingUp, DollarSign, AlertTriangle, Lightbulb, Zap, Trophy, Clock } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Lightbulb, Zap, Clock, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 ;
 import { adsAPI } from '../../../api/ads';
 
-export default function BudgetOptimizer({ campaigns, stats }) {
+export default function BudgetOptimizer({ campaigns }) {
   const [apiData, setApiData] = useState(null);
 
   // Try to load from backend API, fall back to client-side calculation

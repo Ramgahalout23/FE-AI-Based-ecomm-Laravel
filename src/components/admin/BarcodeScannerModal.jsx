@@ -65,6 +65,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
     const handler = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handleClose changes on every render; adding it would re-register the listener unnecessarily
   }, [isOpen]);
 
   // Mounted ref for async safety
@@ -87,9 +88,10 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
       stopCamera();
     }
     return () => stopCamera();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- startCamera changes on every render; adding it would restart the camera on every render
   }, [isOpen]);
 
-  const startCamera = async () => {
+  async function startCamera() {
     if (!mountedRef.current) return;
     stopCamera();
     setScanning(true);
@@ -118,7 +120,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
       );
       const deviceId = backCamera?.deviceId || videoInputDevices[0].deviceId;
 
-      await codeReader.decodeFromVideoDevice(deviceId, videoRef.current, (result, err) => {
+      await codeReader.decodeFromVideoDevice(deviceId, videoRef.current, (result) => {
         if (result && mountedRef.current) {
           const barcode = result.getText();
           handleLookup(barcode);
@@ -127,19 +129,18 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
           setScanning(false);
         }
       });
-    } catch (err) {
+    } catch {
       if (!mountedRef.current) return;
-      console.warn('Camera scan init failed:', err);
       setError('Could not access camera. Switch to Manual Entry or use a barcode scanner.');
       setScanning(false);
     }
   };
 
-  const stopCamera = () => {
+  function stopCamera() {
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
       codeReaderRef.current = null;
     }
     // Also stop any remaining video tracks
@@ -150,7 +151,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
     }
   };
 
-  const handleLookup = async (sku) => {
+  async function handleLookup(sku) {
     if (!sku || sku.trim().length === 0) return;
 
     const cleanSku = sku.trim();
@@ -203,7 +204,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
     handleClose();
   };
 
-  const handleClose = () => {
+  function handleClose() {
     stopCamera();
     onClose();
   };

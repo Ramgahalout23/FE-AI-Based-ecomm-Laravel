@@ -1,10 +1,10 @@
-import { Trophy, BarChart3, Globe, RefreshCw, TrendingUp, TrendingDown, Minus, AlertTriangle, Search, Zap, Settings, FileText, Pencil, CheckCircle, XCircle, ArrowRight, ExternalLink, Award, GitBranch } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Trophy, BarChart3, Globe, RefreshCw, TrendingUp, TrendingDown, Minus, Zap, Settings, FileText, Pencil, CheckCircle, ArrowRight, Award, GitBranch } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
 import { formatDate, formatTime } from '../../utils/formatters';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts';
 
 function StatCard({ icon: Icon, label, value, sub, color, onClick }) {
   return (
@@ -96,10 +96,11 @@ export default function SEODashboardPage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chartsReady, setChartsReady] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(null);
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const loadDashboardRef = useRef();
 
   const loadDashboard = async () => {
@@ -116,7 +117,12 @@ export default function SEODashboardPage() {
     }
   };
 
-  loadDashboardRef.current = loadDashboard;
+  // Delay chart rendering until after layout is computed — prevents recharts -1 width/height
+  useEffect(() => {
+    loadDashboardRef.current = loadDashboard;
+    const raf = requestAnimationFrame(() => setChartsReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -256,7 +262,8 @@ export default function SEODashboardPage() {
         </div>
         {trendDaily.length > 0 ? (
           <div style={{ width: '100%', height: 220, minWidth: '1px', minHeight: '1px' }}>
-            <ResponsiveContainer width="100%" height="100%">
+            {!chartsReady && <div style={{ height: 220 }} />}
+            {chartsReady && <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendDaily} margin={{ top: 10, right: 20, left: 0, bottom: 0 }} isAnimationActive={false}>
               <defs>
                 <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
@@ -286,7 +293,7 @@ export default function SEODashboardPage() {
                   boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontSize: '0.78rem',
                 }}
                 labelFormatter={(val) => { const d = new Date(val + 'T00:00:00'); return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }}
-                formatter={(value, name) => [value + ' pts', 'Avg SEO Score']}
+                formatter={(value) => [value + ' pts', 'Avg SEO Score']}
               />
               <Area
                 type="monotone"
@@ -298,7 +305,7 @@ export default function SEODashboardPage() {
                 activeDot={{ r: 5, fill: '#c9a96e', stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer>}
           </div>
         ) : (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)', fontSize: '0.78rem' }}>

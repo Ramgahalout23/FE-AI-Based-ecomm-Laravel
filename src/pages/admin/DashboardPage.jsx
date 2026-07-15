@@ -578,7 +578,7 @@ export default function DashboardPage() {
               <>Current vs Previous Period &middot; Change: <span className={(revenueComparison.changePercent ?? 0) >= 0 ? 'text-success font-bold' : 'text-danger font-bold'}>{revenueComparison.changePercent >= 0 ? '+' : ''}{(revenueComparison.changePercent ?? 0).toFixed(1)}%</span></>
             ) : 'Comparing current vs previous period'}
           </p>
-          <div className="h-[280px]" style={{ minWidth: '1px', minHeight: '1px' }}>
+          <div className="h-[280px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
               <BarChart data={comparisonChartData} margin={CHART_MARGIN} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -650,7 +650,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Customer Growth</h3>
-          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px' }}>
+          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={growthDisplay} margin={CHART_MARGIN} isAnimationActive={false}>
                 <defs>
@@ -673,7 +673,7 @@ export default function DashboardPage() {
 
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Hourly Sales Distribution</h3>
-          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px' }}>
+          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourlyData} margin={CHART_MARGIN} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -724,7 +724,7 @@ export default function DashboardPage() {
 
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Daily Sales (Last 14 Days)</h3>
-          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px' }}>
+          <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailySales} margin={CHART_MARGIN} isAnimationActive={false}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -813,7 +813,7 @@ export default function DashboardPage() {
           {reviewAnalytics.monthly_trend && reviewAnalytics.monthly_trend.length > 0 && (
             <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
               <h4 className="font-display font-semibold text-text-primary mb-4">Average Rating Trend (12 Months)</h4>
-              <div className="h-[220px]" style={{ minWidth: '1px', minHeight: '1px' }}>
+              <div className="h-[220px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
                 {chartsReady && <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={reviewAnalytics.monthly_trend} margin={CHART_MARGIN} isAnimationActive={false}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { marketingAPI } from '../../api/marketing';
 import { campaignTemplatesAPI } from '../../api/campaignTemplates';
 import toast from '../../utils/toast';
-import { BarChart3, Users, Send, Eye, MousePointerClick, Plus, Trash2, Edit2, Play, X, Search, TrendingUp, AlertTriangle, Activity, Download, Copy, Upload, Layout, FileText } from 'lucide-react';
+import { BarChart3, Users, Send, Eye, MousePointerClick, Plus, Trash2, Edit2, Play, X, Search, AlertTriangle, Activity, Download, Copy, Upload, Layout, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const TABS = [
@@ -31,7 +31,7 @@ const SUBSCRIBER_STATUS_COLORS = {
 
 export default function MarketingAdminPage() {
   const [tab, setTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
 
   // Subscribers state
@@ -72,6 +72,8 @@ export default function MarketingAdminPage() {
   // Subscriber add modal
   const [showSubscriberModal, setShowSubscriberModal] = useState(false);
   const [subscriberForm, setSubscriberForm] = useState({ email: '', name: '' });
+
+  const [chartsReady, setChartsReady] = useState(false);
 
   // ── Templates state ──
   const [templates, setTemplates] = useState([]);
@@ -435,7 +437,7 @@ export default function MarketingAdminPage() {
     try {
       let variables = {};
       try { variables = JSON.parse(templateForm.variables || '{}'); } catch { variables = {}; }
-      const r = await marketingAPI.createCampaignFromTemplate({
+      await marketingAPI.createCampaignFromTemplate({
         templateId: templateForm.templateId,
         name: templateForm.name,
         subject: templateForm.subject,
@@ -445,7 +447,7 @@ export default function MarketingAdminPage() {
       setShowTemplatePicker(false);
       setTemplateForm({ templateId: '', name: '', subject: '', variables: '{}' });
       loadCampaigns(campaignPagination.page);
-    } catch (err) {
+    } catch {
       toast.error('Failed to create campaign from template');
     }
     setSending(false);

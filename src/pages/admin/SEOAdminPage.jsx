@@ -1,4 +1,4 @@
-import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
+import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle, Code2, Facebook, Languages, FolderTree } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
@@ -82,7 +82,7 @@ export default function SEOAdminPage() {
     { id: 'entity', label: 'Entity SEO', icon: Pencil },
     { id: 'structured', label: 'Structured Data', icon: Code2 },
     { id: 'audit', label: 'SEO Audit', icon: Trophy },
-    { id: 'sitemap', label: 'Sitemap', icon: Sitemap },
+    { id: 'sitemap', label: 'Sitemap', icon: FolderTree },
     { id: 'robots', label: 'Robots.txt', icon: FileText },
     { id: 'advanced', label: 'Advanced', icon: Settings },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -140,22 +140,6 @@ export default function SEOAdminPage() {
     finally { setAdvSettingsLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (tab === 'global') loadGlobalSEO();
-    if (tab === 'entity') { loadEntityList(entitySearch, 1); setSelectedEntity(null); }
-    if (tab === 'sitemap') loadSitemap();
-    if (tab === 'robots') loadRobots();
-    if (tab === 'structured') loadSchemas();
-    if (tab === 'advanced' || tab === 'analytics') loadAdvancedSettings();
-  }, [tab]);
-
-  const handleSaveGlobal = async () => {
-    setLoading(true);
-    try { await adminAPI.updateGlobalSEO(globalSeo); toast.success('Global SEO settings saved'); }
-    catch (e) { toast.error('Failed to save global SEO'); }
-    finally { setLoading(false); }
-  };
-
   const loadEntityList = useCallback(async (search = '', page = 1) => {
     setEntityLoading(true);
     try {
@@ -175,6 +159,36 @@ export default function SEOAdminPage() {
     } catch (e) { console.warn('Failed to load entities:', e); setEntityList([]); }
     finally { setEntityLoading(false); }
   }, [entityType]);
+
+  const loadSitemap = useCallback(async () => {
+    setSitemapLoading(true);
+    try { const res = await adminAPI.getSitemapFromDB(); const d = res.data?.data || {}; setSitemapData({ entries: d.entries || [], count: d.count || 0, lastGenerated: d.last_generated || d.lastGenerated || null }); }
+    catch { try { const res = await adminAPI.getSitemap(); const d = res.data?.data || {}; setSitemapData({ entries: d.entries || [], count: d.count || 0, lastGenerated: d.last_generated || d.lastGenerated || null }); } catch (e2) { console.warn('Failed to load sitemap:', e2); } }
+    finally { setSitemapLoading(false); }
+  }, []);
+
+  const loadRobots = useCallback(async () => {
+    setRobotsLoading(true);
+    try { const res = await adminAPI.getRobotsTxt(); const d = res.data?.data || {}; const c = d.content || 'User-agent: *\nAllow: /\n'; setRobotsContent(c); setRobotsOriginal(c); setRobotsUpdatedAt(d.updated_at || d.updatedAt || null); }
+    catch { const fb = 'User-agent: *\nAllow: /\n'; setRobotsContent(fb); setRobotsOriginal(fb); }
+    finally { setRobotsLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'global') loadGlobalSEO();
+    if (tab === 'entity') { loadEntityList(entitySearch, 1); setSelectedEntity(null); }
+    if (tab === 'sitemap') loadSitemap();
+    if (tab === 'robots') loadRobots();
+    if (tab === 'structured') loadSchemas();
+    if (tab === 'advanced' || tab === 'analytics') loadAdvancedSettings();
+  }, [tab, loadGlobalSEO, loadSchemas, loadAdvancedSettings, loadEntityList, loadSitemap, loadRobots]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveGlobal = async () => {
+    setLoading(true);
+    try { await adminAPI.updateGlobalSEO(globalSeo); toast.success('Global SEO settings saved'); }
+    catch { toast.error('Failed to save global SEO'); }
+    finally { setLoading(false); }
+  };
 
   const handleSelectEntity = async (entity) => {
     setSelectedEntity(entity); setSeoFormLoading(true);
@@ -204,7 +218,7 @@ export default function SEOAdminPage() {
           robotsMeta: '', contentLanguage: '', sitemapPriority: '0.5', sitemapChangefreq: 'weekly',
         });
       }
-    } catch (e) {
+    }    catch {
       setSeoForm({ metaTitle: readField(entity, 'seoTitle', 'title'), metaDescription: readField(entity, 'seoDescription', 'description'), metaKeywords: readField(entity, 'seoKeywords', 'keywords'), ogTitle: '', ogDescription: '', ogImage: '', canonicalUrl: '', robotsMeta: '', contentLanguage: '', sitemapPriority: '0.5', sitemapChangefreq: 'weekly' });
     } finally { setSeoFormLoading(false); }
   };
@@ -217,7 +231,7 @@ export default function SEOAdminPage() {
       Object.entries(seoForm).forEach(([key, val]) => { if (val && val.trim()) payload[key] = val.trim(); });
       await adminAPI.updateEntitySEO(entityType, selectedEntity.id, payload);
       toast.success(`SEO saved for ${selectedEntity.name || selectedEntity.title || selectedEntity.id}`);
-    } catch (e) { toast.error('Failed to save entity SEO'); }
+    }    catch { toast.error('Failed to save entity SEO'); }
     finally { setLoading(false); }
   };
 
@@ -233,35 +247,21 @@ export default function SEOAdminPage() {
         toast.success('SEO metadata deleted');
         setSeoForm({ metaTitle: '', metaDescription: '', metaKeywords: '', ogTitle: '', ogDescription: '', ogImage: '', canonicalUrl: '', robotsMeta: '', contentLanguage: '', sitemapPriority: '0.5', sitemapChangefreq: 'weekly' });
       } else toast.error('No SEO record found to delete');
-    } catch (e) { toast.error('Failed to delete SEO metadata'); }
+    } catch { toast.error('Failed to delete SEO metadata'); }
     finally { setLoading(false); }
   };
-
-  const loadSitemap = useCallback(async () => {
-    setSitemapLoading(true);
-    try { const res = await adminAPI.getSitemapFromDB(); const d = res.data?.data || {}; setSitemapData({ entries: d.entries || [], count: d.count || 0, lastGenerated: d.last_generated || d.lastGenerated || null }); }
-    catch (e) { try { const res = await adminAPI.getSitemap(); const d = res.data?.data || {}; setSitemapData({ entries: d.entries || [], count: d.count || 0, lastGenerated: d.last_generated || d.lastGenerated || null }); } catch (e2) { console.warn('Failed to load sitemap:', e2); } }
-    finally { setSitemapLoading(false); }
-  }, []);
 
   const handleRefreshSitemap = async () => {
     setSitemapLoading(true);
     try { const res = await adminAPI.refreshSitemap(); const d = res.data?.data || {}; setSitemapData({ entries: d.entries || [], count: d.count || 0, lastGenerated: d.last_generated || d.lastGenerated || null }); toast.success(`Sitemap refreshed — ${d.count || 0} entries`); }
-    catch (e) { toast.error('Failed to refresh sitemap'); }
+    catch { toast.error('Failed to refresh sitemap'); }
     finally { setSitemapLoading(false); }
   };
-
-  const loadRobots = useCallback(async () => {
-    setRobotsLoading(true);
-    try { const res = await adminAPI.getRobotsTxt(); const d = res.data?.data || {}; const c = d.content || 'User-agent: *\nAllow: /\n'; setRobotsContent(c); setRobotsOriginal(c); setRobotsUpdatedAt(d.updated_at || d.updatedAt || null); }
-    catch (e) { const fb = 'User-agent: *\nAllow: /\n'; setRobotsContent(fb); setRobotsOriginal(fb); }
-    finally { setRobotsLoading(false); }
-  }, []);
 
   const handleSaveRobots = async () => {
     setLoading(true);
     try { await adminAPI.updateRobotsTxt(robotsContent); setRobotsOriginal(robotsContent); setRobotsUpdatedAt(new Date().toISOString()); toast.success('Robots.txt saved'); }
-    catch (e) { toast.error('Failed to save robots.txt'); }
+    catch { toast.error('Failed to save robots.txt'); }
     finally { setLoading(false); }
   };
 
@@ -270,7 +270,7 @@ export default function SEOAdminPage() {
   const handleRegenerateSchemas = async () => {
     setSchemaLoading(true);
     try { const [orgRes, webRes] = await Promise.all([adminAPI.getOrganizationSchema(), adminAPI.getWebsiteSchema()]); setOrgSchema(orgRes.data?.data || null); setWebsiteSchema(webRes.data?.data || null); toast.success('Schemas regenerated'); }
-    catch (e) { toast.error('Failed to regenerate schemas'); }
+    catch { toast.error('Failed to regenerate schemas'); }
     finally { setSchemaLoading(false); }
   };
 
@@ -278,21 +278,21 @@ export default function SEOAdminPage() {
     if (!selectedEntity) { toast.error('Select an entity first on the Entity SEO tab'); return; }
     setLoading(true);
     try { await adminAPI.autoGenerateSchemas(entityType, selectedEntity.id); toast.success('Schemas auto-generated for this entity'); }
-    catch (e) { toast.error('Failed to generate schemas'); }
+    catch { toast.error('Failed to generate schemas'); }
     finally { setLoading(false); }
   };
 
   const handleRunAudit = async () => {
     setAuditLoading(true); setAuditData(null);
     try { const res = await adminAPI.auditEntitySEO(entityType, selectedEntity?.id); setAuditData(res.data?.data || null); toast.success('SEO audit complete'); }
-    catch (e) { toast.error('Failed to run audit'); }
+    catch { toast.error('Failed to run audit'); }
     finally { setAuditLoading(false); }
   };
 
   const handleBulkAudit = async () => {
     setBulkAuditLoading(true); setBulkAuditResults(null);
     try { const res = await adminAPI.bulkAuditSEO(entityType); setBulkAuditResults(res.data?.data || null); toast.success('Bulk audit complete'); }
-    catch (e) { toast.error('Failed to run bulk audit'); }
+    catch { toast.error('Failed to run bulk audit'); }
     finally { setBulkAuditLoading(false); }
   };
 
@@ -300,7 +300,7 @@ export default function SEOAdminPage() {
     if (!advSettings) return;
     setLoading(true);
     try { const res = await adminAPI.updateAdvancedSEOSettings(advSettings); setAdvSettings(res.data?.data || null); toast.success('Advanced SEO settings saved'); }
-    catch (e) { toast.error('Failed to save advanced settings'); }
+    catch { toast.error('Failed to save advanced settings'); }
     finally { setLoading(false); }
   };
 
@@ -754,7 +754,7 @@ export default function SEOAdminPage() {
             </table>
           </div>
         ) : (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Sitemap size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} /><p>No sitemap entries yet.</p></div>
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><FolderTree size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} /><p>No sitemap entries yet.</p></div>
         )}
       </>
     );

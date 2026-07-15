@@ -525,16 +525,26 @@ function OfferCardPreview({ title, badge, highlight, tagline, themeName }) {
   );
 }
 
+// Module-level cache for category reference data
+let _cachedCategories = null;
+
 function CategoryMultiSelect({ selected, onChange }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (_cachedCategories) {
+      setCategories(_cachedCategories);
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         const res = await adminAPI.getCategories({ limit: 100 });
         const list = res.data?.data?.categories || res.data?.categories || res.data?.data || [];
-        setCategories(Array.isArray(list) ? list : []);
+        const normalized = Array.isArray(list) ? list : [];
+        _cachedCategories = normalized;
+        setCategories(normalized);
       } catch {} finally { setLoading(false); }
     })();
   }, []);

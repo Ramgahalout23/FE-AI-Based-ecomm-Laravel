@@ -1,4 +1,4 @@
-import { X, Activity, Play, ChevronDown, ChevronUp, MessageCircle, Image, Eye } from 'lucide-react';
+import { X, Play, ChevronDown, ChevronUp, MessageCircle, Image, Eye, Target } from 'lucide-react';
 import { useState } from 'react';
 
 const PLATFORMS = [

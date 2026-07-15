@@ -1,4 +1,4 @@
-import { Plus, RefreshCw, X, Search, Code2, Play, Pencil, Trash2, Eye, Layout, FileText } from 'lucide-react';
+import { Plus, RefreshCw, Search, Code2, Play, Pencil, Trash2, Eye, Layout, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { campaignTemplatesAPI } from '../../api/campaignTemplates';
 import toast from '../../utils/toast';

@@ -1,4 +1,4 @@
-import { Sparkles, Zap, Trophy, Megaphone, Activity, Play, Search, Tag, MessageCircle, ArrowRight } from 'lucide-react';
+import { Sparkles, Zap, Crown, Megaphone, Play, Search, Tag, MessageCircle, ArrowRight, Target } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 
 import toast from '../../../utils/toast';
@@ -114,7 +114,6 @@ const DEFAULT_TEMPLATES = [
 export default function AdTemplateGallery({ onApplyTemplate }) {
   const [search, setSearch] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState('ALL');
-  const [previewTemplate, setPreviewTemplate] = useState(null);
   const [apiTemplates, setApiTemplates] = useState(null);
   // Try to load from backend API, fall back to defaults
   useEffect(() => {
@@ -133,7 +132,7 @@ export default function AdTemplateGallery({ onApplyTemplate }) {
       const matchPlatform = selectedPlatform === 'ALL' || t.platform === selectedPlatform;
       return matchSearch && matchPlatform;
     });
-  }, [search, selectedPlatform]);
+  }, [search, selectedPlatform, templates]);
 
   const applyTemplate = (template) => {
     onApplyTemplate({

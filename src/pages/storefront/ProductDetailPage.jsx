@@ -780,7 +780,7 @@ export default function ProductDetailPage() {
   })();
 
   return (
-    <div className="bg-white min-h-screen pb-28 lg:pb-24">
+    <div className="bg-white min-h-screen pb-28 lg:pb-24 content-section">
       
       {/* SEO meta tags — prefer custom SEO from backend, fall back to product data */}
       <SEOHead
@@ -1395,12 +1395,8 @@ export default function ProductDetailPage() {
                 ].map((item, i) => {
                   const IconComponent = item.icon;
                   return (
-                    <motion.div
+                    <div
                       key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.4, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
                       className="bg-white px-3 py-3.5 flex flex-col items-center text-center gap-1"
                     >
                       <div className="text-gray-500 mb-0">
@@ -1414,7 +1410,7 @@ export default function ProductDetailPage() {
                           {item.sub}
                         </span>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </motion.div>
@@ -1597,11 +1593,7 @@ export default function ProductDetailPage() {
                         <Star size={8} />
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                        <motion.div
-                          initial={{ scaleX: 0 }}
-                          whileInView={{ scaleX: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: (5 - star) * 0.08 }}
+                        <div
                           className="h-full rounded-full bg-amber-400 origin-left group-hover/bar:bg-amber-500 transition-colors duration-300"
                           style={{ width: `${pct}%` }}
                         />
