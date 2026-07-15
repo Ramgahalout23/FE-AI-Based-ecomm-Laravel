@@ -84,7 +84,7 @@ export default function RecentlyViewedCarousel({ products = [] }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-30px' }}
             transition={{ duration: 0.6, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
-            style={{ flexShrink: 0, width: 220 }}
+            style={{ flexShrink: 0, width: 302 }}
           >
             <ProductCard product={p} />
           </motion.div>
@@ -149,7 +149,7 @@ export function RecentlyViewedCarouselSkeleton() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-            style={{ flexShrink: 0, width: 220 }}
+            style={{ flexShrink: 0, width: 302 }}
           >
             <ProductCardSkeleton />
           </motion.div>

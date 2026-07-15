@@ -18,6 +18,7 @@ import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import NewArrivalOfTheWeek from '../../components/storefront/NewArrivalOfTheWeek';
 import ProfessionalDesignCTA from '../../components/storefront/ProfessionalDesignCTA';
 import AllReviewsModal from '../../components/reviews/AllReviewsModal';
+import RecentlyViewedCarousel from '../../components/product/RecentlyViewedCarousel';
 
 /* ═══════════ ANIMATION WRAPPERS — Premium Entrance ═══════════ */
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
@@ -1658,6 +1659,18 @@ export default function HomePage() {
   /* ── All Reviews Modal state ── */
   const [allReviewsOpen, setAllReviewsOpen] = useState(false);
 
+  // ── Recently Viewed ──
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('luxe_recently_viewed') || '[]');
+      if (Array.isArray(stored) && stored.length > 0) {
+        setRecentlyViewed(stored.slice(0, 8));
+      }
+    } catch {}
+  }, []);
+
   const { pullDistance, isRefreshing, isPulling } = usePullToRefresh({
     onRefresh: refetchAll,
     threshold: 80,
@@ -1713,6 +1726,34 @@ export default function HomePage() {
             </React.Fragment>
           );
         })}
+
+        {/* RECENTLY VIEWED */}
+        {recentlyViewed.length > 0 && (
+          <section className="py-10 md:py-14 bg-white">
+            <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center justify-between mb-6 md:mb-8"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 bg-black rounded-full" />
+                  <div>
+                    <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
+                      Recently Viewed
+                    </h2>
+                    <p className="text-xs md:text-sm text-gray-400 mt-0.5 font-medium">
+                      Pick up where you left off
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+              <RecentlyViewedCarousel products={recentlyViewed} />
+            </div>
+          </section>
+        )}
 
       </div>
 
