@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
-import { useSettings } from '../../store/useSettings';
 import './EmailTemplates.css';
 
 const TEMPLATE_ICONS = {
@@ -23,7 +22,6 @@ const TEMPLATE_NAMES = {
 };
 
 export default function EmailTemplatesAdminPage() {
-  const { updateSettings } = useSettings();
   const [templates, setTemplates] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +55,7 @@ export default function EmailTemplatesAdminPage() {
       setMode(data.mode === 'CUSTOM' ? 'CUSTOM' : 'DEFAULT');
       setCustomHtml(data.html || '');
       setPreviewHtml('');
-    } catch (e) {
+    } catch {
       toast.error('Failed to load template details');
     }
   }, []);
@@ -103,14 +101,14 @@ export default function EmailTemplatesAdminPage() {
       const html = res.data?.data?.html || '';
       setPreviewHtml(html);
       if (!html) toast.error('No preview available');
-    } catch (e) {
+    } catch {
       toast.error('Failed to generate preview');
     } finally {
       setPreviewLoading(false);
     }
   };
 
-  const handleToggleActive = async (id, currentActive) => {
+  const handleToggleActive = async (id) => {
     try {
       const res = await adminAPI.toggleEmailTemplate(id);
       const result = res.data?.data || {};
@@ -118,7 +116,7 @@ export default function EmailTemplatesAdminPage() {
         t.id === id ? { ...t, active: result.active } : t
       ));
       toast.success(`Template ${result.active ? 'activated' : 'deactivated'}`);
-    } catch (e) {
+    } catch {
       toast.error('Failed to toggle template');
     }
   };
@@ -210,7 +208,7 @@ export default function EmailTemplatesAdminPage() {
                 <div className="editor-header-right">
                   <button
                     className={`btn-toggle ${selectedTemplate?.active !== false ? 'active' : ''}`}
-                    onClick={() => handleToggleActive(selectedId, selectedTemplate?.active)}
+                    onClick={() => handleToggleActive(selectedId)}
                     title={selectedTemplate?.active !== false ? 'Click to deactivate' : 'Click to activate'}
                   >
                     <span className="toggle-dot" />

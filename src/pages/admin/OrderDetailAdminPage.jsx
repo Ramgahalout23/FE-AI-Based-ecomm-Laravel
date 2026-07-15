@@ -8,7 +8,7 @@ import '../../styles/shipping-label.css';
 import toast from '../../utils/toast';
 import { showSuccess, showError } from '../../utils/toast';
 import { useOrderStatusUpdates } from '../../hooks/useSocket';
-import { ClipboardList, User, CreditCard, DollarSign, MapPin, Package, FileText, Calendar, RefreshCw, Tag, Edit, Save, Ticket, Truck, ArrowLeft, Printer, Shield, Check, X, AlertTriangle } from 'lucide-react';
+import { ClipboardList, User, CreditCard, DollarSign, MapPin, Package, FileText, Calendar, RefreshCw, Tag, Edit, Save, Ticket, Truck, ArrowLeft, Printer, Shield, Check, X } from 'lucide-react';
 
 function Code39Barcode({ value }) {
   const code39 = {

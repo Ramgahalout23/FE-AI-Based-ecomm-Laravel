@@ -10,7 +10,7 @@ import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl, getBannerImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
-import { Image, FileText, Video, Save, Plus, X, Sparkles, Download, Home, Info, Edit, Trash2, Check, Search, Upload, RefreshCw, Crosshair } from 'lucide-react';
+import { Image, FileText, Video, Save, Plus, X, Sparkles, Download, Home, Info, Edit, Upload, Crosshair } from 'lucide-react';
 
 const DISPLAY_MODES = [
   { value: 'DEFAULT', label: 'Default (Image + Text)', icon: <><Image size={14} /><FileText size={14} /></> },

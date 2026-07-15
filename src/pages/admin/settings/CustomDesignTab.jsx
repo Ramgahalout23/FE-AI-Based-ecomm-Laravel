@@ -1,4 +1,4 @@
-import { Palette, Upload, DollarSign, Printer } from 'lucide-react';
+import { Palette, Upload, Printer } from 'lucide-react';
 
 const DESIGN_PLACEMENTS = [
   { value: 'front', label: 'Front Center' },

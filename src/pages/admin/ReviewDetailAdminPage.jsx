@@ -5,7 +5,7 @@ import {
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
-import { getStars, formatDate, getImageUrl } from '../../utils/formatters';
+import { formatDate, getImageUrl } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 

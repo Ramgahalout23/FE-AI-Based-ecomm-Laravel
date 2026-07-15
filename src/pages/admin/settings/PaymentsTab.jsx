@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import toast from '../../../utils/toast';
 
 function GatewayModal({ show, onClose, editingGateway, gatewayForm, setGatewayForm, dynamicGateways, setDynamicGateways, setShowGatewayModal }) {

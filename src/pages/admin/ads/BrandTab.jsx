@@ -6,7 +6,6 @@ import {
   Settings2, Clock3, Award
 } from 'lucide-react';
 import toast from '../../../utils/toast';
-import { adminAPI } from '../../../api/admin';
 
 const PLATFORMS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: Target, color: 'bg-gradient-to-br from-pink-500 to-purple-600' },

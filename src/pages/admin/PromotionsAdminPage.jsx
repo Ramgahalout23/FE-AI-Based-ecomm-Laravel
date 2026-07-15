@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
-import { formatCurrency, formatDate, getImageUrl, getPromotionImage } from '../../utils/formatters';
+import { formatDate, getImageUrl, getPromotionImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';

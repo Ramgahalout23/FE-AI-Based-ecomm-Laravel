@@ -1,4 +1,3 @@
-import toast from '../../../utils/toast';
 
 export default function SeoTab({ seo, setSeo, loading, handleSaveSEO }) {
   return (

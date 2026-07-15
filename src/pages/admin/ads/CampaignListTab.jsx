@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Edit2, Trash2, Eye, Plus, RefreshCw, AlertTriangle, Search,
   BarChart3, Target, MessageCircle, Play, LayoutDashboard, Image as ImageIcon,

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { taxAPI } from '../../api/tax';
-import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
 

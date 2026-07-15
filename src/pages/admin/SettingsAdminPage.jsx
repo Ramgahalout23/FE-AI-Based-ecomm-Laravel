@@ -10,20 +10,8 @@ import ImageUploadZone from '../../components/common/ImageUploadZone';
 ;
 import { aiAPI } from '../../api/ai';
 import TaxAdminTab from './TaxAdminTab';
-import GeneralTab from './settings/GeneralTab';
-import BrandingTab from './settings/BrandingTab';
 import ThemeTab from './settings/ThemeTab';
-import ShippingLabelsTab from './settings/ShippingLabelsTab';
-import PaymentsTab from './settings/PaymentsTab';
-import EmailTab from './settings/EmailTab';
-import SmsTab from './settings/SmsTab';
 import IntegrationsTab from './settings/IntegrationsTab';
-import WebSocketTab from './settings/WebSocketTab';
-import FooterTab from './settings/FooterTab';
-import SeoTab from './settings/SeoTab';
-import MaintenanceTab from './settings/MaintenanceTab';
-import SystemTab from './settings/SystemTab';
-import ChatTab from './settings/ChatTab';
 
 const AVAILABLE_CURRENCIES = [
   { code: 'INR', symbol: '₹', name: 'Indian Rupee' },

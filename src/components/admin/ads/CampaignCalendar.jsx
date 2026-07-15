@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, Target, MessageCircle, Play, Filter } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, Target, MessageCircle, Play } from 'lucide-react';
 
 const STATUS_DOT_COLORS = {
   ACTIVE: 'bg-green-500',
