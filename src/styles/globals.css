@@ -1,5 +1,31 @@
 /* Google Fonts loaded via <link> in index.html with preconnect — NOT via CSS @import (which is render-blocking) */
 
+/* ═══════════════════════════════════════════════════
+   THREVOLT — Product Detail Design System
+   ═══════════════════════════════════════════════════ */
+
+:root {
+  --threvolt-ink: #101012;
+  --threvolt-paper: #EFEAE0;
+  --threvolt-gold: #B08D4F;
+  --threvolt-thread: #8B3A34;
+  --threvolt-stone: #8C877D;
+  --threvolt-panel: #E3DDCD;
+}
+
+/* ── Product Page Transitions ── */
+.threvolt-cta {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.threvolt-cta:hover {
+  transform: translateY(-1px);
+}
+
+.threvolt-cta:active {
+  transform: translateY(0px);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
