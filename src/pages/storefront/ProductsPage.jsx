@@ -372,7 +372,7 @@ function FilterDrawer({ open, onClose, categories, selectedCategory, onCategoryC
                       <button
                         key={size}
                         onClick={() => onSizeChange(size)}
-                        className={`w-11 h-11 md:w-10 md:h-10 rounded-xl text-sm font-bold border-2 transition-all active:scale-90 ${
+                        className={`w-10 h-10 md:w-10 md:h-10 rounded-lg md:rounded-xl text-xs md:text-sm font-bold border-2 transition-all active:scale-90 ${
                           isSelected
                             ? 'bg-primary text-white border-primary shadow-sm'
                             : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
@@ -405,12 +405,12 @@ function FilterDrawer({ open, onClose, categories, selectedCategory, onCategoryC
                     }}
                   />
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex-1 px-3 py-3.5 md:py-2.5 bg-surface rounded-lg border border-border text-center">
+                    <div className="flex-1 px-3 py-2.5 md:py-2.5 bg-surface rounded-lg border border-border text-center">
                       <span className="text-xs text-text-muted">{t('products.min')}</span>
                       <p className="text-sm font-bold text-text-primary">{formatCurrency(localRange[0])}</p>
                     </div>
                     <span className="text-text-muted text-xs">—</span>
-                    <div className="flex-1 px-3 py-3.5 md:py-2.5 bg-surface rounded-lg border border-border text-center">
+                    <div className="flex-1 px-3 py-2.5 md:py-2.5 bg-surface rounded-lg border border-border text-center">
                       <span className="text-xs text-text-muted">{t('products.max')}</span>
                       <p className="text-sm font-bold text-text-primary">{formatCurrency(localRange[1])}</p>
                     </div>
@@ -425,7 +425,7 @@ function FilterDrawer({ open, onClose, categories, selectedCategory, onCategoryC
                       <button
                         key={label}
                         onClick={() => { setLocalRange(range); onApplyPrice(range); }}
-                        className={`px-3 py-3.5 md:py-2 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${
+                        className={`px-3 py-2.5 md:py-2 text-xs font-semibold rounded-lg border transition-all active:scale-95 ${
                           localRange[0] === range[0] && localRange[1] === range[1]
                             ? 'bg-primary text-white border-primary'
                             : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
@@ -443,13 +443,13 @@ function FilterDrawer({ open, onClose, categories, selectedCategory, onCategoryC
             <div className="px-5 md:px-6 py-4 md:py-5 border-t border-border flex items-center gap-3 flex-shrink-0" style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}>
               <button
                 onClick={() => { onClearAll(); onClose(); }}
-                className="flex-1 py-3.5 md:py-3 rounded-xl border-2 border-border text-sm font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
+                className="flex-1 py-3 md:py-3 rounded-lg md:rounded-xl border-2 border-border text-xs md:text-sm font-bold text-text-secondary hover:border-text-primary transition-colors active:bg-surface"
               >
                 {t('products.clear_all')}
               </button>
               <button
                 onClick={() => { onApplyPrice(localRange); onClose(); }}
-                className="flex-1 py-3.5 md:py-3 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98]"
+                className="flex-1 py-3 md:py-3 rounded-lg md:rounded-xl bg-primary text-white text-xs md:text-sm font-bold hover:bg-primary/90 transition-colors active:scale-[0.98]"
               >
                 {t('products.apply_filters')}
               </button>
@@ -765,7 +765,7 @@ export default function ProductsPage() {
               placeholder={t('products.search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-12 pr-36 bg-white border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all duration-200 shadow-sm hover:shadow-md focus:shadow-lg"
+              className="w-full h-12 md:h-12 pl-12 pr-28 md:pr-36 bg-white border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all duration-200 shadow-sm hover:shadow-md focus:shadow-lg"
               autoComplete="off"
             />
             {/* Clear button — visible when there's text */}
@@ -773,7 +773,7 @@ export default function ProductsPage() {
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-[105px] top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all duration-200 active:scale-90"
+                className="absolute right-[100px] md:right-[105px] top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all duration-200 active:scale-90"
                 aria-label="Clear search"
               >
                 <X size={12} />
@@ -781,10 +781,10 @@ export default function ProductsPage() {
             )}
             <button
               type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white h-10 px-5 rounded-lg text-[11px] font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] flex items-center gap-1.5 shadow-sm hover:shadow-md"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white h-10 md:h-10 px-3 md:px-5 rounded-lg text-[11px] font-bold hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] flex items-center gap-1.5 shadow-sm hover:shadow-md"
             >
               <Search size={13} />
-              {t('products.search')}
+              <span className="hidden sm:inline">{t('products.search')}</span>
             </button>
           </div>
         </form>
@@ -799,35 +799,35 @@ export default function ProductsPage() {
         </div>
 
         {/* Sort + Filter Bar */}
-        <div className="flex items-center justify-between mb-6 gap-3">
-          <span className="text-xs md:text-sm text-text-muted font-medium">
-            <strong className="text-text-primary">{total}</strong> {t('products.results')}
+        <div className="flex items-center justify-between mb-6 gap-2 md:gap-3">
+          <span className="text-[11px] md:text-sm text-text-muted font-medium leading-tight">
+            <strong className="text-text-primary">{total}</strong> <span className="hidden sm:inline">{t('products.results')}</span>
             {selectedCategory && categories.find(c => c.slug === selectedCategory)?.name && (
-              <> {t('products.in_category')} <strong className="text-primary">{categories.find(c => c.slug === selectedCategory)?.name}</strong></>
+              <> <span className="hidden sm:inline">{t('products.in_category')}</span> <strong className="text-primary">{categories.find(c => c.slug === selectedCategory)?.name}</strong></>
             )}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <div className="relative">
               <select
                 value={sortBy}
                 onChange={(e) => handleSortChange(e.target.value)}
-                className="h-11 md:h-10 pl-3.5 md:pl-3 pr-10 md:pr-9 text-xs font-semibold border-2 border-gray-200 rounded-xl appearance-none bg-white focus:outline-none focus:border-black focus:ring-4 focus:ring-black/5 cursor-pointer transition-all duration-200 hover:border-gray-400"
+                className="h-10 md:h-10 pl-2.5 md:pl-3 pr-8 md:pr-9 text-[11px] md:text-xs font-semibold border-2 border-gray-200 rounded-lg md:rounded-xl appearance-none bg-white focus:outline-none focus:border-black focus:ring-4 focus:ring-black/5 cursor-pointer transition-all duration-200 hover:border-gray-400 max-w-[130px] md:max-w-none"
               >
                 {SORT_OPTIONS(t).map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
             <button
               onClick={() => setShowFilters(true)}
-              className={`h-11 md:h-10 px-4 md:px-4 flex items-center gap-2 border-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+              className={`h-10 md:h-10 px-3 md:px-4 flex items-center gap-1.5 md:gap-2 border-2 rounded-lg md:rounded-xl text-[11px] md:text-xs font-semibold transition-all active:scale-95 ${
                 activeFiltersCount > 0
                   ? 'bg-primary text-white border-primary shadow-sm'
                   : 'bg-white text-text-secondary border-border hover:border-primary hover:text-primary'
               }`}
             >
-              <SlidersHorizontal size={15} />
+              <SlidersHorizontal size={14} />
               <span className="hidden sm:inline">{t('products.filters')}</span>
               {activeFiltersCount > 0 && (
                 <span className="bg-white/20 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{activeFiltersCount}</span>
@@ -933,12 +933,12 @@ export default function ProductsPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="flex justify-center mt-10 pb-4"
+            className="flex justify-center mt-8 md:mt-10 pb-4"
           >
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="group relative px-10 py-3.5 bg-primary text-white rounded-xl text-sm font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2.5 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 overflow-hidden"
+              className="group relative w-full max-w-xs md:max-w-none px-6 md:px-10 py-3.5 bg-primary text-white rounded-xl text-xs md:text-sm font-bold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 overflow-hidden"
             >
               {/* Hover glow effect */}
               <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -948,9 +948,9 @@ export default function ProductsPage() {
               />
               <span className="relative z-10 flex items-center gap-2.5">
                 {loadingMore ? (
-                  <><RefreshCw size={16} className="animate-spin" /> {t('products.loading')}</>
+                  <><RefreshCw size={14} className="animate-spin" /> {t('products.loading')}</>
                 ) : (
-                  <>{t('products.load_more')} <ChevronDown size={16} className="transition-transform duration-300 group-hover:translate-y-0.5" /></>
+                  <>{t('products.load_more')} <ChevronDown size={14} className="transition-transform duration-300 group-hover:translate-y-0.5" /></>
                 )}
               </span>
             </button>
@@ -958,8 +958,8 @@ export default function ProductsPage() {
         )}
 
         {!loading && allProducts.length > 0 && (
-          <div className="text-center mt-4 pb-2">
-            <span className="text-xs text-text-muted">{t('products.showing')} {allProducts.length} {t('products.of')} {total} {total === 1 ? t('products.product') : t('products.products')}</span>
+          <div className="text-center mt-3 md:mt-4 pb-2">
+            <span className="text-[11px] md:text-xs text-text-muted">{t('products.showing')} {allProducts.length} {t('products.of')} {total} {total === 1 ? t('products.product') : t('products.products')}</span>
           </div>
         )}
       </motion.div>

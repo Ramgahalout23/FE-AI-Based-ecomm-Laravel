@@ -250,7 +250,7 @@ function StorefrontLayout() {
       <MobileNav />
       <PhoneLeadBanner />
       {chatbotEnabled && <LiveChatWidget />}
-      {whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} quickReplies={whatsappQuickReplies} />}
+      {location.pathname === '/' && whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} quickReplies={whatsappQuickReplies} />}
       <ScrollToTopButton />
     </div>
   );

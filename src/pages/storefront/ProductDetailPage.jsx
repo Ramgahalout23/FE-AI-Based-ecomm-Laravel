@@ -30,9 +30,9 @@ import { ordersAPI } from '../../api/orders';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import OffersSection from '../../components/storefront/OffersSection';
 import BundleOffer from '../../components/storefront/BundleOffer';
-import ProductGrid from '../../components/product/ProductGrid';
 import ProductCard from '../../components/product/ProductCard';
-import RecentlyViewedCarousel, { RecentlyViewedCarouselSkeleton } from '../../components/product/RecentlyViewedCarousel';
+// RecentlyViewedCarousel no longer used — using grid layout matching Related Products
+//
 import { addedToCart, removedFromWishlist, addedToWishlist, wishlistError, linkCopied } from '../../utils/toast';
 
 /* ═══════════════════════════════════════════════════
@@ -142,6 +142,7 @@ export default function ProductDetailPage() {
   const queryClient = useQueryClient();
 
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
   // ── React Query: Reviews ──
   const { data: reviews = [] } = useQuery({
@@ -209,12 +210,12 @@ export default function ProductDetailPage() {
     });
   })();
 
-  // ── Recommended Products ──
-  const { data: recommended = [] } = useQuery({
-    queryKey: ['product-recommended', product?.categoryId || product?.category],
-    queryFn: () => productsAPI.getByCategory(product.categoryId || product.category).then(r => {
-      const recs = (r.data?.products || r.data || []).filter(p => p.id !== product.id).slice(0, 4);
-      return recs;
+  // ── Related Products ──
+  const { data: relatedProducts = [] } = useQuery({
+    queryKey: ['product-related', product?.id],
+    queryFn: () => productsAPI.getRelated(product.id).then(r => {
+      const data = r.data?.data || [];
+      return Array.isArray(data) ? data.filter(p => p.id !== product.id).slice(0, 8) : [];
     }),
     enabled: !!product?.id,
     staleTime: 60000,
@@ -427,9 +428,30 @@ export default function ProductDetailPage() {
     return (
       <div style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif" }}>
         <div style={{ height: 8 }} />
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr", gap: 56 }}
-          className="lg-grid"
-        >
+        {/* Mobile skeleton */}
+        <div className="lg:hidden" style={{ padding: "16px 12px" }}>
+          <div style={{ background: PANEL, height: 320, borderRadius: 16, marginBottom: 20 }} />
+          <div style={{ background: PANEL, height: 14, width: 100, borderRadius: 4, marginBottom: 12 }} />
+          <div style={{ background: PANEL, height: 32, width: "85%", borderRadius: 4, marginBottom: 8 }} />
+          <div style={{ background: PANEL, height: 32, width: "55%", borderRadius: 4, marginBottom: 16 }} />
+          <div style={{ background: PANEL, height: 16, width: 160, borderRadius: 4, marginBottom: 20 }} />
+          <div style={{ background: PANEL, height: 36, width: 140, borderRadius: 4, marginBottom: 24 }} />
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {[1,2,3,4,5].map(i => (
+              <div key={i} style={{ width: 40, height: 40, borderRadius: "50%", background: PANEL }} />
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{ width: 48, height: 48, borderRadius: 12, background: PANEL }} />
+            ))}
+          </div>
+          <div style={{ background: PANEL, height: 48, borderRadius: 12, marginBottom: 12 }} />
+          <div style={{ background: PANEL, height: 48, borderRadius: 12, marginBottom: 24 }} />
+          <div style={{ background: PANEL, height: 160, borderRadius: 12 }} />
+        </div>
+        {/* Desktop skeleton */}
+        <div className="hidden lg:block" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 56 }}>
           <div style={{ display: "flex", gap: 16 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 80 }}>
               {[1,2,3,4].map(i => (
@@ -566,6 +588,178 @@ export default function ProductDetailPage() {
           .gallery-thumbs button { width: 80px !important; min-width: 80px !important; flex-shrink: 0; }
           .gallery-hero { order: 1; }
         }
+        @media (max-width: 767px) {
+          .hero-img { height: 350px !important; }
+          .product-detail-main { padding: 20px 16px !important; gap: 32px !important; }
+          .product-detail-section { padding: 0 16px 40px !important; }
+          .product-detail-title { font-size: 28px !important; }
+          .product-detail-reviews { padding: 24px !important; }
+          .sticky-bar-mobile { display: flex !important; }
+        }
+        @media (max-width: 480px) {
+          .hero-img { height: 280px !important; }
+          .product-detail-main { padding: 16px 12px !important; gap: 24px !important; }
+          .product-detail-section { padding: 0 12px 32px !important; }
+          .product-detail-title { font-size: 24px !important; }
+          .product-detail-reviews { padding: 20px 16px !important; }
+        }
+        @media (min-width: 768px) {
+          .sticky-bar-mobile {
+            padding: 10px 24px 10px 16px !important;
+            padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
+            max-width: 1280px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            border-radius: 12px 12px 0 0 !important;
+            box-shadow: 0 -2px 24px rgba(0,0,0,0.1), 0 -1px 0 rgba(255,255,255,0.6) inset !important;
+          }
+          .sticky-bar-mobile::before {
+            max-width: 1280px !important;
+            left: 50% !important;
+            right: auto !important;
+            transform: translateX(-50%) !important;
+            width: calc(100% - 24px) !important;
+          }
+          .sticky-bar-mobile .sticky-select {
+            height: 32px !important;
+            font-size: 11px !important;
+            min-width: 64px !important;
+            padding: 0 22px 0 10px !important;
+          }
+          .sticky-bar-mobile .sticky-select-wrap::after {
+            width: 6px !important;
+            height: 6px !important;
+            right: 8px !important;
+          }
+          .sticky-bar-mobile .sticky-cta {
+            padding: 9px 20px !important;
+            font-size: 11px !important;
+            border-radius: 8px !important;
+            min-width: 100px !important;
+          }
+        }
+        /* ── Premium Sticky Bar — Single Row ── */
+        .sticky-bar-mobile {
+          backdrop-filter: blur(24px) saturate(2) !important;
+          -webkit-backdrop-filter: blur(24px) saturate(2) !important;
+          background: rgba(255, 255, 255, 0.92) !important;
+          border-top: none !important;
+          box-shadow: 0 -2px 20px rgba(0,0,0,0.07), 0 -1px 0 rgba(255,255,255,0.6) inset !important;
+        }
+        .sticky-bar-mobile::before {
+          content: '' !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 12px !important;
+          right: 12px !important;
+          height: 1px !important;
+          background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent) !important;
+        }
+        .sticky-cta {
+          position: relative;
+          overflow: hidden;
+          transition: all 0.2s ease !important;
+        }
+        .sticky-cta::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
+          transition: opacity 0.3s;
+          pointer-events: none;
+        }
+        .sticky-cta:hover:not(:disabled)::after {
+          opacity: 0;
+        }
+        .sticky-cta:hover:not(:disabled) {
+          background: #333333 !important;
+        }
+        .sticky-cta:active:not(:disabled) {
+          transform: scale(0.97) !important;
+        }
+        /* ── Premium Styled Selects ── */
+        .sticky-select-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .sticky-select-wrap::after {
+          content: '';
+          position: absolute;
+          right: 6px;
+          top: 50%;
+          transform: translateY(-65%);
+          width: 5px;
+          height: 5px;
+          border-right: 1.2px solid #4a4a5a;
+          border-bottom: 1.2px solid #4a4a5a;
+          rotate: 45deg;
+          pointer-events: none;
+          transition: transform 0.2s ease;
+        }
+        .sticky-select {
+          height: 26px;
+          font-size: 9px;
+          font-weight: 600;
+          font-family: 'Jost', sans-serif;
+          letter-spacing: 0.02em;
+          border-radius: 6px;
+          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(250,250,250,0.95);
+          color: #1a1a1a;
+          padding: 0 16px 0 7px;
+          cursor: pointer;
+          outline: none;
+          min-width: 48px;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+          transition: all 0.2s ease;
+        }
+        .sticky-select:hover {
+          border-color: #1a1a1a;
+          background: #f5f5f5;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .sticky-select:focus {
+          border-color: #1a1a1a;
+          box-shadow: 0 0 0 2px rgba(26,26,26,0.08);
+        }
+        .sticky-select option {
+          font-size: 12px;
+          padding: 8px 12px;
+          background: white;
+          color: #1a1a1a;
+        }
+        .sticky-select option:disabled {
+          color: #bbbbc8;
+        }
+        /* ── Gallery Swipe Indicator ── */
+        .gallery-swipe-hint {
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 6px;
+          z-index: 5;
+          pointer-events: none;
+        }
+        .gallery-swipe-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.35);
+          transition: all 0.3s ease;
+        }
+        .gallery-swipe-dot.active {
+          width: 20px;
+          border-radius: 3px;
+          background: #ffffff;
+        }
+        /* ── Tap Highlight Fix ── */
+        * { -webkit-tap-highlight-color: transparent; }
+        .tap-feedback:active { transform: scale(0.96) !important; }
         .thumb:hover { opacity: 1 !important; }
         .hero-img { transition: transform 0.6s ease; }
         .hero-frame:hover .hero-img { transform: scale(1.04); }
@@ -573,6 +767,7 @@ export default function ProductDetailPage() {
         .cta-outline:hover { background: ${INK} !important; color: ${PAPER} !important; }
         .premium-feature-card { transition: all 0.25s ease; cursor: default; }
         .premium-feature-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: ${INK} !important; background: #fafafa !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
       {/* ── SEO meta tags ── */}
@@ -604,7 +799,7 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
       {/* MAIN CONTENT */}
       {/* ════════════════════════════════════════ */}
-      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr", gap: 56 }} className="lg-grid">
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr", gap: 56 }} className="lg-grid product-detail-main">
 
         {/* ═══ GALLERY ═══ */}
         <div className="gallery-row gallery-sticky" style={{ display: "flex", gap: 16 }}>
@@ -621,6 +816,7 @@ export default function ProductDetailPage() {
                 style={{
                   aspectRatio: "1 / 1",
                   overflow: "hidden",
+                  borderRadius: 12,
                   border: `1px solid ${selectedImageIdx === i ? INK : "rgba(0,0,0,0.1)"}`,
                   opacity: selectedImageIdx === i ? 1 : 0.55,
                   padding: 0,
@@ -634,7 +830,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Hero Image */}
-          <div ref={flyRef} className="hero-frame gallery-hero" style={{ flex: 1, position: "relative", background: PANEL, overflow: "hidden" }}>
+          <div ref={flyRef} className="hero-frame gallery-hero" style={{ flex: 1, position: "relative", background: PANEL, overflow: "hidden", borderRadius: 20 }}>
             <div ref={mobileGalleryRef} style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollBehavior: "smooth", scrollbarWidth: "none" }}>
               {galleryImages.map((img, idx) => (
                 <button
@@ -651,16 +847,22 @@ export default function ProductDetailPage() {
 
             {/* Discount badge */}
             {discount && (
-              <span style={{ position: "absolute", top: 16, left: 16, background: INK, color: PAPER, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", padding: "6px 12px" }}>
+              <span style={{ position: "absolute", top: 16, left: 16, background: INK, color: PAPER, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", padding: "6px 12px", borderRadius: 6 }}>
                 {discount}% Off
               </span>
             )}
 
             {/* Image counter */}
-            <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(16,16,18,0.15)", color: PAPER, fontSize: 11, padding: "4px 10px" }}>
+            <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(16,16,18,0.15)", color: PAPER, fontSize: 11, padding: "4px 10px", borderRadius: 6 }}>
               <span>{selectedImageIdx + 1}</span>
               <span style={{ margin: "0 4px", opacity: 0.5 }}>/</span>
               <span style={{ opacity: 0.7 }}>{galleryImages.length}</span>
+            </div>
+            {/* Swipe dots for mobile */}
+            <div className="gallery-swipe-hint">
+              {galleryImages.map((_, i) => (
+                <div key={i} className={`gallery-swipe-dot${i === selectedImageIdx ? ' active' : ''}`} />
+              ))}
             </div>
 
 
@@ -679,13 +881,13 @@ export default function ProductDetailPage() {
             <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: GOLD, fontWeight: 600 }}>
               {typeof product.category === 'object' ? product.category.name : product.category}
             </span>
-            <span style={{ fontSize: 11, color: STONE, background: PANEL, padding: "3px 10px" }}>
+            <span style={{ fontSize: 11, color: STONE, background: PANEL, padding: "3px 10px", borderRadius: 6 }}>
               ● {viewerCount} {t('product.people_viewing')}
             </span>
           </div>
 
           {/* Product Title */}
-          <h1 style={{ fontSize: 42, lineHeight: 1.03, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 14, ...displayFont }}>
+          <h1 className="product-detail-title" style={{ fontSize: 42, lineHeight: 1.03, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 14, ...displayFont }}>
             {product.name}
           </h1>
 
@@ -730,7 +932,7 @@ export default function ProductDetailPage() {
 
           {/* ══ Flash Sale Badge ══ */}
           {activeFlashSale && activeFlashSale.endDate && (
-            <div style={{ marginBottom: 20, padding: "14px 16px", border: `1px solid ${GOLD}`, background: "rgba(176, 141, 79, 0.06)", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ marginBottom: 20, padding: "14px 16px", border: `1px solid ${GOLD}`, background: "rgba(176, 141, 79, 0.06)", display: "flex", alignItems: "center", gap: 12, borderRadius: 12 }}>
               <Zap size={18} color={GOLD} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
@@ -804,7 +1006,10 @@ export default function ProductDetailPage() {
                   {t('product.size')} — <span style={{ color: INK, fontWeight: 500 }}>{selectedSize || t('product.select')}</span>
                 </div>
                 <button onClick={() => setShowSizeGuide(true)}
-                  style={{ fontSize: 12, textDecoration: "underline", color: STONE, background: "none", border: "none", cursor: "pointer" }}>
+                  style={{ fontSize: 11, letterSpacing: "0.1em", color: THREAD, background: "none", border: `1px solid ${STONE}40`, cursor: "pointer", padding: "5px 12px", borderRadius: 8, transition: "all 0.2s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = PANEL; e.currentTarget.style.borderColor = INK; e.currentTarget.style.color = INK; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${STONE}40`; e.currentTarget.style.color = THREAD; }}
+                >
                   {t('product.size_guide')}
                 </button>
               </div>
@@ -829,6 +1034,8 @@ export default function ProductDetailPage() {
                         cursor: isOOS ? "not-allowed" : "pointer",
                         opacity: isOOS ? 0.5 : 1,
                         textDecoration: isOOS ? "line-through" : "none",
+                        borderRadius: 12,
+                        transition: "all 0.15s ease",
                       }}
                     >
                       {s}
@@ -876,7 +1083,7 @@ export default function ProductDetailPage() {
           {/* ══ Qty + CTA ══ */}
           <div ref={sentinelRef} style={{ display: "flex", gap: 12, marginBottom: 16 }}>
             {/* Quantity selector */}
-            <div style={{ display: "flex", alignItems: "center", border: `1px solid rgba(0,0,0,0.15)` }}>
+            <div style={{ display: "flex", alignItems: "center", border: `1px solid rgba(0,0,0,0.15)`, borderRadius: 12 }}>
               <button
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 disabled={qty <= 1}
@@ -896,7 +1103,7 @@ export default function ProductDetailPage() {
 
             {/* Add to Bag */}
             <button
-              className="cta-main"
+              className="cta-main tap-feedback"
               onClick={handleAddToCart}
               disabled={!canAddToCart || isAddingToCart}
               style={{
@@ -908,6 +1115,7 @@ export default function ProductDetailPage() {
                 fontSize: 13,
                 fontWeight: 600,
                 border: "none",
+                borderRadius: 12,
                 cursor: (canAddToCart && !isAddingToCart) ? "pointer" : "not-allowed",
                 transition: "background 0.2s",
               }}
@@ -916,12 +1124,12 @@ export default function ProductDetailPage() {
             </button>
 
             {/* Share */}
-            <button onClick={handleShare} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer" }}>
+            <button onClick={handleShare} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer", borderRadius: 12 }}>
               <Share2 size={16} strokeWidth={1.5} />
             </button>
 
             {/* Wishlist */}
-            <button onClick={handleWishlist} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer" }}>
+            <button onClick={handleWishlist} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer", borderRadius: 12 }}>
               <Heart size={16} strokeWidth={1.5} fill={inWishlist ? INK : "none"} color={inWishlist ? INK : STONE} />
             </button>
           </div>
@@ -950,6 +1158,7 @@ export default function ProductDetailPage() {
               fontWeight: 600,
               padding: "16px 0",
               background: "none",
+              borderRadius: 12,
               cursor: canAddToCart ? "pointer" : "not-allowed",
               marginBottom: 32,
               transition: "all 0.2s",
@@ -1005,7 +1214,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* ══ "The Label" Module ══ */}
-          <div style={{ background: INK, color: PAPER, padding: "22px 24px 24px", position: "relative" }}>
+          <div style={{ background: INK, color: PAPER, padding: "22px 24px 24px", position: "relative", borderRadius: 16 }}>
             <div style={{ position: "absolute", top: 0, left: 24, right: 24, height: 1, background: stitchBorder, opacity: 0.35 }} />
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, marginBottom: 16 }}>
               <span style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: GOLD, fontWeight: 600 }}>The Label</span>
@@ -1031,7 +1240,7 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
       {/* ACCORDION SECTIONS */}
       {/* ════════════════════════════════════════ */}
-      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 40px" }}>
+      <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 40px" }}>
         <div style={{ borderTop: "1px solid rgba(0,0,0,0.1)" }}>
           {[
             { id: "details", label: "Product Details", content: product.description || "Premium quality crafted for lasting comfort and structure, built for everyday wear without losing shape." },
@@ -1057,13 +1266,33 @@ export default function ProductDetailPage() {
       </section>
 
       {/* ════════════════════════════════════════ */}
+      {/* YOU MAY ALSO LIKE — Related Products */}
+      {/* ════════════════════════════════════════ */}
+      {relatedProducts.length > 0 && (
+        <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+            <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
+            <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: STONE, whiteSpace: "nowrap", ...displayFont }}>
+              You May Also Like
+            </h2>
+            <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
+          </div>
+          <div className="product-grid">
+            {relatedProducts.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════ */}
       {/* CUSTOMER REVIEWS */}
       {/* ════════════════════════════════════════ */}
-      <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
+      <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
         <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 24, ...displayFont }}>
           {t('product.reviews_heading', { defaultValue: 'Customer Reviews' })}
         </h2>
-        <div style={{ border: "1px solid rgba(0,0,0,0.1)", padding: 40, textAlign: "center" }}>
+        <div className="product-detail-reviews" style={{ border: "1px solid rgba(0,0,0,0.1)", padding: 40, textAlign: "center", borderRadius: 16 }}>
           {/* Average rating */}
           <div style={{ fontSize: 36, fontWeight: 900, marginBottom: 8 }}>{formatRating(product.rating)}</div>
           <div style={{ display: "flex", justifyContent: "center", gap: 2, marginBottom: 24, color: GOLD }}>
@@ -1075,8 +1304,8 @@ export default function ProductDetailPage() {
           {/* Review list */}
           {reviews.length > 0 ? (
             <div style={{ textAlign: "left", maxWidth: 600, margin: "0 auto" }}>
-              {reviews.slice(0, 3).map((review, idx) => (
-                <div key={review.id || idx} style={{ padding: "16px 0", borderBottom: idx < Math.min(reviews.length, 3) - 1 ? "1px solid rgba(0,0,0,0.06)" : "none" }}>
+              {(showAllReviews ? reviews : reviews.slice(0, 3)).map((review, idx) => (
+                <div key={review.id || idx} style={{ padding: "16px 0", borderBottom: idx < (showAllReviews ? reviews : reviews.slice(0, 3)).length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: INK }}>{review.userName || "Anonymous"}</span>
                     <div style={{ display: "flex", gap: 1, color: GOLD }}>
@@ -1098,6 +1327,39 @@ export default function ProductDetailPage() {
                   )}
                 </div>
               ))}
+              {/* View All toggle */}
+              {reviews.length > 3 && (
+                <button
+                  onClick={() => setShowAllReviews(!showAllReviews)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    width: "100%",
+                    marginTop: 16,
+                    padding: "12px 0",
+                    background: "none",
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: INK,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f5f5'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                >
+                  {showAllReviews ? (
+                    <>Show Less <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} /></>
+                  ) : (
+                    <>View All {reviews.length} Reviews <ChevronDown size={14} /></>
+                  )}
+                </button>
+              )}
             </div>
           ) : (
             <p style={{ color: STONE, marginBottom: 20 }}>{t('product.no_reviews', { defaultValue: 'No reviews yet — be the first to share your thoughts.' })}</p>
@@ -1105,30 +1367,19 @@ export default function ProductDetailPage() {
 
           <button
             onClick={() => setShowReviewModal(true)}
-            style={{ background: INK, color: PAPER, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 12, fontWeight: 600, padding: "12px 24px", border: "none", cursor: "pointer" }}
+            style={{ background: INK, color: PAPER, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 12, fontWeight: 600, padding: "12px 24px", border: "none", cursor: "pointer", borderRadius: 12 }}
           >
             {t('product.write_review', { defaultValue: 'Write a Review' })}
           </button>
         </div>
       </section>
-
       {/* ════════════════════════════════════════ */}
-      {/* RECOMMENDED PRODUCTS */}
-      {/* ════════════════════════════════════════ */}
-      {recommended.length > 0 && (
-        <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
-          <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 24, ...displayFont }}>
-            {t('product.you_may_also_like', { defaultValue: 'You May Also Like' })}
-          </h2>
-          <ProductGrid products={recommended} />
-        </section>
-      )}
 
       {/* ════════════════════════════════════════ */}
       {/* RECENTLY VIEWED */}
       {/* ════════════════════════════════════════ */}
       {recentlyViewed.length > 0 && (
-        <section style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px", position: "relative" }}>
+        <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 48px", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 3, height: 36, background: INK }} />
@@ -1156,6 +1407,7 @@ export default function ProductDetailPage() {
                 color: INK,
                 background: "none",
                 border: `1px solid ${INK}`,
+                borderRadius: 12,
                 padding: "8px 16px",
                 cursor: "pointer",
                 transition: "all 0.2s",
@@ -1165,22 +1417,11 @@ export default function ProductDetailPage() {
               <ChevronRight size={12} strokeWidth={2} />
             </motion.button>
           </div>
-          {!recentlyViewedLoaded ? (
-            <RecentlyViewedCarouselSkeleton />
-          ) : (
-            <RecentlyViewedCarousel products={recentlyViewed.slice(0, 8)} />
-          )}
-          {/* Premium gradient fade on the right edge */}
-          <div style={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 80,
-            background: `linear-gradient(90deg, transparent 0%, ${PAPER} 100%)`,
-            pointerEvents: "none",
-            zIndex: 2,
-          }} />
+          <div className="product-grid">
+            {recentlyViewed.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
         </section>
       )}
 
@@ -1193,21 +1434,21 @@ export default function ProductDetailPage() {
             initial={{ opacity: 0, y: 40, x: 0 }}
             animate={{ opacity: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            style={{
-              position: "fixed",
-              bottom: showStickyBar ? 88 : 24,
-              left: 24,
-              zIndex: 50,
-              background: INK,
-              color: PAPER,
-              padding: "12px 20px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-              maxWidth: 320,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}                    style={{
+        position: "fixed",
+        bottom: showStickyBar ? 88 : 24,
+        left: 24,
+        zIndex: 50,
+        background: INK,
+        color: PAPER,
+        padding: "12px 20px",
+        borderRadius: 12,
+        boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+        maxWidth: 320,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+      }}
           >
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />
             <div>
@@ -1246,137 +1487,155 @@ export default function ProductDetailPage() {
       </AnimatePresence>
 
       {/* ════════════════════════════════════════ */}
-      {/* STICKY BOTTOM BAR — compact single row with variant selectors */}
-      {/* ════════════════════════════════════════ */}
-      {showStickyBar && (
-        <div style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: PAPER,
-          borderTop: `1px solid ${INK}`,
-          padding: "8px 12px",
-          zIndex: 40,
-          boxShadow: "0 -4px 16px rgba(0,0,0,0.08)",
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          overflowX: "auto",
-          scrollbarWidth: "none",
-        }}>
-          {/* Price */}
-          <div style={{ flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: STONE, whiteSpace: "nowrap" }}>{product.name}</div>
-            <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-              {formatCurrency(effectivePrice)}
-              {selectedSize && <span style={{ fontSize: 11, fontWeight: 400, color: STONE }}> · {selectedSize}</span>}
-              {selectedColor && <span style={{ fontSize: 11, fontWeight: 400, color: STONE }}> · {selectedColor}</span>}
+      {/* ── PREMIUM STICKY BAR — Single Row ── */}
+      {/* ════════════════════════════════════════ */}{showStickyBar && (
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.9 }}
+          className="sticky-bar-mobile"
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: "8px 12px 8px 8px",
+            paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))",
+            zIndex: 50,
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+          }}>
+          {/* Thumbnail + Info */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: 8,
+              overflow: "hidden",
+              flexShrink: 0,
+              border: "1px solid rgba(0,0,0,0.06)",
+              background: PANEL,
+            }}>
+              <img
+                src={getImageUrl(getProductImages(product)[0])}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+            <div style={{ minWidth: 0, overflow: "hidden" }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.2 }}>
+                {product.name}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: INK }}>
+                {formatCurrency(effectivePrice)}
+                {effectiveOldPrice && (
+                  <span style={{ fontSize: 10, color: STONE, textDecoration: "line-through", fontWeight: 400 }}>{formatCurrency(effectiveOldPrice)}</span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Size selector - compact pills */}
-          {product.sizes?.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-              {product.sizes.map((s) => {
-                const sizeAvailable = isSizeAvailable(s);
-                const isOOS = variantsList.length > 0 && !sizeAvailable;
-                const isActive = selectedSize === s;
-                return (
-                  <button
-                    key={s}
-                    onClick={() => { if (isOOS) return; setSelectedSize(s); }}
-                    disabled={isOOS}
-                    style={{
-                      minWidth: 28,
-                      height: 28,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      borderRadius: 4,
-                      border: `1px solid ${isActive ? INK : "rgba(0,0,0,0.12)"}`,
-                      background: isActive ? INK : "transparent",
-                      color: isActive ? PAPER : isOOS ? "rgba(0,0,0,0.2)" : INK,
-                      cursor: isOOS ? "not-allowed" : "pointer",
-                      opacity: isOOS ? 0.35 : 1,
-                      textDecoration: isOOS ? "line-through" : "none",
-                      padding: "2px 4px",
-                    }}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Premium dropdown selects + CTA */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            {/* Premium Size dropdown */}
+            {product.sizes?.length > 0 && (
+              <div className="sticky-select-wrap">
+                <select
+                  name="size"
+                  value={selectedSize || ""}
+                  onChange={(e) => { if (e.target.value) setSelectedSize(e.target.value); }}
+                  className="sticky-select"
+                >
+                  <option value="" disabled>Size</option>
+                  {product.sizes.map((s) => {
+                    const sizeAvailable = isSizeAvailable(s);
+                    const isOOS = variantsList.length > 0 && !sizeAvailable;
+                    return (
+                      <option key={s} value={s} disabled={isOOS}>
+                        {s}{isOOS ? " — OOS" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
 
-          {/* Color selector - compact dots */}
-          {product.colors?.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-              {product.colors.map((c) => {
-                const colorAvailable = isColorAvailable(c);
-                const isOOS = variantsList.length > 0 && !colorAvailable;
-                const isActive = selectedColor === c;
-                return (
-                  <button
-                    key={c}
-                    onClick={() => { if (isOOS) return; setSelectedColor(c); }}
-                    disabled={isOOS}
-                    title={c}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      border: `2px solid ${isActive ? INK : "transparent"}`,
-                      opacity: isOOS ? 0.3 : 1,
-                      cursor: isOOS ? "not-allowed" : "pointer",
-                      padding: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "none",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{
-                      display: "block",
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      background: getColorHex(c),
-                      border: "1px solid rgba(0,0,0,0.15)",
-                    }} />
-                  </button>
-                );
-              })}
-            </div>
-          )}
+            {/* Premium Color dropdown */}
+            {product.colors?.length > 0 && (
+              <div className="sticky-select-wrap">
+                <select
+                  name="color"
+                  value={selectedColor || ""}
+                  onChange={(e) => { if (e.target.value) setSelectedColor(e.target.value); }}
+                  className="sticky-select"
+                >
+                  <option value="" disabled>Color</option>
+                  {product.colors.map((c) => {
+                    const colorAvailable = isColorAvailable(c);
+                    const isOOS = variantsList.length > 0 && !colorAvailable;
+                    return (
+                      <option key={c} value={c} disabled={isOOS}>
+                        {c}{isOOS ? " — OOS" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
 
-          {/* Add to Bag */}
-          <button
-            className="cta-main"
-            onClick={handleAddToCart}
-            disabled={!canAddToCart || isAddingToCart}
-            style={{
-              flexShrink: 0,
-              background: canAddToCart ? INK : "rgba(16,16,18,0.15)",
-              color: canAddToCart ? PAPER : STONE,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              fontSize: 10,
-              fontWeight: 700,
-              border: "none",
-              padding: "8px 16px",
-              cursor: canAddToCart ? "pointer" : "not-allowed",
-              transition: "background 0.2s",
-              whiteSpace: "nowrap",
-              borderRadius: 4,
-              marginLeft: "auto",
-            }}
-          >
-            {isStockUnavailable ? t('product.out_of_stock') : !hasAllSelections ? t('product.select_options') : t('product.add_to_bag')}
-          </button>
-        </div>
+            {/* Add to Bag */}
+            <button
+              className="sticky-cta"
+              onClick={handleAddToCart}
+              disabled={!canAddToCart || isAddingToCart}
+              style={{
+                flexShrink: 0,
+                background: canAddToCart ? INK : "rgba(16,16,18,0.12)",
+                color: canAddToCart ? PAPER : STONE,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                fontSize: 10,
+                fontWeight: 700,
+                border: "none",
+                padding: "8px 14px",
+                cursor: canAddToCart ? "pointer" : "not-allowed",
+                transition: "all 0.2s ease",
+                whiteSpace: "nowrap",
+                borderRadius: 8,
+                minWidth: 80,
+                textAlign: "center",
+              }}
+            >
+              {isAddingToCart ? (
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                  <span style={{ width: 10, height: 10, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", display: "inline-block", animation: "spin 0.6s linear infinite" }} />
+                </span>
+              ) : isStockUnavailable ? (
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, verticalAlign: "middle" }}>
+                  <X size={10} strokeWidth={2.5} style={{ display: "block", flexShrink: 0 }} />
+                  <span style={{ lineHeight: 1, display: "block" }}>{t('product.out_of_stock')}</span>
+                </span>
+              ) : !hasAllSelections ? (
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, verticalAlign: "middle" }}>
+                  <ChevronDown size={10} strokeWidth={2.5} style={{ display: "block", flexShrink: 0 }} />
+                  <span style={{ lineHeight: 1, display: "block" }}>{t('product.select_options')}</span>
+                </span>
+              ) : (
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, verticalAlign: "middle" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <path d="M16 10a4 4 0 01-8 0" />
+                  </svg>
+                  <span style={{ lineHeight: 1, display: "block" }}>Bag</span>
+                </span>
+              )}
+            </button>
+          </div>
+        </motion.div>
       )}
     </div>
   );

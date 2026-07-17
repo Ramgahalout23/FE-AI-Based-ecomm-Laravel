@@ -1,4 +1,4 @@
-import { X, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Maximize2, Minimize2, ArrowUpDown } from 'lucide-react';
 import { useState, useEffect, memo } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -113,10 +113,10 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-[0_4px_40px_-12px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.04)_inset] overflow-hidden max-h-[90vh] flex flex-col"
+            className="relative w-full max-w-2xl bg-white rounded-2xl md:rounded-3xl shadow-[0_4px_40px_-12px_rgba(0,0,0,0.2),0_0_0_1px_rgba(0,0,0,0.04)_inset] overflow-hidden max-h-[90vh] flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-4 border-b border-gray-100/80 shrink-0">
+            <div className="flex items-center justify-between px-5 md:px-8 pt-5 md:pt-8 pb-4 border-b border-gray-100/80 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
                   <ArrowUpDown size={18} />
@@ -146,8 +146,8 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 p-6 md:p-8">
-              <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
+            <div className="overflow-y-auto flex-1 p-5 md:p-8">
+              <div className="flex flex-col md:flex-row gap-6 md:gap-12 items-start">
                 {/* Silhouette + Size selector */}
                 <div className="flex flex-col items-center gap-6 w-full md:w-auto">
                   <BodySilhouette selectedSize={selectedSize} sizeData={sizes} unit={unit} />
@@ -233,7 +233,7 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
             </div>
 
             {/* Footer */}
-            <div className="px-6 md:px-8 py-4 border-t border-gray-100/80 shrink-0 flex items-center justify-between">
+            <div className="px-5 md:px-8 py-4 border-t border-gray-100/80 shrink-0 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[11px] text-gray-400">
                 <Minimize2 size={12} />
                 <span>                    Unit: <strong className="text-gray-500 font-semibold">{unit === UNITS.CM ? t('size_guide.centimeters') : t('size_guide.inches')}</strong>

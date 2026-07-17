@@ -317,7 +317,7 @@ function ProductCard({ product, className = '' }) {
     <>
       {/* ════ Product Card ════ */}
       <div
-        className={`group bg-white ${className} overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
+        className={`group bg-white ${className} rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
         onClick={() => navigate(`/products/${productSlug}`)}
       >
         {/* Image Container */}
@@ -557,15 +557,15 @@ function ProductCard({ product, className = '' }) {
 
           {/* ── Quick Add / Out of Stock (always visible at bottom) ── */}
           {isOutOfStock ? (
-            <div className="absolute bottom-0 inset-x-0 z-20 h-9 flex items-center justify-center gap-1.5 bg-gray-800/80 text-gray-300 text-[10px] max-sm:text-[8px] font-bold uppercase tracking-wider">
-              <X size={11} />
+            <div className="absolute bottom-0 inset-x-0 z-20 h-8 md:h-9 flex items-center justify-center gap-1.5 bg-gray-800/80 text-gray-300 text-[9px] max-sm:text-[8px] font-bold uppercase tracking-wider">
+              <X size={10} />
               <span>{t('product.out_of_stock')}</span>
             </div>
           ) : (
             !showQuickAdd && (
               <button
                 onClick={handleQuickAdd}
-                className="absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60"
+                className="absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60 max-sm:active:bg-gray-900"
               >
                 {isAdding ? (
                   <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
@@ -579,15 +579,15 @@ function ProductCard({ product, className = '' }) {
 
         {/* Details */}
         <div className={`max-sm:p-2.5 p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          <h3 className="text-sm max-sm:text-xs font-medium text-gray-900 line-clamp-1 group-hover:text-primary transition-colors mb-1.5 md:mb-2 tracking-wide">
+          <h3 className="text-sm max-sm:text-xs font-medium text-gray-900 line-clamp-2 md:line-clamp-1 group-hover:text-primary transition-colors mb-1.5 md:mb-2 tracking-wide">
             {product.name}
           </h3>
 
           <div className="mt-auto">
             <div className="flex items-center gap-1 md:gap-2">
-              <span className="text-lg max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(product.price)}</span>
+              <span className="text-base md:text-lg max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(product.price)}</span>
               {product.oldPrice && (
-                <span className="text-sm max-sm:text-xs text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
+                <span className="text-xs md:text-sm max-sm:text-xs text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
               )}
             </div>
           </div>

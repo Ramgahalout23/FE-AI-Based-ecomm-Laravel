@@ -221,7 +221,7 @@ export default memo(function SearchProductCard({ product }) {
   return (
     <>
       <div
-        className="product-card group bg-white overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full"
+        className="product-card group bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full"
         onClick={handleCardClick}
       >
       {/* Image Container */}

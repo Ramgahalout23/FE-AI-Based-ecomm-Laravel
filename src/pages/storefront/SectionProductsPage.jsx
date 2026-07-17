@@ -2,8 +2,6 @@ import { ChevronDown, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Fil
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
-;
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -224,7 +222,7 @@ function MobileFilterDrawer({
               className="flex-1 overflow-y-auto px-5 py-5"
               style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
             >
-              <Filter Content priceRange={priceRange} onPriceRangeChange={onPriceRangeChange} selectedSizes={selectedSizes} onSizeToggle={onSizeToggle} onApplyPrice={onApplyPrice} total={total} />
+              <FilterContent priceRange={priceRange} onPriceRangeChange={onPriceRangeChange} selectedSizes={selectedSizes} onSizeToggle={onSizeToggle} onApplyPrice={onApplyPrice} total={total} />
             </div>
 
             {/* Footer */}
@@ -346,15 +344,16 @@ export default function SectionProductsPage() {
   // Build API params from all filter + sort state
   const buildApiParams = useCallback(() => {
     const params = { page, limit: PAGE_LIMIT };
-    if (sortOption.sortBy) {
-      params.sortBy = sortOption.sortBy;
-      params.sortOrder = sortOption.sortOrder;
+    const currentSort = sortOptions.find((o) => o.value === sortBy) || sortOptions[0];
+    if (currentSort.sortBy) {
+      params.sortBy = currentSort.sortBy;
+      params.sortOrder = currentSort.sortOrder;
     }
     if (priceRange[0] > 0) params.minPrice = priceRange[0];
     if (priceRange[1] < MAX_PRICE) params.maxPrice = priceRange[1];
     if (selectedSizes.length > 0) params.sizes = selectedSizes.join(',');
     return params;
-  }, [page, sortOption, priceRange, selectedSizes]);
+  }, [page, sortBy, priceRange, selectedSizes]);
 
   // Fetch products
   useEffect(() => {
@@ -384,7 +383,7 @@ export default function SectionProductsPage() {
       }
     };
     fetchProducts();
-  }, [page, section, sortBy, priceRange, selectedSizes, buildApiParams]);
+  }, [page, section, sortBy, priceRange, selectedSizes]);
 
   // Reset when section, sort, price range, or sizes change
   useEffect(() => {
@@ -558,7 +557,7 @@ export default function SectionProductsPage() {
               </div>
 
               {/* Filters */}
-              <Filter Content priceRange={priceRange} onPriceRangeChange={setPriceRange} selectedSizes={selectedSizes} onSizeToggle={handleSizeToggle} onApplyPrice={handleApplyPrice} total={total} />
+              <FilterContent priceRange={priceRange} onPriceRangeChange={setPriceRange} selectedSizes={selectedSizes} onSizeToggle={handleSizeToggle} onApplyPrice={handleApplyPrice} total={total} />
 
               {/* Active filters on desktop */}
               {activeFiltersCount > 0 && (

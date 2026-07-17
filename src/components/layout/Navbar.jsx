@@ -113,7 +113,27 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-4">
 
-            {/* Logo */}
+            {/* Mobile Left — Menu + Search (hidden on desktop) */}
+            <div className="flex items-center gap-0.5 lg:hidden">
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors hover:bg-white/10 rounded-lg"
+                aria-label="Toggle menu"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+              {/* Mobile Search */}
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+                aria-label="Search"
+              >
+                <Search size={22} />
+              </button>
+            </div>
+
+            {/* Center Logo */}
             <Link to="/" className="flex items-center flex-shrink-0 group">
               {logo ? (
                 <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
@@ -177,35 +197,38 @@ export default function Navbar() {
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              {/* Currency & Language Switchers */}
-              {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="navbar" />}
-              {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="navbar" />}
+            <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+              {/* Desktop Only — Currency, Language, Search, Wishlist */}
+              <div className="hidden lg:flex items-center gap-1">
+                {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="navbar" />}
+                {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="navbar" />}
+                {/* Desktop Search */}
+                <button
+                  onClick={() => setShowSearchModal(true)}
+                  className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+                >
+                  <Search size={22} />
+                </button>
+                {/* Wishlist */}
+                <Link 
+                  to="/wishlist" 
+                  className="relative p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+                >
+                  <Heart size={22} />
+                </Link>
+              </div>
 
-              {/* Search */}
-              <button
-                onClick={() => setShowSearchModal(true)}
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
-              >
-                <Search size={22} />
-              </button>
+              {/* Notification Bell — visible on all screens when logged in */}
               {(isAuthenticated || isAdmin) && <NotificationBell />}
-              {/* Wishlist */}
-              <Link 
-                to="/wishlist" 
-                className="relative p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10 hidden sm:flex"
-              >
-                <Heart size={22} />
-              </Link>
 
-              {/* Account */}
+              {/* Account — visible on all screens */}
               {(isAuthenticated || isAdmin) ? (
                 <div
                   className="relative"
                   onMouseEnter={() => setShowAccount(true)}
                   onMouseLeave={() => setShowAccount(false)}
                 >
-                  <button className="flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg text-sm font-medium text-white/80 hover:text-primary hover:bg-white/10 transition-colors">
+                  <button className="flex items-center gap-2 px-2 sm:px-3 py-2 min-h-[44px] rounded-lg text-sm font-medium text-white/80 hover:text-primary hover:bg-white/10 transition-colors">
                     <User size={20} />
                     <span className="hidden lg:inline">{isAdmin ? t('nav.admin') : (user?.firstName || t('nav.account'))}</span>
                   </button>
@@ -241,15 +264,25 @@ export default function Navbar() {
                   </AnimatePresence>
                 </div>
               ) : (
-                <Link
-                  to="/login"
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition-colors shadow-sm hidden sm:block"
-                >
-                  {t('nav.sign_in')}
-                </Link>
+                <>
+                  {/* Mobile: User icon */}
+                  <Link
+                    to="/login"
+                    className="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+                  >
+                    <User size={22} />
+                  </Link>
+                  {/* Desktop: Styled Sign In button */}
+                  <Link
+                    to="/login"
+                    className="hidden lg:block px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition-colors shadow-sm"
+                  >
+                    {t('nav.sign_in')}
+                  </Link>
+                </>
               )}
 
-              {/* Cart */}
+              {/* Cart — visible on all screens */}
               <button
                 id="cart-btn"
                 data-cart-btn
@@ -265,14 +298,6 @@ export default function Navbar() {
                   </span>
                 )}
                 <span className="hidden lg:inline text-sm font-medium">{t('nav.cart')}</span>
-              </button>
-
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors hover:bg-white/10 rounded-lg"
-              >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </div>
           </div>

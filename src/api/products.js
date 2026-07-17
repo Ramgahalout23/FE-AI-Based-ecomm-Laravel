@@ -13,6 +13,7 @@ export const productsAPI = {
   checkAvailability: (id, quantity) => client.get(`/products/${id}/availability`, { params: { quantity } }),
   getVariants: (id) => client.get(`/products/${id}/variants`),
   getVariantByAttributes: (id, params) => client.get(`/products/${id}/variants/attributes`, { params }),
+  getRelated: (id, params) => client.get(`/products/${id}/related`, { params }),
   // Admin
   create: (data) => adminClient.post('/admin/products', data),
   update: (id, data) => adminClient.put(`/admin/products/${id}`, data),
