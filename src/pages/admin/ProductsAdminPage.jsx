@@ -228,7 +228,8 @@ export default function ProductsAdminPage() {
       quantity: p.quantity || p.stock || '',
       images: imgsStr,
       status: p.status || 'DRAFT',
-      badge: p.badge || ''
+      badge: p.badge || '',
+      hoverImageUrl: p.hoverImageUrl || p.hover_image_url || ''
     });
     // Show modal immediately, load variants async
     setShowVariants(false);
@@ -255,7 +256,8 @@ export default function ProductsAdminPage() {
       cost: form.cost ? Number(form.cost) : undefined,
       quantity: form.quantity ? Number(form.quantity) : 0,
       images: form.images ? form.images.split(',').map(url => url.trim()).filter(Boolean) : [],
-      badge: form.badge || null
+      badge: form.badge || null,
+      hoverImageUrl: form.hoverImageUrl || null
     };
     try {
       if (editing) {
@@ -652,6 +654,18 @@ export default function ProductsAdminPage() {
                       onChange={urls => setForm({ ...form, images: urls })}
                       multiple={true}
                     />
+                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span>💡</span>
+                      <span>The <strong>first image</strong> is the default. Set a dedicated <strong>hover image</strong> below for the hover effect.</span>
+                    </div>
+                </div>
+                <div className="form-group">
+                  <ImageUploadZone
+                    label="Hover Image (appears on product card hover)"
+                    value={form.hoverImageUrl || ''}
+                    onChange={url => setForm({ ...form, hoverImageUrl: url })}
+                    multiple={false}
+                  />
                     <button
                       onClick={handleAIGenerateImage}
                       disabled={aiLoading.image}

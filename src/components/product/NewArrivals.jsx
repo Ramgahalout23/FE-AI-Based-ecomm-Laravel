@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 ;
 import { useTranslation } from 'react-i18next';
-import { getImageUrl, getProductImages, formatCurrency, slugify } from '../../utils/formatters';
+import { getImageUrl, getProductImages, getProductHoverImage, formatCurrency, slugify } from '../../utils/formatters';
 import { getColorHex, CUSTOM_TEE_SLUG } from '../../utils/constants';
 import { buildHighlights, getStyleTagline } from '../../utils/productHelpers';
 import useCartStore from '../../store/cartStore';
@@ -187,7 +187,14 @@ function NewArrivalCard({ product, index }) {
   // Derive from product (handles both mock & API)
   const productImages = useMemo(() => getProductImageUrls(product), [product]);
   const mainImage = productImages[0] || '';
-  const hoverImage = productImages[1] || productImages[0] || '';
+  const hoverImage = useMemo(() => {
+    // Check dedicated hoverImageUrl first
+    const dedicated = getProductHoverImage(product);
+    if (dedicated) return dedicated;
+    // Fallback: second product image
+    return productImages[1] || '';
+  }, [product, productImages]);
+  const hasHoverImage = !!hoverImage && hoverImage !== mainImage;
   const productColors = useMemo(() => getProductColors(product), [product]);
   const productSizes = useMemo(() => getProductSizes(product), [product]);
   const variantsList = getProductVariants(product);
@@ -369,10 +376,10 @@ function NewArrivalCard({ product, index }) {
     setShowHighlights(false);
   };
 
-  const displayImage = isHovered && hoverImage ? hoverImage : mainImage;
-  const resolvedImage = displayImage.startsWith('http') || displayImage.startsWith('data:')
-    ? displayImage
-    : getImageUrl(displayImage);
+  const resolveImg = (url) => {
+    if (!url) return null;
+    return url.startsWith('http') || url.startsWith('data:') ? url : getImageUrl(url);
+  };
 
   return (
     <>
@@ -391,21 +398,40 @@ function NewArrivalCard({ product, index }) {
         onMouseEnter={handleImageMouseEnter}
         onMouseLeave={handleImageMouseLeave}
       >
-        {/* Image */}
-        <img
-          src={resolvedImage}
-          alt={product.name}
-          loading="lazy"
-          onLoad={() => setImageLoaded(true)}
-          className={`w-full h-full object-cover transition-all duration-[400ms] ease-out ${
-            imageLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          style={{
-            transform: isHovered && !showQuickAdd ? 'scale(1.05)' : 'scale(1)',
-          }}
-        />
-        {!imageLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-shimmer bg-[length:200%_100%]" />
+        {/* Product Image — premium hover crossfade with multi-image layering */}
+        <div className="product-img-stack">
+          {mainImage ? (
+            <>
+              {/* Primary image */}
+              <img
+                src={resolveImg(mainImage)}
+                alt={product.name}
+                loading="lazy"
+                onLoad={() => setImageLoaded(true)}
+                className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${!isHovered || !hasHoverImage ? 'active' : ''}`}
+              />
+              {/* Hover image */}
+              <img
+                src={resolveImg(hoverImage)}
+                alt={`${product.name} - hover view`}
+                loading="lazy"
+                className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${isHovered && hasHoverImage ? 'active' : ''}`}
+              />
+            </>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-7xl opacity-40">👕</div>
+          )}
+          {!imageLoaded && (
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-shimmer bg-[length:200%_100%]" />
+          )}
+        </div>
+
+        {/* Image indicator dots */}
+        {hasHoverImage && (
+          <div className="product-img-dots">
+            <div className={`product-img-dot ${!isHovered ? 'active' : ''}`} />
+            <div className={`product-img-dot ${isHovered ? 'active' : ''}`} />
+          </div>
         )}
 
         {/* Highlights Overlay */}

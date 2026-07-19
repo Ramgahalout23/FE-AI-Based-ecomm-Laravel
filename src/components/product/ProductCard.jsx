@@ -1,5 +1,5 @@
-import { ShoppingBag, Plus, Minus, X, Heart, Eye } from 'lucide-react';
-import { useState, useMemo, useCallback, useEffect, memo } from 'react';
+import { ShoppingBag, Plus, Minus, X, Heart, Eye, Sparkles } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,12 +8,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
-import { formatCurrency, slugify, getImageUrl, getProductImage } from '../../utils/formatters';
+import { formatCurrency, slugify, getImageUrl, getProductImage, getProductImages, getProductHoverImage } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
 import { cartAPI } from '../../api/cart';
 import useAuthStore from '../../store/authStore';
+import { buildHighlights, getStyleTagline } from '../../utils/productHelpers.jsx';
 import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
@@ -32,9 +33,15 @@ function ProductCard({ product, className = '' }) {
   const [selectedSize, setSelectedSize] = useState('');
   const [qty, setQty] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [showHighlights, setShowHighlights] = useState(false);
+  const highlightsTimeoutRef = useRef(null);
 
 
   /* ── Variants ── */
+  const productImages = getProductImages(product);
+  const hoverImageUrl = getProductHoverImage(product);
+  const hasHoverImage = !!hoverImageUrl && hoverImageUrl !== productImages[0];
   const variants = product.variants || product.productvariant;
   const hasVariants = Array.isArray(variants) && variants.length > 0;
 
@@ -125,6 +132,22 @@ function ProductCard({ product, className = '' }) {
     setSelectedSize('');
     setQty(1);
   }, []);
+
+  const handleImageMouseEnter = () => {
+    setIsHovered(true);
+    if (!showQuickAdd) {
+      highlightsTimeoutRef.current = setTimeout(() => setShowHighlights(true), 150);
+    }
+  };
+
+  const handleImageMouseLeave = () => {
+    setIsHovered(false);
+    if (highlightsTimeoutRef.current) {
+      clearTimeout(highlightsTimeoutRef.current);
+      highlightsTimeoutRef.current = null;
+    }
+    setShowHighlights(false);
+  };
 
   /* ── Quick Add: directly to cart ── */
   const handleQuickAdd = useCallback(async (e) => {
@@ -220,6 +243,7 @@ function ProductCard({ product, className = '' }) {
     }
 
     setShowQuickAdd(true);
+    setShowHighlights(false);
   }, [hasVariants, hasAllSelections, hasSelectableOptions, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, isAuthenticated, colors, sizes]);
 
   /* ── Add from panel (after selections made) ── */
@@ -283,6 +307,9 @@ function ProductCard({ product, className = '' }) {
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
   const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
 
+  const highlights = useMemo(() => buildHighlights(product, true), [product]);
+  const styleTagline = useMemo(() => getStyleTagline(product), [product]);
+
   // Computed "New" badge — based on badge field, isNew flag, or recent creation
   const isNew = useMemo(() => {
     if (product.badge === 'New') return true;
@@ -317,11 +344,15 @@ function ProductCard({ product, className = '' }) {
     <>
       {/* ════ Product Card ════ */}
       <div
-        className={`group bg-white ${className} rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
+        className={`product-card group bg-white ${className} rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
         onClick={() => navigate(`/products/${productSlug}`)}
       >
         {/* Image Container */}
-        <div className="relative aspect-[3/4] max-sm:aspect-[4/5] bg-surface overflow-hidden shrink-0">
+        <div
+          className="relative aspect-[3/4] max-sm:aspect-[4/5] bg-surface overflow-hidden shrink-0"
+          onMouseEnter={handleImageMouseEnter}
+          onMouseLeave={handleImageMouseLeave}
+        >
           {/* Top-left Badge */}
           {topLeftBadge && (
             <div className={`absolute top-3 left-3 max-sm:top-2 max-sm:left-2 z-10 text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-wider ${topLeftBadge.className}`}>
@@ -349,27 +380,86 @@ function ProductCard({ product, className = '' }) {
             <Eye size={16} />
           </button>
 
-          {/* Product Image */}
-          {(() => {
-            const imgUrl = getProductImage(product);
-            const cardImageUrl = imgUrl ? getImageUrl(imgUrl) : null;
-            return cardImageUrl ? (
-              <img loading="lazy" src={cardImageUrl}
-                alt={product.name}
-                onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
-                className={`w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-110 ${isOutOfStock ? 'grayscale opacity-60' : ''}`}
-              />
+          {/* Product Image — premium hover crossfade with multi-image layering */}
+          <div className="product-img-stack">
+            {productImages.length > 0 ? (
+              <>
+                {/* Always render the primary image */}
+                <img
+                  src={getImageUrl(productImages[0])}
+                  alt={product.name}
+                  loading="lazy"
+                  onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                  className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${!isHovered || !hasHoverImage ? 'active' : ''}`}
+                />
+                {/* Hover image — uses dedicated hoverImageUrl if set, otherwise second product image */}
+                <img
+                  src={getImageUrl(hoverImageUrl || productImages[1] || '')}
+                  alt={`${product.name} - hover view`}
+                  loading="lazy"
+                  onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
+                  className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${isHovered && hasHoverImage ? 'active' : ''}`}
+                />
+              </>
             ) : (
-              <div className={`w-full h-full flex items-center justify-center text-7xl transition-all duration-500 ease-out group-hover:scale-110 ${isOutOfStock ? 'opacity-20' : 'opacity-40'}`}>
+              <div className={`w-full h-full flex items-center justify-center text-7xl transition-all duration-500 ${isOutOfStock ? 'opacity-20' : 'opacity-40'}`}>
                 👕
               </div>
-            );
-          })()}
+            )}
+          </div>
 
           {/* Out of Stock overlay on image */}
           {isOutOfStock && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10"><div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
                 {t('product.sold_out')}</div>
+            </div>
+          )}
+
+          {/* Highlights Overlay */}
+          <AnimatePresence>
+            {!showQuickAdd && showHighlights && highlights.length > 0 && (
+              <motion.div
+                key="highlights-overlay"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-white/90 text-[9px] font-medium leading-tight mb-1.5 line-clamp-2">
+                  {styleTagline}
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {highlights.slice(0, 4).map((h, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-[7px] font-semibold uppercase tracking-wider"
+                    >
+                      {h.icon}
+                      {h.value}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Image indicator dots */}
+          {hasHoverImage && (
+            <div className="product-img-dots">
+              <div className={`product-img-dot ${!isHovered ? 'active' : ''}`} />
+              <div className={`product-img-dot ${isHovered ? 'active' : ''}`} />
+            </div>
+          )}
+
+          {/* Details hint */}
+          {!showQuickAdd && !isOutOfStock && !showHighlights && (
+            <div className="absolute top-2 left-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 backdrop-blur-sm text-[7px] font-semibold text-gray-600 uppercase tracking-wider shadow-sm">
+                <Sparkles size={8} />
+                {t('product.details_label')}
+              </span>
             </div>
           )}
 

@@ -290,6 +290,29 @@ export const getPromotionImage = (promotion) => {
 };
 
 /**
+ * Get the hover image URL for a product.
+ * Checks the dedicated hoverImageUrl field first, then falls back to the
+ * second product image (index 1) if available.
+ */
+export const getProductHoverImage = (product) => {
+  if (!product) return null;
+  // Dedicated hover image field (camelCase from API response)
+  if (product.hoverImageUrl) return product.hoverImageUrl;
+  // Snake_case from direct DB access
+  if (product.hover_image_url) return product.hover_image_url;
+  // Fallback: second image from productimage relation
+  if (Array.isArray(product.productimage) && product.productimage.length > 1) {
+    return product.productimage[1]?.url || null;
+  }
+  // Fallback: second image from images array
+  if (Array.isArray(product.images) && product.images.length > 1) {
+    const second = product.images[1];
+    return typeof second === 'object' ? (second?.url || null) : second;
+  }
+  return null;
+};
+
+/**
  * Get all product image URLs from any format the backend returns.
  * Returns an array of URL strings (empty array if none found).
  */

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
 import useFlyToCart from '../../hooks/useFlyToCart';
-import { formatCurrency, slugify, getImageUrl, getProductImages } from '../../utils/formatters';
+import { formatCurrency, slugify, getImageUrl, getProductImages, getProductHoverImage } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
@@ -185,6 +185,8 @@ export default memo(function SearchProductCard({ product }) {
   };
 
   const productImages = getProductImages(product);
+  const hoverImageUrl = getProductHoverImage(product);
+  const hasHoverImage = !!hoverImageUrl && hoverImageUrl !== productImages[0];
 
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
   const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
@@ -484,17 +486,25 @@ export default memo(function SearchProductCard({ product }) {
           </button>
         )}
 
-        {/* Product Image - premium hover crossfade with multi-image cycling */}
+        {/* Product Image - premium hover crossfade with multi-image layering */}
         <div className="product-img-stack">
           {productImages.length > 0 ? (
-            productImages.map((imgUrl, idx) => (
-              <img loading="lazy" key={idx}
-                src={getImageUrl(imgUrl)}
-                alt={`${product.name}${idx > 0 ? ` - view ${idx + 1}` : ''}`}
+            <>
+              {/* Primary image */}
+              <img
+                src={getImageUrl(productImages[0])}
+                alt={product.name}
                 loading="lazy"
-                className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${(idx === 0 && !isHovered) || (idx === 1 && isHovered && productImages.length > 1) ? 'active' : ''}`}
+                className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${!isHovered || !hasHoverImage ? 'active' : ''}`}
               />
-            ))
+              {/* Hover image — uses dedicated hoverImageUrl if set, otherwise second product image */}
+              <img
+                src={getImageUrl(hoverImageUrl || productImages[1] || '')}
+                alt={`${product.name} - hover view`}
+                loading="lazy"
+                className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${isHovered && hasHoverImage ? 'active' : ''}`}
+              />
+            </>
           ) : (
             <div className={`w-full h-full flex items-center justify-center text-7xl transition-all duration-500 ${isOutOfStock ? 'opacity-20' : 'opacity-40'}`}>👕</div>
           )}
@@ -510,14 +520,10 @@ export default memo(function SearchProductCard({ product }) {
         )}
 
         {/* Image indicator dots */}
-        {productImages.length > 1 && (
+        {hasHoverImage && (
           <div className="product-img-dots">
-            {productImages.map((_, idx) => (
-              <div
-                key={idx}
-                className={`product-img-dot ${idx === 0 && !isHovered ? 'active' : idx === 1 && isHovered ? 'active' : ''}`}
-              />
-            ))}
+            <div className={`product-img-dot ${!isHovered ? 'active' : ''}`} />
+            <div className={`product-img-dot ${isHovered ? 'active' : ''}`} />
           </div>
         )}
 

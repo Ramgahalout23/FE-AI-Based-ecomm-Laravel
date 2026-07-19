@@ -1044,6 +1044,42 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
     }
   }, [goNext, goPrev]);
 
+  /* ── Mouse drag/swipe handlers for desktop ── */
+  const handleMouseDown = useCallback((e) => {
+    touchDragRef.current = { startX: e.clientX, startY: e.clientY, isDragging: true, moved: false };
+    setIsTouchDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    const td = touchDragRef.current;
+    if (!td.isDragging) return;
+    const diffX = e.clientX - td.startX;
+    const diffY = e.clientY - td.startY;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
+      td.moved = true;
+    }
+  }, []);
+
+  const handleMouseUp = useCallback((e) => {
+    const td = touchDragRef.current;
+    if (td.isDragging) {
+      handleSwipe(e.clientX - td.startX);
+    }
+    td.isDragging = false;
+    setIsTouchDragging(false);
+    setTimeout(() => { td.moved = false; }, 100);
+  }, [handleSwipe]);
+
+  const handleMouseLeave = useCallback((e) => {
+    const td = touchDragRef.current;
+    if (td.isDragging) {
+      handleSwipe(e.clientX - td.startX);
+    }
+    td.isDragging = false;
+    setIsTouchDragging(false);
+    setTimeout(() => { td.moved = false; }, 100);
+  }, [handleSwipe]);
+
   const avgRating = REVIEWS_DATA.length > 0
     ? (REVIEWS_DATA.reduce((sum, r) => sum + r.rating, 0) / REVIEWS_DATA.length).toFixed(1)
     : '0.0';
@@ -1054,10 +1090,16 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
   return (
     <section
       ref={sectionRef}
-      className="content-section relative py-10 md:py-14 bg-gradient-to-br from-[#0c0c0c] via-[#111] to-[#0a0a0a] overflow-hidden"
+      className="content-section relative py-10 md:py-14 bg-gradient-to-br from-[#0c0c0c] via-[#111] to-[#0a0a0a] overflow-hidden select-none"
       style={{ touchAction: 'pan-y' }}
       onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      onMouseLeave={(e) => {
+        setIsPaused(false);
+        handleMouseLeave(e);
+      }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={(e) => {
@@ -1226,6 +1268,26 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
             ))}
             </div>
           </div>
+
+          {/* Desktop arrow navigation buttons */}
+          {REVIEWS_DATA.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 opacity-0 group-hover/slider:opacity-100 focus:opacity-100"
+                aria-label="Previous review"
+              >
+                <ChevronLeft size={16} className="transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); goNext(); }}
+                className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 opacity-0 group-hover/slider:opacity-100 focus:opacity-100"
+                aria-label="Next review"
+              >
+                <ChevronRight size={16} className="transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
+              </button>
+            </>
+          )}
 
         </div>
 
