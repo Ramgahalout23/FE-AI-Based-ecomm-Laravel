@@ -175,7 +175,7 @@ client.interceptors.response.use(
 // This makes admin dashboard loads significantly faster than Node.js.
 export const adminClient = axios.create({
   baseURL: ADMIN_API_BASE,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 adminClient.interceptors.request.use((config) => {

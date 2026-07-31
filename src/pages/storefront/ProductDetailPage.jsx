@@ -1,4 +1,4 @@
-import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronLeft, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw } from 'lucide-react';
+import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronLeft, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -19,7 +19,7 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import SizeGuideModal from '../../components/product/SizeGuideModal';
 import ReviewFormModal from '../../components/product/ReviewFormModal';
-import { formatCurrency, formatDate, getImageUrl, getProductImages } from '../../utils/formatters';
+import { formatCurrency, formatDate, getImageUrl, getProductImages, getVideoUrl } from '../../utils/formatters';
 import ReviewImageLightbox from '../../components/product/ReviewImageLightbox';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../store/useSettings';
@@ -768,6 +768,172 @@ export default function ProductDetailPage() {
         .premium-feature-card { transition: all 0.25s ease; cursor: default; }
         .premium-feature-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: ${INK} !important; background: #fafafa !important; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        /* ── Floating Product Video ── */
+        .fpv-bubble {
+          position: fixed;
+          right: 20px;
+          bottom: 24px;
+          z-index: 70;
+          width: 74px;
+          height: 74px;
+          border-radius: 50%;
+          padding: 0;
+          border: none;
+          background: #141416;
+          cursor: grab;
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,255,255,0.12);
+          transition: box-shadow 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
+          animation: fpv-bubble-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.6s backwards;
+        }
+        .fpv-bubble:hover {
+          box-shadow: 0 14px 38px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.22);
+          transform: scale(1.05);
+        }
+        .fpv-bubble:active {
+          transform: scale(0.97);
+          cursor: grabbing;
+        }
+        .fpv-bubble-dragging {
+          cursor: grabbing;
+          transform: scale(1.06);
+          box-shadow: 0 18px 44px rgba(0,0,0,0.45);
+          transition: box-shadow 0.15s ease;
+        }
+        .fpv-bubble-hidden {
+          opacity: 0;
+          pointer-events: none;
+        }
+        @keyframes fpv-bubble-in {
+          0% { opacity: 0; transform: translateY(20px) scale(0.5); }
+          60% { opacity: 1; transform: translateY(-3px) scale(1.06); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .fpv-ring {
+          position: absolute;
+          inset: -6px;
+          border-radius: 50%;
+          border: 2px solid rgba(255,255,255,0.5);
+          animation: fpv-ring 2.4s ease-out infinite;
+          pointer-events: none;
+        }
+        .fpv-ring-delay { animation-delay: 1.2s; }
+        @keyframes fpv-ring {
+          0% { transform: scale(0.9); opacity: 0.8; }
+          100% { transform: scale(1.7); opacity: 0; }
+        }
+        .fpv-bubble-media {
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          overflow: hidden;
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .fpv-bubble-video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          pointer-events: none;
+        }
+        .fpv-bubble-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .fpv-bubble-fallback {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(20,20,22,0.45);
+        }
+        .fpv-bubble-play {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0,0,0,0.25);
+        }
+        .fpv-bubble-badge {
+          position: absolute;
+          right: -2px;
+          bottom: -2px;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #ffffff;
+          color: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+          z-index: 2;
+        }
+        .floating-video-panel {
+          position: fixed;
+          right: 20px;
+          bottom: 88px;
+          z-index: 71;
+          width: min(400px, calc(100vw - 32px));
+          background: #141416;
+          color: #fff;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .floating-video-panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          font-family: 'Jost', sans-serif;
+        }
+        .floating-video-panel-body {
+          aspect-ratio: 16 / 9;
+          width: 100%;
+          background: #000;
+        }
+        .fpv-header-link { color: rgba(255,255,255,0.75); transition: color 0.2s; }
+        .fpv-header-link:hover { color: #ffffff; }
+        .fpv-close-btn {
+          background: rgba(255,255,255,0.12);
+          border: none;
+          color: #fff;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .fpv-close-btn:hover { background: rgba(255,255,255,0.25); }
+        @media (max-width: 767px) {
+          .fpv-bubble {
+            right: 14px;
+            bottom: 92px;
+            width: 64px;
+            height: 64px;
+          }
+          .floating-video-panel {
+            right: 12px;
+            bottom: 150px;
+            width: calc(100vw - 24px);
+          }
+          .sticky-bar-mobile {
+            z-index: 80 !important;
+          }
+        }
       `}</style>
 
       {/* ── SEO meta tags ── */}
@@ -1637,7 +1803,263 @@ export default function ProductDetailPage() {
           </div>
         </motion.div>
       )}
+
+      {/* Floating product video player (only when admin uploaded a video) */}
+      <FloatingProductVideo product={product} poster={galleryImages[0]} />
     </div>
+  );
+}
+
+/* ════════════════════════════════════════ */
+/* Floating Product Video Player          */
+/* ════════════════════════════════════════ */
+function FloatingProductVideo({ product, poster }) {
+  const [open, setOpen] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const bubbleRef = useRef(null);
+  const previewVideoRef = useRef(null);
+  const dragState = useRef(null);
+  const wasDragRef = useRef(false);
+  const videoUrl = product?.videoUrl || product?.video_url;
+
+  // Keep the preview video muted so browsers allow autoplay
+  useEffect(() => {
+    if (previewVideoRef.current) previewVideoRef.current.muted = true;
+  }, [videoUrl]);
+
+  // Close the player on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        previewVideoRef.current?.play().catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // YouTube / Vimeo embed detection (external links open in a new tab)
+  const youTubeId = (() => {
+    if (!videoUrl) return null;
+    const m = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+    return m?.[1] || null;
+  })();
+  const vimeoId = (() => {
+    if (!videoUrl) return null;
+    const m = videoUrl.match(/vimeo\.com\/(\d+)/);
+    return m?.[1] || null;
+  })();
+  const isExternalEmbed = Boolean(youTubeId || vimeoId);
+  const embedSrc = youTubeId
+    ? `https://www.youtube.com/embed/${youTubeId}?autoplay=1&rel=0`
+    : vimeoId
+      ? `https://player.vimeo.com/video/${vimeoId}?autoplay=1`
+      : null;
+
+  if (!videoUrl) return null;
+
+  const openPlayer = () => {
+    setVideoError(false);
+    setOpen(true);
+    previewVideoRef.current?.pause();
+  };
+
+  const closePlayer = () => {
+    setOpen(false);
+    previewVideoRef.current?.play().catch(() => {});
+  };
+
+  // ── Drag & drop the bubble ──
+  const onPointerDown = (e) => {
+    if (e.button !== 0) return;
+    wasDragRef.current = false;
+    const el = bubbleRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragState.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseLeft: rect.left,
+      baseTop: rect.top,
+    };
+    el.setPointerCapture(e.pointerId);
+    // Drop the hover/entrance transform so the grab scale doesn't pop mid-drag
+    el.style.transform = 'none';
+    setDragging(true);
+  };
+
+  const onPointerMove = (e) => {
+    const st = dragState.current;
+    const el = bubbleRef.current;
+    if (!st || !el || st.pointerId !== e.pointerId) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 6) wasDragRef.current = true;
+    if (!wasDragRef.current) return;
+    el.style.left = `${st.baseLeft + dx}px`;
+    el.style.top = `${st.baseTop + dy}px`;
+    el.style.right = 'auto';
+  };
+
+  const onPointerUp = () => {
+    const st = dragState.current;
+    const el = bubbleRef.current;
+    dragState.current = null;
+    setDragging(false);
+    if (!st || !el) return;
+    // A plain click (no drag) must not re-position the bubble
+    if (!wasDragRef.current) {
+      el.style.transform = '';
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const size = rect.width;
+    const top = Math.min(Math.max(rect.top, 12), vh - size - 12);
+    const snapToLeft = rect.left + size / 2 < vw / 2;
+    el.style.transition = 'left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
+    el.style.left = snapToLeft ? '14px' : `${vw - size - 14}px`;
+    el.style.right = 'auto';
+    el.style.top = `${top}px`;
+    // Restore hover scaling now that dragging is done
+    el.style.transform = '';
+    window.setTimeout(() => { if (el) el.style.transition = ''; }, 320);
+  };
+
+  const handleBubbleClick = () => {
+    if (wasDragRef.current) { wasDragRef.current = false; return; }
+    openPlayer();
+  };
+
+  return (
+    <>
+      {/* Floating video bubble — live muted preview, draggable, click to expand */}
+      <div
+        ref={bubbleRef}
+        className={`fpv-bubble${dragging ? ' fpv-bubble-dragging' : ''}${open ? ' fpv-bubble-hidden' : ''}`}
+        role="button"
+        tabIndex={0}
+        aria-label="Watch product video"
+        onClick={handleBubbleClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer(); }
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <span className="fpv-ring" />
+        <span className="fpv-ring fpv-ring-delay" />
+        <span className="fpv-bubble-media">
+          {isExternalEmbed || videoError ? (
+            <span className="fpv-bubble-fallback">
+              {poster ? <img src={poster} alt="" className="fpv-bubble-img" /> : null}
+              <span className="fpv-bubble-play"><Play size={22} fill="#fff" /></span>
+            </span>
+          ) : (
+            <video
+              ref={previewVideoRef}
+              src={getVideoUrl(videoUrl)}
+              poster={poster || undefined}
+              muted
+              loop
+              autoPlay
+              playsInline
+              preload="metadata"
+              className="fpv-bubble-video"
+              onError={() => setVideoError(true)}
+            />
+          )}
+        </span>
+        <span className="fpv-bubble-badge"><Play size={10} fill="#000" /></span>
+      </div>
+
+      {/* Floating player panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            className="floating-video-panel"
+            role="dialog"
+            aria-label="Product video player"
+          >
+            <div className="floating-video-panel-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Volume2 size={14} strokeWidth={2} />
+                <span style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {product?.name || 'Product Video'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {isExternalEmbed && (
+                  <a
+                    href={videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="fpv-header-link"
+                    style={{ display: 'flex', alignItems: 'center', padding: 6, borderRadius: 8 }}
+                    aria-label="Open video in new tab"
+                  >
+                    <ExternalLink size={15} />
+                  </a>
+                )}
+                <button
+                  onClick={closePlayer}
+                  className="fpv-close-btn"
+                  aria-label="Close video player"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            <div className="floating-video-panel-body">
+              {isExternalEmbed ? (
+                <iframe
+                  src={embedSrc}
+                  title="Product video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
+              ) : videoError ? (
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,0.7)', padding: 24, textAlign: 'center' }}>
+                  <X size={24} />
+                  <p style={{ fontSize: 12, lineHeight: 1.5 }}>This video could not be played.</p>
+                  <a
+                    href={getVideoUrl(videoUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#fff', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', textDecoration: 'underline' }}
+                  >
+                    Open video instead
+                  </a>
+                </div>
+              ) : (
+                <video
+                  src={getVideoUrl(videoUrl)}
+                  poster={poster || undefined}
+                  controls
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+                  onError={() => setVideoError(true)}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

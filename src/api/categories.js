@@ -2,7 +2,7 @@ import client from './client';
 import { adminClient } from './client';
 
 export const categoriesAPI = {
-  getAll: (params) => client.get('/categories', { params }),
+  getAll: (params, config) => client.get('/categories', { params, ...config }),
   getHierarchy: () => client.get('/categories/hierarchy'),
   getById: (id) => client.get(`/categories/${id}`),
   getSubcategories: (id) => client.get(`/categories/${id}/subcategories`),

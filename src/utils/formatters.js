@@ -235,6 +235,30 @@ export const getImageUrl = (url) => {
 };
 
 /**
+ * Get a fully-qualified video URL.
+ *
+ * Resolves relative paths (e.g. '/storage/uploads/...') against the backend base
+ * URL. Videos are NOT proxied through the Cloudinary image pipeline (which is
+ * image-only), so absolute URLs pass through untouched.
+ */
+export const getVideoUrl = (url) => {
+  if (!url) return '';
+
+  // Normalize Windows-style backslashes to standard forward slashes
+  const normalizedUrl = url.replace(/\\/g, '/');
+
+  // If it's already a data URI or absolute URL, return as-is
+  if (normalizedUrl.startsWith('data:')) return normalizedUrl;
+  if (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) return normalizedUrl;
+
+  // Resolve relative URLs against the backend base
+  const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+  const backendBase = apiBase.replace('/api/v1', '');
+  const cleanUrl = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+  return `${backendBase}${cleanUrl}`;
+};
+
+/**
  * Get the first product image URL from any format the backend returns.
  * Handles Prisma `productimage` relation, legacy `images` array, and direct `imageUrl`/`image` fields.
  */

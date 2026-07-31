@@ -10,7 +10,7 @@ import Pagination from '../../components/admin/Pagination';
 import { downloadBlob } from '../../utils/download';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 
-const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '' };
+const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '' };
 const EMPTY_VARIANT = { sku: '', price: '', stock: '', color: '', size: '', images: '', description: '' };
 
 export default function ProductsAdminPage() {
@@ -143,9 +143,11 @@ export default function ProductsAdminPage() {
     setLoading(true);
     try {
       // Load categories once if they are not already loaded
+      // Longer timeout: during big uploads the single-threaded PHP dev server
+      // queues concurrent requests, which could otherwise trip the 15s client timeout.
       let cats = categories;
       if (categories.length === 0) {
-        const categoriesRes = await categoriesAPI.getAll();
+        const categoriesRes = await categoriesAPI.getAll(undefined, { timeout: 120000 });
         cats = categoriesRes.data?.data?.categories || categoriesRes.data?.categories || categoriesRes.data?.data || [];
         setCategories(Array.isArray(cats) ? cats : []);
       }
@@ -229,7 +231,8 @@ export default function ProductsAdminPage() {
       images: imgsStr,
       status: p.status || 'DRAFT',
       badge: p.badge || '',
-      hoverImageUrl: p.hoverImageUrl || p.hover_image_url || ''
+      hoverImageUrl: p.hoverImageUrl || p.hover_image_url || '',
+      videoUrl: p.videoUrl || p.video_url || ''
     });
     // Show modal immediately, load variants async
     setShowVariants(false);
@@ -257,7 +260,8 @@ export default function ProductsAdminPage() {
       quantity: form.quantity ? Number(form.quantity) : 0,
       images: form.images ? form.images.split(',').map(url => url.trim()).filter(Boolean) : [],
       badge: form.badge || null,
-      hoverImageUrl: form.hoverImageUrl || null
+      hoverImageUrl: form.hoverImageUrl || null,
+      videoUrl: form.videoUrl || null
     };
     try {
       if (editing) {
@@ -676,6 +680,17 @@ export default function ProductsAdminPage() {
                       {aiLoading.image ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '🖼️'} {aiLoading.image ? 'Generating...' : 'AI Generate Image'}
                     </button>
                   </div>
+                </div>
+                <div className="form-group">
+                  <ImageUploadZone
+                    label="Product Video (floating player on product page)"
+                    value={form.videoUrl || ''}
+                    onChange={url => setForm({ ...form, videoUrl: url })}
+                    multiple={false}
+                    isVideo
+                    accept="video/mp4,video/webm,video/quicktime,video/m4v,video/ogg"
+                    maxSizeMB={40}
+                  />
                 </div>
                 <div className="form-group"><label>Status</label>
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
