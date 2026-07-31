@@ -771,12 +771,12 @@ export default function ProductDetailPage() {
         /* ── Floating Product Video ── */
         .fpv-bubble {
           position: fixed;
-          right: 20px;
+          left: 20px;
           bottom: 24px;
           z-index: 70;
-          width: 74px;
-          height: 74px;
-          border-radius: 50%;
+          width: 68px;
+          aspect-ratio: 9 / 16;
+          border-radius: 18px;
           padding: 0;
           border: none;
           background: #141416;
@@ -784,12 +784,12 @@ export default function ProductDetailPage() {
           touch-action: none;
           user-select: none;
           -webkit-user-select: none;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 3px rgba(255,255,255,0.12);
+          box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.92), 0 0 0 3.5px rgba(0,0,0,0.16);
           transition: box-shadow 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
           animation: fpv-bubble-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.6s backwards;
         }
         .fpv-bubble:hover {
-          box-shadow: 0 14px 38px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.22);
+          box-shadow: 0 14px 38px rgba(0,0,0,0.4), 0 0 0 2px rgba(255,255,255,0.92), 0 0 0 3.5px rgba(0,0,0,0.16);
           transform: scale(1.05);
         }
         .fpv-bubble:active {
@@ -799,7 +799,7 @@ export default function ProductDetailPage() {
         .fpv-bubble-dragging {
           cursor: grabbing;
           transform: scale(1.06);
-          box-shadow: 0 18px 44px rgba(0,0,0,0.45);
+          box-shadow: 0 18px 44px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.92), 0 0 0 3.5px rgba(0,0,0,0.16);
           transition: box-shadow 0.15s ease;
         }
         .fpv-bubble-hidden {
@@ -814,20 +814,20 @@ export default function ProductDetailPage() {
         .fpv-ring {
           position: absolute;
           inset: -6px;
-          border-radius: 50%;
+          border-radius: 22px;
           border: 2px solid rgba(255,255,255,0.5);
           animation: fpv-ring 2.4s ease-out infinite;
           pointer-events: none;
         }
         .fpv-ring-delay { animation-delay: 1.2s; }
         @keyframes fpv-ring {
-          0% { transform: scale(0.9); opacity: 0.8; }
-          100% { transform: scale(1.7); opacity: 0; }
+          0% { transform: scale(0.95); opacity: 0.8; }
+          100% { transform: scale(1.25); opacity: 0; }
         }
         .fpv-bubble-media {
           position: absolute;
           inset: 0;
-          border-radius: 50%;
+          border-radius: 18px;
           overflow: hidden;
           background: #000;
           display: flex;
@@ -863,10 +863,10 @@ export default function ProductDetailPage() {
         }
         .fpv-bubble-badge {
           position: absolute;
-          right: -2px;
-          bottom: -2px;
-          width: 22px;
-          height: 22px;
+          right: 6px;
+          bottom: 6px;
+          width: 24px;
+          height: 24px;
           border-radius: 50%;
           background: #ffffff;
           color: #000;
@@ -875,16 +875,66 @@ export default function ProductDetailPage() {
           justify-content: center;
           box-shadow: 0 4px 10px rgba(0,0,0,0.35);
           z-index: 2;
+          transition: transform 0.2s ease;
+        }
+        .fpv-bubble:hover .fpv-bubble-badge { transform: scale(1.12); }
+        .fpv-reels-tag {
+          position: absolute;
+          top: 6px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 3;
+          font-family: 'Jost', sans-serif;
+          font-size: 6.5px;
+          font-weight: 800;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #fff;
+          background: rgba(0,0,0,0.45);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          border: 1px solid rgba(255,255,255,0.25);
+          padding: 2px 7px;
+          border-radius: 999px;
+          pointer-events: none;
+          white-space: nowrap;
+        }
+        .fpv-dismiss-btn {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          z-index: 4;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(0,0,0,0.55);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          padding: 0;
+          transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+        }
+        .fpv-dismiss-btn:hover {
+          background: rgba(0,0,0,0.85);
+          transform: scale(1.1);
         }
         .floating-video-panel {
           position: fixed;
-          right: 20px;
+          left: 20px;
           bottom: 88px;
           z-index: 71;
-          width: min(400px, calc(100vw - 32px));
+          width: min(220px, calc(100vw - 32px));
+          max-height: calc(100vh - 96px);
+          display: flex;
+          flex-direction: column;
           background: #141416;
           color: #fff;
-          border-radius: 16px;
+          border-radius: 20px;
           overflow: hidden;
           box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08);
         }
@@ -896,10 +946,20 @@ export default function ProductDetailPage() {
           padding: 10px 12px;
           border-bottom: 1px solid rgba(255,255,255,0.08);
           font-family: 'Jost', sans-serif;
+          flex-shrink: 0;
+          cursor: grab;
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
         }
+        .floating-video-panel-header.fpv-header-dragging,
+        .floating-video-panel-header:active { cursor: grabbing; }
         .floating-video-panel-body {
-          aspect-ratio: 16 / 9;
+          flex: 1 1 auto;
+          min-height: 0;
+          aspect-ratio: 9 / 16;
           width: 100%;
+          max-height: calc(100vh - 150px);
           background: #000;
         }
         .fpv-header-link { color: rgba(255,255,255,0.75); transition: color 0.2s; }
@@ -920,15 +980,18 @@ export default function ProductDetailPage() {
         .fpv-close-btn:hover { background: rgba(255,255,255,0.25); }
         @media (max-width: 767px) {
           .fpv-bubble {
-            right: 14px;
+            left: 14px;
             bottom: 92px;
-            width: 64px;
-            height: 64px;
+            width: 54px;
           }
           .floating-video-panel {
-            right: 12px;
+            left: 12px;
             bottom: 150px;
-            width: calc(100vw - 24px);
+            width: min(280px, calc(100vw - 24px));
+            max-height: calc(100vh - 160px);
+          }
+          .floating-video-panel-body {
+            max-height: calc(100vh - 215px);
           }
           .sticky-bar-mobile {
             z-index: 80 !important;
@@ -1805,7 +1868,7 @@ export default function ProductDetailPage() {
       )}
 
       {/* Floating product video player (only when admin uploaded a video) */}
-      <FloatingProductVideo product={product} poster={galleryImages[0]} />
+      <FloatingProductVideo key={product.id} product={product} poster={galleryImages[0]} />
     </div>
   );
 }
@@ -1817,10 +1880,18 @@ function FloatingProductVideo({ product, poster }) {
   const [open, setOpen] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // Dismissal is session-only (in memory): it hides the bubble for the current
+  // page view only, so refreshing the page brings it back.
+  const [dismissed, setDismissed] = useState(false);
   const bubbleRef = useRef(null);
   const previewVideoRef = useRef(null);
   const dragState = useRef(null);
   const wasDragRef = useRef(false);
+  const panelRef = useRef(null);
+  const panelRootRef = useRef(null);
+  const panelDragState = useRef(null);
+  const [panelDragging, setPanelDragging] = useState(false);
+  const [panelPos, setPanelPos] = useState(null);
   const videoUrl = product?.videoUrl || product?.video_url;
 
   // Keep the preview video muted so browsers allow autoplay
@@ -1859,7 +1930,7 @@ function FloatingProductVideo({ product, poster }) {
       ? `https://player.vimeo.com/video/${vimeoId}?autoplay=1`
       : null;
 
-  if (!videoUrl) return null;
+  if (!videoUrl || dismissed) return null;
 
   const openPlayer = () => {
     setVideoError(false);
@@ -1870,6 +1941,10 @@ function FloatingProductVideo({ product, poster }) {
   const closePlayer = () => {
     setOpen(false);
     previewVideoRef.current?.play().catch(() => {});
+  };
+
+  const dismissVideo = () => {
+    setDismissed(true);
   };
 
   // ── Drag & drop the bubble ──
@@ -1919,16 +1994,54 @@ function FloatingProductVideo({ product, poster }) {
     const rect = el.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const size = rect.width;
-    const top = Math.min(Math.max(rect.top, 12), vh - size - 12);
-    const snapToLeft = rect.left + size / 2 < vw / 2;
+    const w = rect.width;
+    const h = rect.height;
+    const top = Math.min(Math.max(rect.top, 12), vh - h - 12);
+    const snapToLeft = rect.left + w / 2 < vw / 2;
     el.style.transition = 'left 0.3s cubic-bezier(0.22, 1, 0.36, 1), top 0.3s cubic-bezier(0.22, 1, 0.36, 1)';
-    el.style.left = snapToLeft ? '14px' : `${vw - size - 14}px`;
+    el.style.left = snapToLeft ? '14px' : `${vw - w - 14}px`;
     el.style.right = 'auto';
     el.style.top = `${top}px`;
     // Restore hover scaling now that dragging is done
     el.style.transform = '';
     window.setTimeout(() => { if (el) el.style.transition = ''; }, 320);
+  };
+
+  // ── Drag & drop the player panel (grab the header) ──
+  const onPanelPointerDown = (e) => {
+    if (e.button !== 0) return;
+    const el = panelRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    panelDragState.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseLeft: rect.left,
+      baseTop: rect.top,
+    };
+    el.setPointerCapture(e.pointerId);
+    setPanelDragging(true);
+  };
+
+  const onPanelPointerMove = (e) => {
+    const st = panelDragState.current;
+    const el = panelRef.current;
+    if (!st || !el || st.pointerId !== e.pointerId) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    if (Math.abs(dx) + Math.abs(dy) < 3) return;
+    const rootRect = (panelRootRef.current || el).getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = Math.min(Math.max(st.baseLeft + dx, 8), Math.max(8, vw - rootRect.width - 8));
+    const top = Math.min(Math.max(st.baseTop + dy, 8), Math.max(8, vh - rootRect.height - 8));
+    setPanelPos({ left, top });
+  };
+
+  const onPanelPointerUp = () => {
+    panelDragState.current = null;
+    setPanelDragging(false);
   };
 
   const handleBubbleClick = () => {
@@ -1978,6 +2091,18 @@ function FloatingProductVideo({ product, poster }) {
           )}
         </span>
         <span className="fpv-bubble-badge"><Play size={10} fill="#000" /></span>
+        <span className="fpv-reels-tag">Reels</span>
+        <button
+          type="button"
+          className="fpv-dismiss-btn"
+          aria-label="Dismiss video preview"
+          title="Dismiss video preview"
+          onClick={(e) => { e.stopPropagation(); dismissVideo(); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <X size={10} strokeWidth={2.5} />
+        </button>
       </div>
 
       {/* Floating player panel */}
@@ -1988,11 +2113,20 @@ function FloatingProductVideo({ product, poster }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.92 }}
             transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            ref={panelRootRef}
             className="floating-video-panel"
+            style={panelPos ? { left: `${panelPos.left}px`, top: `${panelPos.top}px`, right: 'auto', bottom: 'auto' } : undefined}
             role="dialog"
             aria-label="Product video player"
           >
-            <div className="floating-video-panel-header">
+            <div
+              ref={panelRef}
+              className={`floating-video-panel-header${panelDragging ? ' fpv-header-dragging' : ''}`}
+              onPointerDown={onPanelPointerDown}
+              onPointerMove={onPanelPointerMove}
+              onPointerUp={onPanelPointerUp}
+              onPointerCancel={onPanelPointerUp}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <Volume2 size={14} strokeWidth={2} />
                 <span style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -2008,6 +2142,7 @@ function FloatingProductVideo({ product, poster }) {
                     className="fpv-header-link"
                     style={{ display: 'flex', alignItems: 'center', padding: 6, borderRadius: 8 }}
                     aria-label="Open video in new tab"
+                    onPointerDown={(e) => e.stopPropagation()}
                   >
                     <ExternalLink size={15} />
                   </a>
@@ -2016,6 +2151,7 @@ function FloatingProductVideo({ product, poster }) {
                   onClick={closePlayer}
                   className="fpv-close-btn"
                   aria-label="Close video player"
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <X size={15} />
                 </button>
