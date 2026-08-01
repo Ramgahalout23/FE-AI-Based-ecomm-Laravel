@@ -24,7 +24,7 @@ import ReviewImageLightbox from '../../components/product/ReviewImageLightbox';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../store/useSettings';
 import useFlyToCart from '../../hooks/useFlyToCart';
-import { getColorHex } from '../../utils/constants';
+import { getColorHex, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 import { promotionsAPI } from '../../api/promotions';
 import { ordersAPI } from '../../api/orders';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
@@ -49,6 +49,12 @@ const displayFont = { fontFamily: "Jost, sans-serif", fontWeight: 800 };
 
 const stitchBorder = `repeating-linear-gradient(90deg, ${STONE} 0px, ${STONE} 6px, transparent 6px, transparent 12px)`;
 
+// ── Fabric weight meter helpers (dynamic from product attributes) ──
+const FABRIC_METER_MIN = 180;
+const FABRIC_METER_MAX = 320;
+const getFabricTier = (gsm) => gsm >= 280 ? 'Fleece-grade' : gsm >= 200 ? 'Heavyweight' : 'Standard tee';
+const getFabricMeterPct = (gsm) => Math.max(0, Math.min(100, ((gsm - FABRIC_METER_MIN) / (FABRIC_METER_MAX - FABRIC_METER_MIN)) * 100));
+
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -65,6 +71,7 @@ export default function ProductDetailPage() {
   const verticalThumbRef = useRef(null);
   const offersRef = useRef(null);
   const sentinelRef = useRef(null);
+  const stickyColorThumbsRef = useRef(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const hasAutoSelected = useRef(false);
 
@@ -296,6 +303,15 @@ export default function ProductDetailPage() {
 
   // ── Variant availability maps ──
   const variantsList = product?.variants || product?.productvariant || [];
+  // Per-color thumbnail from the variant's first image (set in admin),
+  // falling back to a solid color swatch when no variant image exists.
+  const getColorThumb = (color) => {
+    const v = variantsList.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
+    if (v?.images?.[0]) return getImageUrl(v.images[0]);
+    // Fall back to the product's own photo so a real thumbnail always shows in selectors
+    const base = getProductImages(product)[0] || product.imageUrl || product.image;
+    return base ? getImageUrl(base) : null;
+  };
   const variantStockMap = new Map();
   variantsList.forEach(v => {
     const attrs = v.attributes || {};
@@ -401,6 +417,18 @@ export default function ProductDetailPage() {
     };
   }, [product]);
 
+  // ── Auto-scroll the selected color into view inside the sticky bar thumb strip ──
+  // Uses an index lookup (buttons are direct children of the strip) to avoid
+  // selector-escaping issues when color names contain quotes or special chars.
+  useEffect(() => {
+    const container = stickyColorThumbsRef.current;
+    if (!container || !selectedColor) return;
+    const idx = (product?.colors || []).indexOf(selectedColor);
+    const active = idx >= 0 ? container.children[idx] : null;
+    if (!active) return;
+    active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [selectedColor, product?.colors, showStickyBar]);
+
   const scrollToOffers = useCallback(() => {
     if (window.innerWidth >= 1024) return;
     requestAnimationFrame(() => {
@@ -496,6 +524,9 @@ export default function ProductDetailPage() {
   const inWishlist = isInWishlist(product.id);
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
 
+  // Cart thumbnail: show the matched variant's first image so the bag reflects the selected color
+  const cartImageUrl = matchedVariant?.images?.[0] || getProductImages(product)[0] || product.imageUrl || product.image || undefined;
+
   const handleAddToCart = async () => {
     if (isAddingToCart) return;
     if (!canAddToCart) return;
@@ -503,7 +534,7 @@ export default function ProductDetailPage() {
     flyToCart();
     trackAddToCart(product.id, product.name, qty, product.price);
     try {
-      addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined });
+      addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined, imageUrl: cartImageUrl });
       if (!isAuthenticated) {
         addedToCart(product.name);
         navigate('/cart');
@@ -654,6 +685,13 @@ export default function ProductDetailPage() {
           right: 12px !important;
           height: 1px !important;
           background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06), transparent) !important;
+        }
+        .sticky-color-thumbs {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .sticky-color-thumbs::-webkit-scrollbar {
+          display: none !important;
         }
         .sticky-cta {
           position: relative;
@@ -1143,21 +1181,28 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Fabric weight meter (if product has attributes) */}
-          <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: `1px dashed ${STONE}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: STONE, marginBottom: 8 }}>
-              <span>Fabric weight</span>
-              <span style={{ color: INK, fontWeight: 700 }}>{(product.attributes?.gsm) || '240'} GSM — Heavyweight</span>
-            </div>
-            <div style={{ position: "relative", height: 6, background: PANEL, borderRadius: 3 }}>
-              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "62%", background: INK, borderRadius: 3 }} />
-              <div style={{ position: "absolute", left: "62%", top: -5, width: 2, height: 16, background: GOLD }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: STONE, marginTop: 6, ...{ fontFamily: "Jost, sans-serif" } }}>
-              <span>180 · standard tee</span>
-              <span>320 · fleece-grade</span>
-            </div>
-          </div>
+          {/* Fabric weight meter — only shown when the product has a GSM attribute set */}
+          {product.attributes?.gsm && (() => {
+            const gsm = Number(product.attributes.gsm);
+            const meterPct = getFabricMeterPct(gsm);
+            const tier = getFabricTier(gsm);
+            return (
+              <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: `1px dashed ${STONE}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: STONE, marginBottom: 8 }}>
+                  <span>Fabric weight</span>
+                  <span style={{ color: INK, fontWeight: 700 }}>{gsm} GSM — {tier}</span>
+                </div>
+                <div style={{ position: "relative", height: 6, background: PANEL, borderRadius: 3 }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${meterPct}%`, background: INK, borderRadius: 3 }} />
+                  <div style={{ position: "absolute", left: `${meterPct}%`, top: -5, width: 2, height: 16, background: GOLD }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: STONE, marginTop: 6, ...{ fontFamily: "Jost, sans-serif" } }}>
+                  <span>180 · standard tee</span>
+                  <span>320 · fleece-grade</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ══ Flash Sale Badge ══ */}
           {activeFlashSale && activeFlashSale.endDate && (
@@ -1184,38 +1229,47 @@ export default function ProductDetailPage() {
                   const colorAvailable = isColorAvailable(c);
                   const isOOS = variantsList.length > 0 && !colorAvailable;
                   const isActive = selectedColor === c;
+                  const colorThumb = getColorThumb(c);
                   return (
                     <button
                       key={c}
                       onClick={() => { if (isOOS) return; setSelectedColor(c); scrollToOffers(); }}
                       disabled={isOOS}
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                        border: `2px solid ${isActive ? INK : "transparent"}`,
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        border: `1px solid ${isActive ? INK : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.15)"}`,
                         cursor: isOOS ? "not-allowed" : "pointer",
-                        background: "none",
-                        padding: 3,
-                        opacity: isOOS ? 0.35 : 1,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        background: isOOS ? PANEL : "transparent",
+                        padding: 0,
+                        opacity: isOOS ? 0.5 : 1,
+                        overflow: "hidden",
+                        transition: "all 0.15s ease",
                       }}
                       title={isOOS ? `${c} - Out of Stock` : c}
+                      aria-label={`Select color ${c}`}
                     >
                       <span style={{
                         display: "block",
                         width: "100%",
                         height: "100%",
-                        borderRadius: "50%",
-                        background: getColorHex(c),
-                        border: "1px solid rgba(0,0,0,0.15)",
+                        borderRadius: 11,
                         position: "relative",
                         overflow: "hidden",
                       }}>
+                        {colorThumb ? (
+                          <img
+                            src={colorThumb}
+                            alt={c}
+                            loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        ) : (
+                          <span style={{ display: "block", width: "100%", height: "100%", background: getColorHex(c) }} />
+                        )}
                         {isOOS && (
-                          <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.45)" }}>
                             <X size={14} color={STONE} strokeWidth={2} />
                           </span>
                         )}
@@ -1299,9 +1353,10 @@ export default function ProductDetailPage() {
           {/* ══ Offers Section ══ */}
           <div ref={offersRef} style={{ marginBottom: 24 }}>
             <OffersSection promotions={storeOffers} />
-            {getSetting('bundleOfferEnabled', 'true') !== 'false' && (
+            {isBundleOfferEnabled(getSetting) && (
               <BundleOffer
                 basePrice={effectivePrice}
+                tiers={parseBundleTiers(getSetting('bundleTiers'))}
                 onSelectTier={(minQty) => setQty(minQty)}
                 selectedQty={qty}
                 isInStock={!isStockUnavailable}
@@ -1370,7 +1425,7 @@ export default function ProductDetailPage() {
               if (!canAddToCart || isAddingToCart) return;
               setIsAddingToCart(true);
               try {
-                addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined });
+                addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined, imageUrl: cartImageUrl });
                 if (!isAuthenticated) { navigate('/checkout'); return; }
                 await cartAPI.add({ productId: product.id, quantity: qty, size: selectedSize || undefined, color: selectedColor || undefined, variantId: matchedVariant?.id || undefined });
                 navigate('/checkout');
@@ -1451,7 +1506,7 @@ export default function ProductDetailPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 12, fontSize: 13 }}>
               <span style={{ color: "rgba(239,234,224,0.5)" }}>Fabric</span>
-              <span style={{ textAlign: "right" }}>{(product.attributes?.fabric) || '240 GSM Heavyweight Cotton'}</span>
+              <span style={{ textAlign: "right" }}>{(product.attributes?.fabric) || (product.attributes?.gsm ? `${product.attributes.gsm} GSM ${getFabricTier(Number(product.attributes.gsm))} Cotton` : '—')}</span>
               <span style={{ color: "rgba(239,234,224,0.5)" }}>Fit</span>
               <span style={{ textAlign: "right" }}>{(product.description || 'Drop shoulder, relaxed').slice(0,45)}</span>
               <span style={{ color: "rgba(239,234,224,0.5)" }}>Origin</span>
@@ -1768,10 +1823,10 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Premium dropdown selects + CTA */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 1, minWidth: 0 }}>
             {/* Premium Size dropdown */}
             {product.sizes?.length > 0 && (
-              <div className="sticky-select-wrap">
+              <div className="sticky-select-wrap" style={{ flexShrink: 0 }}>
                 <select
                   name="size"
                   value={selectedSize || ""}
@@ -1792,28 +1847,80 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Premium Color dropdown */}
-            {product.colors?.length > 0 && (
-              <div className="sticky-select-wrap">
-                <select
-                  name="color"
-                  value={selectedColor || ""}
-                  onChange={(e) => { if (e.target.value) setSelectedColor(e.target.value); }}
-                  className="sticky-select"
-                >
-                  <option value="" disabled>Color</option>
-                  {product.colors.map((c) => {
-                    const colorAvailable = isColorAvailable(c);
-                    const isOOS = variantsList.length > 0 && !colorAvailable;
-                    return (
-                      <option key={c} value={c} disabled={isOOS}>
-                        {c}{isOOS ? " — OOS" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            )}
+            {/* Premium Color thumbnails — many colors scroll horizontally; row never overflows */}
+            {product.colors?.length > 0 && (() => {
+              const thumbSize = product.colors.length > 6 ? 30 : 38;
+              const showFade = product.colors.length > 4;
+              return (
+                <div style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 1, minWidth: 0, maxWidth: "min(190px, 32vw)" }}>
+                  <div
+                    ref={stickyColorThumbsRef}
+                    className="sticky-color-thumbs"
+                    style={{ display: "flex", alignItems: "center", gap: 5, overflowX: "auto", padding: "2px 2px 4px", minWidth: 0, scrollbarWidth: "none", msOverflowStyle: "none" }}
+                  >
+                    {product.colors.map((c) => {
+                      const colorAvailable = isColorAvailable(c);
+                      const isOOS = variantsList.length > 0 && !colorAvailable;
+                      const isActive = selectedColor === c;
+                      const colorThumb = getColorThumb(c);
+                      return (
+                        <button
+                          key={c}
+                          onClick={() => { if (isOOS) return; setSelectedColor(c); }}
+                          disabled={isOOS}
+                          title={isOOS ? `${c} - Out of Stock` : c}
+                          aria-label={`Select color ${c}`}
+                          style={{
+                            width: thumbSize,
+                            height: thumbSize,
+                            borderRadius: thumbSize / 4,
+                            border: `1.5px solid ${isActive ? INK : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.15)"}`,
+                            cursor: isOOS ? "not-allowed" : "pointer",
+                            background: isOOS ? PANEL : "transparent",
+                            padding: 0,
+                            opacity: isOOS ? 0.45 : 1,
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            boxShadow: isActive ? `0 0 0 2px ${INK}22` : "none",
+                            transform: isActive ? "scale(1.06)" : "scale(1)",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          <span style={{ display: "block", width: "100%", height: "100%", borderRadius: thumbSize / 4 - 1, position: "relative", overflow: "hidden" }}>
+                            {colorThumb ? (
+                              <img
+                                src={colorThumb}
+                                alt={c}
+                                loading="lazy"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                              />
+                            ) : (
+                              <span style={{ display: "block", width: "100%", height: "100%", background: getColorHex(c) }} />
+                            )}
+                            {isActive && !isOOS && (
+                              <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.25)", pointerEvents: "none" }}>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.35))" }}>
+                                  <path d="M2 6L5 9L10 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </span>
+                            )}
+                            {isOOS && (
+                              <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.45)" }}>
+                                <X size={10} color={STONE} strokeWidth={2} />
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Right-edge fade hint — tells users more colors are available on scroll */}
+                  {showFade && (
+                    <div style={{ position: "absolute", top: 2, right: 0, bottom: 4, width: 22, pointerEvents: "none", borderRadius: 8, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.95))" }} />
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Add to Bag */}
             <button

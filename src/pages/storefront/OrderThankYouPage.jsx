@@ -14,7 +14,7 @@ import { ordersAPI } from '../../api/orders';
 import { paymentsAPI } from '../../api/payments';
 import { useSettings } from '../../store/useSettings';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
-import { ORDER_STATUSES, SHIPPING_STATUSES } from '../../utils/constants';
+import { ORDER_STATUSES, SHIPPING_STATUSES, calcBundleDiscount, parseBundleTiers } from '../../utils/constants';
 import toast from '../../utils/toast';
 import { CUSTOM_TEE_PRODUCT_ID } from '../../utils/constants';
 
@@ -558,7 +558,7 @@ function ShareSection({ orderId }) {
 }
 
 /* ═══════════════ PRICING BREAKDOWN ═══════════════ */
-function PricingBreakdown({ subtotal, discount, shippingCost, total }) {
+function PricingBreakdown({ subtotal, bundleDiscount = 0, discount, shippingCost, tax = 0, total }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-2.5">
@@ -566,6 +566,15 @@ function PricingBreakdown({ subtotal, discount, shippingCost, total }) {
         <span className="text-gray-500">{t('checkout.subtotal')}</span>
         <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
       </div>
+      {(bundleDiscount || 0) > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="flex items-center gap-1.5 text-green-600">
+            <Tag size={14} />
+            {t('checkout.bundle_discount')}
+          </span>
+          <span className="font-medium text-green-600">-{formatCurrency(bundleDiscount)}</span>
+        </div>
+      )}
       {(discount || 0) > 0 && (
         <div className="flex justify-between text-sm">
           <span className="flex items-center gap-1.5 text-green-600">
@@ -586,12 +595,20 @@ function PricingBreakdown({ subtotal, discount, shippingCost, total }) {
           ) : formatCurrency(shippingCost)}
         </span>
       </div>
+      {(tax || 0) > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">{t('checkout.tax')}</span>
+          <span className="font-medium text-gray-900">{formatCurrency(tax)}</span>
+        </div>
+      )}
       <div className="border-t border-gray-100 pt-3 mt-3">
         <div className="flex justify-between">
           <span className="font-bold text-gray-900">{t('checkout.total')}</span>
           <span className="font-bold text-gray-900 text-lg">{formatCurrency(total)}</span>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1 text-right">{t('orders.detail.inclusive_tax')}</p>
+        {!((tax || 0) > 0) && (
+          <p className="text-[10px] text-gray-400 mt-1 text-right">{t('orders.detail.inclusive_tax')}</p>
+        )}
       </div>
     </div>
   );
@@ -1001,6 +1018,11 @@ export default function OrderThankYouPage() {
 
   const subtotal = order.subtotal || order.totalAmount || 0;
   const discount = order.discount || 0;
+  // The order stores a combined discount (flash-sale + bundle), so recompute the
+  // bundle portion from the items (mirrors the math applied at checkout) and
+  // show the remainder as a separate Discount line.
+  const bundleDiscount = calcBundleDiscount(order.items || [], parseBundleTiers(getSetting('bundleTiers')));
+  const otherDiscount = Math.max(0, discount - bundleDiscount);
   const shippingCost = order.shippingCost || 0;
   const total = order.total || order.totalAmount || 0;
   const orderIdShort = typeof id === 'string' ? id.slice(-8).toUpperCase() : id;
@@ -1804,8 +1826,10 @@ export default function OrderThankYouPage() {
                   </h3>
                   <PricingBreakdown
                     subtotal={subtotal}
-                    discount={discount}
+                    bundleDiscount={bundleDiscount}
+                    discount={otherDiscount}
                     shippingCost={shippingCost}
+                    tax={order.tax || 0}
                     total={total}
                   />
 

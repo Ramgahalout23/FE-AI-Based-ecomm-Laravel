@@ -269,8 +269,6 @@ export default memo(function MobileNav() {
         </div>
       </motion.div>
 
-      {/* Spacer */}
-      <div className="lg:hidden h-[80px]" />
     </>
   );
 });

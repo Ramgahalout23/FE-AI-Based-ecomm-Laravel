@@ -10,7 +10,15 @@ import Pagination from '../../components/admin/Pagination';
 import { downloadBlob } from '../../utils/download';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 
-const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '' };
+const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '', fabricWeight: '', fabric: '' };
+
+// Fabric weight presets shown as quick-select chips in the product form
+const FABRIC_WEIGHT_PRESETS = [
+  { gsm: '180', label: '180 · Standard tee' },
+  { gsm: '220', label: '220 · Cotton pique' },
+  { gsm: '240', label: '240 · Heavyweight' },
+  { gsm: '320', label: '320 · Fleece-grade' },
+];
 const EMPTY_VARIANT = { sku: '', price: '', stock: '', color: '', size: '', images: '', description: '' };
 
 export default function ProductsAdminPage() {
@@ -232,7 +240,9 @@ export default function ProductsAdminPage() {
       status: p.status || 'DRAFT',
       badge: p.badge || '',
       hoverImageUrl: p.hoverImageUrl || p.hover_image_url || '',
-      videoUrl: p.videoUrl || p.video_url || ''
+      videoUrl: p.videoUrl || p.video_url || '',
+      fabricWeight: p.attributes?.gsm || '',
+      fabric: p.attributes?.fabric || ''
     });
     // Show modal immediately, load variants async
     setShowVariants(false);
@@ -261,7 +271,12 @@ export default function ProductsAdminPage() {
       images: form.images ? form.images.split(',').map(url => url.trim()).filter(Boolean) : [],
       badge: form.badge || null,
       hoverImageUrl: form.hoverImageUrl || null,
-      videoUrl: form.videoUrl || null
+      videoUrl: form.videoUrl || null,
+      // Fabric & weight specs → stored as product attributes (fabric, gsm)
+      attributes: {
+        ...(form.fabricWeight ? { gsm: String(form.fabricWeight).trim() } : {}),
+        ...(form.fabric ? { fabric: form.fabric.trim() } : {}),
+      },
     };
     try {
       if (editing) {
@@ -650,6 +665,31 @@ export default function ProductsAdminPage() {
                 <div className="form-group"><label>Cost ($)</label><input type="number" value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} placeholder="50.00" /></div>
                 <div className="form-group"><label>SKU</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="SKU-001" /></div>
                 <div className="form-group"><label>Stock Quantity</label><input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="50" /></div>
+                <div className="form-group"><label>Fabric Weight (GSM)</label>
+                  <input type="number" min="100" max="500" value={form.fabricWeight} onChange={e => setForm({ ...form, fabricWeight: e.target.value })} placeholder="e.g. 240" />
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                    {FABRIC_WEIGHT_PRESETS.map(p => (
+                      <button
+                        key={p.gsm}
+                        type="button"
+                        onClick={() => setForm({ ...form, fabricWeight: p.gsm })}
+                        style={{
+                          fontSize: '0.68rem',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: 6,
+                          border: `1px solid ${form.fabricWeight === p.gsm ? 'var(--primary)' : 'var(--border)'}`,
+                          background: form.fabricWeight === p.gsm ? 'rgba(37, 99, 235, 0.08)' : '#fff',
+                          color: form.fabricWeight === p.gsm ? 'var(--primary)' : 'var(--muted)',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group"><label>Fabric</label><input value={form.fabric} onChange={e => setForm({ ...form, fabric: e.target.value })} placeholder="e.g. 240 GSM Heavyweight Cotton" /></div>
                 <div className="form-group form-full">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <ImageUploadZone

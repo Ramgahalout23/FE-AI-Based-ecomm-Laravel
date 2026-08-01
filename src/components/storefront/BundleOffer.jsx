@@ -2,13 +2,36 @@ import { Check, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
+import { BUNDLE_TIERS } from '../../utils/constants';
 
-const DEFAULT_TIERS = [
-  { minQty: 1, label: 'Buy 1', discount: 0, badge: null },
-  { minQty: 2, label: 'Buy 2', discount: 5, badge: 'Save 5%' },
-  { minQty: 3, label: 'Buy 3', discount: 10, badge: 'Save 10%' },
-  { minQty: 4, label: 'Buy 4+', discount: 15, badge: 'Save 15%' },
-];
+/**
+ * Human label for a tier: shows the quantity window when a maxQty cap is set
+ * (e.g. "Buy 2–3") or an open-ended "Buy X+" style label otherwise.
+ */
+const tierLabel = (t) =>
+  t.maxQty
+    ? `Buy ${t.minQty}–${t.maxQty}`
+    : t.discount > 0 ? `Buy ${t.minQty}+` : `Buy ${t.minQty}`;
+
+// Derived from the shared BUNDLE_TIERS so the display and the actual
+// cart/checkout calculation can never drift apart.
+const DEFAULT_TIERS = BUNDLE_TIERS.map((t) => ({
+  ...t,
+  label: tierLabel(t),
+  badge: t.discount > 0 ? `Save ${t.discount}%` : null,
+}));
+
+/**
+ * Normalize admin-configured tiers ({minQty, discount, maxQty?}) into
+ * display-ready tiers with a human label + badge, matching the derived
+ * DEFAULT_TIERS shape.
+ */
+const normalizeTiers = (tiers) =>
+  (tiers && tiers.length ? tiers : DEFAULT_TIERS).map((t) => ({
+    ...t,
+    label: t.label || tierLabel(t),
+    badge: t.badge ?? (t.discount > 0 ? `Save ${t.discount}%` : null),
+  }));
 
 const ACCENT_GOLD = '#C9A96E';
 
@@ -55,22 +78,34 @@ export default function BundleOffer({
 
   if (!basePrice || !isInStock) return null;
 
-  // Find the current tier based on selected qty
-  const currentTier = [...tiers]
-    .reverse()
-    .find(t => selectedQty >= t.minQty) || tiers[0];
-  
-  const currentTierIndex = tiers.findIndex(t => t.minQty === currentTier.minQty);
+  // Normalize admin-configured tiers (they may lack label/badge) for display
+  const normalizedTiers = normalizeTiers(tiers);
+
+  // Find the current tier based on selected qty — honors per-tier maxQty windows
+  const currentTier = normalizedTiers.reduce((best, t) => {
+    const inWindow = selectedQty >= t.minQty && (!t.maxQty || selectedQty <= t.maxQty);
+    return inWindow && t.discount > (best ? best.discount : -1) ? t : best;
+  }, null) || normalizedTiers[0];
+
+  const currentTierIndex = normalizedTiers.findIndex(t => t.minQty === currentTier.minQty);
+
+  // Effective qty used for the total/savings preview — capped at the tier's maxQty
+  const effQtyFor = (tier) => {
+    const qty = Math.max(tier.minQty, selectedQty);
+    return tier.maxQty ? Math.min(qty, tier.maxQty) : qty;
+  };
 
   // Calculate per-unit pricing for each tier
-  const tierPrices = tiers.map(tier => ({
+  const tierPrices = normalizedTiers.map(tier => ({
     ...tier,
     unitPrice: basePrice * (1 - tier.discount / 100),
-    totalPrice: basePrice * (1 - tier.discount / 100) * Math.max(tier.minQty, selectedQty >= tier.minQty ? selectedQty : tier.minQty),
-    savings: tier.discount > 0 ? basePrice * (tier.discount / 100) * Math.max(tier.minQty, selectedQty >= tier.minQty ? selectedQty : tier.minQty) : 0,
+    totalPrice: basePrice * (1 - tier.discount / 100) * effQtyFor(tier),
+    savings: tier.discount > 0 ? basePrice * (tier.discount / 100) * effQtyFor(tier) : 0,
   }));
 
-  const bestTier = [...tiers].reverse().find(t => t.discount > 0 && t.minQty <= 4);
+  // Highest-discount tier (tiers are sorted ascending by minQty, so the last
+  // one with a discount is the top tier) — adapts to admin-configured tiers.
+  const bestTier = [...normalizedTiers].reverse().find(t => t.discount > 0);
 
   return (
     <motion.div
@@ -95,7 +130,7 @@ export default function BundleOffer({
           </h3>
         </div>
         <div className="flex-1 h-px bg-gradient-to-r from-gray-200/60 via-gray-200/30 to-transparent" />
-        {bestTier && currentTier.minQty < 4 && (
+        {bestTier && currentTier.minQty < bestTier.minQty && (
           <span
             className="text-[9px] font-bold tracking-[0.08em] whitespace-nowrap px-2.5 py-1 rounded-full animate-pulse"
             style={{
@@ -172,10 +207,10 @@ export default function BundleOffer({
                     <div className="relative z-10 p-[10px_8px] flex flex-col items-center gap-0.5">
                       {/* Quantity badge */}
                       <span className="text-[16px] font-black leading-none tracking-tight text-white drop-shadow-sm">
-                        {tier.minQty}
+                        {tier.maxQty ? `${tier.minQty}–${tier.maxQty}` : tier.minQty}
                       </span>
                       <span className="text-[8px] font-semibold leading-tight text-white/50">
-                        {tier.minQty === 4 ? '4+' : 'Items'}
+                        {tier.maxQty ? 'Items' : tier.minQty === 4 ? '4+' : 'Items'}
                       </span>
 
                       {/* Divider */}
@@ -295,10 +330,10 @@ export default function BundleOffer({
             <span className="text-base">📦</span>
             <div>
               <p className="text-[11px] font-bold text-gray-700">
-                Buy more & save up to {bestTier?.discount || 15}%
+                Buy more & save up to {bestTier?.discount || 0}%
               </p>
               <p className="text-[10px] text-gray-500">
-                Add 2+ items to unlock exclusive pricing
+                Add {bestTier?.minQty || 2}+ items to unlock exclusive pricing
               </p>
             </div>
           </div>

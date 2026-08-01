@@ -60,7 +60,6 @@ export default function WhatsAppChatWidget({
   const [inputValue, setInputValue] = useState('');
   const [isHovered, setIsHovered] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
   const inputRef = useRef(null);
 
   // Watch body overflow & reel-player data attr — modals/sheets set overflow: hidden when open
@@ -80,7 +79,6 @@ export default function WhatsAppChatWidget({
   // Focus input when popup opens
   useEffect(() => {
     if (isOpen) {
-      setShowWelcome(true);
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 400);
@@ -155,7 +153,7 @@ export default function WhatsAppChatWidget({
         style={{
           position: 'fixed',
           [side]: '20px',
-          zIndex: 10001,
+          zIndex: 9990,
           width: '58px',
           height: '58px',
           borderRadius: '50%',
@@ -546,7 +544,7 @@ export default function WhatsAppChatWidget({
           style={{
             position: 'fixed',
             [side]: '28px',
-            zIndex: 10001,
+            zIndex: 9990,
             background: '#1a1a1a',
             color: 'white',
             padding: '10px 18px',

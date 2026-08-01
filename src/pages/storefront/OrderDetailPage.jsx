@@ -8,8 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { ordersAPI } from '../../api/orders';
-import { formatCurrency, formatDate } from '../../utils/formatters';
-import { ORDER_STATUSES, SHIPPING_STATUSES } from '../../utils/constants';
+import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
+import { ORDER_STATUSES, SHIPPING_STATUSES, calcBundleDiscount, parseBundleTiers } from '../../utils/constants';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
 import OrderDetailSkeleton from '../../components/ui/OrderDetailSkeleton';
@@ -21,6 +21,7 @@ export default function OrderDetailPage() {
   const navigate = useNavigate();
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
+  const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reviewModal, setReviewModal] = useState({ open: false, productId: '', productName: '' });
@@ -103,6 +104,12 @@ export default function OrderDetailPage() {
   const steps = SHIPPING_STATUSES;
   const currentStep = steps.indexOf(order.shippingStatus || 'PENDING');
 
+  // The order stores a combined discount (flash-sale + bundle). Recompute the
+  // bundle portion from the items (mirrors the math applied at checkout) and
+  // show the remainder as a separate Discount line.
+  const bundleDiscount = calcBundleDiscount(order.items || [], parseBundleTiers(getSetting('bundleTiers')));
+  const otherDiscount = Math.max(0, (order.discount || 0) - bundleDiscount);
+
   return (
     <div className="section">
       <SEOHead
@@ -171,8 +178,22 @@ export default function OrderDetailPage() {
               {(order.items || []).map((item, i) => (
                 <tr key={i}>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <span>{item.name || item.productName || `Product ${item.productId}`}</span>
+                    <div className="flex items-center gap-3">
+                      {(item.imageUrl || item.image) && (
+                        <img
+                          loading="lazy"
+                          src={getImageUrl(item.imageUrl || item.image)}
+                          alt={item.name || item.productName || 'Product'}
+                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover border border-gray-100 shrink-0"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <span className="block font-medium text-sm text-charcoal leading-tight">{item.name || item.productName || `Product ${item.productId}`}</span>
+                        {(item.color || item.size) && (
+                          <span className="block text-xs text-muted mt-0.5">{[item.color, item.size].filter(Boolean).join(' · ')}</span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td>{item.quantity}</td>
@@ -211,9 +232,53 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 600 }}>{t('checkout.total')}: {formatCurrency(order.total || order.totalAmount)}</div>
-          {order.status === 'PENDING' && <button className="btn-danger btn-sm" onClick={handleCancel}>{t('orders.detail.cancel_order')}</button>}
+        {/* Price Summary */}
+        <div className="bg-white border border-border rounded-xl p-4 md:p-6 mb-6">
+          <h3 className="font-display font-bold text-sm md:text-base text-charcoal mb-4">{t('orders.detail.payment_summary')}</h3>
+          <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted">{t('checkout.subtotal')}</span>
+              <span className="font-medium text-charcoal">{formatCurrency(order.subtotal || 0)}</span>
+            </div>
+            {bundleDiscount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-emerald-600 font-medium">{t('checkout.bundle_discount')}</span>
+                <span className="font-medium text-emerald-600">-{formatCurrency(bundleDiscount)}</span>
+              </div>
+            )}
+            {otherDiscount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-emerald-600 font-medium">{t('checkout.discount')}</span>
+                <span className="font-medium text-emerald-600">-{formatCurrency(otherDiscount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted">{t('checkout.shipping')}</span>
+              <span className={`font-medium ${(order.shippingCost || 0) === 0 ? 'text-emerald-600' : 'text-charcoal'}`}>
+                {(order.shippingCost || 0) === 0 ? t('checkout.free') : formatCurrency(order.shippingCost)}
+              </span>
+            </div>
+            {(order.tax || 0) > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted">{t('checkout.tax')}{taxRate > 0 ? ` (${taxRate}%)` : ''}</span>
+                <span className="font-medium text-charcoal">{formatCurrency(order.tax)}</span>
+              </div>
+            )}
+            <div className="border-t border-border pt-3 mt-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-charcoal text-base">{t('checkout.total')}</span>
+                <span className="font-bold text-charcoal text-lg">{formatCurrency(order.total || order.totalAmount)}</span>
+              </div>
+              {!((order.tax || 0) > 0) && (
+                <p className="text-[10px] text-gray-400 mt-1 text-right">{t('orders.detail.inclusive_tax')}</p>
+              )}
+            </div>
+          </div>
+          {order.status === 'PENDING' && (
+            <div className="mt-4 flex justify-end">
+              <button className="btn-danger btn-sm" onClick={handleCancel}>{t('orders.detail.cancel_order')}</button>
+            </div>
+          )}
         </div>
 
         {/* ── Order Updates Subscription ── */}

@@ -43,7 +43,8 @@ export const setDefaultCurrency = (currency) => {
  * The timezone setting is stored as an abbreviation (e.g. 'IST'), but the Intl API
  * requires IANA names (e.g. 'Asia/Kolkata').
  */
-const TIMEZONE_MAP = {
+export const TIMEZONE_MAP = {
+  UTC: 'UTC',
   IST: 'Asia/Kolkata',
   EST: 'America/New_York',
   CST: 'America/Chicago',
@@ -73,7 +74,7 @@ const TIMEZONE_MAP = {
  * Resolve a stored timezone abbreviation/IANA name to a valid IANA timezone.
  * If the input is already a valid IANA name it will be returned as-is.
  */
-const resolveTimezone = (tz) => {
+export const resolveTimezone = (tz) => {
   if (!tz) return null;
   // If it's already an IANA name (contains '/'), use it directly
   if (tz.includes('/')) return tz;

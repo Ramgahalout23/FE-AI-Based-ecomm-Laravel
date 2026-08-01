@@ -13,16 +13,19 @@ import { checkoutAPI } from '../../api/checkout';
 import { couponsAPI } from '../../api/coupons';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
+import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 import { showError, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
 import { paymentsAPI } from '../../api/payments';
 import { ordersAPI } from '../../api/orders';
 import { getPaymentIcon } from '../../utils/paymentIcons';
+import { useSettings } from '../../store/useSettings';
 
 
 
 export default function CheckoutPage() {
   const { items, subtotal, clearCart, setItems } = useCartStore();
   const { isAuthenticated } = useAuthStore();
+  const { getSetting } = useSettings();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [createAccount, setCreateAccount] = useState(false);
@@ -174,9 +177,30 @@ export default function CheckoutPage() {
     fetchMethods();
   }, []);
 
+  // Buy More, Save More — per-line volume discount based on each line's quantity.
+  // Only applies when activated in Admin → Settings; tiers are admin-configurable.
+  // Excludes OOS lines (consistent with CartPage/CartDrawer which compute from availableItems).
+  const bundleOfferEnabled = isBundleOfferEnabled(getSetting);
+  const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
+  const bundleDiscount = bundleOfferEnabled
+    ? calcBundleDiscount(
+        items.filter((item) => {
+          const s = item.variantStock ?? item.productStock;
+          return s === null || s === undefined || s > 0;
+        }),
+        bundleTiers
+      )
+    : 0;
+
+  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
+  // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
+  const taxCalculation = getSetting('taxCalculation', 'inclusive');
+  const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
+  const tax = calcTax(subtotal, taxCalculation, taxRate);
+
   const shippingCost = subtotal >= 499 ? 0 : 50;
-  const totalDiscount = discount + autoDiscount;
-  const total = subtotal - totalDiscount + shippingCost;
+  const totalDiscount = discount + autoDiscount + bundleDiscount;
+  const total = subtotal - totalDiscount + tax + shippingCost;
 
   const handleApplyCoupon = async (code) => {
     const codeToApply = code || coupon.trim();
@@ -1123,6 +1147,12 @@ export default function CheckoutPage() {
                     <span className="text-gray-700">-{formatCurrency(autoDiscount)}</span>
                   </div>
                 )}
+                {bundleDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Bundle Discount</span>
+                    <span className="text-emerald-600">-{formatCurrency(bundleDiscount)}</span>
+                  </div>
+                )}
                 {discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600">Coupon Discount</span>
@@ -1133,6 +1163,12 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Shipping</span>
                   <span className="text-black">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
                 </div>
+                {tax > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Tax ({taxRate}%)</span>
+                    <span className="text-black">{formatCurrency(tax)}</span>
+                  </div>
+                )}
                 {items.some(item => {
                   const s = item.variantStock ?? item.productStock;
                   return s !== null && s !== undefined && s <= 0;
@@ -1148,6 +1184,9 @@ export default function CheckoutPage() {
                   <span className="text-black">Total</span>
                   <span className="text-black">{formatCurrency(total)}</span>
                 </div>
+                {taxCalculation === 'inclusive' && (
+                  <p className="text-[10px] text-gray-400 text-right">Inclusive of all taxes</p>
+                )}
               </div>
 
               {/* Trust Badges */}

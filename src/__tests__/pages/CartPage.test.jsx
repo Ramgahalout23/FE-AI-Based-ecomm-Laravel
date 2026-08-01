@@ -8,6 +8,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useCartStore from '../../store/cartStore';
+import { initI18nSync } from '../../utils/i18n';
+
+initI18nSync();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },
@@ -56,6 +59,16 @@ vi.mock('../../utils/formatters', () => ({
   slugify: (val) => val?.toLowerCase().replace(/\s+/g, '-'),
   getImageUrl: (url) => url,
   __esModule: true,
+}));
+
+// Mock useSettings — default settings: inclusive tax so totals stay unchanged in existing tests
+vi.mock('../../store/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key, fallback) => ({
+      taxCalculation: 'inclusive',
+      taxRate: '18.0',
+    }[key] ?? fallback),
+  }),
 }));
 
 import CartPage from '../../pages/storefront/CartPage';

@@ -207,8 +207,16 @@ function getDefaultSettings() {
     phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',
     phoneLeadBannerOfferText: 'Enter your phone number to receive exclusive offers, updates, and instant ₹100 discount on your first purchase!',
     // Chatbot / Live Chat
-    // Bundle Offer (Buy More, Save More)
-    bundleOfferEnabled: 'true',
+    // Bundle Offer (Buy More, Save More) — seeded inactive; admin activates it from Admin → Settings
+    // Date window: blank start/end = no date bounds (permanent while enabled)
+    bundleOfferEnabled: 'false',
+    bundleTiers: JSON.stringify([
+      { minQty: 2, discount: 5 },
+      { minQty: 3, discount: 10 },
+      { minQty: 4, discount: 15 },
+    ]),
+    bundleOfferStartDate: '',
+    bundleOfferEndDate: '',
     // Custom Design
     customDesignEnabled: 'true',
     customDesignSectionEnabled: 'true',

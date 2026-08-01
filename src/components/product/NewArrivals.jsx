@@ -530,14 +530,14 @@ function NewArrivalCard({ product, index }) {
                             <button
                               key={color}
                               onClick={(e) => { e.stopPropagation(); if (!isOOS) setSelectedColor(color); }}
-                              className={`relative rounded-full transition-all duration-200 ${
+                              className={`relative rounded-[2px] transition-all duration-200 ${
                                 isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-40' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110 shadow-[0_0_10px_rgba(0,0,0,0.3)]' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105 shadow-sm shadow-black/5'
                               } w-5 h-5`}
                               title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                               disabled={isOOS}
                             >
                               <div
-                                className={`w-full h-full rounded-full ${isLight ? 'border border-gray-200' : ''}`}
+                                className={`w-full h-full rounded-[2px] ${isLight ? 'border border-gray-200' : ''}`}
                                 style={{ background: getColorHex(color) }}
                               />
                               {isOOS && (
@@ -741,13 +741,13 @@ function NewArrivalCard({ product, index }) {
                   <button
                     key={color}
                     onClick={(e) => { e.stopPropagation(); if (!isOOS) setSelectedColor(color); }}
-                    className={`relative rounded-full transition-all duration-200 shrink-0 ${
+                    className={`relative rounded-[2px] transition-all duration-200 shrink-0 ${
                       isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-30' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105'
                     } w-3.5 h-3.5`}
                     title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                     disabled={isOOS}
                   >
-                    <div className={`w-full h-full rounded-full ${isLight ? 'border border-gray-200' : ''}`} style={{ background: getColorHex(color) }} />
+                    <div className={`w-full h-full rounded-[2px] ${isLight ? 'border border-gray-200' : ''}`} style={{ background: getColorHex(color) }} />
                     {isOOS && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="w-[130%] h-[1px] bg-gray-400 rotate-45 absolute rounded-full" /></div>}
                   </button>
                 );
@@ -925,7 +925,7 @@ function NewArrivalCard({ product, index }) {
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedColor(c); }}
-                                  className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -935,7 +935,7 @@ function NewArrivalCard({ product, index }) {
                                   title={c}
                                 >
                                   <div
-                                    className={`w-7 h-7 rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
+                                    className={`w-7 h-7 rounded-lg border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
                                     style={{ background: getColorHex(c) }}
                                   />
                                   {isOOS && (

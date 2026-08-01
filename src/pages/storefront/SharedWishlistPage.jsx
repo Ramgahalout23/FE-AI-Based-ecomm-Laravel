@@ -72,6 +72,15 @@ export default function SharedWishlistPage() {
     return { colors, sizes, variants };
   }, []);
 
+  // Per-color thumbnail from the variant's first image (set in admin),
+  // falling back to a solid color swatch when no variant image exists.
+  const getColorThumb = useCallback((product, color) => {
+    const { variants } = getVariantInfo(product);
+    const v = variants.find(x => x.attributes?.color === color && Array.isArray(x.images) && x.images.length > 0);
+    const img = v?.images?.[0];
+    return typeof img === 'string' ? getImageUrl(img) : null;
+  }, [getVariantInfo]);
+
   const findMatchedVariant = useCallback((product, selectedColor, selectedSize) => {
     const { colors, sizes, variants } = getVariantInfo(product);
     if (!variants.length) return null;
@@ -144,6 +153,7 @@ export default function SharedWishlistPage() {
         color: selection.selectedColor || undefined,
         variantId: matchedVariant?.id || undefined,
         variantStock: matchedVariant?.quantity ?? undefined,
+        imageUrl: matchedVariant?.images?.[0] || item.imageUrl || item.image || undefined,
       });
       showSuccess(
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -165,6 +175,7 @@ export default function SharedWishlistPage() {
           color: selection.selectedColor || undefined,
           variantId: matchedVariant?.id || undefined,
           variantStock: matchedVariant?.quantity ?? undefined,
+          imageUrl: matchedVariant?.images?.[0] || item.imageUrl || item.image || undefined,
         });
         showSuccess(
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -387,19 +398,32 @@ export default function SharedWishlistPage() {
                                 Color: <strong>{selColor || '—'}</strong>
                               </span>
                               <div className="wishlist-color-options">
-                                {productColors.map(color => (
-                                  <button
-                                    key={color}
-                                    onClick={(e) => { e.stopPropagation(); handleSelectColor(itemId, color); }}
-                                    className={`wishlist-color-swatch ${selColor === color ? 'active' : ''}`}
-                                    title={color}
-                                  >
-                                    <div
-                                      className="wishlist-swatch-inner"
-                                      style={{ background: getColorHex(color) }}
-                                    />
-                                  </button>
-                                ))}
+                                {productColors.map(color => {
+                                  const thumb = getColorThumb(p, color);
+                                  return (
+                                    <button
+                                      key={color}
+                                      onClick={(e) => { e.stopPropagation(); handleSelectColor(itemId, color); }}
+                                      className={`wishlist-color-swatch ${selColor === color ? 'active' : ''}`}
+                                      title={color}
+                                    >
+                                      {thumb ? (
+                                        <img
+                                          src={thumb}
+                                          alt={color}
+                                          loading="lazy"
+                                          className="wishlist-swatch-inner"
+                                          style={{ objectFit: 'cover' }}
+                                        />
+                                      ) : (
+                                        <div
+                                          className="wishlist-swatch-inner"
+                                          style={{ background: getColorHex(color) }}
+                                        />
+                                      )}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}

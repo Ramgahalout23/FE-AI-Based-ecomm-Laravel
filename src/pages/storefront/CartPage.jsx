@@ -15,6 +15,7 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, slugify, getImageUrl } from '../../utils/formatters';
+import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 import { showError, showSuccess, removedFromCart, addedToWishlist } from '../../utils/toast';
 import CartPageSkeleton from '../../components/ui/CartItemSkeleton';
 
@@ -137,9 +138,21 @@ export default function CartPage() {
     };
   })();
 
+  // Buy More, Save More — per-line volume discount based on each line's quantity.
+  // Only applies when activated in Admin → Settings; tiers are admin-configurable.
+  const bundleOfferEnabled = isBundleOfferEnabled(getSetting);
+  const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
+  const bundleDiscount = bundleOfferEnabled ? calcBundleDiscount(availableItems, bundleTiers) : 0;
+
+  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
+  // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
+  const taxCalculation = getSetting('taxCalculation', 'inclusive');
+  const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
+  const tax = calcTax(availableSubtotal, taxCalculation, taxRate);
+
   const shipping = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
-  const afterDiscount = Math.max(0, availableSubtotal - autoDiscount);
-  const total = afterDiscount + shipping;
+  const afterDiscount = Math.max(0, availableSubtotal - autoDiscount - bundleDiscount);
+  const total = afterDiscount + tax + shipping;
 
   // ── Event handlers ──
 
@@ -452,6 +465,12 @@ export default function CartPage() {
                     <span className="text-gray-700 text-sm font-medium">-{formatCurrency(autoDiscount)}</span>
                   </div>
                 )}
+                {bundleDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 text-sm font-medium">Bundle Discount</span>
+                    <span className="text-emerald-600 text-sm font-medium">-{formatCurrency(bundleDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('cart.shipping')}</span>
                   <span className="text-black">
@@ -462,6 +481,12 @@ export default function CartPage() {
                     )}
                   </span>
                 </div>
+                {tax > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{t('cart.tax', { rate: taxRate })}</span>
+                    <span className="text-black">{formatCurrency(tax)}</span>
+                  </div>
+                )}
                 {freeShippingThreshold > 0 && availableSubtotal > 0 && availableSubtotal < freeShippingThreshold && (
                   <p className="text-xs text-emerald-600 font-medium">
                     {t('cart.add_free_shipping', { amount: formatCurrency(freeShippingThreshold - availableSubtotal, currency) })}
@@ -485,6 +510,9 @@ export default function CartPage() {
                   <span className="font-bold text-black text-lg">{t('cart.total')}</span>
                   <span className="font-bold text-black text-lg">{formatCurrency(total)}</span>
                 </div>
+                {taxCalculation === 'inclusive' && (
+                  <p className="text-[10px] text-gray-400 text-right">{t('orders.detail.inclusive_tax')}</p>
+                )}
               </div>
 
               {/* Checkout Button */}

@@ -45,6 +45,15 @@ function ProductCard({ product, className = '' }) {
   const variants = product.variants || product.productvariant;
   const hasVariants = Array.isArray(variants) && variants.length > 0;
 
+  // Per-color thumbnail from the variant's first image (set in admin),
+  // falling back to a solid color swatch when no variant image exists.
+  const getColorThumb = (color) => {
+    if (!hasVariants) return null;
+    const v = variants.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
+    const img = v?.images?.[0];
+    return typeof img === 'string' ? getImageUrl(img) : null;
+  };
+
   const { colors, sizes } = useMemo(() => {
     const cSet = new Set();
     const sSet = new Set();
@@ -187,6 +196,7 @@ function ProductCard({ product, className = '' }) {
           name: product.name,
           price: firstAvailVariant.price ?? product.price,
           image: getProductImage(product),
+          imageUrl: firstAvailVariant?.images?.[0] || getProductImage(product),
           quantity: qty,
           variantId: firstAvailVariant.id,
         });
@@ -210,6 +220,7 @@ function ProductCard({ product, className = '' }) {
           name: product.name,
           price: matchedVariant.price ?? product.price,
           image: getProductImage(product),
+          imageUrl: matchedVariant?.images?.[0] || getProductImage(product),
           quantity: qty,
           size: selectedSize,
           color: selectedColor,
@@ -260,6 +271,7 @@ function ProductCard({ product, className = '' }) {
           name: product.name,
           price: useVariant?.price ?? product.price,
           image: getProductImage(product),
+          imageUrl: useVariant?.images?.[0] || getProductImage(product),
           quantity: qty,
           size: selectedSize,
           color: selectedColor,
@@ -511,12 +523,13 @@ function ProductCard({ product, className = '' }) {
                           {colors.map((c) => {
                             const isOOS = oosColors.has(c);
                             const isSelected = selectedColor === c;
+                            const thumb = getColorThumb(c);
                             return (
                               <button
                                 key={c}
                                 disabled={isOOS}
                                 onClick={() => setSelectedColor(c)}
-                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                className={`relative w-6 h-6 rounded-[3px] overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
                                   isSelected
                                     ? 'border-black scale-110 shadow-sm'
                                     : isOOS
@@ -525,10 +538,14 @@ function ProductCard({ product, className = '' }) {
                                 }`}
                                 title={c}
                               >
-                                <div
-                                  className={`w-[14px] h-[14px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
-                                  style={{ background: getColorHex(c) }}
-                                />
+                                {thumb ? (
+                                  <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                ) : (
+                                  <div
+                                    className={`w-full h-full ${isOOS ? 'opacity-50' : ''}`}
+                                    style={{ background: getColorHex(c) }}
+                                  />
+                                )}
                                 {isOOS && (
                                   <span className="absolute inset-0 flex items-center justify-center">
                                     <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -762,12 +779,13 @@ function ProductCard({ product, className = '' }) {
                             {colors.map((c) => {
                               const isOOS = oosColors.has(c);
                               const isSelected = selectedColor === c;
+                              const thumb = getColorThumb(c);
                               return (
                                 <button
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => setSelectedColor(c)}
-                                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`relative w-8 h-8 rounded-lg overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -776,10 +794,14 @@ function ProductCard({ product, className = '' }) {
                                     }`}
                                     title={c}
                                   >
-                                    <div
-                                      className={`w-[22px] h-[22px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
-                                      style={{ background: getColorHex(c) }}
-                                    />
+                                    {thumb ? (
+                                      <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                    ) : (
+                                      <div
+                                        className={`w-full h-full ${isOOS ? 'opacity-50' : ''}`}
+                                        style={{ background: getColorHex(c) }}
+                                      />
+                                    )}
                                     {isOOS && (
                                       <span className="absolute inset-0 flex items-center justify-center">
                                         <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">

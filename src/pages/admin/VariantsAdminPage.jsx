@@ -6,6 +6,7 @@ import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
 import { inventoryAPI } from '../../api/inventory';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
+import { getColorHex } from '../../utils/constants';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
@@ -679,7 +680,9 @@ export default function VariantsAdminPage() {
           <tbody>
             {variants.length === 0 ? <tr><td colSpan={9}><div className="empty-state"><div className="empty-state-icon">🎨</div><h3>No variants found</h3></div></td></tr> :
             variants.map(v => {
-              const firstImg = Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null;
+              const variantImages = Array.isArray(v.images) ? v.images.filter(Boolean) : [];
+              const firstImg = variantImages.length > 0 ? variantImages[0] : null;
+              const variantColor = v.color || v.attributes?.color || '';
               return (
               <tr key={v.id} style={{ background: selectedVariantIds.has(v.id) ? '#eef2ff' : 'transparent' }}>
                 <td style={{ textAlign: 'center' }}>
@@ -691,11 +694,31 @@ export default function VariantsAdminPage() {
                   />
                 </td>
                 <td>
-                  <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', background: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {firstImg ? (
-                      <img loading="lazy" src={getImageUrl(firstImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: '1.2rem', opacity: 0.3 }}>🎨</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                    <div
+                      style={{ position: 'relative', width: 52, height: 52, borderRadius: 10, overflow: 'hidden', background: '#f3f4f6', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    >
+                      {firstImg ? (
+                        <img loading="lazy" src={getImageUrl(firstImg)} alt={variantColor || 'variant'} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s ease' }} onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.12)'; }} onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }} />
+                      ) : (
+                        <span style={{ fontSize: '1.2rem', opacity: 0.3 }}>🎨</span>
+                      )}
+                      {variantImages.length > 1 && (
+                        <span style={{ position: 'absolute', right: 3, bottom: 3, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '0.55rem', fontWeight: 700, borderRadius: 6, padding: '1px 5px', pointerEvents: 'none' }}>
+                          {variantImages.length}
+                        </span>
+                      )}
+                    </div>
+                    {variantColor && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, minWidth: 0 }}>
+                        <span
+                          style={{ width: 16, height: 16, borderRadius: '50%', background: getColorHex(variantColor), border: '1px solid rgba(0,0,0,0.15)', boxShadow: '0 1px 3px rgba(0,0,0,0.12)', flexShrink: 0 }}
+                          title={variantColor}
+                        />
+                        <span style={{ fontSize: '0.6rem', color: 'var(--muted)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
+                          {variantColor}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </td>

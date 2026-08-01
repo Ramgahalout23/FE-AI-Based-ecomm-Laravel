@@ -141,7 +141,7 @@ function RouteFallback() {
 }
 
 /* ── Cache version bump — increment to clear all persisted query caches ── */
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 const STORAGE_PREFIX = 'THREVOLT';
 const CACHE_VERSION_KEY = `${STORAGE_PREFIX}_CACHE_VERSION`;
 const QUERY_CACHE_KEY = `${STORAGE_PREFIX}_QUERY_CACHE`;

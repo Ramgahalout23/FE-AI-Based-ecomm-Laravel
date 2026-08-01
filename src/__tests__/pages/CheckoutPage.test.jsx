@@ -71,6 +71,16 @@ vi.mock('../../utils/formatters', () => ({
   __esModule: true,
 }));
 
+// Mock useSettings — default settings: inclusive tax so totals stay unchanged in existing tests
+vi.mock('../../store/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: (key, fallback) => ({
+      taxCalculation: 'inclusive',
+      taxRate: '18.0',
+    }[key] ?? fallback),
+  }),
+}));
+
 import CheckoutPage from '../../pages/storefront/CheckoutPage';
 
 function renderCheckoutPage() {
@@ -157,6 +167,12 @@ describe('CheckoutPage', () => {
     // Should show the total amount in at least one element
     const priceElements = screen.getAllByText(/\$99\.98/);
     expect(priceElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should display inclusive tax note by default', () => {
+    renderCheckoutPage();
+    // Default taxCalculation is 'inclusive' → no tax line, shows inclusive note
+    expect(screen.getByText(/Inclusive of all taxes/i)).toBeDefined();
   });
 
   it('should display coupon input field', () => {

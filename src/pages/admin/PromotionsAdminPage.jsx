@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { formatDate, getImageUrl, getPromotionImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Package } from 'lucide-react';
+import { useSettings } from '../../store/useSettings';
+import { parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 
 export default function PromotionsAdminPage() {
+  const { getSetting } = useSettings();
+  const bundleOfferActive = isBundleOfferEnabled(getSetting);
+  const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
+  const discountTiers = bundleTiers.filter(t => t.discount > 0);
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -183,6 +190,79 @@ export default function PromotionsAdminPage() {
         <div className="admin-alert-body">
           <div className="admin-alert-title">Automatic Application</div>
           <div>Unlike Coupons, active promotions here apply automatically to eligible carts during the specified date range.</div>
+        </div>
+      </div>
+
+      {/* Bundle Offer (Buy More, Save More) Status Card */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        padding: '1rem 1.25rem',
+        marginBottom: '1.5rem',
+        background: bundleOfferActive ? 'linear-gradient(135deg, #f0fdf4, #ecfdf5)' : 'var(--off-white)',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid ' + (bundleOfferActive ? '#86efac' : 'var(--border)'),
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.4rem' }}>📦</span>
+            <div>
+              <strong style={{ fontSize: '0.92rem' }}>Bundle Offer — Buy More, Save More</strong>
+              <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                Per-line volume discount applied automatically at checkout
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+            <span className={`status-badge ${bundleOfferActive ? 'status-active' : 'status-pending'}`}>
+              {bundleOfferActive ? 'Active' : 'Inactive'}
+            </span>
+            <Link
+              to="/admin/settings"
+              className="btn-ghost btn-sm"
+              style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
+            >
+              <Package size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+              Configure
+            </Link>
+          </div>
+        </div>
+
+        {/* Date window */}
+        {(getSetting('bundleOfferStartDate') || getSetting('bundleOfferEndDate')) && (
+          <div style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>
+            📅{' '}
+            {getSetting('bundleOfferStartDate')
+              ? `Starts ${formatDate(getSetting('bundleOfferStartDate'))}`
+              : 'Starts immediately'}
+            {getSetting('bundleOfferEndDate')
+              ? ` • Ends ${formatDate(getSetting('bundleOfferEndDate'))}`
+              : ' • No end date'}
+          </div>
+        )}
+
+        {/* Configured tiers */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {discountTiers.map((tier) => (
+            <span
+              key={tier.minQty}
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                padding: '0.28rem 0.7rem',
+                borderRadius: 999,
+                background: bundleOfferActive ? '#d1fae5' : '#e5e7eb',
+                color: bundleOfferActive ? '#065f46' : '#4b5563',
+                border: '1px solid ' + (bundleOfferActive ? '#a7f3d0' : '#d1d5db'),
+              }}
+            >
+              {tier.maxQty ? `${tier.minQty}–${tier.maxQty} items` : `${tier.minQty}+ items`} → {tier.discount}% off
+            </span>
+          ))}
+          {discountTiers.length === 0 && (
+            <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>No active discount tiers configured</span>
+          )}
         </div>
       </div>
 

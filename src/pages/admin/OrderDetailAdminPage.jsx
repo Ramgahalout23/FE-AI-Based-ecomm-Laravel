@@ -609,7 +609,9 @@ export default function OrderDetailAdminPage() {
             ) : (
               <div className="price-breakdown">
                 <div className="pb-row"><span>Subtotal</span><span>{formatCurrency(detail.subtotal != null ? detail.subtotal : (detail.total ?? 0))}</span></div>
-                <div className="pb-row"><span>Tax</span><span>{formatCurrency(detail.tax || 0)}</span></div>
+                {detail.tax > 0 && (
+                  <div className="pb-row"><span>Tax{Number(labelSettings?.taxRate) > 0 ? ` (${Number(labelSettings?.taxRate)}%)` : ''}</span><span>{formatCurrency(detail.tax)}</span></div>
+                )}
                 <div className="pb-row"><span>Shipping Cost</span><span>{formatCurrency(detail.shippingCost || 0)}</span></div>
                 <div className="pb-row"><span>Discount</span><span style={{ color: 'var(--success)' }}>-{formatCurrency(detail.discount || 0)}</span></div>
                 <div className="pb-row pb-total"><span>Total</span><span>{formatCurrency(detail.total ?? detail.totalAmount ?? 0)}</span></div>

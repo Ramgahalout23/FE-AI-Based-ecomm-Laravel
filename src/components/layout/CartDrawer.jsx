@@ -6,7 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
+import { useSettings } from '../../store/useSettings';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
+import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 import { cartAPI } from '../../api/cart';
 import { removedFromBag } from '../../utils/toast';
 
@@ -14,6 +16,7 @@ export default memo(function CartDrawer() {
   const { t } = useTranslation();
   const { items, count, isOpen, closeCart, updateQuantity, removeItem, setItems } = useCartStore();
   const { isAuthenticated } = useAuthStore();
+  const { getSetting } = useSettings();
   const navigate = useNavigate();
 
   // ── Split items into available / OOS ──
@@ -40,6 +43,27 @@ export default memo(function CartDrawer() {
   const adjustedSubtotal = useMemo(
     () => availableItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0),
     [availableItems]
+  );
+
+  // ── Buy More, Save More — per-line volume discount based on each line's quantity.
+  // Only applies when activated in Admin → Settings; tiers are admin-configurable. ──
+  const bundleOfferEnabled = isBundleOfferEnabled(getSetting);
+  const bundleTiers = useMemo(
+    () => parseBundleTiers(getSetting('bundleTiers')),
+    [getSetting]
+  );
+  const bundleDiscount = useMemo(
+    () => (bundleOfferEnabled ? calcBundleDiscount(availableItems, bundleTiers) : 0),
+    [availableItems, bundleOfferEnabled, bundleTiers]
+  );
+
+  // ── Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
+  // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal. ──
+  const taxCalculation = getSetting('taxCalculation', 'inclusive');
+  const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
+  const tax = useMemo(
+    () => calcTax(adjustedSubtotal, taxCalculation, taxRate),
+    [adjustedSubtotal, taxCalculation, taxRate]
   );
 
   // Sync cart from server when drawer opens (skip for guest users)
@@ -250,6 +274,18 @@ export default memo(function CartDrawer() {
                   {formatCurrency(adjustedSubtotal)}
                 </span>
               </div>
+              {bundleDiscount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-muted">Bundle Discount</span>
+                  <span className="text-emerald-600 font-semibold">-{formatCurrency(bundleDiscount)}</span>
+                </div>
+              )}
+              {tax > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-muted">{t('cart.drawer.tax', { rate: taxRate })}</span>
+                  <span className="text-text-primary font-semibold">{formatCurrency(tax)}</span>
+                </div>
+              )}
               {/* OOS notice */}
               {hasOOS && (
                 <div className="flex items-start gap-1.5">
@@ -267,8 +303,11 @@ export default memo(function CartDrawer() {
               </div>
               <div className="flex justify-between items-end border-t border-border pt-3 mt-1">
                 <span className="text-sm font-semibold text-text-primary">{t('cart.drawer.total')}</span>
-                <span className="text-xl font-display font-bold text-primary">{formatCurrency(adjustedSubtotal)}</span>
+                <span className="text-xl font-display font-bold text-primary">{formatCurrency(Math.max(0, adjustedSubtotal - bundleDiscount + tax))}</span>
               </div>
+              {taxCalculation === 'inclusive' && (
+                <p className="text-[9px] text-text-muted text-right">{t('orders.detail.inclusive_tax')}</p>
+              )}
             </div>
             <button
               className={`w-full py-3.5 sm:py-4 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 touch-manipulation ${

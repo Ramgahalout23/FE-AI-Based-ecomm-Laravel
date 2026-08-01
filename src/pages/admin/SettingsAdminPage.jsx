@@ -5,6 +5,7 @@ import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
 import { getImageUrl, formatDateTime, formatTime } from '../../utils/formatters';
+import { parseBundleTiers } from '../../utils/constants';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 
 ;
@@ -344,7 +345,7 @@ export default function SettingsAdminPage() {
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
       'salesEnabled', 'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
       'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
-      'bundleOfferEnabled', 'tshirtCustomizerEnabled', 'reelsEnabled', 'homepageSectionOrder',
+      'bundleOfferEnabled', 'bundleTiers', 'bundleOfferStartDate', 'bundleOfferEndDate', 'tshirtCustomizerEnabled', 'reelsEnabled', 'homepageSectionOrder',
       'cookieConsentEnabled',
       'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
     ],
@@ -993,7 +994,7 @@ export default function SettingsAdminPage() {
                   <div>
                     <strong style={{ fontSize: '0.9rem' }}>Bundle Offer — Buy More, Save More</strong>
                     <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
-                      Volume discount tier cards on the product detail page
+                      Volume discount applied at checkout when enabled
                     </p>
                   </div>
                 </div>
@@ -1001,12 +1002,183 @@ export default function SettingsAdminPage() {
                   <input
                     type="checkbox"
                     checked={settings.bundleOfferEnabled !== 'false'}
-                    onChange={e => setSettings({ ...settings, bundleOfferEnabled: e.target.checked ? 'true' : 'false' })}
+                    onChange={async e => {
+                      // Auto-saves like the Sales master switch — the UI badge must
+                      // always reflect persisted state (the toggle alone previously
+                      // only updated local state, so "Active" could show without
+                      // the value reaching the DB).
+                      const newVal = e.target.checked ? 'true' : 'false';
+                      setSettings({ ...settings, bundleOfferEnabled: newVal });
+                      try {
+                        await updateContextSettings({ bundleOfferEnabled: newVal });
+                        toast.success(newVal === 'true' ? 'Bundle Offer activated' : 'Bundle Offer disabled');
+                      } catch {
+                        toast.error('Failed to save');
+                        setSettings({ ...settings, bundleOfferEnabled: settings.bundleOfferEnabled });
+                      }
+                    }}
                   />
                   <span className={`status-badge ${settings.bundleOfferEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
-                    {settings.bundleOfferEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                    {settings.bundleOfferEnabled !== 'false' ? 'Active' : 'Inactive'}
                   </span>
                 </label>
+              </div>
+
+              {/* Blocked notice — bundle offer is gated behind the global Sales switch */}
+              {settings.bundleOfferEnabled !== 'false' && settings.salesEnabled === 'false' && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.6rem 1rem',
+                  background: '#fff7ed',
+                  borderRadius: '8px',
+                  border: '1px solid #fdba74',
+                  fontSize: '0.75rem',
+                  color: '#92400e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                }}>
+                  <span>⚠️</span>
+                  <span>
+                    <strong>Hidden from customers:</strong> the global <em>All Sales &amp; Promotions</em> switch is off.
+                    Turn it on above to show this offer on product pages and at checkout.
+                  </span>
+                </div>
+              )}
+
+              {/* Bundle Offer Date Window */}
+              <div style={{
+                padding: '1rem 1.25rem',
+                background: '#fff',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px dashed var(--border)',
+                marginTop: '0.5rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                  <strong style={{ fontSize: '0.85rem' }}>Schedule</strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                    Leave blank for no date limit — runs while enabled
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Starts</label>
+                    <input
+                      type="date"
+                      value={settings.bundleOfferStartDate || ''}
+                      onChange={e => setSettings({ ...settings, bundleOfferStartDate: e.target.value })}
+                      style={{ padding: '0.45rem 0.6rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Ends</label>
+                    <input
+                      type="date"
+                      value={settings.bundleOfferEndDate || ''}
+                      onChange={e => setSettings({ ...settings, bundleOfferEndDate: e.target.value })}
+                      style={{ padding: '0.45rem 0.6rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bundle Offer Tier Editor */}
+              <div style={{
+                padding: '1rem 1.25rem',
+                background: '#fff',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px dashed var(--border)',
+                marginTop: '0.5rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                  <strong style={{ fontSize: '0.85rem' }}>Discount Tiers</strong>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                    Min qty → max qty → discount % (per line; max qty optional, blank = 4+ open)
+                  </span>
+                </div>
+                {parseBundleTiers(settings.bundleTiers).map((tier, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <input
+                      type="number"
+                      min="1"
+                      value={tier.minQty}
+                      onChange={(e) => {
+                        const tiers = parseBundleTiers(settings.bundleTiers).map((t, i) =>
+                          i === idx ? { ...t, minQty: Number(e.target.value) || 1 } : t
+                        );
+                        setSettings({ ...settings, bundleTiers: JSON.stringify(tiers) });
+                      }}
+                      style={{ width: 70, padding: '0.45rem 0.6rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem' }}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>items →</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={tier.discount}
+                      onChange={(e) => {
+                        const tiers = parseBundleTiers(settings.bundleTiers).map((t, i) =>
+                          i === idx ? { ...t, discount: Number(e.target.value) || 0 } : t
+                        );
+                        setSettings({ ...settings, bundleTiers: JSON.stringify(tiers) });
+                      }}
+                      style={{ width: 70, padding: '0.45rem 0.6rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem' }}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>% off</span>
+                    <input
+                      type="number"
+                      min={tier.minQty}
+                      placeholder="∞"
+                      title="Optional max quantity per product — leave blank for open-ended (e.g. 4+)"
+                      value={tier.maxQty ?? ''}
+                      onChange={(e) => {
+                        const tiers = parseBundleTiers(settings.bundleTiers).map((t, i) =>
+                          i === idx ? { ...t, maxQty: Number(e.target.value) || undefined } : t
+                        );
+                        setSettings({ ...settings, bundleTiers: JSON.stringify(tiers) });
+                      }}
+                      style={{ width: 70, padding: '0.45rem 0.6rem', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.8rem' }}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>max qty</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const tiers = parseBundleTiers(settings.bundleTiers).filter((_, i) => i !== idx);
+                        setSettings({ ...settings, bundleTiers: JSON.stringify(tiers) });
+                      }}
+                      title="Remove tier"
+                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.9rem' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tiers = parseBundleTiers(settings.bundleTiers);
+                    const last = tiers[tiers.length - 1];
+                    setSettings({
+                      ...settings,
+                      bundleTiers: JSON.stringify([
+                        ...tiers,
+                        { minQty: (last?.minQty || 0) + 1, discount: 0 },
+                      ]),
+                    });
+                  }}
+                  style={{
+                    marginTop: '0.3rem',
+                    padding: '0.4rem 0.9rem',
+                    background: 'var(--off-white)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  + Add tier
+                </button>
               </div>
 
               {/* T-Shirt Customizer Section Toggle */}

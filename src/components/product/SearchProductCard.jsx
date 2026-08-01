@@ -297,14 +297,14 @@ export default memo(function SearchProductCard({ product }) {
                         <button
                           key={color}
                           onClick={(e) => { e.stopPropagation(); if (!isOOS) setSelectedColor(color); }}
-                          className={`relative rounded-full transition-all duration-200 ${
+                          className={`relative rounded-md transition-all duration-200 ${
                             isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-40' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110 shadow-[0_0_6px_rgba(0,0,0,0.3)]' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105 shadow-sm shadow-black/5'
                           } w-4 h-4 sm:w-5 sm:h-5`}
                           title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                           disabled={isOOS}
                         >
                           <div
-                            className={`w-full h-full rounded-full ${isLight ? 'border border-gray-200' : ''}`}
+                            className={`w-full h-full rounded-md ${isLight ? 'border border-gray-200' : ''}`}
                             style={{ background: getColorHex(color) }}
                           />
                           {isOOS && (
@@ -674,7 +674,7 @@ export default memo(function SearchProductCard({ product }) {
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedColor(c); }}
-                                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -684,7 +684,7 @@ export default memo(function SearchProductCard({ product }) {
                                   title={c}
                                 >
                                   <div
-                                    className={`w-[18px] h-[18px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
+                                    className={`w-[18px] h-[18px] rounded-lg border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
                                     style={{ background: getColorHex(c) }}
                                   />
                                   {isOOS && (
