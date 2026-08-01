@@ -664,6 +664,19 @@ export default function ReelsAdminPage() {
                   </div>
                 </div>
 
+                {/* OR Upload a video file directly — MP4 / WebM / MOV */}
+                <div className="form-group form-full">
+                  <ImageUploadZone
+                    label="Upload Video File (MP4 / WebM / MOV)"
+                    value={form.videoUrl}
+                    onChange={(url) => setForm({ ...form, videoUrl: url })}
+                    multiple={false}
+                    isVideo
+                    accept="video/mp4,video/webm,video/quicktime,video/ogg"
+                    maxSizeMB={40}
+                  />
+                </div>
+
                 {/* OR Upload via ImageUploadZone */}
                 <div className="form-group form-full">
                   <ImageUploadZone

@@ -97,6 +97,7 @@ vi.mock('../../utils/formatters', () => ({
   formatCurrency: (val) => `₹${val}`,
   getProductImage: vi.fn(() => 'https://example.com/img.jpg'),
   getImageUrl: vi.fn((url) => url),
+  getVideoUrl: vi.fn((url) => url),
 }));
 
 vi.mock('../../utils/constants', () => ({

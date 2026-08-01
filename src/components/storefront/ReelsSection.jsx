@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, getImageUrl, getVideoUrl } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
@@ -337,7 +337,7 @@ function FashionShowcase({ reels, onRefresh }) {
                       {(hasVideoError || isUnsupportedVideoUrl(reel.videoUrl)) && reel.imageUrl ? (
                         <div className="relative w-full h-full">
                           <img
-                            src={reel.imageUrl}
+                            src={getImageUrl(reel.imageUrl)}
                             alt={reel.title}
                             className="w-full h-full object-cover"
                           />
@@ -362,13 +362,13 @@ function FashionShowcase({ reels, onRefresh }) {
                       ) : (
                         <>
                           <video
-                            src={reel.videoUrl}
+                            src={getVideoUrl(reel.videoUrl)}
                             muted
                             loop
                             playsInline
                             autoPlay
                             preload="metadata"
-                            poster={reel.imageUrl || undefined}
+                            poster={reel.imageUrl ? getImageUrl(reel.imageUrl) : undefined}
                             className="w-full h-full object-cover"
                             onError={() => handleVideoError(reel.id)}
                           />
@@ -388,7 +388,7 @@ function FashionShowcase({ reels, onRefresh }) {
                           <div className="flex items-center gap-2.5">
                             {p?.image_url && (
                               <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
-                                <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+                                <img src={getImageUrl(p.image_url)} alt="" className="w-full h-full object-cover" />
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
@@ -815,7 +815,7 @@ function ReelPlayer({
   const prodName = selectedProduct?.name || reel.title || '';
   const prodPrice = selectedProduct?.price ?? null;
   const prodOld = selectedProduct?.old_price ?? null;
-  const prodImg = selectedProduct?.image_url || null;
+  const prodImg = selectedProduct?.image_url ? getImageUrl(selectedProduct.image_url) : null;
 
   return (
     <motion.div
@@ -836,7 +836,7 @@ function ReelPlayer({
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="hidden md:block relative w-[180px] lg:w-[200px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
           onClick={(e) => { e.stopPropagation(); goPrev(); }}>
-          <video src={reels[(reelIndex > 0 ? reelIndex - 1 : total - 1)]?.videoUrl || reels[0]?.videoUrl} muted loop playsInline className="w-full h-full object-cover" />
+          <video src={getVideoUrl(reels[(reelIndex > 0 ? reelIndex - 1 : total - 1)]?.videoUrl || reels[0]?.videoUrl)} muted loop playsInline className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/50" />
           <div className="absolute inset-0 flex items-center justify-center">
             <ChevronLeft size={20} />
@@ -865,7 +865,7 @@ function ReelPlayer({
               )}
               {(videoError || isUnsupportedVideoUrl(reel?.videoUrl)) && reel?.imageUrl ? (
                 <div className="absolute inset-0 z-10">
-                  <img src={reel.imageUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={getImageUrl(reel.imageUrl)} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/30" />
                   <div className="absolute bottom-8 left-0 right-0 flex justify-center">
                     {isYouTubeUrl(reel?.videoUrl) ? (
@@ -901,10 +901,10 @@ function ReelPlayer({
 
             {/* Video */}
             {!videoError && !isUnsupportedVideoUrl(reel?.videoUrl) && (
-              <video ref={videoRef} src={reel.videoUrl}
+              <video ref={videoRef} src={getVideoUrl(reel.videoUrl)}
                 className={`reel-video absolute inset-0 z-[1] ${videoReady ? 'opacity-100' : 'opacity-0'}`}
                 muted={isMuted} autoPlay playsInline loop={false} preload="auto"
-                poster={reel.imageUrl || undefined}
+                poster={reel.imageUrl ? getImageUrl(reel.imageUrl) : undefined}
                 onCanPlay={() => setVideoReady(true)} onError={() => setVideoError(true)}
                 onClick={handleTapVideo} />
             )}
@@ -1012,7 +1012,7 @@ function ReelPlayer({
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="hidden md:block relative w-[180px] lg:w-[200px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
           onClick={(e) => { e.stopPropagation(); goNext(); }}>
-          <video src={reels[reelIndex < total - 1 ? reelIndex + 1 : 0]?.videoUrl} muted loop playsInline className="w-full h-full object-cover" />
+          <video src={getVideoUrl(reels[reelIndex < total - 1 ? reelIndex + 1 : 0]?.videoUrl)} muted loop playsInline className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/50" />
           <div className="absolute inset-0 flex items-center justify-center">
             <ChevronRight size={20} />

@@ -55,7 +55,7 @@ export default function ImageUploadZone({
         const res = await adminAPI.uploadFile(formData, { onUploadProgress });
         const url = res.data?.data?.url || '';
         onChange(url);
-        toast.success('Uploaded image successfully!');
+        toast.success(isVideo ? 'Uploaded video successfully!' : 'Uploaded image successfully!');
       }
     } catch (err) {
       console.error(err);
