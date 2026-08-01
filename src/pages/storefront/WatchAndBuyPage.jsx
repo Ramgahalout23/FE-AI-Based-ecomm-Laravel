@@ -14,7 +14,9 @@ import { cartAPI } from '../../api/cart';
 import { productsAPI } from '../../api/products';
 import { wishlistAPI } from '../../api/wishlist';
 import useAuthStore from '../../store/authStore';
-import { addedToCart } from '../../utils/toast';
+import { addedToCart, showSuccess, showError } from '../../utils/toast';
+import { useTranslation } from 'react-i18next';
+import { reelLikesAPI } from '../../api/reelLikes';
 
 /* ═══════════════════════════════════════════════════════════
    VIDEO HELPERS — YouTube / Vimeo / MP4 detection
@@ -64,12 +66,44 @@ function discountPercent(oldPrice, price) {
 /* ═══════════════════════════════════════════════════════════
    VIDEO PLAYER MODAL — Supports MP4 + YouTube + Vimeo
    ═══════════════════════════════════════════════════════════ */
-function VideoPlayerModal({ videoUrl, imageUrl, title, onClose }) {
-  const [isMuted, setIsMuted] = useState(true);
+function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
+  const { t } = useTranslation();
+  const { isAuthenticated } = useAuthStore();
+  const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const videoRef = useRef(null);
+
+  // ── Like state (seeded from backend likesCount / isLikedByUser) ──
+  const [liked, setLiked] = useState(!!reel?.isLikedByUser);
+  const [likeCount, setLikeCount] = useState(Number(reel?.likesCount) || 0);
+  const likeBusyRef = useRef(false);
+
+  // Optimistic like toggle — syncs to backend when authenticated, reverts on failure
+  const handleLike = useCallback(async () => {
+    if (!reel?.id || likeBusyRef.current) return;
+    const nextLiked = !liked;
+    likeBusyRef.current = true;
+    setLiked(nextLiked);
+    setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
+    if (nextLiked) showSuccess(t('reels.liked_reel'));
+    else showSuccess(t('reels.unliked_reel'));
+    if (!isAuthenticated) {
+      likeBusyRef.current = false;
+      return;
+    }
+    try {
+      if (nextLiked) await reelLikesAPI.like(reel.id);
+      else await reelLikesAPI.unlike(reel.id);
+    } catch {
+      setLiked(!nextLiked);
+      setLikeCount((c) => Math.max(0, c + (nextLiked ? -1 : 1)));
+      showError(t('reels.like_error'));
+    } finally {
+      likeBusyRef.current = false;
+    }
+  }, [liked, isAuthenticated, reel, t]);
 
   const youTubeEmbed = getYouTubeEmbedUrl(videoUrl);
   const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
@@ -175,13 +209,28 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, onClose }) {
             )}
 
             {/* Bottom controls */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between gap-3">
               <button
                 onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m); }}
-                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 transition-all"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 transition-all active:scale-90"
               >
                 {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
               </button>
+
+              {reel?.id && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleLike(); }}
+                  aria-label={liked ? t('reels.liked') : t('reels.like')}
+                  className="flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-white/20 transition-all active:scale-95"
+                >
+                  <Heart size={14} className={`${liked ? 'fill-rose-400 text-rose-400' : ''} transition-transform duration-300 ${liked ? 'scale-110' : ''}`} />
+                  <span className="text-xs font-bold">{liked ? t('reels.liked') : t('reels.like')}</span>
+                  {likeCount > 0 && (
+                    <span className={`text-xs font-bold tabular-nums ${liked ? 'text-rose-300' : 'text-white/50'}`}>{likeCount}</span>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Center play/pause */
@@ -577,6 +626,7 @@ function ShoppableVideoSection({ reels }) {
       videoUrl: reel.videoUrl,
       imageUrl: reel.imageUrl,
       title: reel.title,
+      reel,
     });
   };
 
@@ -838,9 +888,11 @@ function ShoppableVideoSection({ reels }) {
       <AnimatePresence>
         {activeVideo && (
           <VideoPlayerModal
+            key={activeVideo.reel?.id || activeVideo.videoUrl}
             videoUrl={activeVideo.videoUrl}
             imageUrl={activeVideo.imageUrl}
             title={activeVideo.title}
+            reel={activeVideo.reel}
             onClose={() => setActiveVideo(null)}
           />
         )}

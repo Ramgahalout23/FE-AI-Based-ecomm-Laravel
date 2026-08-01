@@ -1,4 +1,4 @@
-import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Home, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
 import { wishlistAPI } from '../../api/wishlist';
 import { reelLikesAPI } from '../../api/reelLikes';
-import { addedToWishlist, removedFromWishlist, addedToCart } from '../../utils/toast';
+import { addedToCart, linkCopied, showSuccess, showError } from '../../utils/toast';
 import useCartStore from '../../store/cartStore';
 import { cartAPI } from '../../api/cart';
 
@@ -122,7 +122,6 @@ function ReelsSectionSkeleton() {
    EXPORT
    ═══════════════════════════════════════════════════════════ */
 export default function ReelsSection({ reels: _reelsProp = [], loading = false, onRefresh }) {
-  const { t } = useTranslation();
   const reels = Array.isArray(_reelsProp) ? _reelsProp : [];
   if (loading) return <ReelsSectionSkeleton />;
   if (reels.length === 0) return null;
@@ -150,44 +149,23 @@ function FashionShowcase({ reels, onRefresh }) {
   const [carouselSelectedColor, setCarouselSelectedColor] = useState('');
   const [carouselSelectedSize, setCarouselSelectedSize] = useState('');
   const [carouselVariantQty, setCarouselVariantQty] = useState(1);
+  // ── Reel-level like state (seeded from backend likesCount / isLikedByUser) ──
+  const [reelLikeMap, setReelLikeMap] = useState({});
+  // Ref mirror so rapid taps always read the freshest liked state (avoids stale-closure toggles)
+  const reelLikeMapRef = useRef({});
+  useEffect(() => {
+    const map = {};
+    (Array.isArray(reels) ? reels : []).forEach((r) => {
+      map[r.id] = { liked: !!r.isLikedByUser, count: Number(r.likesCount) || 0 };
+    });
+    reelLikeMapRef.current = map;
+    setReelLikeMap(map);
+  }, [reels]);
 
   // Get the first product from a reel for wishlist checking
   const getProductFromReel = useCallback((reel) => {
     return reel?.products?.[0] || null;
   }, []);
-
-  const toggleLike = useCallback(async (reel, productId) => {
-    // Always resolve the product from the reel for wishlist store
-    const product = getProductFromReel(reel);
-    if (!productId) {
-      productId = product?.id;
-    }
-    if (!productId) return;
-
-    const currentlyLiked = isInWishlist(productId);
-
-    // Update wishlist store optimistically
-    if (currentlyLiked) {
-      removeFromWL(productId);
-      removedFromWishlist();
-    } else {
-      addToWL(product);
-      addedToWishlist();
-    }
-
-    // Sync with backend (fire-and-forget)
-    if (isAuthenticated) {
-      try {
-        if (currentlyLiked) {
-          await wishlistAPI.remove(productId);
-          await reelLikesAPI.unlike(reel.id).catch(() => {});
-        } else {
-          await wishlistAPI.add({ productId });
-          await reelLikesAPI.like(reel.id).catch(() => {});
-        }
-      } catch {}
-    }
-  }, [isAuthenticated, isInWishlist, addToWL, removeFromWL, getProductFromReel]);
 
   const cartAddItem = useCartStore((s) => s.addItem);
 
@@ -229,9 +207,87 @@ function FashionShowcase({ reels, onRefresh }) {
     }
   }, [isAuthenticated, reels, cartAddItem]);
 
-  const handleShare = useCallback((reel) => {
-    navigator.clipboard?.writeText(`Check out "${reel.title}" at Luxe!`);
-  }, []);
+  const handleShare = useCallback(async (reel) => {
+    // Reel-specific deep link: current URL + ?reel=<id> (preserving existing query params)
+    const url = new URL(window.location.href);
+    if (reel?.id) url.searchParams.set('reel', reel.id);
+    const shareUrl = url.toString();
+    const shareText = `Check out "${reel?.title || 'this reel'}" at ${window.location.host}!`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: reel?.title || 'Luxe Reel', text: shareText, url: shareUrl });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+        linkCopied();
+        return;
+      }
+      showError(t('reels.share_error'));
+    } catch (err) {
+      // User cancelled the native share sheet — that's fine
+      if (err?.name === 'AbortError') return;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+          linkCopied();
+        } else {
+          showError(t('reels.share_error'));
+        }
+      } catch {
+        showError(t('reels.share_error'));
+      }
+    }
+  }, [t]);
+
+  // ── Reel-level like toggle (optimistic + backend sync + toast feedback) ──
+  // Keeps the reel-like state AND the linked product's wishlist in sync so the
+  // carousel heart and the player heart always agree.
+  const toggleReelLike = useCallback(async (reel) => {
+    if (!reel?.id) return;
+    const cur = reelLikeMapRef.current[reel.id] || { liked: false, count: 0 };
+    const nextLiked = !cur.liked;
+    // Optimistic UI update (ref kept in sync so rapid taps toggle once, never double-fire)
+    const next = {
+      ...reelLikeMapRef.current,
+      [reel.id]: { liked: nextLiked, count: Math.max(0, cur.count + (nextLiked ? 1 : -1)) },
+    };
+    reelLikeMapRef.current = next;
+    setReelLikeMap(next);
+    if (nextLiked) showSuccess(t('reels.liked_reel'));
+    else showSuccess(t('reels.unliked_reel'));
+
+    // Keep the linked product's wishlist in sync (silent, same behaviour as before)
+    const product = getProductFromReel(reel);
+    const productId = product?.id;
+    if (productId) {
+      const inWishlistNow = isInWishlist(productId);
+      if (inWishlistNow) {
+        removeFromWL(productId);
+        if (isAuthenticated) wishlistAPI.remove(productId).catch(() => {});
+      } else {
+        addToWL(product);
+        if (isAuthenticated) wishlistAPI.add({ productId }).catch(() => {});
+      }
+    }
+
+    // Sync reel like with backend (only for authenticated users)
+    if (!isAuthenticated) return;
+    try {
+      if (nextLiked) await reelLikesAPI.like(reel.id);
+      else await reelLikesAPI.unlike(reel.id);
+    } catch {
+      // Revert optimistic update on failure (derived from current ref state)
+      const current = reelLikeMapRef.current[reel.id] || { liked: nextLiked, count: 0 };
+      const reverted = {
+        ...reelLikeMapRef.current,
+        [reel.id]: { liked: !current.liked, count: Math.max(0, current.count + (current.liked ? -1 : 1)) },
+      };
+      reelLikeMapRef.current = reverted;
+      setReelLikeMap(reverted);
+      showError(t('reels.like_error'));
+    }
+  }, [isAuthenticated, t, isInWishlist, addToWL, removeFromWL, getProductFromReel]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
@@ -260,6 +316,22 @@ function FashionShowcase({ reels, onRefresh }) {
 
   const openReel = useCallback((idx) => { setCarouselVariantReelId(null); setActiveReelIndex(idx); }, []);
   const closeReel = useCallback(() => setActiveReelIndex(null), []);
+
+  // ── Deep-link: auto-open the exact reel shared via ?reel=<id> ──
+  // Consumes the param after opening so closing/refreshing doesn't re-open it.
+  useEffect(() => {
+    if (!Array.isArray(reels) || reels.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const reelId = params.get('reel');
+    if (!reelId) return;
+    const idx = reels.findIndex((r) => String(r?.id) === String(reelId));
+    if (idx < 0) return;
+    // Consume the deep link so closing/refreshing doesn't re-open it
+    params.delete('reel');
+    const qs = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    openReel(idx);
+  }, [reels, openReel]);
 
   const handleVideoError = useCallback((reelId) => {
     setVideoErrors((prev) => {
@@ -398,7 +470,7 @@ function FashionShowcase({ reels, onRefresh }) {
                                 {p?.old_price && <span className="text-[9px] text-gray-400 line-through">{formatCurrency(p.old_price)}</span>}
                                 {p?.old_price && p?.price && (
                                   <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[6px] font-bold">
-                                    {t('reels.off', { percent: discountPercent(p.old_price, p.price) })}
+                                    {discountPercent(p.old_price, p.price)}% OFF
                                   </span>
                                 )}
                               </div>
@@ -488,12 +560,12 @@ function FashionShowcase({ reels, onRefresh }) {
                             })()}
                           </AnimatePresence>
                           <div className="flex items-center gap-1.5 mt-2">
-                            <button onClick={(e) => { e.stopPropagation(); toggleLike(reel); }}
+                            <button onClick={(e) => { e.stopPropagation(); toggleReelLike(reel); }}
                               className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-bold uppercase tracking-wider transition-all ${
-                                isInWishlist(p?.id) ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                                reelLikeMap[reel.id]?.liked ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
                               }`}>
-                              <Heart size={9} className={isInWishlist(p?.id) ? 'fill-rose-500' : ''} />
-                              {isInWishlist(p?.id) ? t('reels.liked') : t('reels.like')}
+                              <Heart size={9} className={reelLikeMap[reel.id]?.liked ? 'fill-rose-500' : ''} />
+                              {reelLikeMap[reel.id]?.liked ? t('reels.liked') : t('reels.like')}
                             </button>
                             {p && (
                               <button onClick={(e) => {
@@ -539,8 +611,8 @@ function FashionShowcase({ reels, onRefresh }) {
         <AnimatePresence>
           {activeReelIndex !== null && (
             <ReelPlayer reels={reels} initialIndex={activeReelIndex} onClose={closeReel}
-              isInWishlist={isInWishlist} cartItems={cartItems} justAdded={justAdded}
-              onToggleLike={toggleLike} onAddToCart={addToCart} onShare={handleShare} />
+              cartItems={cartItems} justAdded={justAdded}
+              reelLikes={reelLikeMap} onToggleLike={toggleReelLike} onAddToCart={addToCart} onShare={handleShare} />
           )}
         </AnimatePresence>,
         document.body
@@ -569,13 +641,13 @@ const SWIPE_TRANSITION = `transform ${SWIPE_DURATION}s ${SWIPE_EASE}`;
    ═══════════════════════════════════════════════════════════ */
 function ReelPlayer({
   reels, initialIndex, onClose,
-  isInWishlist, cartItems, justAdded,
-  onToggleLike, onAddToCart, onShare,
+  cartItems, justAdded,
+  reelLikes, onToggleLike, onAddToCart, onShare,
 }) {
   const { t } = useTranslation();
   const [reelIndex, setReelIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [showProductCard, setShowProductCard] = useState(true);
@@ -641,7 +713,6 @@ function ReelPlayer({
 
   useEffect(() => {
     setIsPlaying(true);
-    setIsMuted(true);
     setVideoReady(false);
     setVideoError(false);
   }, [reelIndex]);
@@ -806,7 +877,8 @@ function ReelPlayer({
     }
   }, [getCardHeight, goPrev, goNext, animateTo, setIsSwiping, shouldCloseOnSwipeDown, onClose]);
 
-  const isLiked = isInWishlist(selectedProduct?.id);
+  const reelLike = reelLikes?.[reel?.id] || { liked: false, count: 0 };
+  const isLiked = !!reelLike.liked;
   const isAddingProduct = justAdded === selectedProduct?.id;
   const inCartProduct = cartItems.has(selectedProduct?.id);
 
@@ -834,7 +906,7 @@ function ReelPlayer({
           initial={{ opacity: 0, x: -60 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="hidden md:block relative w-[180px] lg:w-[200px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
+          className="hidden md:block relative w-[120px] lg:w-[150px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
           onClick={(e) => { e.stopPropagation(); goPrev(); }}>
           <video src={getVideoUrl(reels[(reelIndex > 0 ? reelIndex - 1 : total - 1)]?.videoUrl || reels[0]?.videoUrl)} muted loop playsInline className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/50" />
@@ -844,7 +916,7 @@ function ReelPlayer({
         </motion.div>
 
         {/* ── CENTER CARD ── */}
-        <div className="relative flex-1 md:flex-none md:w-[340px] lg:w-[380px] h-full md:h-auto md:aspect-[9/16] overflow-hidden md:rounded-2xl shadow-2xl md:border md:border-white/10 bg-gray-900"
+        <div className="relative flex-1 md:flex-none md:w-[min(340px,45vh)] lg:w-[min(380px,48vh)] h-full md:h-auto md:aspect-[9/16] overflow-hidden md:rounded-2xl shadow-2xl md:border md:border-white/10 bg-gray-900"
           onClick={(e) => e.stopPropagation()}>
 
           {/* ── SWIPE LAYER ── */}
@@ -971,8 +1043,9 @@ function ReelPlayer({
                 {reelIndex + 1} / {total}
               </div>
               <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-                className="absolute right-3 pointer-events-auto w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
-                <X size={14} />
+                aria-label={t('reels.back_home') || 'Home'}
+                className="absolute right-3 pointer-events-auto w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
+                <X size={18} />
               </button>
             </div>
 
@@ -984,14 +1057,18 @@ function ReelPlayer({
 
             {/* Floating sidebar */}
             <div className="absolute right-3 bottom-52 md:bottom-36 z-30 flex flex-col items-center gap-4 pointer-events-none">
-              <button onClick={(e) => { e.stopPropagation(); onToggleLike(reel, selectedProduct?.id); }}
+              <button onClick={(e) => { e.stopPropagation(); onToggleLike(reel); }}
+                aria-label={isLiked ? t('reels.liked') : t('reels.like')}
                 className="pointer-events-auto flex flex-col items-center gap-0.5 group">
                 <div className={`w-11 h-11 rounded-full backdrop-blur-md border flex items-center justify-center transition-all duration-300 ${
                   isLiked ? 'bg-rose-500/20 border-rose-400/40 text-rose-400' : 'bg-black/50 border-white/15 text-white/70 hover:bg-white/20 hover:text-white'
                 }`}>
-                  <Heart size={17} className={isLiked ? 'fill-rose-400' : ''} />
+                  <Heart size={17} className={`${isLiked ? 'fill-rose-400' : ''} transition-transform duration-300 ${isLiked ? 'scale-110' : 'group-hover:scale-110'}`} />
                 </div>
-                <span className={`text-[7px] font-bold uppercase tracking-wider ${isLiked ? 'text-rose-400' : 'text-white/50'}`}>{t('reels.like')}</span>
+                <span className={`text-[7px] font-bold uppercase tracking-wider ${isLiked ? 'text-rose-400' : 'text-white/50'}`}>{isLiked ? t('reels.liked') : t('reels.like')}</span>
+                {reelLike.count > 0 && (
+                  <span className={`text-[9px] font-bold tabular-nums -mt-0.5 ${isLiked ? 'text-rose-400' : 'text-white/60'}`}>{reelLike.count}</span>
+                )}
               </button>
               <button onClick={(e) => { e.stopPropagation(); onShare(reel); }}
                 className="pointer-events-auto flex flex-col items-center gap-0.5 group">
@@ -1010,7 +1087,7 @@ function ReelPlayer({
           initial={{ opacity: 0, x: 60 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="hidden md:block relative w-[180px] lg:w-[200px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
+          className="hidden md:block relative w-[120px] lg:w-[150px] aspect-[9/16] rounded-2xl overflow-hidden shadow-lg opacity-40 scale-[0.85] shrink-0 cursor-pointer"
           onClick={(e) => { e.stopPropagation(); goNext(); }}>
           <video src={getVideoUrl(reels[reelIndex < total - 1 ? reelIndex + 1 : 0]?.videoUrl)} muted loop playsInline className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/50" />
@@ -1020,22 +1097,24 @@ function ReelPlayer({
         </motion.div>
       </div>
 
-      {/* Close button — always visible, even above variant modal */}
+      {/* Close button — always visible, even above variant modal.
+          Uses absolute (root is fixed inset-0) so framer-motion transforms can't break positioning. */}
       <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-        className="flex fixed top-4 left-4 z-[9999] px-4 py-3 rounded-full bg-black/70 backdrop-blur-md border border-white/20 items-center gap-2 text-white text-sm font-bold shadow-2xl hover:bg-black/90 hover:scale-105 transition-all active:scale-95">
-        <ChevronLeft size={20} />
-        <span>Back</span>
+        aria-label={t('reels.back_home') || 'Home'}
+        className="absolute top-3 left-3 z-[9999] inline-flex items-center gap-2 rounded-full bg-white text-gray-900 px-4 py-2.5 shadow-2xl border border-gray-200 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all active:scale-95">
+        <Home size={16} />
+        <span>{t('reels.back_home') || 'Home'}</span>
       </button>
 
       {/* Desktop arrows */}
       <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
         className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm shadow-lg items-center justify-center text-gray-700 hover:bg-white hover:scale-105 transition-all active:scale-95"
-        style={{ left: 'calc(50% - 320px)' }}>
+        style={{ left: 'calc(50% - 290px)' }}>
         <ChevronLeft size={20} />
       </button>
       <button onClick={(e) => { e.stopPropagation(); goNext(); }}
         className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full bg-white/80 backdrop-blur-sm shadow-lg items-center justify-center text-gray-700 hover:bg-white hover:scale-105 transition-all active:scale-95"
-        style={{ right: 'calc(50% - 320px)' }}>
+        style={{ right: 'calc(50% - 290px)' }}>
         <ChevronRight size={20} />
       </button>
 
@@ -1248,7 +1327,7 @@ function ReelPlayer({
               dragConstraints={{ top: 0, bottom: 200 }}
               dragElastic={0.5}
               onDragEnd={(_, info) => { if (info.offset.y > 60) setShowProductCard(false); }}
-              className="w-full max-w-[400px] mx-auto">
+              className="w-full max-w-[min(400px,92vw)] mx-auto">
               <div className="mx-3 mb-3 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
                 <div className="flex justify-center pt-2.5 pb-0">
                   <div className="w-9 h-1 rounded-full bg-gray-300/60" />

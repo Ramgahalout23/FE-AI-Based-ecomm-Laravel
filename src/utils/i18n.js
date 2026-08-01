@@ -949,9 +949,15 @@ const DEFAULT_EN_TRANSLATIONS = {
   'reels.in_cart': 'In Cart',
   'reels.show_product': 'Show Product',
   'reels.swipe': 'Swipe',
+  'reels.down_to_close': 'drag to close',
   'reels.watch_youtube': 'Watch on YouTube',
   'reels.youtube': 'YouTube',
   'reels.retry_video': 'Retry Video',
+  'reels.back_home': 'Back to Home',
+  'reels.liked_reel': 'Liked this reel!',
+  'reels.unliked_reel': 'Like removed',
+  'reels.like_error': 'Could not update like',
+  'reels.share_error': 'Could not share this reel',
 };
 
 /**

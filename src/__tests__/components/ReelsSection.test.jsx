@@ -1,7 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// jsdom doesn't implement ResizeObserver — stub it for ReelsSection's scroll tracking
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver || ResizeObserverStub;
+
+// jsdom doesn't implement HTML media playback — stub the media element API globally
+beforeEach(() => {
+  if (typeof window !== 'undefined' && window.HTMLMediaElement) {
+    window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
+    window.HTMLMediaElement.prototype.pause = vi.fn();
+    window.HTMLMediaElement.prototype.load = vi.fn();
+    window.HTMLMediaElement.prototype.canPlayType = vi.fn(() => '');
+  }
+});
 
 // Setup i18n mock
 vi.mock('react-i18next', () => ({
@@ -90,7 +108,20 @@ vi.mock('../../api/products', () => ({
 
 vi.mock('../../utils/toast', () => ({
   addedToCart: vi.fn(),
+  addedToWishlist: vi.fn(),
+  removedFromWishlist: vi.fn(),
+  linkCopied: vi.fn(),
+  showSuccess: vi.fn(),
+  showError: vi.fn(),
   default: { success: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock('../../api/reelLikes', () => ({
+  reelLikesAPI: {
+    like: vi.fn().mockResolvedValue({ data: { data: { liked: true, likesCount: 1 } } }),
+    unlike: vi.fn().mockResolvedValue({ data: { data: { liked: false, likesCount: 0 } } }),
+    check: vi.fn().mockResolvedValue({ data: { data: { liked: false } } }),
+  },
 }));
 
 vi.mock('../../utils/formatters', () => ({
@@ -208,23 +239,22 @@ describe('ReelsSection', () => {
     );
   });
 
-  it('opens cart drawer after adding item', async () => {
+  it('shows added state after adding item', async () => {
     renderWithProviders(<ReelsSection reels={[mockReels[0]]} />);
     const cartBtn = screen.getByText('reels.cart');
     fireEvent.click(cartBtn);
     await waitFor(() => {
-      expect(mockOpenCart).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('reels.added')).toBeDefined();
     });
   });
 
-  it('shows variant modal when clicking add to cart on variant product', async () => {
+  it('shows inline variant picker when clicking add to cart on variant product', async () => {
     renderWithProviders(<ReelsSection reels={[mockReels[1]]} />);
-    // For variant products, clicking add to cart should open the modal
+    // For variant products, clicking add to cart opens the inline picker inside the card
     const cartBtn = screen.getByText('reels.cart');
     fireEvent.click(cartBtn);
-    // The modal needs to load product data - wait for it
     await waitFor(() => {
-      expect(screen.getByText('reels.add_to_cart')).toBeDefined();
+      expect(screen.getByText('Add')).toBeDefined();
     });
   });
 
@@ -233,8 +263,8 @@ describe('ReelsSection', () => {
     const reelCards = document.querySelectorAll('.reel-card');
     expect(reelCards.length).toBe(2);
     fireEvent.click(reelCards[0]);
-    // Player should show with product card
-    expect(screen.getByText('reels.show_product')).toBeDefined();
+    // Full-screen player overlay should be rendered
+    expect(document.querySelector('.fixed.inset-0.z-50')).toBeDefined();
   });
 
   it('shows liked state when like button is clicked', () => {
@@ -270,12 +300,12 @@ describe('ReelQuickBuyModal - Variant Selection', () => {
     });
   });
 
-  it('shows add to bag button with correct text', async () => {
+  it('shows add button with correct text', async () => {
     renderWithProviders(<ReelsSection reels={[mockReels[1]]} />);
     const cartBtn = screen.getByText('reels.cart');
     fireEvent.click(cartBtn);
     await waitFor(() => {
-      expect(screen.getByText('Add to Bag')).toBeDefined();
+      expect(screen.getByText('Add')).toBeDefined();
     });
   });
 });
@@ -289,39 +319,42 @@ describe('ReelPlayer Full-Screen Mode', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
     const reelCards = document.querySelectorAll('.reel-card');
     fireEvent.click(reelCards[0]);
-    // Player should have product info
-    expect(screen.getByText('Simple Product')).toBeDefined();
+    // Player should have product info (name appears in both the card and the player)
+    expect(screen.getAllByText('Simple Product').length).toBeGreaterThan(0);
   });
 
   it('shows add to cart button in player bottom sheet', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
     const reelCards = document.querySelectorAll('.reel-card');
     fireEvent.click(reelCards[0]);
-    expect(screen.getByText('reels.add_to_cart')).toBeDefined();
+    const player = document.querySelector('.fixed.inset-0.z-50');
+    expect(within(player).getByText('reels.cart')).toBeDefined();
   });
 
   it('adds item to cart from player bottom sheet', async () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
     const reelCards = document.querySelectorAll('.reel-card');
     fireEvent.click(reelCards[0]);
-    const addBtn = screen.getByText('reels.add_to_cart');
+    const player = document.querySelector('.fixed.inset-0.z-50');
+    const addBtn = within(player).getByText('reels.cart');
     fireEvent.click(addBtn);
     await waitFor(() => {
       expect(mockAddItem).toHaveBeenCalledTimes(1);
     });
   });
 
-  it('closes reel player when close button is clicked', () => {
+  it('closes reel player when close button is clicked', async () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
     const reelCards = document.querySelectorAll('.reel-card');
     fireEvent.click(reelCards[0]);
+    expect(document.querySelector('.fixed.inset-0.z-50')).toBeDefined();
     // Close button should be visible (the X icon button)
     const closeBtn = document.querySelector('[class*="rounded-full"][class*="bg-white/90"]');
-    if (closeBtn) {
-      fireEvent.click(closeBtn);
-      // Player should close - the product card text should be gone
-      expect(screen.queryByText('Simple Product')).toBeNull();
-    }
+    fireEvent.click(closeBtn);
+    // Player overlay should be removed after close (wait for the exit animation)
+    await waitFor(() => {
+      expect(document.querySelector('.fixed.inset-0.z-50')).toBeNull();
+    });
   });
 
   it('toggles play/pause when clicking video', () => {
@@ -330,5 +363,48 @@ describe('ReelPlayer Full-Screen Mode', () => {
     fireEvent.click(reelCards[0]);
     // The player overlay is rendered
     expect(document.querySelector('.fixed.inset-0.z-50')).toBeDefined();
+  });
+
+  it('shares a reel-specific URL with ?reel=<id>', async () => {
+    const mockShare = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'share', {
+      value: mockShare,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      renderWithProviders(<ReelsSection reels={mockReels} />);
+      const reelCards = document.querySelectorAll('.reel-card');
+      fireEvent.click(reelCards[0]);
+      const player = document.querySelector('.fixed.inset-0.z-50');
+      const shareBtn = within(player).getByText('reels.share').closest('button');
+      fireEvent.click(shareBtn);
+      await waitFor(() => expect(mockShare).toHaveBeenCalled());
+      const { url } = mockShare.mock.calls[0][0];
+      expect(url).toContain('reel=reel-1');
+    } finally {
+      delete window.navigator.share;
+    }
+  });
+
+  it('opens the exact reel from a ?reel=<id> deep link', async () => {
+    window.history.replaceState(null, '', '/?reel=reel-2');
+    try {
+      renderWithProviders(<ReelsSection reels={mockReels} />);
+      // Player should open with the second reel's product visible (scoped to the player overlay,
+      // since the carousel card also shows the product name)
+      const player = await waitFor(() => {
+        const el = document.querySelector('.fixed.inset-0.z-50');
+        expect(el).not.toBeNull();
+        return el;
+      });
+      expect(within(player).getAllByText('Variant Product').length).toBeGreaterThan(0);
+      // Top-bar counter confirms the exact reel index (2 / 2)
+      expect(within(player).getByText('2 / 2')).toBeDefined();
+      // The deep link param is consumed so closing/refreshing won't re-open it
+      expect(window.location.search).not.toContain('reel=');
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 });

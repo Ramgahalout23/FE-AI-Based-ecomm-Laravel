@@ -32,6 +32,7 @@ export default function Navbar() {
   const [showAccount, setShowAccount] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [isReelsOpen, setIsReelsOpen] = useState(false);
   const searchRef = useRef(null);
 
   const { getSetting } = useSettings();
@@ -90,6 +91,19 @@ export default function Navbar() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Hide the sticky navbar while the reel player is open — ReelPlayer sets
+  // data-reel-player="active" on <body>, and the navbar (z-index 100) would
+  // otherwise cover the player's close button (player root is z-50).
+  useEffect(() => {
+    const checkReels = () => {
+      setIsReelsOpen(document.body.getAttribute('data-reel-player') === 'active');
+    };
+    checkReels();
+    const observer = new MutationObserver(checkReels);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-reel-player'] });
+    return () => observer.disconnect();
+  }, []);
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -100,6 +114,8 @@ export default function Navbar() {
 
   return (
     <header className={`sticky top-0 z-sticky transition-all duration-300 flex flex-col ${
+      isReelsOpen ? '-translate-y-full opacity-0 pointer-events-none' : ''
+    } ${
       scrolled 
         ? 'bg-charcoal/95 backdrop-blur-md shadow-card border-b border-white/[0.04]' 
         : 'bg-charcoal shadow-soft'
