@@ -18,7 +18,7 @@ import { buildHighlights, getStyleTagline } from '../../utils/productHelpers.jsx
 import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
-function ProductCard({ product, className = '' }) {
+function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-sm:aspect-[4/5]' }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
@@ -361,7 +361,7 @@ function ProductCard({ product, className = '' }) {
       >
         {/* Image Container */}
         <div
-          className="relative aspect-[3/4] max-sm:aspect-[4/5] bg-surface overflow-hidden shrink-0"
+          className={`relative ${imageAspect} bg-surface overflow-hidden shrink-0`}
           onMouseEnter={handleImageMouseEnter}
           onMouseLeave={handleImageMouseLeave}
         >
@@ -785,7 +785,7 @@ function ProductCard({ product, className = '' }) {
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => setSelectedColor(c)}
-                                  className={`relative w-8 h-8 rounded-lg overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`relative w-8 h-8 rounded-[3px] overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -831,7 +831,7 @@ function ProductCard({ product, className = '' }) {
                                   key={s}
                                   disabled={isOOS}
                                   onClick={() => setSelectedSize(s)}
-                                  className={`px-3 py-2 text-xs font-bold rounded-lg transition-all duration-150 ${
+                                  className={`px-3 py-2 text-xs font-bold rounded-[3px] transition-all duration-150 ${
                                     isOOS
                                       ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                       : isSelected

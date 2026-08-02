@@ -1,4 +1,4 @@
-import { ShoppingBag, AlertTriangle, X, ChevronDown, Share2, Check, Link, Trash2, Heart, ArrowRight, Package } from 'lucide-react';
+import { ShoppingBag, AlertTriangle, X, Share2, Check, Link, Trash2, Heart, ArrowRight, Package } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +31,6 @@ export default function WishlistPage() {
   const [removingIds, setRemovingIds] = useState(new Set());
   const [movingIds, setMovingIds] = useState(new Set());
   const [variantSelections, setVariantSelections] = useState({}); // { [itemId]: { selectedColor, selectedSize } }
-  const [expandedIds, setExpandedIds] = useState(new Set()); // itemIds that have their variant selector open
 
   // ── Share state ──
   const [shareLink, setShareLink] = useState(null);
@@ -110,24 +109,6 @@ export default function WishlistPage() {
     }));
   }, []);
 
-  const toggleExpanded = useCallback((itemId) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-        // Also clear selections when collapsing
-        setVariantSelections(s => {
-          const updated = { ...s };
-          delete updated[itemId];
-          return updated;
-        });
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
-  }, []);
-
   const handleMoveToCart = async (item, e) => {
     const id = item.productId || item.id;
     if (movingIds.has(id) || removingIds.has(id)) return;
@@ -164,11 +145,6 @@ export default function WishlistPage() {
           next.delete(id);
           return next;
         });
-        setExpandedIds(prev => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
       }, 300);
       showSuccess(
         <span className="wishlist-toast-moved">
@@ -199,11 +175,6 @@ export default function WishlistPage() {
         setTimeout(() => {
           removeItem(id);
           setMovingIds(prev => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-          setExpandedIds(prev => {
             const next = new Set(prev);
             next.delete(id);
             return next;
@@ -446,14 +417,24 @@ export default function WishlistPage() {
               : null;
 
             // ── Variant info ──
-            const { colors: productColors, sizes: productSizes } = getVariantInfo(p);
+            const { colors: productColors, sizes: productSizes, variants: productVariants } = getVariantInfo(p);
             const hasVariants = productColors.length > 0 || productSizes.length > 0;
+            // Out-of-stock colors/sizes — same logic as homepage ProductCard
+            const oosColors = new Set();
+            const oosSizes = new Set();
+            if (productVariants.length > 0) {
+              productColors.forEach((c) => {
+                if (!productVariants.some((v) => v.attributes?.color === c && ((v.quantity ?? v.stockQuantity) || 0) > 0)) oosColors.add(c);
+              });
+              productSizes.forEach((s) => {
+                if (!productVariants.some((v) => v.attributes?.size === s && ((v.quantity ?? v.stockQuantity) || 0) > 0)) oosSizes.add(s);
+              });
+            }
             const selection = variantSelections[itemId] || {};
             const selColor = selection.selectedColor || '';
             const selSize = selection.selectedSize || '';
             const matchedVariant = hasVariants ? findMatchedVariant(p, selColor, selSize) : null;
             const hasAllSelections = (!productColors.length || selColor) && (!productSizes.length || selSize);
-            const isExpanded = expandedIds.has(itemId);
 
             // Stock info is now variant-aware
             const stock = getStockInfo(item, matchedVariant);
@@ -536,76 +517,84 @@ export default function WishlistPage() {
                     )}
                   </div>
 
-                  {/* Variant Selector (toggleable) */}
+                  {/* Variant Selector — inline, same look as homepage ProductCard quick-add */}
                   {hasVariants && (
-                    <div className="wishlist-variant-section">
-                      <button
-                        className="wishlist-variant-toggle"
-                        onClick={(e) => { e.stopPropagation(); toggleExpanded(itemId); }}
-                      >
-                        <ShoppingBag size={12} />
-                        {isExpanded ? t('wishlist.hide_options', 'Hide Options') : t('wishlist.select_options', 'Select Options')}
-                        <ChevronDown size={12} className={`wishlist-chevron ${isExpanded ? 'open' : ''}`} />
-                      </button>
+                    <div className="wishlist-variant-section space-y-2">
+                      {/* Colors */}
+                      {productColors.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Color{selColor ? <span className="text-gray-800 ml-1 font-bold">· {selColor}</span> : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {productColors.map(c => {
+                              const isOOS = oosColors.has(c);
+                              const isSelected = selColor === c;
+                              const thumb = getColorThumb(p, c);
+                              return (
+                                <button
+                                  key={c}
+                                  disabled={isOOS}
+                                  onClick={(e) => { e.stopPropagation(); handleSelectColor(itemId, c); }}
+                                  className={`relative w-6 h-6 rounded-[3px] overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
+                                    isSelected
+                                      ? 'border-black scale-110 shadow-sm'
+                                      : isOOS
+                                      ? 'border-gray-200 opacity-30 cursor-not-allowed'
+                                      : 'border-transparent hover:border-gray-300'
+                                  }`}
+                                  title={c}
+                                >
+                                  {thumb ? (
+                                    <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                  ) : (
+                                    <div
+                                      className={`w-full h-full ${isOOS ? 'opacity-50' : ''}`}
+                                      style={{ background: getColorHex(c) }}
+                                    />
+                                  )}
+                                  {isOOS && (
+                                    <span className="absolute inset-0 flex items-center justify-center">
+                                      <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <line x1="4" y1="4" x2="20" y2="20" />
+                                      </svg>
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
-                      {isExpanded && (
-                        <div className="wishlist-variant-picker">
-                          {/* Colors */}
-                          {productColors.length > 0 && (
-                            <div className="wishlist-variant-row">
-                              <span className="wishlist-variant-label">
-                                Color: <strong>{selColor || '—'}</strong>
-                              </span>
-                              <div className="wishlist-color-options">
-                                {productColors.map(color => {
-                                  const thumb = getColorThumb(p, color);
-                                  return (
-                                    <button
-                                      key={color}
-                                      onClick={(e) => { e.stopPropagation(); handleSelectColor(itemId, color); }}
-                                      className={`wishlist-color-swatch ${selColor === color ? 'active' : ''}`}
-                                      title={color}
-                                    >
-                                      {thumb ? (
-                                        <img
-                                          src={thumb}
-                                          alt={color}
-                                          loading="lazy"
-                                          className="wishlist-swatch-inner"
-                                          style={{ objectFit: 'cover' }}
-                                        />
-                                      ) : (
-                                        <div
-                                          className="wishlist-swatch-inner"
-                                          style={{ background: getColorHex(color) }}
-                                        />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Sizes */}
-                          {productSizes.length > 0 && (
-                            <div className="wishlist-variant-row">
-                              <span className="wishlist-variant-label">
-                                Size: <strong>{selSize || '—'}</strong>
-                              </span>
-                              <div className="wishlist-size-options">
-                                {productSizes.map(size => (
-                                  <button
-                                    key={size}
-                                    onClick={(e) => { e.stopPropagation(); handleSelectSize(itemId, size); }}
-                                    className={`wishlist-size-btn ${selSize === size ? 'active' : ''}`}
-                                  >
-                                    {size}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                      {/* Sizes */}
+                      {productSizes.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                            Size{selSize ? <span className="text-gray-800 ml-1 font-bold">· {selSize}</span> : ''}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {productSizes.map(s => {
+                              const isOOS = oosSizes.has(s);
+                              const isSelected = selSize === s;
+                              return (
+                                <button
+                                  key={s}
+                                  disabled={isOOS}
+                                  onClick={(e) => { e.stopPropagation(); handleSelectSize(itemId, s); }}
+                                  className={`px-2 py-1 text-[10px] font-bold rounded-[3px] transition-all duration-150 ${
+                                    isOOS
+                                      ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
+                                      : isSelected
+                                      ? 'bg-black text-white shadow-sm scale-[1.02]'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -618,11 +607,7 @@ export default function WishlistPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (isMoving) return;
-                        if (hasVariants && !hasAllSelections) {
-                          toggleExpanded(itemId);
-                        } else if (canAddToCart) {
-                          handleMoveToCart(item, e);
-                        }
+                        if (canAddToCart) handleMoveToCart(item, e);
                       }}
                       disabled={isMoving || productUnavailable || (hasVariants && !hasAllSelections)}
                     >
@@ -633,22 +618,11 @@ export default function WishlistPage() {
                           <ShoppingBag size={14} />
                           {t('wishlist.out_of_stock')}
                         </span>
-                      ) : hasVariants && !hasAllSelections && !isExpanded ? (
-                        <span className="flex items-center gap-1.5">
-                          <ShoppingBag size={14} />
-                          {t('wishlist.select_options', 'Select Options')}
-                        </span>
-                      ) : hasVariants && !hasAllSelections && isExpanded ? (
-                        <span className="flex items-center gap-1.5">
-                          <ChevronDown size={14} />
-                          {t('wishlist.select_variant', 'Select Variant')}
-                        </span>
+                      ) : hasVariants && !hasAllSelections ? (
+                        <span>{t('product.select') || 'Select'}</span>
                       ) : hasVariants && hasAllSelections && !matchedVariant ? (
-                        <span className="flex items-center gap-1.5">
-                          <ShoppingBag size={14} />
-                          {t('wishlist.unavailable')}
-                        </span>
-                      ) : hasVariants && hasAllSelections && isUnavailable ? (
+                        <span>{t('product.unavailable') || 'Unavailable'}</span>
+                      ) : productUnavailable || isUnavailable ? (
                         <span className="flex items-center gap-1.5">
                           <ShoppingBag size={14} />
                           {t('wishlist.out_of_stock')}

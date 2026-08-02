@@ -465,7 +465,6 @@ function NewArrivalCard({ product, index }) {
             </motion.div>
           )}
         </AnimatePresence>
-        </div>
 
         {/* Quick Add Panel — Desktop: Inline Panel inside card */}
         <div className="hidden md:block absolute inset-0 z-30">
@@ -925,7 +924,7 @@ function NewArrivalCard({ product, index }) {
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedColor(c); }}
-                                  className={`w-9 h-9 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`w-9 h-9 rounded-[2px] border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -935,7 +934,7 @@ function NewArrivalCard({ product, index }) {
                                   title={c}
                                 >
                                   <div
-                                    className={`w-7 h-7 rounded-lg border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
+                                    className={`w-7 h-7 rounded-[2px] border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
                                     style={{ background: getColorHex(c) }}
                                   />
                                   {isOOS && (
@@ -974,7 +973,7 @@ function NewArrivalCard({ product, index }) {
                                   key={s}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedSize(s); }}
-                                  className={`px-4 py-2.5 text-xs font-bold rounded-lg transition-all duration-150 ${
+                                  className={`px-4 py-2.5 text-xs font-bold rounded-[2px] transition-all duration-150 ${
                                     isOOS
                                       ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                       : isSelected

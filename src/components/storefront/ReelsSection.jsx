@@ -107,7 +107,7 @@ function ReelsSectionSkeleton() {
     <section className="py-16 md:py-20 bg-white">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
-          <div className="w-48 h-8 bg-gray-200 rounded mx-auto animate-pulse mb-3" />
+          <div className="w-52 h-9 bg-gray-200 rounded mx-auto animate-pulse mb-3" />
           <div className="w-64 h-3 bg-gray-100 rounded mx-auto animate-pulse" />
         </div>
         <div className="flex gap-4 overflow-hidden">
@@ -155,6 +155,10 @@ function FashionShowcase({ reels, onRefresh }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const justAddedTimer = useRef(null);
+  // ── Auto-scroll (same as the product carousel) — works on mobile too ──
+  const [isCarouselHovered, setIsCarouselHovered] = useState(false);
+  const autoplayRef = useRef(null);
+  const autoplayRestartRef = useRef(null);
   // ── Inline variant picker state for carousel cards ──
   const [carouselVariantReelId, setCarouselVariantReelId] = useState(null);
   const [carouselSelectedColor, setCarouselSelectedColor] = useState('');
@@ -323,6 +327,83 @@ function FashionShowcase({ reels, onRefresh }) {
     el.scrollBy({ left: (w + 16) * (dir === 'left' ? -2 : 2), behavior: 'smooth' });
   };
 
+  /* ── Auto-scroll: advance one reel at a time (like the product carousel),
+     loops back to the start at the end. Works on mobile too. ── */
+  const scrollOneReel = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || typeof el.scrollBy !== 'function') return;
+    const card = el.querySelector('.reel-card');
+    const w = card?.offsetWidth || 220;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (el.scrollLeft >= maxScroll - 4) {
+      if (typeof el.scrollTo === 'function') el.scrollTo({ left: 0, behavior: 'smooth' });
+    } else {
+      el.scrollBy({ left: w + 16, behavior: 'smooth' });
+    }
+  }, []);
+
+  const startAutoplay = useCallback(() => {
+    if (autoplayRestartRef.current) {
+      clearTimeout(autoplayRestartRef.current);
+      autoplayRestartRef.current = null;
+    }
+    if (autoplayRef.current) return;
+    if (reels.length <= 1 || activeReelIndex !== null || isCarouselHovered) return;
+    autoplayRef.current = setInterval(scrollOneReel, 5000);
+  }, [reels.length, activeReelIndex, isCarouselHovered, scrollOneReel]);
+
+  const pauseAutoplay = useCallback((restartDelay = 0) => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current);
+      autoplayRef.current = null;
+    }
+    if (autoplayRestartRef.current) {
+      clearTimeout(autoplayRestartRef.current);
+      autoplayRestartRef.current = null;
+    }
+    if (restartDelay > 0) {
+      autoplayRestartRef.current = setTimeout(startAutoplay, restartDelay);
+    }
+  }, [startAutoplay]);
+
+  // Pause briefly after the user manually scrolls / drags / touches the carousel
+  const handleTrackInteraction = useCallback(() => {
+    pauseAutoplay(6000);
+  }, [pauseAutoplay]);
+
+  // Only auto-scroll while the carousel is actually on screen
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      startAutoplay();
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) startAutoplay();
+      else pauseAutoplay();
+    }, { threshold: 0.15 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [startAutoplay, pauseAutoplay]);
+
+  // Restart / pause when the player opens/closes, hover state, or reel count changes
+  useEffect(() => {
+    if (activeReelIndex !== null || isCarouselHovered || reels.length <= 1) {
+      pauseAutoplay();
+    } else {
+      startAutoplay();
+    }
+  }, [activeReelIndex, isCarouselHovered, reels.length, startAutoplay, pauseAutoplay]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+      if (autoplayRestartRef.current) clearTimeout(autoplayRestartRef.current);
+    };
+  }, []);
+
   const openReel = useCallback((idx) => { setCarouselVariantReelId(null); setActiveReelIndex(idx); }, []);
   const closeReel = useCallback(() => setActiveReelIndex(null), []);
 
@@ -372,15 +453,11 @@ function FashionShowcase({ reels, onRefresh }) {
         >
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="h-px w-6 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent rounded-full" />
-            <span className="text-amber-600/80 text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
+            <span className="text-black text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
             <span className="h-px w-6 bg-gradient-to-l from-transparent via-amber-300/70 to-transparent rounded-full" />
           </div>
           <div className="relative inline-block">
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-100 via-yellow-50 to-amber-100 border border-amber-200 text-amber-700 text-[8px] font-extrabold uppercase tracking-[0.22em] mb-2 shadow-sm">
-              <Crown size={10} />
-              {t('reels.premium') || 'Premium'}
-            </span>
-            <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
+            <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
               {t('reels.watch_and_buy')}
             </h2>
             {onRefresh && (
@@ -397,14 +474,26 @@ function FashionShowcase({ reels, onRefresh }) {
           </div>
         </motion.div>
 
-        <div className="relative group">
-          {canScrollLeft && (
+        <div
+          className="relative group"
+          onMouseEnter={() => setIsCarouselHovered(true)}
+          onMouseLeave={() => setIsCarouselHovered(false)}
+        >
+          {reels.length > 1 && (
             <button onClick={() => scrollGallery('left')}
-              className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 opacity-0 md:group-hover:opacity-100">
+              disabled={!canScrollLeft}
+              aria-label="Scroll reels left"
+              className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
               <ChevronLeft size={16} />
             </button>
           )}
-          <div ref={scrollRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2">
+          <div
+            ref={scrollRef}
+            className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+            onPointerDown={handleTrackInteraction}
+            onWheel={handleTrackInteraction}
+            onTouchStart={handleTrackInteraction}
+          >
             {reels.map((reel, idx) => {
               const p = reel.products?.[0] || null;
               const hasVideoError = videoErrors.has(reel.id);
@@ -506,6 +595,18 @@ function FashionShowcase({ reels, onRefresh }) {
                                   className="mt-2 pt-2 border-t border-gray-100"
                                   onClick={e => e.stopPropagation()}
                                 >
+                                {/* Header — product + prominent close (matches ProductCard quick-add) */}
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <p className="text-[8px] font-bold text-gray-500 uppercase tracking-wider truncate">
+                                    <ShoppingBag size={9} className="inline mr-1 -mt-0.5" />
+                                    {t('product.quick_add')}
+                                  </p>
+                                  <button onClick={() => setCarouselVariantReelId(null)}
+                                    aria-label="Close variant picker"
+                                    className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-all duration-150 active:scale-[0.85] shrink-0">
+                                    <X size={11} />
+                                  </button>
+                                </div>
                                 {/* Colors */}
                                 {colors.length > 0 && (
                                   <div className="mb-2">
@@ -543,7 +644,7 @@ function FashionShowcase({ reels, onRefresh }) {
                                         return (
                                         <button key={s} onClick={() => !isSizeOOS && setCarouselSelectedSize(s)}
                                           disabled={isSizeOOS}
-                                          className={`px-2 py-1 text-[7px] font-bold rounded transition-all ${
+                                          className={`px-2 py-1 text-[7px] font-bold rounded-[3px] transition-all ${
                                             isSizeOOS ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through' : carouselSelectedSize === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                           }`}>
                                           {s}
@@ -555,7 +656,7 @@ function FashionShowcase({ reels, onRefresh }) {
                                 )}
                                 {/* Add to Cart + Qty */}
                                 <div className="flex items-center gap-2 mt-1">
-                                  <div className="flex items-center border border-gray-200 rounded overflow-hidden">
+                                  <div className="flex items-center border border-gray-200 rounded-[3px] overflow-hidden">
                                     <button onClick={() => setCarouselVariantQty(q => Math.max(1, q - 1))}
                                       className="w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-50 text-[10px]">−</button>
                                     <span className="w-6 h-6 flex items-center justify-center text-[9px] font-bold bg-gray-50 border-x border-gray-200">{carouselVariantQty}</span>
@@ -568,14 +669,10 @@ function FashionShowcase({ reels, onRefresh }) {
                                     setCarouselVariantReelId(null);
                                   }}
                                     disabled={!allSelected || !matched || (matched?.quantity || 0) <= 0}
-                                    className={`flex-1 py-1.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all ${
+                                    className={`flex-1 py-1.5 rounded-[3px] text-[8px] font-bold uppercase tracking-wider transition-all ${
                                       allSelected && matched && (matched?.quantity || 0) > 0 ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                     }`}>
                                     <span className="flex items-center justify-center gap-1">{allSelected && matched && (matched?.quantity || 0) <= 0 ? 'Unavailable' : <><ShoppingBag size={8} /> Add</>}</span>
-                                  </button>
-                                  <button onClick={() => setCarouselVariantReelId(null)}
-                                    className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-gray-200">
-                                    <X size={10} />
                                   </button>
                                 </div>                                </motion.div>
                               );
@@ -620,9 +717,11 @@ function FashionShowcase({ reels, onRefresh }) {
               );
             })}
           </div>
-          {canScrollRight && (
+          {reels.length > 1 && (
             <button onClick={() => scrollGallery('right')}
-              className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 opacity-0 md:group-hover:opacity-100">
+              disabled={!canScrollRight}
+              aria-label="Scroll reels right"
+              className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
               <ChevronRight size={16} />
             </button>
           )}
@@ -1261,7 +1360,7 @@ function ReelPlayer({
                               key={s}
                               disabled={isOOS}
                               onClick={() => setSelectedSize(s)}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-150 ${
+                              className={`px-3 py-1.5 text-xs font-bold rounded-[3px] transition-all duration-150 ${
                                 isOOS
                                   ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                   : isSelected

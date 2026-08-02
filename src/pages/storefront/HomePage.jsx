@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useSpring, useTransform } from 'framer-motion';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
@@ -24,10 +24,10 @@ import AllReviewsModal from '../../components/reviews/AllReviewsModal';
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 28, scale: 0.98 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 28, scale: 0.98, filter: 'blur(4px)' }}
+      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
       viewport={{ once: true, margin }}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.75, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
       style={{ willChange: 'transform, opacity' }}
     >
@@ -36,45 +36,21 @@ function AnimatedSection({ children, className = '', delay = 0, margin = '-60px'
   );
 }
 
-function AnimatedDivider() {
+/* ── Scroll Progress Bar — Premium reading progress ── */
+function ScrollProgressBar() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001,
+  });
+
   return (
-    <div className="flex items-center justify-center gap-4 py-5 md:py-6">
-      <motion.div
-        initial={{ scaleX: 0 }}
-        whileInView={{ scaleX: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="h-[1px] w-24 md:w-40 bg-gradient-to-r from-transparent via-primary/20 to-primary/10 rounded-full"
-        style={{ transformOrigin: 'left center' }}
-      />
-      {/* Decorative diamond with glow */}
-      <motion.div
-        initial={{ opacity: 0, rotate: -45, scale: 0 }}
-        whileInView={{ opacity: 1, rotate: 0, scale: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
-        className="relative flex items-center justify-center"
-      >
-        <motion.div
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="w-2 h-2 rotate-45 bg-primary/60"
-        />
-        <motion.div
-          animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute w-6 h-6 rounded-full bg-primary/8 blur-sm"
-        />
-      </motion.div>
-      <motion.div
-        initial={{ scaleX: 0 }}
-        whileInView={{ scaleX: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-        className="h-[1px] w-24 md:w-40 bg-gradient-to-l from-transparent via-primary/20 to-primary/10 rounded-full"
-        style={{ transformOrigin: 'right center' }}
-      />
-    </div>
+    <motion.div
+      className="fixed top-0 left-0 right-0 h-[3px] origin-left z-[101] pointer-events-none bg-gradient-to-r from-gray-900 via-gray-600 to-gray-900"
+      style={{ scaleX }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -85,6 +61,18 @@ function HeroBanner({ banners }) {
   const navigate = useNavigate();
 
   const slides = banners || [];
+  const heroRef = useRef(null);
+
+  // Premium scroll parallax — hero content drifts & fades as you scroll away
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const heroSpring = useSpring(scrollYProgress, { stiffness: 110, damping: 26, mass: 0.4 });
+  const bgY = useTransform(heroSpring, [0, 1], ['0%', '16%']);
+  const bgScale = useTransform(heroSpring, [0, 1], [1, 1.12]);
+  const contentY = useTransform(heroSpring, [0, 1], [0, -70]);
+  const contentOpacity = useTransform(heroSpring, [0, 0.75], [1, 0]);
 
   const next = useCallback(() => setCurrent((c) => (c + 1) % slides.length), [slides.length]);
   const prev = useCallback(() => setCurrent((c) => (c - 1 + slides.length) % slides.length), [slides.length]);
@@ -116,7 +104,7 @@ function HeroBanner({ banners }) {
   // Title-Only Mode: Show text without image background
   if (isTitleOnly) {
     return (
-      <div className="relative w-full h-[350px] sm:h-[400px] md:h-[500px] overflow-hidden group bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div ref={heroRef} className="relative w-full h-[350px] sm:h-[400px] md:h-[500px] overflow-hidden group bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <AnimatePresence mode="wait">
           <motion.div
             key={current}
@@ -203,6 +191,7 @@ function HeroBanner({ banners }) {
     const imgSrc = getImageUrl(getBannerImage(slide));
     return (
       <a
+        ref={heroRef}
         href={bannerLink || '#'}
         onClick={(e) => { e.preventDefault(); handleBannerClick(); }}
         className="relative w-full block bg-gray-950 group"
@@ -261,7 +250,7 @@ function HeroBanner({ banners }) {
   }
 
   return (
-    <div className="relative w-full h-[320px] sm:h-[450px] md:h-[700px] overflow-hidden group">
+    <div ref={heroRef} className="relative w-full h-[320px] sm:h-[450px] md:h-[700px] overflow-hidden group">
       <AnimatePresence mode="wait">
         <motion.div
           key={current}
@@ -271,15 +260,20 @@ function HeroBanner({ banners }) {
           transition={{ duration: 0.8 }}
           className="absolute inset-0"
         >
-          {/* Background Image with slight zoom effect */}
-          <motion.img
-            initial={{ scale: 1.05 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 6, ease: "linear" }}
-            src={getImageUrl(getBannerImage(slide))}
-            alt="Hero Banner"
-            className="w-full h-full object-cover"
-          />
+          {/* Background Image with slight zoom + scroll parallax */}
+          <motion.div
+            className="absolute inset-0"
+            style={{ y: bgY, scale: bgScale }}
+          >
+            <motion.img
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 6, ease: "linear" }}
+              src={getImageUrl(getBannerImage(slide))}
+              alt="Hero Banner"
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
           
           {/* Gradient Overlay for Text Readability */}
           <div className={`absolute inset-0 bg-gradient-to-r ${
@@ -288,8 +282,11 @@ function HeroBanner({ banners }) {
             'from-black/60 via-black/40 to-black/60'
           }`} />
 
-          {/* Text Content */}
-          <div className="absolute inset-0 flex items-center">
+          {/* Text Content — drifts & fades on scroll */}
+          <motion.div
+            className="absolute inset-0 flex items-center"
+            style={{ y: contentY, opacity: contentOpacity }}
+          >
             <div className={`max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex ${
               slide.align === 'left' ? 'justify-start text-left' :
               slide.align === 'right' ? 'justify-end text-right' :
@@ -324,7 +321,7 @@ function HeroBanner({ banners }) {
                 </button>
               </motion.div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </AnimatePresence>
 
@@ -383,11 +380,6 @@ function CategorySection({ categories }) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-6 md:mb-8"
         >
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <span className="h-px w-8 bg-gradient-to-r from-transparent via-primary/30 to-primary/20 rounded-full" />
-            <span className="text-text-muted text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em]">{t('home.collections')}</span>
-            <span className="h-px w-8 bg-gradient-to-l from-transparent via-primary/30 to-primary/20 rounded-full" />
-          </div>
           <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
             {t('home.shop_by_category')}
           </h2>
@@ -505,7 +497,7 @@ function CategorySection({ categories }) {
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â• PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) â•â•â•â•â•â•â•â•â•â•â• */
-function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName = '' }) {
+function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName = '', compact = false }) {
   // Hide the custom t-shirt design product from all homepage listings
   const products = (rawProducts || []).filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const scrollRef = useRef(null);
@@ -515,6 +507,141 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const autoplayRef = useRef(null);
+  // Infinite loop: duplicate the product set on desktop and wrap seamlessly.
+  const isLoop = !isMobile && products.length > 1;
+  const programmaticRef = useRef(false);
+  const wrapTimeoutRef = useRef(null);
+  const finishWrapRef = useRef(null);
+
+  // Width of a single copy of the product set (used as the seamless wrap point)
+  const getCopyWidth = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return 0;
+    const cards = el.querySelectorAll('.product-slide');
+    if (!cards.length || cards.length < products.length * 2) return 0;
+    return cards[products.length].offsetLeft - cards[0].offsetLeft;
+  }, [products.length]);
+
+  // Viewport-aware copy count: the track must always be able to scroll a full
+  // copy width past the wrap point, otherwise the invisible fold-back can't
+  // fire and the carousel visibly stops at the end of the duplicated set.
+  // Need (C-1)*cw >= clientWidth + gap, so render extra copies for small sets.
+  const [copies, setCopies] = useState(2);
+  useEffect(() => {
+    if (isMobile || products.length <= 1) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    let disposed = false;
+    const measure = () => {
+      if (disposed) return;
+      const cards = el.querySelectorAll('.product-slide');
+      if (!cards.length || cards.length < products.length * 2) return;
+      const cw = cards[products.length].offsetLeft - cards[0].offsetLeft;
+      if (cw <= 0) return;
+      // Actual gap between adjacent cards (differs by breakpoint: 12px / 16px)
+      const period = cards[1] ? cards[1].offsetLeft - cards[0].offsetLeft : cw / products.length;
+      const gap = Math.max(0, period - (cards[0].offsetWidth || period));
+      const clientW = el.clientWidth || window.innerWidth;
+      setCopies(Math.max(2, Math.ceil((clientW + gap) / cw) + 1));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    const t = setTimeout(measure, 250);
+    return () => {
+      disposed = true;
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+      clearTimeout(t);
+    };
+  }, [isMobile, products.length, getCopyWidth]);
+
+  // Smooth-scroll forward, wrapping invisibly at the end of the set so the
+  // carousel loops forever instead of stopping at the last product.
+  const smoothAdvance = useCallback((amount) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cw = getCopyWidth();
+    if (!isLoop || cw <= 0) {
+      el.scrollTo({ left: Math.max(0, el.scrollLeft + amount), behavior: 'smooth' });
+      return;
+    }
+    const s = el.scrollLeft;
+    const target = s + amount;
+
+    // ── Backward wrap: scrolling left past the start jumps into the duplicate
+    //    (identical content → invisible) and then glides left into the previous
+    //    cards, so the left arrow never hits a dead end. ──
+    if (target < 0) {
+      programmaticRef.current = true;
+      if (wrapTimeoutRef.current) {
+        clearTimeout(wrapTimeoutRef.current);
+        wrapTimeoutRef.current = null;
+      }
+      if (finishWrapRef.current) {
+        el.removeEventListener('scrollend', finishWrapRef.current);
+        finishWrapRef.current = null;
+      }
+      const maxRaw = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = Math.min(s + cw, maxRaw);
+      el.scrollTo({ left: s + cw + amount, behavior: 'smooth' });
+
+      const finishWrap = () => {
+        wrapTimeoutRef.current = null;
+        el.removeEventListener('scrollend', finishWrapRef.current);
+        finishWrapRef.current = null;
+        // A user drag took over mid-wrap — leave the fold to the drag handlers.
+        if (!programmaticRef.current) return;
+        programmaticRef.current = false;
+      };
+      finishWrapRef.current = finishWrap;
+      el.addEventListener('scrollend', finishWrap, { once: true });
+      wrapTimeoutRef.current = setTimeout(finishWrap, 2500);
+      return;
+    }
+
+    if (target < cw) {
+      // Normal advance inside the first copy.
+      el.scrollTo({ left: target, behavior: 'smooth' });
+      return;
+    }
+    // Scroll forward through the duplicate copy, then fold back invisibly
+    // (content at x is identical to content at x - cw, so the jump is seamless).
+    programmaticRef.current = true;
+    if (wrapTimeoutRef.current) {
+      clearTimeout(wrapTimeoutRef.current);
+      wrapTimeoutRef.current = null;
+    }
+    if (finishWrapRef.current) {
+      el.removeEventListener('scrollend', finishWrapRef.current);
+      finishWrapRef.current = null;
+    }
+    const maxRaw = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: Math.min(target, maxRaw), behavior: 'smooth' });
+
+    const finishWrap = () => {
+      wrapTimeoutRef.current = null;
+      el.removeEventListener('scrollend', finishWrapRef.current);
+      finishWrapRef.current = null;
+      // A user drag took over mid-wrap — leave the fold to the drag handlers.
+      if (!programmaticRef.current) return;
+      const landed = el.scrollLeft;
+      if (landed >= cw) {
+        // Invisible fold: identical duplicated content.
+        el.scrollLeft = landed - cw;
+      } else {
+        // Safety net (shouldn't happen thanks to viewport-aware copies).
+        el.scrollLeft = Math.max(0, target - cw);
+      }
+      programmaticRef.current = false;
+    };
+    finishWrapRef.current = finishWrap;
+    el.addEventListener('scrollend', finishWrap, { once: true });
+    // Long fallback for browsers without `scrollend` — the scrollend listener
+    // normally fires first, exactly when the smooth scroll settles.
+    wrapTimeoutRef.current = setTimeout(finishWrap, 2500);
+  }, [isLoop, getCopyWidth]);
 
   // Autoplay â€” scrolls every 5s (pauses on hover)
   useEffect(() => {
@@ -527,14 +654,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
       if (!card) return;
       const cardWidth = card.offsetWidth;
       const gap = 12;
-      const scrollAmount = cardWidth + gap;
-      const maxScroll = el.scrollWidth - el.clientWidth;
-      const nextScroll = el.scrollLeft + scrollAmount;
-      if (nextScroll >= maxScroll - 10) {
-        el.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-      }
+      smoothAdvance(cardWidth + gap);
     };
 
     const startAutoplay = () => {
@@ -546,7 +666,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     }
 
     return () => clearInterval(autoplayRef.current);
-  }, [isMobile, isHovered, products.length]);
+  }, [isMobile, isHovered, products.length, smoothAdvance]);
 
   // Update scroll button visibility on scroll
   useEffect(() => {
@@ -554,13 +674,38 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     if (!el) return;
     const update = () => {
       const { scrollLeft, scrollWidth, clientWidth } = el;
-      setCanScrollLeft(scrollLeft > 8);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
+      // In infinite-loop mode both directions are always available (seamless wrap)
+      setCanScrollLeft(isLoop || scrollLeft > 8);
+      setCanScrollRight(isLoop || scrollLeft < scrollWidth - clientWidth - 8);
     };
     el.addEventListener('scroll', update, { passive: true });
     update();
     return () => el.removeEventListener('scroll', update);
-  }, [products]);
+  }, [products, isLoop]);
+
+  // Infinite loop — wrap the scroll position back to the first copy seamlessly
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !isLoop) return;
+    const wrap = () => {
+      if (programmaticRef.current) return;
+      const cw = getCopyWidth();
+      if (cw > 0 && el.scrollLeft >= cw) el.scrollLeft -= cw;
+    };
+    el.addEventListener('scroll', wrap, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', wrap);
+      // Don't let a pending programmatic wrap fire against a detached node
+      if (wrapTimeoutRef.current) clearTimeout(wrapTimeoutRef.current);
+      if (finishWrapRef.current) {
+        el.removeEventListener('scrollend', finishWrapRef.current);
+        finishWrapRef.current = null;
+      }
+      // Never leave the listener stuck in programmatic mode (e.g. if the
+      // products count changes and this effect re-runs mid-session)
+      programmaticRef.current = false;
+    };
+  }, [isLoop, getCopyWidth]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -575,21 +720,28 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     if (!card) return;
     const cardWidth = card.offsetWidth;
     const gap = 12;
-    el.scrollBy({ left: direction * (cardWidth + gap), behavior: 'smooth' });
+    smoothAdvance(direction * (cardWidth + gap));
   };
 
   /* â”€â”€ Drag-to-scroll (touch + mouse) â”€â”€ */
   const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const onDragStart = (clientX, clientY) => {
+  const onDragStart = (clientX) => {
     const el = scrollRef.current;
     // Mobile uses a plain grid (no inner scroll) — don't hijack taps with drag.
     if (!el || isMobile) return;
+    // User drag takes over: cancel any pending programmatic wrap so the
+    // delayed snap-back can't fire mid-drag and jump the carousel.
+    if (wrapTimeoutRef.current) {
+      clearTimeout(wrapTimeoutRef.current);
+      wrapTimeoutRef.current = null;
+    }
+    programmaticRef.current = false;
     dragState.current = {
       isDragging: true,
-      startPos: isMobile ? clientY : clientX,
-      scrollPos: isMobile ? el.scrollTop : el.scrollLeft,
+      startPos: clientX,
+      scrollPos: el.scrollLeft,
       moved: false,
     };
     setIsDragActive(true);
@@ -602,12 +754,31 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     if (!el) return;
     const delta = clientX - ds.startPos;
     if (Math.abs(delta) > 5) ds.moved = true;
-    el.scrollLeft = ds.scrollPos - delta;
+    let next = ds.scrollPos - delta;
+    // Seamless wrap while dragging: when the drag crosses a copy boundary,
+    // fold back into the first copy and keep the drag baseline in sync so a
+    // long drag keeps working (the duplicated content makes this invisible).
+    if (isLoop) {
+      const cw = getCopyWidth();
+      if (cw > 0 && next >= cw) {
+        const folds = Math.floor(next / cw);
+        next -= folds * cw;
+        ds.scrollPos -= folds * cw;
+      }
+    }
+    el.scrollLeft = next;
   };
 
   const onDragEnd = () => {
     setIsDragActive(false);
     dragState.current.isDragging = false;
+    // If a drag (e.g. one that started mid-wrap) left the track parked inside
+    // the duplicated region, fold back invisibly so the loop stays seamless.
+    if (isLoop && scrollRef.current) {
+      const el = scrollRef.current;
+      const cw = getCopyWidth();
+      if (cw > 0 && el.scrollLeft >= cw) el.scrollLeft -= cw;
+    }
     setTimeout(() => { dragState.current.moved = false; }, 50);
   };
 
@@ -631,6 +802,11 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
 
   if (!products || products.length === 0) return null;
 
+  // Desktop carousel: duplicate the set enough times so scrolling loops forever.
+  const loopProducts = isLoop
+    ? Array.from({ length: Math.max(2, copies) }, () => products).flat()
+    : products;
+
   const scrollableTrackClass = [
     'max-sm:grid max-sm:grid-cols-2 sm:flex sm:flex-row gap-3 sm:gap-3 md:gap-4',
     // Mobile: plain 2-col grid that flows with the page (no nested scroll/clipping).
@@ -641,9 +817,15 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     isDragActive ? 'cursor-grabbing' : 'cursor-grab',
   ].join(' ');
 
+  // NOTE: keep the plain `product-slide` token on desktop too — it is the JS
+  // selector hook used by scrollByCard/autoplay/getCopyWidth. `sm:product-slide`
+  // (a Tailwind-variant token) is NOT matched by querySelector('.product-slide'),
+  // which silently broke arrow clicks + the infinite loop on desktop.
   const cardClass = isMobile
     ? 'product-slide'
-    : 'max-sm:w-full sm:product-slide sm:w-[302px] sm:min-w-[302px] sm:snap-start sm:shrink-0';
+    : compact
+      ? 'max-sm:w-full product-slide sm:w-[300px] sm:min-w-[300px] sm:snap-start sm:shrink-0'
+      : 'max-sm:w-full product-slide sm:w-[302px] sm:min-w-[302px] sm:snap-start sm:shrink-0';
 
   return (
     <div
@@ -657,22 +839,23 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
       {/* Scrollable Track */}
       <div
         ref={scrollRef}
-        onMouseDown={(e) => onDragStart(e.clientX, e.clientY)}
-        onMouseMove={(e) => onDragMove(e.clientX, e.clientY)}
+        onMouseDown={(e) => onDragStart(e.clientX)}
+        onMouseMove={(e) => onDragMove(e.clientX)}
         onMouseUp={onDragEnd}
         onMouseLeave={onDragEnd}
         className={scrollableTrackClass}
       >
-        {products.map((p, idx) => (
+        {loopProducts.map((p, idx) => (
           <motion.div
-            key={p.id}
-            initial={{ opacity: 0, [isMobile ? 'y' : 'x']: 40 }}
-            whileInView={{ opacity: 1, [isMobile ? 'y' : 'x']: 0 }}
+            key={`${p.id}-${idx}`}
+            // Duplicated copies stay visible so the wrap never flashes blank
+            initial={idx >= products.length ? { opacity: 1 } : { opacity: 0, scale: 0.9, [isMobile ? 'y' : 'x']: 40 }}
+            whileInView={{ opacity: 1, scale: 1, [isMobile ? 'y' : 'x']: 0 }}
             viewport={{ once: true, margin: '-30px' }}
             transition={{ duration: 0.6, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
             className={cardClass}
           >
-            <ProductCard product={p} className={cardClassName} />
+            <ProductCard product={p} className={cardClassName} imageAspect={compact ? 'aspect-[300/392] max-sm:aspect-[4/5]' : undefined} />
           </motion.div>
         ))}
 
@@ -685,7 +868,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
           <button
             onClick={() => scrollByCard(-1)}
             className={`absolute left-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
-              canScrollLeft ? 'opacity-100 md:opacity-0 md:group-hover/slider:opacity-100' : 'opacity-0 pointer-events-none'
+              canScrollLeft ? 'opacity-100' : 'opacity-25'
             }`}
             aria-label="Scroll left"
           >
@@ -694,7 +877,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
           <button
             onClick={() => scrollByCard(1)}
             className={`absolute right-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
-              canScrollRight ? 'opacity-100 md:opacity-0 md:group-hover/slider:opacity-100' : 'opacity-0 pointer-events-none'
+              canScrollRight ? 'opacity-100' : 'opacity-25'
             }`}
             aria-label="Scroll right"
           >
@@ -724,17 +907,9 @@ function NewArrivalsSection({ products }) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-6 md:mb-8"
         >
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <span className="h-px w-8 bg-gradient-to-r from-transparent via-primary/30 to-primary/20 rounded-full" />
-            <span className="text-text-muted text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em]">{t('home.seasonal')}</span>
-            <span className="h-px w-8 bg-gradient-to-l from-transparent via-primary/30 to-primary/20 rounded-full" />
-          </div>
           <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
             {t('home.new_arrivals')}
           </h2>
-          <p className="text-gray-400 text-xs md:text-sm mt-1 font-medium max-w-md mx-auto">
-            Fresh arrivals, crafted for the new season
-          </p>
           <button
             onClick={() => navigate('/products/section/new-arrivals')}
             className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
@@ -747,7 +922,7 @@ function NewArrivalsSection({ products }) {
         </motion.div>
 
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
-          <ProductSlider products={products} />
+          <ProductSlider products={products} compact />
         </div>
       </div>
     </section>
@@ -763,8 +938,8 @@ function NewArrivalsSkeleton() {
         </div>
         <div className="flex gap-3 md:gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[302px] sm:min-w-[302px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
-              <Skeleton className="!w-full !aspect-[3/4] !rounded-none" />
+            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
+              <Skeleton className="!w-full !aspect-[300/392] !rounded-none" />
               <div className="p-4 space-y-3">
                 <Skeleton className="!w-20 !h-3 !rounded-md" />
                 <Skeleton className="!w-40 !h-4 !rounded-md" />
@@ -788,7 +963,6 @@ function ProductRow({ title, products }) {
 
   if (!products || products.length === 0) return null;
 
-  const tagline = title === 'Best Sellers' ? t('home.trending_now') : t('home.featured');
   const sectionSlug = title === 'Best Sellers' ? 'best-sellers' : 'featured';
 
   return (
@@ -802,15 +976,7 @@ function ProductRow({ title, products }) {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-6 md:mb-8"
         >
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <span className="h-px w-8 bg-gradient-to-r from-transparent via-primary/30 to-primary/20 rounded-full" />
-            <span className="text-text-muted text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em]">{tagline}</span>
-            <span className="h-px w-8 bg-gradient-to-l from-transparent via-primary/30 to-primary/20 rounded-full" />
-          </div>
           <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">{title}</h2>
-          <p className="text-gray-400 text-xs md:text-sm mt-1 font-medium max-w-md mx-auto">
-            {title === 'Best Sellers' ? 'Most-loved pieces, trending right now' : 'Curated picks for the season'}
-          </p>
           <button
             onClick={() => navigate(`/products/section/${sectionSlug}`)}
             className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
@@ -823,7 +989,7 @@ function ProductRow({ title, products }) {
         </motion.div>
         
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
-          <ProductSlider products={products} />
+          <ProductSlider products={products} compact />
         </div>
       </div>
     </section>
@@ -881,6 +1047,7 @@ function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
           <p className="text-gray-500 text-sm md:text-base mt-3 max-w-2xl mx-auto font-medium">
             Curated looks designed to bring together effortless styling, modern streetwear aesthetics, and everyday versatility in one complete fit.
           </p>
+
         </motion.div>
 
         {/* View-Only Image Gallery â€” prices hidden */}
@@ -1426,8 +1593,8 @@ function ProductRowSkeleton() {
         </div>
         <div className="flex gap-3 md:gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[302px] sm:min-w-[302px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
-              <Skeleton className="!w-full !aspect-[3/4] !rounded-none" />
+            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
+              <Skeleton className="!w-full !aspect-[300/392] !rounded-none" />
               <div className="p-4 space-y-3">
                 <Skeleton className="!w-20 !h-3 !rounded-md" />
                 <Skeleton className="!w-40 !h-4 !rounded-md" />
@@ -1755,6 +1922,9 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 bg-surface font-body relative">
+      {/* Premium scroll progress bar */}
+      <ScrollProgressBar />
+
       {/* SEO meta tags from global settings */}
       <SEOHead
         title={seoData.title || `${storeName} â€” Premium Streetwear`}
@@ -1780,12 +1950,11 @@ export default function HomePage() {
         }}
       >
         {/* â•â• Dynamic Section Rendering from Admin Order â•â• */}
-        {sectionOrder.map((key, idx) => {
+        {sectionOrder.map((key) => {
           const section = renderSection(key);
           if (!section) return null;
           return (
             <React.Fragment key={key}>
-              {idx > 0 && <AnimatedDivider />}
               {section}
             </React.Fragment>
           );

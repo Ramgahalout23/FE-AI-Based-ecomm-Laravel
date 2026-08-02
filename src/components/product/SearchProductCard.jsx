@@ -738,7 +738,7 @@ export default memo(function SearchProductCard({ product }) {
                                   key={s}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedSize(s); }}
-                                  className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg transition-all duration-150 ${
+                                  className={`px-2.5 py-1.5 text-[11px] font-bold rounded-md transition-all duration-150 ${
                                     isOOS
                                       ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through'
                                       : isSelected
