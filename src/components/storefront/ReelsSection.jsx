@@ -569,10 +569,10 @@ function FashionShowcase({ reels, onRefresh }) {
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-semibold text-gray-900 leading-tight line-clamp-1">{p?.name || reel.title}</p>
+                              <p className="card-title">{p?.name || reel.title}</p>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                {p?.price && <span className="text-xs font-bold text-gray-900">{formatCurrency(p.price)}</span>}
                                 {p?.old_price && <span className="text-[9px] text-gray-400 line-through">{formatCurrency(p.old_price)}</span>}
+                                {p?.price && <span className="price-item text-red-500">{formatCurrency(p.price)}</span>}
                                 {p?.old_price && p?.price && (
                                   <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[6px] font-bold">
                                     {discountPercent(p.old_price, p.price)}% OFF
@@ -1462,10 +1462,10 @@ function ReelPlayer({
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-1">{prodName}</p>
+                      <p className="card-title">{prodName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {prodPrice && <span className="text-sm font-extrabold text-gray-900">{formatCurrency(prodPrice)}</span>}
                         {prodOld && <span className="text-[10px] text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
+                        {prodPrice && <span className="price-item text-red-500">{formatCurrency(prodPrice)}</span>}
                         {prodOld && prodPrice && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[7px] font-bold">
                             -{discountPercent(prodOld, prodPrice)}%

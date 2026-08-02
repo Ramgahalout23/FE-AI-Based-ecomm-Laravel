@@ -686,16 +686,16 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
         {/* Details */}
         <div className={`max-sm:p-2.5 p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          <h3 className="text-sm max-sm:text-xs font-medium text-gray-900 line-clamp-2 md:line-clamp-1 group-hover:text-primary transition-colors mb-1.5 md:mb-2 tracking-wide">
+          <h3 className="card-title">
             {product.name}
           </h3>
 
           <div className="mt-auto">
             <div className="flex items-center gap-1 md:gap-2">
-              <span className="text-base md:text-lg max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(product.price)}</span>
               {product.oldPrice && (
                 <span className="text-xs md:text-sm max-sm:text-xs text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
               )}
+              <span className="price-item text-red-500">{formatCurrency(product.price)}</span>
             </div>
           </div>
         </div>

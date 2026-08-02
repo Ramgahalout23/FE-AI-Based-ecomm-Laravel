@@ -429,10 +429,10 @@ function ReelBuyModal({ productId, onClose }) {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">{product.name}</h3>
+                <h3 className="card-title">{product.name}</h3>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-lg font-extrabold text-gray-900 tracking-tight">{formatCurrency(displayPrice)}</span>
                   {displayOldPrice && <span className="text-xs text-gray-400 line-through">{formatCurrency(displayOldPrice)}</span>}
+                  <span className="price-item text-red-500">{formatCurrency(displayPrice)}</span>
                 </div>
               </div>
             </div>
@@ -853,10 +853,10 @@ function ShoppableVideoSection({ reels }) {
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold text-gray-900 leading-tight line-clamp-1">{p.name || reel.title}</p>
+                            <p className="card-title">{p.name || reel.title}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-xs font-extrabold text-gray-900">{formatCurrency(p.price)}</span>
                               {p.old_price && <span className="text-[9px] text-gray-400 line-through">{formatCurrency(p.old_price)}</span>}
+                              <span className="price-item text-red-500">{formatCurrency(p.price)}</span>
                               {p.old_price && p.price && (
                                 <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[6px] font-bold">
                                   {discountPercent(p.old_price, p.price)}% OFF
@@ -1061,10 +1061,10 @@ function SelektProductCard({ product, index }) {
         )}
       </div>
       <div className="px-0.5">
-        <h3 className="text-sm md:text-base font-medium text-gray-900 leading-tight mb-1.5 line-clamp-1 group-hover:text-black transition-colors">{product.name}</h3>
+        <h3 className="card-title">{product.name}</h3>
         <div className="flex items-baseline gap-0">
-          <span className="text-sm md:text-base font-semibold text-gray-900">{formatCurrency(product.price)}</span>
-          {product.oldPrice && <span className="text-sm md:text-base text-gray-500 line-through ml-1.5 font-normal">{formatCurrency(product.oldPrice)}</span>}
+          {product.oldPrice && <span className="text-sm md:text-base text-gray-500 line-through font-normal">{formatCurrency(product.oldPrice)}</span>}
+          <span className="price-item text-red-500 ml-1.5">{formatCurrency(product.price)}</span>
         </div>
         <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-[0.03em] mt-0.5 font-medium">Unit price / per</p>
       </div>

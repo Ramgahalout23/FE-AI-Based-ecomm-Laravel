@@ -2,6 +2,28 @@
 .font-extrabold{font-weight:600}
 .text-lg{font-size:13px}
 
+/* ── Product Card Title ────────── */
+.card-title {
+  font-family: var(--product-title-font);
+  font-size: var(--product-title-font-size);
+  font-weight: var(--product-title-font-weight);
+  line-height: var(--product-title-line-height);
+  letter-spacing: var(--product-title-letter-spacing);
+  text-transform: var(--product-title-text-transform);
+  color: var(--product-title-color);
+  display: block;
+  margin: 0 0 var(--product-title-margin-bottom) 0;
+}
+
+/* ── Product Card Price ────────── */
+.price-item {
+  display: inline-flex;
+  font-size: var(--product-price-font-size);
+  letter-spacing: var(--product-price-letter-spacing);
+  font-weight: var(--product-price-font-weight);
+  line-height: var(--product-price-line-height);
+}
+
 /* ── Product Grid ────────────── */
 .product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
 

@@ -573,7 +573,7 @@ export default memo(function SearchProductCard({ product }) {
 
       {/* Details */}
       <div className={`flex flex-col flex-1 px-0.5 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-        <h3 className="text-[11px] max-sm:text-[10px] font-medium text-gray-900 line-clamp-1 group-hover:text-primary transition-colors mb-1 tracking-wide">
+        <h3 className="card-title">
           {product.name}
         </h3>
         {highlights.length > 0 && (
@@ -588,8 +588,8 @@ export default memo(function SearchProductCard({ product }) {
         )}
         <div className="mt-auto">
           <div className="price">
-            <span className="text-base max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(displayPrice)}</span>
             {displayOldPrice && <span className="original text-xs max-sm:text-[10px] text-black line-through">{formatCurrency(displayOldPrice)}</span>}
+            <span className="price-item text-red-500">{formatCurrency(displayPrice)}</span>
           </div>
           {displayDiscount && (
             <span className="inline-block mt-0.5 text-[8px] font-bold text-green-600 bg-green-50 px-1 py-0.5 rounded-full border border-green-200">
