@@ -185,7 +185,9 @@ export const adminAPI = {
   updateSupportTicket: (id, data) => adminClient.put(`/admin/tickets/${id}`, data),
   updateSupportTicketStatus: (id, data) => adminClient.patch(`/admin/tickets/${id}/status`, data),
   deleteSupportTicket: (id) => adminClient.delete(`/admin/tickets/${id}`),
-  replySupportTicket: (id, data) => adminClient.post(`/admin/tickets/${id}/messages`, data),
+  // ── Live Chat (Admin) ──
+  getAdminChatMessages: (ticketId) => adminClient.get(`/admin/chat/${ticketId}/messages`),
+  sendAdminChatMessage: (ticketId, content) => adminClient.post(`/admin/chat/${ticketId}/messages`, { content }),
   // Pages (CMS)
   getPages: (params) => adminClient.get('/admin/pages', { params }),
   createPage: (data) => adminClient.post('/admin/pages', data),

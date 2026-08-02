@@ -10,6 +10,7 @@
  */
 
 import client from '../api/client';
+import useAuthStore from '../store/authStore';
 
 // ── State ──
 let realtimeDriver = null;
@@ -143,12 +144,19 @@ function bindPusherListener(event, handler) {
 
 /**
  * Map a realtime event to its Pusher channel.
+ *
+ * Chat events are role-aware:
+ *   - Admins subscribe to the shared 'private-admin' channel.
+ *   - Customers subscribe to their own 'private-user.{id}' channel so they only
+ *     receive messages for their own conversation.
  */
 function getPusherChannel(event) {
-  if (event.startsWith('order:') || event.startsWith('notification:') || event.startsWith('ad:')) {
-    return 'private-admin';
-  }
   if (event.startsWith('chat:')) {
+    if (localStorage.getItem('adminToken')) return 'private-admin';
+    const userId = useAuthStore.getState().user?.id;
+    return userId ? `private-user.${userId}` : null;
+  }
+  if (event.startsWith('order:') || event.startsWith('notification:') || event.startsWith('ad:')) {
     return 'private-admin';
   }
   return null;

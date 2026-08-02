@@ -584,7 +584,8 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
 
   const onDragStart = (clientX, clientY) => {
     const el = scrollRef.current;
-    if (!el) return;
+    // Mobile uses a plain grid (no inner scroll) — don't hijack taps with drag.
+    if (!el || isMobile) return;
     dragState.current = {
       isDragging: true,
       startPos: isMobile ? clientY : clientX,
@@ -594,19 +595,14 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     setIsDragActive(true);
   };
 
-  const onDragMove = (clientX, clientY) => {
+  const onDragMove = (clientX) => {
     const ds = dragState.current;
-    if (!ds.isDragging) return;
+    if (!ds.isDragging || isMobile) return;
     const el = scrollRef.current;
     if (!el) return;
-    const currentPos = isMobile ? clientY : clientX;
-    const delta = currentPos - ds.startPos;
+    const delta = clientX - ds.startPos;
     if (Math.abs(delta) > 5) ds.moved = true;
-    if (isMobile) {
-      el.scrollTop = ds.scrollPos - delta;
-    } else {
-      el.scrollLeft = ds.scrollPos - delta;
-    }
+    el.scrollLeft = ds.scrollPos - delta;
   };
 
   const onDragEnd = () => {
@@ -637,7 +633,9 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
 
   const scrollableTrackClass = [
     'max-sm:grid max-sm:grid-cols-2 sm:flex sm:flex-row gap-3 sm:gap-3 md:gap-4',
-    'overflow-y-auto sm:overflow-x-auto',
+    // Mobile: plain 2-col grid that flows with the page (no nested scroll/clipping).
+    // Desktop: horizontal carousel only.
+    'sm:overflow-x-auto',
     'sm:snap-x snap-mandatory',
     'scrollbar-hide select-none',
     isDragActive ? 'cursor-grabbing' : 'cursor-grab',

@@ -1,5 +1,56 @@
 import { describe, it, expect } from 'vitest';
-import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr } from './constants';
+import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, ticketStatusLabel, ticketStatusClass, ticketPriorityLabel } from './constants';
+
+describe('ticket constants', () => {
+  it('TICKET_PRIORITIES matches the backend ENUM', () => {
+    expect(TICKET_PRIORITIES).toEqual(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
+  });
+
+  it('TICKET_CATEGORIES matches the backend ENUM', () => {
+    expect(TICKET_CATEGORIES).toEqual(['ORDER', 'PAYMENT', 'SHIPPING', 'PRODUCT', 'REFUND', 'ACCOUNT', 'TECHNICAL', 'OTHER']);
+  });
+
+  it('TICKET_STATUSES matches the backend ENUM', () => {
+    expect(TICKET_STATUSES).toEqual(['OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'RESOLVED', 'CLOSED']);
+  });
+
+  it('ticketPriorityLabel renders readable labels', () => {
+    expect(ticketPriorityLabel('LOW')).toBe('Low');
+    expect(ticketPriorityLabel('MEDIUM')).toBe('Medium');
+    expect(ticketPriorityLabel('high')).toBe('High');
+    expect(ticketPriorityLabel('URGENT')).toBe('Urgent');
+  });
+
+  it('ticketPriorityLabel falls back to the backend default (Medium)', () => {
+    expect(ticketPriorityLabel('')).toBe('Medium');
+    expect(ticketPriorityLabel(undefined)).toBe('Medium');
+    expect(ticketPriorityLabel('NORMAL')).toBe('Medium');
+    expect(ticketPriorityLabel(null)).toBe('Medium');
+  });
+
+  it('ticketStatusLabel renders readable labels', () => {
+    expect(ticketStatusLabel('IN_PROGRESS')).toBe('In Progress');
+    expect(ticketStatusLabel('WAITING_CUSTOMER')).toBe('Waiting Customer');
+    expect(ticketStatusLabel('OPEN')).toBe('Open');
+    expect(ticketStatusLabel('')).toBe('');
+    expect(ticketStatusLabel(undefined)).toBe('');
+  });
+
+  it('ticketStatusClass maps every TICKET_STATUSES value to a badge class', () => {
+    expect(TICKET_STATUSES.every(s => ticketStatusClass(s).startsWith('status-'))).toBe(true);
+    expect(ticketStatusClass('OPEN')).toBe('status-pending');
+    expect(ticketStatusClass('IN_PROGRESS')).toBe('status-processing');
+    expect(ticketStatusClass('WAITING_CUSTOMER')).toBe('status-warning');
+    expect(ticketStatusClass('RESOLVED')).toBe('status-active');
+    expect(ticketStatusClass('CLOSED')).toBe('status-completed');
+  });
+
+  it('ticketStatusClass falls back to status-in-transit for unknown values', () => {
+    expect(ticketStatusClass('UNKNOWN')).toBe('status-in-transit');
+    expect(ticketStatusClass('')).toBe('status-in-transit');
+    expect(ticketStatusClass(undefined)).toBe('status-in-transit');
+  });
+});
 
 describe('getBundleTier', () => {
   it('applies 0% for qty 1 (no bundle discount)', () => {

@@ -56,6 +56,7 @@ const OrderThankYouPage = lazy(() => import('./pages/storefront/OrderThankYouPag
 const CheckoutPage = lazy(() => import('./pages/storefront/CheckoutPage'));
 const ProfilePage = lazy(() => import('./pages/storefront/ProfilePage'));
 const AddressesPage = lazy(() => import('./pages/storefront/AddressesPage'));
+const SupportTicketsPage = lazy(() => import('./pages/storefront/SupportTicketsPage'));
 const NotificationsPage = lazy(() => import('./pages/storefront/NotificationsPage'));
 const AboutPage = lazy(() => import('./pages/storefront/AboutPage'));
 const ContactPage = lazy(() => import('./pages/storefront/ContactPage'));
@@ -457,6 +458,7 @@ function AppContent() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
+          <Route path="/support" element={<ProtectedRoute><SupportTicketsPage /></ProtectedRoute>} />
           <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
           <Route path="/returns" element={<ProtectedRoute><ReturnsPage /></ProtectedRoute>} />
           <Route path="/customize" element={<CustomizePage />} />

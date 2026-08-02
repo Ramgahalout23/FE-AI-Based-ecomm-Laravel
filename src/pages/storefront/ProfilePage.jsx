@@ -1,4 +1,4 @@
-import { ChevronRight, LogOut, ShoppingBag, Heart, MapPin, User, RotateCcw, Headphones, Loader2, Upload } from 'lucide-react';
+import { ChevronRight, LogOut, ShoppingBag, Heart, MapPin, User, RotateCcw, Headphones, LifeBuoy, Loader2, Upload } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
@@ -214,6 +214,7 @@ export default function ProfilePage() {
           <MenuItem icon={ShoppingBag} label={t('profile.orders')} to="/orders" />
           <MenuItem icon={Heart} label={t('profile.wishlist')} to="/wishlist" />
           <MenuItem icon={Headphones} label={t('profile.contact_us')} to="/contact" />
+          <MenuItem icon={LifeBuoy} label={t('profile.support')} to="/support" />
           <MenuItem icon={RotateCcw} label={t('profile.returns')} to="/returns" />
         </div>
 

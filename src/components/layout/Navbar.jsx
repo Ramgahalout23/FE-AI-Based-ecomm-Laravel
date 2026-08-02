@@ -269,6 +269,7 @@ export default function Navbar() {
                               <Link to="/profile" className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-primary transition-colors">{t('nav.my_profile')}</Link>
                               <Link to="/orders" className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-primary transition-colors">{t('nav.my_orders')}</Link>
                               <Link to="/addresses" className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-primary transition-colors">{t('nav.addresses')}</Link>
+                              <Link to="/support" className="block px-4 py-2.5 text-sm text-text-secondary hover:bg-surface hover:text-primary transition-colors">{t('nav.support')}</Link>
                             </>
                           )}
                         </div>

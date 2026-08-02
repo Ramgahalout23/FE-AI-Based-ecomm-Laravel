@@ -29,6 +29,52 @@ export const SHIPPING_STATUSES = ['PENDING', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR
 
 export const COUPON_TYPES = ['PERCENTAGE', 'FIXED'];
 
+// ── Support Tickets ──
+// Values mirror the `support_tickets` table ENUMs (see
+// database/migrations/2024_01_01_000035_create_support_tickets_table.php).
+// Use these everywhere instead of hardcoding ticket enum strings so the
+// frontend stays in sync with the backend.
+export const TICKET_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+export const TICKET_CATEGORIES = ['ORDER', 'PAYMENT', 'SHIPPING', 'PRODUCT', 'REFUND', 'ACCOUNT', 'TECHNICAL', 'OTHER'];
+
+export const TICKET_STATUSES = ['OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'RESOLVED', 'CLOSED'];
+
+/**
+ * Render a ticket status code as a human-readable label (e.g. IN_PROGRESS → "In Progress").
+ */
+export const ticketStatusLabel = (status) =>
+  String(status || '').split('_').map(w => w ? w[0] + w.slice(1).toLowerCase() : w).join(' ');
+
+/**
+ * Render a ticket priority code as a human-readable label.
+ *
+ * Falls back to the backend's default priority (MEDIUM) for empty or unknown
+ * values, mirroring TicketService defaults. Built on TICKET_PRIORITIES so the
+ * admin UI and backend stay in sync.
+ */
+export const ticketPriorityLabel = (priority) => {
+  const normalized = String(priority || '').toUpperCase();
+  return TICKET_PRIORITIES.includes(normalized) ? ticketStatusLabel(normalized) : 'Medium';
+};
+
+/**
+ * Map a ticket status code to its admin badge CSS class.
+ *
+ * Single source of truth for the status-badge palette so the chat modal and
+ * table rows render the same colors as the rest of the admin panel.
+ */
+export const ticketStatusClass = (status) => {
+  const map = {
+    OPEN: 'status-pending',
+    IN_PROGRESS: 'status-processing',
+    WAITING_CUSTOMER: 'status-warning',
+    RESOLVED: 'status-active',
+    CLOSED: 'status-completed',
+  };
+  return map[status] || 'status-in-transit';
+};
+
 /**
  * Map color names to hex codes for swatch rendering.
  */
