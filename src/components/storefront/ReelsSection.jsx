@@ -1,17 +1,18 @@
-import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Home, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, RefreshCw, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag, Crown } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import { useTranslation } from 'react-i18next';
+import { useSettings } from '../../store/useSettings';
 import { formatCurrency, getImageUrl, getVideoUrl } from '../../utils/formatters';
-import { getColorHex } from '../../utils/constants';
+import { getColorHex, isLightColor } from '../../utils/constants';
 import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
 import { wishlistAPI } from '../../api/wishlist';
 import { reelLikesAPI } from '../../api/reelLikes';
-import { addedToCart, linkCopied, showSuccess, showError } from '../../utils/toast';
+import { addedToCart, linkCopied, showError } from '../../utils/toast';
 import useCartStore from '../../store/cartStore';
 import { cartAPI } from '../../api/cart';
 
@@ -27,8 +28,8 @@ function discountPercent(oldPrice, price) {
   return Math.round(((oNum - pNum) / oNum) * 100);
 }
 
-function getReelBadge(reel) {
-  return reel.products?.[0]?.badge || 'FT.SELEKT';
+function getReelBadge(reel, fallback = 'THREVOLT') {
+  return reel.products?.[0]?.badge || fallback;
 }
 
 function isYouTubeUrl(url) {
@@ -91,6 +92,15 @@ function extractVariantData(variants, selectedColor = '', selectedSize = '') {
   };
 }
 
+/* ── Per-color thumbnail from the variant's first image (set in admin),
+     falling back to a solid color swatch when no variant image exists. ── */
+function getColorThumb(color, variants) {
+  const pv = variants || [];
+  const v = pv.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
+  const img = v?.images?.[0];
+  return typeof img === 'string' ? getImageUrl(img) : null;
+}
+
 /* ── Skeleton ── */
 function ReelsSectionSkeleton() {
   return (
@@ -133,6 +143,7 @@ export default function ReelsSection({ reels: _reelsProp = [], loading = false, 
    ═══════════════════════════════════════════════════════════ */
 function FashionShowcase({ reels, onRefresh }) {
   const { t } = useTranslation();
+  const { getSetting } = useSettings();
   const { isAuthenticated } = useAuthStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
   const [cartItems, setCartItems] = useState(new Set());
@@ -254,8 +265,6 @@ function FashionShowcase({ reels, onRefresh }) {
     };
     reelLikeMapRef.current = next;
     setReelLikeMap(next);
-    if (nextLiked) showSuccess(t('reels.liked_reel'));
-    else showSuccess(t('reels.unliked_reel'));
 
     // Keep the linked product's wishlist in sync (silent, same behaviour as before)
     const product = getProductFromReel(reel);
@@ -362,11 +371,15 @@ function FashionShowcase({ reels, onRefresh }) {
           className="text-center mb-6 md:mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-6 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
-            <span className="h-px w-6 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full" />
+            <span className="h-px w-6 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent rounded-full" />
+            <span className="text-amber-600/80 text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
+            <span className="h-px w-6 bg-gradient-to-l from-transparent via-amber-300/70 to-transparent rounded-full" />
           </div>
           <div className="relative inline-block">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-100 via-yellow-50 to-amber-100 border border-amber-200 text-amber-700 text-[8px] font-extrabold uppercase tracking-[0.22em] mb-2 shadow-sm">
+              <Crown size={10} />
+              {t('reels.premium') || 'Premium'}
+            </span>
             <h2 className="text-lg md:text-xl lg:text-2xl font-display font-bold tracking-tight text-gray-900">
               {t('reels.watch_and_buy')}
             </h2>
@@ -404,7 +417,7 @@ function FashionShowcase({ reels, onRefresh }) {
                   className="reel-card snap-start shrink-0 w-[220px] sm:w-[260px] xl:w-[280px] cursor-pointer group/card"
                   onClick={() => openReel(idx)}
                 >
-                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80">
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-[0_16px_40px_-12px_rgba(217,119,6,0.35)] hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80 hover:border-amber-300/70">
                     <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
                       {(hasVideoError || isUnsupportedVideoUrl(reel.videoUrl)) && reel.imageUrl ? (
                         <div className="relative w-full h-full">
@@ -448,7 +461,10 @@ function FashionShowcase({ reels, onRefresh }) {
                         </>
                       )}
                       <div className="absolute top-3 left-3 z-10">
-                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-black/50 backdrop-blur-sm border border-white/15 text-white text-[7px] font-bold uppercase tracking-[0.12em] shadow-lg">{getReelBadge(reel)}</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-amber-900/80 to-amber-700/80 backdrop-blur-sm border border-amber-300/40 text-amber-100 text-[7px] font-bold uppercase tracking-[0.12em] shadow-lg">
+                          <Crown size={8} />
+                          {getReelBadge(reel, getSetting('storeName', 'THREVOLT'))}
+                        </span>
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none">
                         <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/25">
@@ -497,13 +513,19 @@ function FashionShowcase({ reels, onRefresh }) {
                                     <div className="flex flex-wrap gap-1.5">
                                       {colors.map(c => {
                                         const isColorOOS = oosColorsSet.has(c);
+                                        const colorThumb = getColorThumb(c, p.variants);
+                                        const isLightShade = isLightColor(c);
                                         return (
                                         <button key={c} onClick={() => !isColorOOS && setCarouselSelectedColor(c)}
                                           disabled={isColorOOS}
-                                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                          className={`relative w-6 h-6 rounded-[3px] border-2 overflow-hidden flex items-center justify-center transition-all ${
                                             isColorOOS ? 'border-gray-200 opacity-30 cursor-not-allowed' : carouselSelectedColor === c ? 'border-gray-900 scale-110' : 'border-gray-200 hover:border-gray-400'
                                           }`}>
-                                          <div className={`w-3.5 h-3.5 rounded-full border border-black/10 ${isColorOOS ? 'opacity-50' : ''}`} style={{ background: getColorHex(c) }} />
+                                          {colorThumb ? (
+                                            <img src={colorThumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isColorOOS ? 'opacity-50' : ''}`} />
+                                          ) : (
+                                            <div className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''} ${isColorOOS ? 'opacity-50' : ''}`} style={{ background: getColorHex(c) }} />
+                                          )}
                                           {isColorOOS && (<span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" className="w-3 h-3 text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="4" x2="20" y2="20" /></svg></span>)}
                                         </button>
                                         );
@@ -929,7 +951,9 @@ function ReelPlayer({
             onPointerCancel={handlePointerUp}>
 
             {/* Background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+              <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-yellow-600/10 blur-3xl pointer-events-none" />
               {!videoReady && !videoError && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center">
                   <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white/30 animate-spin" />
@@ -1037,23 +1061,25 @@ function ReelPlayer({
               </div>
             )}
 
-            {/* Top bar — only close, with centered counter */}
+            {/* Top bar — counter centered, close + mute grouped on the right */}
             <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-center px-3 pt-3 pb-2 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
-              <div className="pointer-events-auto px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white/60 text-[9px] font-bold tracking-wider">
+              <div className="pointer-events-auto px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-amber-400/30 text-amber-200 text-[9px] font-bold tracking-wider">
+                <Crown size={9} className="inline -mt-0.5 mr-1" />
                 {reelIndex + 1} / {total}
               </div>
-              <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-                aria-label={t('reels.back_home') || 'Home'}
-                className="absolute right-3 pointer-events-auto w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
-                <X size={18} />
-              </button>
+              <div className="absolute right-3 pointer-events-auto flex items-center gap-2">
+                <button onClick={(e) => { e.stopPropagation(); toggleMute(e); }}
+                  aria-label={isMuted ? t('reels.unmute') || 'Unmute' : t('reels.mute') || 'Mute'}
+                  className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-lg border border-white/15 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all hover:scale-105 active:scale-95 shadow-lg">
+                  {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); onClose(); }}
+                  aria-label={t('reels.back_home') || 'Home'}
+                  className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-800 hover:bg-white hover:scale-105 transition-all active:scale-95">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
-
-            {/* Floating mute button — bottom-left, prominent */}
-            <button onClick={(e) => { e.stopPropagation(); toggleMute(e); }}
-              className="absolute bottom-28 left-3 z-30 pointer-events-auto w-10 h-10 rounded-full bg-black/60 backdrop-blur-lg border border-white/15 flex items-center justify-center text-white/80 hover:bg-white/20 hover:text-white transition-all hover:scale-110 active:scale-95 shadow-lg">
-              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-            </button>
 
             {/* Floating sidebar */}
             <div className="absolute right-3 bottom-52 md:bottom-36 z-30 flex flex-col items-center gap-4 pointer-events-none">
@@ -1096,15 +1122,6 @@ function ReelPlayer({
           </div>
         </motion.div>
       </div>
-
-      {/* Close button — always visible, even above variant modal.
-          Uses absolute (root is fixed inset-0) so framer-motion transforms can't break positioning. */}
-      <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-        aria-label={t('reels.back_home') || 'Home'}
-        className="absolute top-3 left-3 z-[9999] inline-flex items-center gap-2 rounded-full bg-white text-gray-900 px-4 py-2.5 shadow-2xl border border-gray-200 text-sm font-bold hover:bg-gray-100 hover:scale-105 transition-all active:scale-95">
-        <Home size={16} />
-        <span>{t('reels.back_home') || 'Home'}</span>
-      </button>
 
       {/* Desktop arrows */}
       <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
@@ -1191,12 +1208,14 @@ function ReelPlayer({
                         {colors.map((c) => {
                           const isOOS = oosColors.has(c);
                           const isSelected = selectedColor === c;
+                          const thumb = getColorThumb(c, selectedProduct?.variants);
+                          const isLightShade = isLightColor(c);
                           return (
                             <button
                               key={c}
                               disabled={isOOS}
                               onClick={() => setSelectedColor(c)}
-                              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-150 ${
+                              className={`relative w-8 h-8 rounded-[3px] border-2 overflow-hidden flex items-center justify-center transition-all duration-150 ${
                                 isSelected
                                   ? 'border-gray-900 scale-110 shadow-sm'
                                   : isOOS
@@ -1205,10 +1224,14 @@ function ReelPlayer({
                               }`}
                               title={c}
                             >
-                              <div
-                                className={`w-[22px] h-[22px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
-                                style={{ background: getColorHex(c) }}
-                              />
+                              {thumb ? (
+                                <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                              ) : (
+                                <div
+                                  className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''} ${isOOS ? 'opacity-50' : ''}`}
+                                  style={{ background: getColorHex(c) }}
+                                />
+                              )}
                               {isOOS && (
                                 <span className="absolute inset-0 flex items-center justify-center">
                                   <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -1449,5 +1472,5 @@ function ReelProgressBar({ isPlaying, videoRef, duration = 10, onComplete }) {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [isPlaying, videoRef, duration]);
 
-  return <div className="h-full w-full bg-white" ref={barRef} />;
+  return <div className="h-full w-full bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500" ref={barRef} />;
 }

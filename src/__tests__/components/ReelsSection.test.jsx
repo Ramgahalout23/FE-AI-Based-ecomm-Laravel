@@ -55,6 +55,12 @@ vi.mock('../../store/authStore', () => ({
   },
 }));
 
+vi.mock('../../store/useSettings', () => ({
+  useSettings: () => ({
+    getSetting: vi.fn((key, fallback) => fallback),
+  }),
+}));
+
 // Mock API modules
 vi.mock('../../api/cart', () => ({
   cartAPI: {
@@ -136,6 +142,7 @@ vi.mock('../../utils/constants', () => ({
     const map = { Black: '#000000', White: '#FFFFFF' };
     return map[color] || '#CCCCCC';
   }),
+  isLightColor: vi.fn(() => false),
 }));
 
 import ReelsSection from '../../components/storefront/ReelsSection';

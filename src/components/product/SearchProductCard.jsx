@@ -8,7 +8,7 @@ import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
 import useFlyToCart from '../../hooks/useFlyToCart';
 import { formatCurrency, slugify, getImageUrl, getProductImages, getProductHoverImage } from '../../utils/formatters';
-import { getColorHex } from '../../utils/constants';
+import { getColorHex, isLightColor } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
 import { addedToCart, addedToWishlist, removedFromWishlist } from '../../utils/toast';
@@ -49,6 +49,15 @@ export default memo(function SearchProductCard({ product }) {
 
   const hasVariants = (productColors.length > 0 || productSizes.length > 0);
   const variantsList = variants;
+
+  // Per-color thumbnail from the variant's first image (set in admin),
+  // falling back to a solid color swatch when no variant image exists.
+  const getColorThumb = (color) => {
+    if (!variantsList.length) return null;
+    const v = variantsList.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
+    const img = v?.images?.[0];
+    return typeof img === 'string' ? getImageUrl(img) : null;
+  };
 
   // OOS sets — colors/sizes with zero stock across all variants
   const oosColors = useMemo(() => {
@@ -229,7 +238,7 @@ export default memo(function SearchProductCard({ product }) {
       {/* Image Container */}
       <div
         ref={flyRef}
-        className={`product-img-wrap relative bg-gray-100 overflow-hidden shrink-0 mb-2.5 aspect-[3/4] max-sm:aspect-[4/5] ${showQuickAdd ? 'md:min-h-[260px] md:aspect-auto' : ''}`}
+        className={`product-img-wrap relative bg-gray-100 overflow-hidden shrink-0 mb-2 aspect-[4/5] max-sm:aspect-[5/6] ${showQuickAdd ? 'md:min-h-[230px] md:aspect-auto' : ''}`}
         onMouseEnter={handleImageMouseEnter}
         onMouseLeave={handleImageMouseLeave}
       >
@@ -290,23 +299,26 @@ export default memo(function SearchProductCard({ product }) {
                     {productColors.map(color => {
                       const isSelected = selectedColor === color;
                       const isOOS = oosColors.has(color);
-                      const isLight = ['white','cream','beige','ivory','silver','light','blush','nude','pearl','bone','almond','vanilla'].some(l =>
-                        color.toLowerCase().includes(l)
-                      );
+                      const isLightShade = isLightColor(color);
+                      const thumb = getColorThumb(color);
                       return (
                         <button
                           key={color}
                           onClick={(e) => { e.stopPropagation(); if (!isOOS) setSelectedColor(color); }}
-                          className={`relative rounded-md transition-all duration-200 ${
+                          className={`relative rounded-[3px] overflow-hidden transition-all duration-200 ${
                             isOOS ? 'ring-1 ring-gray-100 cursor-not-allowed opacity-40' : isSelected ? 'ring-2 ring-black ring-offset-1 scale-110 shadow-[0_0_6px_rgba(0,0,0,0.3)]' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105 shadow-sm shadow-black/5'
-                          } w-4 h-4 sm:w-5 sm:h-5`}
+                          } w-5 h-5`}
                           title={isOOS ? `${color} - ${t('product.out_of_stock')}` : color}
                           disabled={isOOS}
                         >
-                          <div
-                            className={`w-full h-full rounded-md ${isLight ? 'border border-gray-200' : ''}`}
-                            style={{ background: getColorHex(color) }}
-                          />
+                          {thumb ? (
+                            <img src={thumb} alt={color} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                          ) : (
+                            <div
+                              className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''}`}
+                              style={{ background: getColorHex(color) }}
+                            />
+                          )}
                           {isOOS && (
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                               <div className="w-[140%] h-[1.5px] bg-gray-400 rotate-45 absolute rounded-full" />
@@ -561,7 +573,7 @@ export default memo(function SearchProductCard({ product }) {
 
       {/* Details */}
       <div className={`flex flex-col flex-1 px-0.5 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-        <h3 className="text-xs max-sm:text-[10px] font-medium text-gray-900 line-clamp-1 group-hover:text-primary transition-colors mb-1.5 md:mb-2 tracking-wide">
+        <h3 className="text-[11px] max-sm:text-[10px] font-medium text-gray-900 line-clamp-1 group-hover:text-primary transition-colors mb-1 tracking-wide">
           {product.name}
         </h3>
         {highlights.length > 0 && (
@@ -576,7 +588,7 @@ export default memo(function SearchProductCard({ product }) {
         )}
         <div className="mt-auto">
           <div className="price">
-            <span className="text-lg max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(displayPrice)}</span>
+            <span className="text-base max-sm:text-sm font-display font-extrabold text-red-500">{formatCurrency(displayPrice)}</span>
             {displayOldPrice && <span className="original text-xs max-sm:text-[10px] text-black line-through">{formatCurrency(displayOldPrice)}</span>}
           </div>
           {displayDiscount && (
@@ -666,15 +678,14 @@ export default memo(function SearchProductCard({ product }) {
                             {productColors.map((c) => {
                               const isOOS = oosColors.has(c);
                               const isSelected = selectedColor === c;
-                              const isLight = ['white','cream','beige','ivory','silver','light','blush','nude','pearl','bone','almond','vanilla'].some(l =>
-                                c.toLowerCase().includes(l)
-                              );
+                              const isLightShade = isLightColor(c);
+                              const thumb = getColorThumb(c);
                               return (
                                 <button
                                   key={c}
                                   disabled={isOOS}
                                   onClick={() => { if (!isOOS) setSelectedColor(c); }}
-                                  className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-all duration-150 ${
+                                  className={`relative w-8 h-8 rounded-[3px] overflow-hidden border-2 flex items-center justify-center transition-all duration-150 ${
                                     isSelected
                                       ? 'border-black scale-110 shadow-sm'
                                       : isOOS
@@ -683,10 +694,14 @@ export default memo(function SearchProductCard({ product }) {
                                     }`}
                                   title={c}
                                 >
-                                  <div
-                                    className={`w-[18px] h-[18px] rounded-lg border border-black/10 ${isOOS ? 'opacity-50' : ''} ${isLight && !isOOS ? 'border-gray-300' : ''}`}
-                                    style={{ background: getColorHex(c) }}
-                                  />
+                                  {thumb ? (
+                                    <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                  ) : (
+                                    <div
+                                      className={`w-full h-full ${isOOS ? 'opacity-50' : ''} ${isLightShade && !isOOS ? 'border border-gray-300' : ''}`}
+                                      style={{ background: getColorHex(c) }}
+                                    />
+                                  )}
                                   {isOOS && (
                                     <span className="absolute inset-0 flex items-center justify-center">
                                       <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">

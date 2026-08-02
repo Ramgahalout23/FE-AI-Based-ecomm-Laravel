@@ -246,7 +246,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {Array.from({ length: 4 }).map((_, i) => (
                           <div key={i} className="animate-pulse">
-                            <div className="aspect-[3/4] bg-gray-100 rounded-xl mb-2" />
+                            <div className="aspect-[4/5] max-sm:aspect-[5/6] bg-gray-100 rounded-xl mb-2" />
                             <div className="h-3 bg-gray-100 rounded w-3/4 mb-1.5" />
                             <div className="h-3 bg-gray-100 rounded w-1/2" />
                           </div>

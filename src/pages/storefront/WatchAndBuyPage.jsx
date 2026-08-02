@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import { homepageAPI } from '../../api/homepage';
 import { formatCurrency, getImageUrl, getProductImage } from '../../utils/formatters';
-import { getColorHex } from '../../utils/constants';
+import { getColorHex, isLightColor } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import useCartStore from '../../store/cartStore';
 import useWishlistStore from '../../store/wishlistStore';
@@ -14,7 +14,7 @@ import { cartAPI } from '../../api/cart';
 import { productsAPI } from '../../api/products';
 import { wishlistAPI } from '../../api/wishlist';
 import useAuthStore from '../../store/authStore';
-import { addedToCart, showSuccess, showError } from '../../utils/toast';
+import { addedToCart, showError } from '../../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { reelLikesAPI } from '../../api/reelLikes';
 
@@ -87,8 +87,6 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
     likeBusyRef.current = true;
     setLiked(nextLiked);
     setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
-    if (nextLiked) showSuccess(t('reels.liked_reel'));
-    else showSuccess(t('reels.unliked_reel'));
     if (!isAuthenticated) {
       likeBusyRef.current = false;
       return;
@@ -139,20 +137,31 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-lg flex items-center justify-center"
       onClick={onClose}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-all active:scale-90"
-      >
-        <X size={18} />
-      </button>
-
       {/* Title */}
       {title && (
         <div className="absolute top-4 left-4 z-10 px-4 py-2 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-white/80 text-sm font-bold max-w-[60%] truncate">
           {title}
         </div>
       )}
+
+      {/* Top-right controls — mute (native videos) + close grouped together */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {!isEmbedVideo && !videoError && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m); }}
+            aria-label={isMuted ? 'Unmute' : 'Mute'}
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 transition-all active:scale-90"
+          >
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-all active:scale-90"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
       {/* ── Video container ── */}
       <motion.div
@@ -209,15 +218,7 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
             )}
 
             {/* Bottom controls */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-between gap-3">
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m); }}
-                aria-label={isMuted ? 'Unmute' : 'Mute'}
-                className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 transition-all active:scale-90"
-              >
-                {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-              </button>
-
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-end gap-3">
               {reel?.id && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleLike(); }}
@@ -240,6 +241,15 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
       </motion.div>
     </motion.div>
   );
+}
+
+/* ── Per-color thumbnail from the variant's first image (set in admin),
+     falling back to a solid color swatch when no variant image exists. ── */
+function getColorThumb(color, variants) {
+  const pv = variants || [];
+  const v = pv.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
+  const img = v?.images?.[0];
+  return typeof img === 'string' ? getImageUrl(img) : null;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -439,22 +449,27 @@ function ReelBuyModal({ productId, onClose }) {
                   </p>
                   <div className="flex flex-wrap gap-2.5">
                     {colors.map(c => {
-                      const isLight = ['white','cream','beige','ivory','silver','light','blush','nude','pearl','bone','almond','vanilla'].some(l => c.toLowerCase().includes(l));
+                      const isLightShade = isLightColor(c);
                       const isSelected = selectedColor === c;
                       const colorVariants = variants.filter(v => v.attributes?.color === c);
                       const hasStock = colorVariants.some(v => (v.quantity || 0) > 0);
+                      const colorThumb = getColorThumb(c, variants);
                       return (
                         <button
                           key={c}
                           onClick={() => !hasStock ? null : setSelectedColor(c)}
                           disabled={!hasStock}
-                          className={`relative rounded-full transition-all duration-200 ${
+                          className={`relative rounded-[3px] overflow-hidden transition-all duration-200 ${
                             !hasStock ? 'opacity-30 cursor-not-allowed' :
                             isSelected ? 'ring-2 ring-black ring-offset-2 scale-110 shadow-md' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105'
                           } w-8 h-8`}
                           title={!hasStock ? `${c} - Out of Stock` : c}
                         >
-                          <div className={`w-full h-full rounded-full ${isLight ? 'border border-gray-300' : ''}`} style={{ background: getColorHex(c) || '#ccc' }} />
+                          {colorThumb ? (
+                            <img src={colorThumb} alt={c} loading="lazy" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className={`w-full h-full ${isLightShade ? 'border border-gray-300' : ''}`} style={{ background: getColorHex(c) || '#ccc' }} />
+                          )}
                           {!hasStock && <div className="absolute inset-0 flex items-center justify-center"><div className="w-[140%] h-[1.5px] bg-gray-400 rotate-45 absolute rounded-full" /></div>}
                         </button>
                       );
@@ -752,16 +767,17 @@ function ShoppableVideoSection({ reels }) {
                                       {colors.map(c => {
                                         const isOOS = oosColors.has(c);
                                         const isSelected = quickAddColor === c;
+                                        const isLightShade = isLightColor(c);
                                         return (
                                           <button key={c}
                                             disabled={isOOS}
                                             onClick={(e) => { e.stopPropagation(); setQuickAddColor(c); }}
-                                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all duration-150 ${
+                                            className={`w-4 h-4 rounded-[3px] border overflow-hidden flex items-center justify-center transition-all duration-150 ${
                                               isSelected ? 'border-black ring-1 ring-black/20 scale-110' : isOOS ? 'border-gray-200 opacity-30 cursor-not-allowed' : 'border-gray-300 hover:border-gray-500'
                                             }`}
                                             title={c}
                                           >
-                                            <div className={`w-[10px] h-[10px] rounded-full border border-black/10 ${isOOS ? 'opacity-50' : ''}`}
+                                            <div className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''} ${isOOS ? 'opacity-50' : ''}`}
                                               style={{ background: getColorHex(c) }} />
                                             {isOOS && <div className="absolute w-[130%] h-[1px] bg-gray-400 rotate-45 rounded-full" />}
                                           </button>

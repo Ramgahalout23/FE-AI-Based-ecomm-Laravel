@@ -56,6 +56,14 @@ export const getColorHex = (colorName) => {
 };
 
 /**
+ * Whether a color name is a light shade (white, cream, beige, etc.) that
+ * needs a subtle border so it stays visible against white surfaces.
+ */
+export const isLightColor = (colorName = '') =>
+  ['white','cream','beige','ivory','silver','light','blush','nude','pearl','bone','almond','vanilla']
+    .some(l => colorName.toLowerCase().includes(l));
+
+/**
  * Buy More, Save More — volume discount tiers.
  * Discount applies PER CART LINE based on that line's quantity:
  * qty 1 → 0%, qty 2 → 5%, qty 3 → 10%, qty 4+ → 15%.

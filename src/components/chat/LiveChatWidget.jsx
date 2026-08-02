@@ -47,6 +47,7 @@ export default function LiveChatWidget() {
   const [inputValue, setInputValue] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [isReelActive, setIsReelActive] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -66,6 +67,19 @@ export default function LiveChatWidget() {
     }
     lastMessageCountRef.current = messages.length;
   }, [messages.length, isOpen]);
+
+  // Hide the chat icon while the fullscreen reel player is open
+  useEffect(() => {
+    const checkReel = () => {
+      const active = document.body.getAttribute('data-reel-player') === 'active';
+      setIsReelActive(active);
+      if (active) setIsOpen(false);
+    };
+    checkReel();
+    const observer = new MutationObserver(checkReel);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-reel-player'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Initialize chat when opened (for authenticated users)
   const handleOpen = useCallback(async () => {
@@ -150,7 +164,10 @@ export default function LiveChatWidget() {
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 24px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, scale 0.25s ease',
+          opacity: isReelActive ? 0 : 1,
+          pointerEvents: isReelActive ? 'none' : 'auto',
+          scale: isReelActive ? 0.75 : 1,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.08)';
@@ -192,7 +209,7 @@ export default function LiveChatWidget() {
       </button>
 
       {/* ─── Chat Window ─── */}
-      {isOpen && (
+      {isOpen && !isReelActive && (
         <div className="chat-float-window"
         style={{
           position: 'fixed',
