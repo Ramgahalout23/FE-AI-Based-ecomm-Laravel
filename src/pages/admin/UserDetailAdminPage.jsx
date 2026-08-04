@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
-import { formatDate, formatCurrency, getInitials } from '../../utils/formatters';
+import { formatDate, formatCurrency, getInitials, getUserFullName } from '../../utils/formatters';
 import { USER_ROLES } from '../../utils/constants';
 import { ArrowLeft, Mail, Phone, Calendar, Shield, Activity } from 'lucide-react';
 import toast from '../../utils/toast';
@@ -118,11 +118,11 @@ export default function UserDetailAdminPage() {
                 fontSize: '1.25rem',
               }}
             >
-              {getInitials(user.firstName, user.lastName)}
+              {getInitials(user.firstName || user.first_name, user.lastName || user.last_name)}
             </div>
             <div>
               <h3 style={{ margin: 0 }}>
-                {user.firstName} {user.lastName}
+                {getUserFullName(user) || '—'}
               </h3>
               <span style={{ fontSize: '0.85rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.15rem' }}>
                 <Mail size={12} /> {user.email}

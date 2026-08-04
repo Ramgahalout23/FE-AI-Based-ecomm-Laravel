@@ -8,6 +8,6 @@ export const appInitAPI = {
    */
   getAll: async () => {
     const res = await client.get('/app-init');
-    return res.data;
+    return res?.data?.data ?? res?.data ?? {};
   },
 };

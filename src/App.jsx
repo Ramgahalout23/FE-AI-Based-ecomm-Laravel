@@ -547,6 +547,36 @@ export default function App() {
   // Initialize auth — check for existing token and fetch user data
   useEffect(() => { init(); }, [init]);
 
+  // OAuth callback recovery: if the SPA is served at an /api/v1/auth/* path
+  // (e.g. an old service worker intercepted the Google OAuth callback
+  // navigation and returned index.html instead of letting it reach the API),
+  // resolve the backend's redirect and follow it — otherwise the OAuth code
+  // is lost and the user sees the 404 page. Harmless no-op in normal operation.
+  useEffect(() => {
+    const { pathname, search } = window.location;
+    const hasCallbackParams = /[?&](code|token|oauth_error)=/.test(search);
+    if (!pathname.startsWith('/api/v1/auth/') || !hasCallbackParams) return;
+    const currentUrl = window.location.href;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    (async () => {
+      try {
+        const res = await fetch(currentUrl, {
+          redirect: 'follow',
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+        if (res.url && res.url !== currentUrl) {
+          window.location.replace(res.url);
+        }
+      } catch {
+        // Network/CORS/timeout failure — fall through to the normal 404 page
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+  }, []);
+
   // In dev mode, unregister any stale service worker that may have been
   // cached from a previous production build — prevents CORB warnings when
   // the SW intercepts cross-origin requests (images, fonts, etc.).

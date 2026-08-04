@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authAPI } from '../../api/auth';
+import PasswordInput from '../../components/common/PasswordInput';
 import toast from '../../utils/toast';
 import './Auth.css';
 
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">            <div className="flex flex-col gap-1">
               <label htmlFor="reset-password" className="text-xs font-bold text-text-muted uppercase tracking-wider">{t('auth.new_password')}</label>
-              <input id="reset-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" className="w-full border-2 border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors" />
+              <PasswordInput id="reset-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" className="w-full border-2 border-border rounded-xl px-4 py-3 pr-12 outline-none focus:border-primary transition-colors" showLabel={t('auth.show_password')} hideLabel={t('auth.hide_password')} buttonClassName="text-text-muted hover:text-primary" />
             </div>
           <button type="submit" className="w-full bg-primary text-white rounded-xl py-3.5 font-bold hover:bg-primary-dark transition-colors shadow-glow-orange mt-6">
             {t('auth.reset_password')}

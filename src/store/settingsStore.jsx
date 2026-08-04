@@ -12,8 +12,9 @@ export function SettingsProvider({ children }) {
 
   // Sync from app-init data when it loads
   useEffect(() => {
-    if (appInitData?.settings && Object.keys(appInitData.settings).length > 0) {
-      setSettings(prev => ({ ...prev, ...appInitData.settings }));
+    const appSettings = appInitData?.settings || appInitData?.data?.settings || {};
+    if (appSettings && Object.keys(appSettings).length > 0) {
+      setSettings(prev => ({ ...prev, ...appSettings }));
     }
     if (!appInitLoading) {
       setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import '../../styles/admin-staff.css';
 import { adminAPI } from '../../api/admin';
+import PasswordInput from '../../components/common/PasswordInput';
 import { formatDate } from '../../utils/formatters';
 import toast from '../../utils/toast';
 
@@ -254,7 +255,7 @@ export default function StaffAdminPage() {
               {!editing && (
                 <div className="form-group">
                   <label>Password</label>
-                  <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min. 8 characters" autoComplete="new-password" minLength={8} />
+                  <PasswordInput value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min. 8 characters" autoComplete="new-password" minLength={8} />
                   <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.25rem' }}>Leave blank to auto-generate a random password</p>
                 </div>
               )}

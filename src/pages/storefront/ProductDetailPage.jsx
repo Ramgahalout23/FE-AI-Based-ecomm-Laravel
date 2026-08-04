@@ -1,4 +1,4 @@
-import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronLeft, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink } from 'lucide-react';
+import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -19,7 +19,7 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import SizeGuideModal from '../../components/product/SizeGuideModal';
 import ReviewFormModal from '../../components/product/ReviewFormModal';
-import { formatCurrency, formatDate, getImageUrl, getProductImages, getVideoUrl } from '../../utils/formatters';
+import { formatCurrency, getImageUrl, getProductImages, getVideoUrl } from '../../utils/formatters';
 import ReviewImageLightbox from '../../components/product/ReviewImageLightbox';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../store/useSettings';
@@ -45,7 +45,7 @@ const THREAD = "#4a4a5a";     /* text secondary */
 const STONE = "#8a8a9a";      /* text muted */
 const PANEL = "#f5f5f5";      /* off-white surface container */
 
-const displayFont = { fontFamily: "Jost, sans-serif", fontWeight: 800 };
+const displayFont = { fontFamily: "var(--font-display)", fontWeight: 800 };
 
 const stitchBorder = `repeating-linear-gradient(90deg, ${STONE} 0px, ${STONE} 6px, transparent 6px, transparent 12px)`;
 
@@ -91,6 +91,9 @@ export default function ProductDetailPage() {
   const [viewerCount, setViewerCount] = useState(() => Math.floor(Math.random() * 30) + 18);
   const [galleryLightboxOpen, setGalleryLightboxOpen] = useState(false);
   const [galleryLightboxIdx, setGalleryLightboxIdx] = useState(0);
+  const [reviewLightboxOpen, setReviewLightboxOpen] = useState(false);
+  const [reviewLightboxImages, setReviewLightboxImages] = useState([]);
+  const [reviewLightboxIdx, setReviewLightboxIdx] = useState(0);
   const [recentPurchase, setRecentPurchase] = useState(null);
 
   // Gentle fluctuation of live viewer count and FOMO purchase notifications
@@ -150,21 +153,57 @@ export default function ProductDetailPage() {
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [reviewSort, setReviewSort] = useState('relevant');
+  const reviewsRef = useRef(null);
 
   // ── React Query: Reviews ──
   const { data: reviews = [] } = useQuery({
     queryKey: ['product-reviews', product?.id],
     queryFn: () => reviewsAPI.getByProduct(product.id).then(r => {
-      const raw = r.data?.data?.reviews || r.data?.data || [];
+      const data = r.data?.data || {};
+      const raw = data.items || data.reviews || (Array.isArray(data) ? data : []);
       return Array.isArray(raw) ? raw.map(mapProductReview) : [];
     }),
     enabled: !!product?.id,
-    staleTime: 120000,
+    staleTime: 30000,
   });
 
   const handleReviewSubmitted = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['product-reviews', product?.id] });
   }, [queryClient, product?.id]);
+
+  // ── Rating distribution for the review summary (5★ → 1★) ──
+  const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => {
+    const count = reviews.filter((r) => Math.round(r.rating || 0) === stars).length;
+    return { stars, count, pct: reviews.length ? Math.round((count / reviews.length) * 100) : 0 };
+  });
+
+  // ── Review sorting, photo album & View All (selektt-style widget) ──
+  const parseReviewTs = (d) => (d ? new Date(d).getTime() || 0 : 0);
+  const sortedReviews = (() => {
+    const list = [...reviews];
+    const byDate = (a, b) => parseReviewTs(b.date) - parseReviewTs(a.date);
+    switch (reviewSort) {
+      case 'photo': return list.sort((a, b) => ((b.reviewImages?.length ? 1 : 0) - (a.reviewImages?.length ? 1 : 0)) || byDate(a, b));
+      case 'newest': return list.sort(byDate);
+      case 'highest': return list.sort((a, b) => (b.rating - a.rating) || byDate(a, b));
+      case 'lowest': return list.sort((a, b) => (a.rating - b.rating) || byDate(a, b));
+      default: return list; // most relevant = original order
+    }
+  })();
+  const displayedReviews = showAllReviews ? sortedReviews : sortedReviews.slice(0, 3);
+  const reviewAvg = reviews.length
+    ? (reviews.reduce((s, r) => s + Number(r.rating || 0), 0) / reviews.length).toFixed(1)
+    : '0.0';
+  const photoAlbum = [];
+  reviews.forEach((r) => (r.reviewImages || []).forEach((img) => {
+    const url = typeof img === 'string' ? img : img?.url;
+    if (url && !photoAlbum.includes(url)) photoAlbum.push(url);
+  }));
+  const albumShow = photoAlbum.slice(0, 6);
+
+  useEffect(() => { setShowAllReviews(false); }, [reviewSort]);
+  useEffect(() => { setShowAllReviews(false); setReviewSort('relevant'); }, [product?.id]);
 
   // ── React Query: SEO meta ──
   const { data: seoMeta = null } = useQuery({
@@ -511,7 +550,7 @@ export default function ProductDetailPage() {
           <div style={{ width: 72, height: 72, margin: "0 auto 24px", borderRadius: "50%", background: PANEL, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={28} color={STONE} strokeWidth={1.5} />
           </div>
-          <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 8, ...displayFont }}>Not Found</h2>
+          <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 8, ...displayFont }}>Not Found</h2>
           <p style={{ fontSize: 14, color: STONE, lineHeight: 1.6, marginBottom: 24 }}>This product doesn't exist or has been removed.</p>
           <button onClick={() => navigate('/products')} style={{ background: INK, color: PAPER, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13, fontWeight: 600, padding: "14px 32px", border: "none", cursor: "pointer" }}>
             Browse Products
@@ -1138,11 +1177,6 @@ export default function ProductDetailPage() {
 
         {/* ═══ PRODUCT DETAILS ═══ */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* Season / Drop tag */}
-          <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: THREAD, fontWeight: 700, marginBottom: 8, ...{ fontFamily: "Jost, sans-serif" } }}>
-            {product.collectionId || 'SS26'} — Drop 01
-          </div>
-
           {/* Category + Viewer count */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: GOLD, fontWeight: 600 }}>
@@ -1154,7 +1188,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Title */}
-          <h1 className="product-detail-title" style={{ fontSize: 42, lineHeight: 1.03, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 14, ...displayFont }}>
+          <h1 className="product-detail-title" style={{ fontSize: 40, lineHeight: 1.1, letterSpacing: "-0.02em", marginBottom: 16, ...displayFont }}>
             {product.name}
           </h1>
 
@@ -1171,12 +1205,12 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Price */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 20 }}>
-            <span style={{ fontSize: 30, fontWeight: 700 }}>{formatCurrency(effectivePrice)}</span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 26, lineHeight: 1, fontWeight: 800, color: "#ef4444" }}>{formatCurrency(effectivePrice)}</span>
             {effectiveOldPrice && (
               <>
-                <span style={{ fontSize: 18, color: STONE, textDecoration: "line-through" }}>{formatCurrency(effectiveOldPrice)}</span>
-                <span style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em", color: GOLD, fontWeight: 600 }}>Save {formatCurrency(effectiveOldPrice - effectivePrice)}</span>
+                <span style={{ fontSize: 17, color: STONE, textDecoration: "line-through" }}>{formatCurrency(effectiveOldPrice)}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: "#047857", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 999, padding: "4px 10px", alignSelf: "center" }}>Save {formatCurrency(effectiveOldPrice - effectivePrice)}</span>
               </>
             )}
           </div>
@@ -1536,7 +1570,7 @@ export default function ProductDetailPage() {
                 onClick={() => toggleAccordion(panel.id)}
                 style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 0", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
-                <span style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 600, color: INK }}>{panel.label}</span>
+                <span style={{ fontSize: 14, letterSpacing: "0.02em", fontWeight: 600, color: INK }}>{panel.label}</span>
                 <ChevronDown size={18} style={{ transform: openAccordion === panel.id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
               </button>
               {openAccordion === panel.id && (
@@ -1556,7 +1590,7 @@ export default function ProductDetailPage() {
         <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
             <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
-            <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", color: STONE, whiteSpace: "nowrap", ...displayFont }}>
+            <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, whiteSpace: "nowrap", ...displayFont }}>
               You May Also Like
             </h2>
             <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
@@ -1570,96 +1604,202 @@ export default function ProductDetailPage() {
       )}
 
       {/* ════════════════════════════════════════ */}
-      {/* CUSTOMER REVIEWS */}
+      {/* CUSTOMER REVIEWS — summary + review cards */}
+      {/* (design matched to selektt.com Trustoo reviews widget) */}
       {/* ════════════════════════════════════════ */}
-      <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
-        <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", marginBottom: 24, ...displayFont }}>
+      <section ref={reviewsRef} className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
+        {/* Heading */}
+        <h2 style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 600, letterSpacing: "-0.01em", color: "#303030", margin: "0 0 18px", fontFamily: "Jost, sans-serif" }}>
           {t('product.reviews_heading', { defaultValue: 'Customer Reviews' })}
         </h2>
-        <div className="product-detail-reviews" style={{ border: "1px solid rgba(0,0,0,0.1)", padding: 40, textAlign: "center", borderRadius: 16 }}>
-          {/* Average rating */}
-          <div style={{ fontSize: 36, fontWeight: 900, marginBottom: 8 }}>{formatRating(product.rating)}</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 2, marginBottom: 24, color: GOLD }}>
-            {[...Array(5)].map((_, i) => (
-              <Star key={i} size={16} fill={i < Math.floor(product.rating ?? 5) ? GOLD : "none"} stroke={i < Math.floor(product.rating ?? 5) ? "none" : STONE} strokeWidth={1} />
-            ))}
-          </div>
 
-          {/* Review list */}
-          {reviews.length > 0 ? (
-            <div style={{ textAlign: "left", maxWidth: 600, margin: "0 auto" }}>
-              {(showAllReviews ? reviews : reviews.slice(0, 3)).map((review, idx) => (
-                <div key={review.id || idx} style={{ padding: "16px 0", borderBottom: idx < (showAllReviews ? reviews : reviews.slice(0, 3)).length - 1 ? "1px solid rgba(0,0,0,0.06)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: INK }}>{review.userName || "Anonymous"}</span>
-                    <div style={{ display: "flex", gap: 1, color: GOLD }}>
-                      {[...Array(5)].map((_, si) => (
-                        <Star key={si} size={10} fill={si < review.rating ? GOLD : "none"} stroke={si < review.rating ? "none" : STONE} strokeWidth={1} />
-                      ))}
-                    </div>
-                    <span style={{ fontSize: 11, color: STONE, marginLeft: "auto" }}>{review.date ? formatDate(review.date) : ''}</span>
+        {/* Header: summary + breakdown + album | write + sort */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
+          {/* Left cluster */}
+          <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+            {/* Average rating */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 32, lineHeight: 1, fontWeight: 700, color: "#303030" }}>{reviewAvg}</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <StarRow rating={reviewAvg} size={22} />
+                <span style={{ fontSize: 12, color: "#303030" }}>
+                  {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ width: 1, height: 84, background: "#e8e8e8" }} />
+
+            {/* Rating breakdown bars */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: "1 1 240px", minWidth: 220, maxWidth: 340 }}>
+              {ratingDistribution.map((row) => (
+                <div key={row.stars} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: "#303030", minWidth: 46, textAlign: "right" }}>{row.stars} Star</span>
+                  <div style={{ flex: 1, height: 8, borderRadius: 2, background: "#ededed", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${row.pct}%`, background: "#FFA800", transition: "width 0.4s ease" }} />
                   </div>
-                  <p style={{ fontSize: 13, color: STONE, lineHeight: 1.5 }}>{review.comment || review.review || ''}</p>
-                  {review.reviewImages && review.reviewImages.length > 0 && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      {review.reviewImages.slice(0, 3).map((rimg, ri) => (
-                        <img key={ri} src={typeof rimg === 'string' ? rimg : rimg?.url} alt="Review" loading="lazy"
-                          style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(0,0,0,0.06)" }}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <span style={{ fontSize: 12, color: "#303030", minWidth: 16, textAlign: "right" }}>{row.count}</span>
                 </div>
               ))}
-              {/* View All toggle */}
-              {reviews.length > 3 && (
-                <button
-                  onClick={() => setShowAllReviews(!showAllReviews)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    width: "100%",
-                    marginTop: 16,
-                    padding: "12px 0",
-                    background: "none",
-                    border: "1px solid rgba(0,0,0,0.1)",
-                    borderRadius: 12,
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: INK,
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f5f5'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-                >
-                  {showAllReviews ? (
-                    <>Show Less <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} /></>
-                  ) : (
-                    <>View All {reviews.length} Reviews <ChevronDown size={14} /></>
-                  )}
-                </button>
-              )}
             </div>
-          ) : (
-            <p style={{ color: STONE, marginBottom: 20 }}>{t('product.no_reviews', { defaultValue: 'No reviews yet — be the first to share your thoughts.' })}</p>
-          )}
 
-          <button
-            onClick={() => setShowReviewModal(true)}
-            style={{ background: INK, color: PAPER, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 12, fontWeight: 600, padding: "12px 24px", border: "none", cursor: "pointer", borderRadius: 12 }}
-          >
-            {t('product.write_review', { defaultValue: 'Write a Review' })}
-          </button>
+            {/* Photo album preview */}
+            {albumShow.length > 0 && (
+              <>
+                <div style={{ width: 1, height: 84, background: "#e8e8e8" }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  {albumShow.map((url, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => { setReviewLightboxImages(photoAlbum); setReviewLightboxIdx(i); setReviewLightboxOpen(true); }}
+                      style={{ padding: 0, border: "none", background: "none", cursor: "zoom-in", borderRadius: 4, overflow: "hidden", display: "block" }}
+                      aria-label="View customer photo"
+                    >
+                      <img src={url} alt="Customer photo" loading="lazy" style={{ width: 100, height: 100, objectFit: "cover", display: "block", borderRadius: 4, border: "1px solid #f0f0f0" }} />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Right cluster: write review + sort */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => setShowReviewModal(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: "0 6px 18px rgba(0,0,0,0.12)", transition: "all 0.2s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#000'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = INK; e.currentTarget.style.transform = 'none'; }}
+            >
+              <Star size={13} fill="rgba(255,255,255,0.25)" stroke="none" />
+              {t('product.write_review', { defaultValue: 'Write a Review' })}
+            </button>
+
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <select
+                value={reviewSort}
+                onChange={(e) => setReviewSort(e.target.value)}
+                aria-label="Sort reviews"
+                name="review-sort"
+                style={{ appearance: "none", WebkitAppearance: "none", background: "#ffffff", color: INK, border: "1px solid rgba(0,0,0,0.12)", borderRadius: 10, padding: "9px 32px 9px 14px", fontSize: 13, fontWeight: 600, fontFamily: "Jost, sans-serif", cursor: "pointer", outline: "none", transition: "border-color 0.2s ease" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = INK; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.12)'; }}
+              >
+                <option value="relevant">{t('reviews.sort_relevant', { defaultValue: 'Most Relevant' })}</option>
+                <option value="photo">{t('reviews.sort_photo', { defaultValue: 'Photo priority' })}</option>
+                <option value="newest">{t('reviews.sort_newest', { defaultValue: 'Newest' })}</option>
+                <option value="highest">{t('reviews.sort_highest', { defaultValue: 'Highest Ratings' })}</option>
+                <option value="lowest">{t('reviews.sort_lowest', { defaultValue: 'Lowest Ratings' })}</option>
+              </select>
+              <ChevronDown size={14} color={INK} style={{ position: "absolute", right: 11, pointerEvents: "none" }} />
+            </div>
+          </div>
         </div>
+
+        {/* Review list */}
+        <div style={{ borderTop: "1px solid #efefef" }}>
+          {displayedReviews.length > 0 ? (
+            displayedReviews.map((review, idx) => (
+              <div key={review.id || idx} style={{ padding: "24px 0", borderBottom: "1px solid #efefef" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: avatarBg(review.userName), color: "#303030", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 600, flexShrink: 0 }}>
+                    {getInitials(review.userName)}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#303030" }}>{review.userName || 'Anonymous'}</span>
+                      {review.verified && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, color: "#0a7d3e", background: "#f0faf3", border: "1px solid #cdeeda", borderRadius: 3, padding: "2px 7px" }}>
+                          ✓ {t('reviews.verified_buyer', { defaultValue: 'Verified Buyer' })}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5 }}>
+                      <StarRow rating={review.rating} size={20} />
+                      {review.date && <span style={{ fontSize: 12, color: "#303030" }}>{formatRelativeTime(review.date)}</span>}
+                    </div>
+                  </div>
+                </div>
+                {review.title && <p style={{ fontSize: 14, fontWeight: 700, color: "#303030", margin: "0 0 4px" }}>{review.title}</p>}
+                <p style={{ fontSize: 14, color: "#303030", lineHeight: 1.5, margin: 0, whiteSpace: "pre-line" }}>{review.comment || review.review || ''}</p>
+                {review.reviewImages && review.reviewImages.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    {review.reviewImages.slice(0, 3).map((rimg, ri) => (
+                      <button
+                        key={ri}
+                        type="button"
+                        onClick={() => {
+                          const urls = (review.reviewImages || []).map((x) => (typeof x === 'string' ? x : x?.url)).filter(Boolean);
+                          setReviewLightboxImages(urls);
+                          setReviewLightboxIdx(ri);
+                          setReviewLightboxOpen(true);
+                        }}
+                        style={{ padding: 0, border: "none", background: "none", cursor: "zoom-in", borderRadius: 4, overflow: "hidden", display: "block" }}
+                        aria-label="View review photo"
+                      >
+                        <img src={typeof rimg === 'string' ? rimg : rimg?.url} alt="Review photo" loading="lazy"
+                          style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 4, border: "1px solid #f0f0f0", display: "block", transition: "transform 0.25s ease, box-shadow 0.25s ease" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div style={{ padding: 48, textAlign: "center" }}>
+              <p style={{ color: "#8a8a9a", margin: 0, fontSize: 14 }}>{t('product.no_reviews', { defaultValue: 'No reviews yet — be the first to share your thoughts.' })}</p>
+              <button
+                onClick={() => setShowReviewModal(true)}
+                style={{ marginTop: 18, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#000'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = INK; }}
+              >
+                {t('product.write_review', { defaultValue: 'Write a Review' })}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* View All toggle (our website's original style) */}
+        {reviews.length > 3 && (
+          <button
+            onClick={() => setShowAllReviews(!showAllReviews)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              width: "100%",
+              marginTop: 20,
+              padding: "13px 0",
+              background: "#fafafa",
+              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 700,
+              color: INK,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f0f0f0'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fafafa'; }}
+          >
+            {showAllReviews ? (
+              <>Show Less <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} /></>
+            ) : (
+              <>{t('product.view_all_reviews', { defaultValue: 'View All {{count}} Reviews', count: reviews.length })} <ChevronDown size={14} /></>
+            )}
+          </button>
+        )}
       </section>
       {/* ════════════════════════════════════════ */}
 
-      {/* ════════════════════════════════════════ */}
       {/* RECENTLY VIEWED */}
       {/* ════════════════════════════════════════ */}
       {recentlyViewed.length > 0 && (
@@ -1668,7 +1808,7 @@ export default function ProductDetailPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 3, height: 36, background: INK }} />
               <div>
-                <h2 style={{ fontSize: 24, fontWeight: 900, textTransform: "uppercase", letterSpacing: "-0.01em", ...displayFont }}>
+                <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", ...displayFont }}>
                   {t('product.recently_viewed', { defaultValue: 'Recently Viewed' })}
                 </h2>
                 <p style={{ fontSize: 12, color: STONE, fontWeight: 400, marginTop: 2 }}>
@@ -1766,6 +1906,17 @@ export default function ProductDetailPage() {
             images={galleryImages}
             initialIndex={galleryLightboxIdx}
             onClose={() => setGalleryLightboxOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {reviewLightboxOpen && reviewLightboxImages.length > 0 && (
+          <ReviewImageLightbox
+            images={reviewLightboxImages}
+            initialIndex={reviewLightboxIdx}
+            onClose={() => setReviewLightboxOpen(false)}
+            zIndex={220}
           />
         )}
       </AnimatePresence>
@@ -2311,15 +2462,77 @@ function FloatingProductVideo({ product, poster }) {
 /* ════════════════════════════════════════ */
 function mapProductReview(review) {
   if (!review) return null;
+  const u = review.user || {};
+  const userName = review.userName
+    || u.name
+    || [u.first_name, u.last_name].filter(Boolean).join(' ')
+    || [u.firstName, u.lastName].filter(Boolean).join(' ')
+    || 'Anonymous';
   return {
     id: review.id,
     rating: review.rating || 5,
-    userName: review.userName || review.user?.name || 'Anonymous',
+    userName,
+    title: review.title || '',
     comment: review.comment || review.review || '',
     review: review.comment || review.review || '',
-    date: review.createdAt || review.date || null,
+    date: review.createdAt || review.date || review.created_at || null,
     reviewImages: review.images || review.reviewImages || [],
+    verified: !!review.is_verified || !!review.verified,
   };
+}
+
+/* ── Review avatar helpers ── */
+const REVIEW_AVATAR_COLORS = ['#eeeeee', '#e6e6e6', '#f0f0f0', '#eaeaea', '#f3f3f3'];
+function getInitials(name) {
+  return (name || 'U').trim().split(/\s+/).map((w) => w[0] || '').slice(0, 2).join('').toUpperCase() || 'U';
+}
+function avatarBg(name) {
+  const key = (name || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return REVIEW_AVATAR_COLORS[key % REVIEW_AVATAR_COLORS.length];
+}
+
+/* ── Selektt-style star row (supports fractional fill) ── */
+function StarRow({ rating = 0, size = 24, color = '#FFA800', track = '#d9d9d9' }) {
+  const clamped = Math.max(0, Math.min(5, Number(rating) || 0));
+  const full = Math.floor(clamped);
+  const pct = Math.round((clamped - full) * 100);
+  return (
+    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+      {[...Array(5)].map((_, i) => {
+        const filled = i < full;
+        const partial = i === full && pct > 0;
+        return (
+          <div key={i} style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+            <Star size={size} fill={filled ? color : 'none'} stroke={filled ? color : track} strokeWidth={1.2} />
+            {partial && (
+              <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', width: pct + '%' }}>
+                <Star size={size} fill={color} stroke={color} strokeWidth={1.2} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Relative review date ("1 day ago") matching selektt ── */
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return '';
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return '';
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return 'Just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min + ' minute' + (min === 1 ? '' : 's') + ' ago';
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr + ' hour' + (hr === 1 ? '' : 's') + ' ago';
+  const day = Math.floor(hr / 24);
+  if (day < 30) return day + ' day' + (day === 1 ? '' : 's') + ' ago';
+  const mon = Math.floor(day / 30);
+  if (mon < 12) return mon + ' month' + (mon === 1 ? '' : 's') + ' ago';
+  const yr = Math.floor(mon / 12);
+  return yr + ' year' + (yr === 1 ? '' : 's') + ' ago';
 }
 
 /* ════════════════════════════════════════ */

@@ -20,9 +20,9 @@ export function AppInitProvider({ children }) {
     setError(null);
     try {
       const res = await appInitAPI.getAll();
-      setData(res?.data || {});
+      setData(res?.data ?? res ?? {});
     } catch (err) {
-      setError(err);
+      setError(err); 
       setData({});
     } finally {
       setLoading(false);

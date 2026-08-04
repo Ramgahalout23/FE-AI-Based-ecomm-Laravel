@@ -41,11 +41,19 @@ export default defineConfig(({ mode }) => {
             workbox: {
               maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
               globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+              // Serve index.html for SPA navigations EXCEPT /api/ paths.
+              // Without this denylist, the service worker intercepts the Google
+              // OAuth callback navigation (…/api/v1/auth/google/callback) and
+              // returns the SPA shell instead of letting it reach the API,
+              // breaking social login with a React 404 page.
+              navigateFallback: 'index.html',
+              navigateFallbackDenylist: [/^\/api\//],
               runtimeCaching: [
                 {
                   urlPattern: ({ url, request }) =>
                     url.pathname.startsWith('/api/') &&
-                    request.method === 'GET',
+                    request.method === 'GET' &&
+                    request.mode !== 'navigate',
                   handler: 'StaleWhileRevalidate',
                   options: {
                     cacheName: 'api-cache',

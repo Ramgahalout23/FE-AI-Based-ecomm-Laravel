@@ -1,4 +1,4 @@
-import { ShoppingCart, Search, User, Menu, X, Heart, LogOut, Home, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Search, User, Menu, X, Heart, LogOut, Home, Info, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
 import { useSettings } from '../../store/useSettings';
 import { productsAPI } from '../../api/products';
-import { getImageUrl } from '../../utils/formatters';
+import { getImageUrl, getUserFullName } from '../../utils/formatters';
 import { useAppInit } from '../../contexts/AppInitContext';
 import AnnouncementBar from './AnnouncementBar';
 import CurrencySwitcher from '../common/CurrencySwitcher';
@@ -25,6 +25,11 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAuthenticated && (user?.role === 'ADMIN' || localStorage.getItem('adminToken'));
+
+  // Full display name — backend returns snake_case (first_name/last_name) on login,
+  // while setUser() after a profile edit stores camelCase (firstName/lastName).
+  const fullName = getUserFullName(user);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,6 +215,17 @@ export default function Navbar() {
                   </Link>
                 );
               })}
+              {/* About Us */}
+              <Link
+                to="/about"
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  location.pathname === '/about'
+                    ? 'text-primary bg-white/10'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {t('nav.about')}
+              </Link>
             </div>
 
             {/* Right Actions */}
@@ -246,7 +262,7 @@ export default function Navbar() {
                 >
                   <button className="flex items-center gap-2 px-2 sm:px-3 py-2 min-h-[44px] rounded-lg text-sm font-medium text-white/80 hover:text-primary hover:bg-white/10 transition-colors">
                     <User size={20} />
-                    <span className="hidden lg:inline">{isAdmin ? t('nav.admin') : (user?.firstName || t('nav.account'))}</span>
+                    <span className="hidden lg:inline">{isAdmin ? t('nav.admin') : (fullName || t('nav.account'))}</span>
                   </button>
 
                   <AnimatePresence>
@@ -258,7 +274,7 @@ export default function Navbar() {
                         className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-lift border border-border min-w-[200px] overflow-hidden"
                       >
                         <div className="p-4 bg-gradient-to-r from-primary to-primary-light text-white">
-                          <div className="font-semibold">{isAdmin ? 'Admin' : (user?.firstName || 'User')}</div>
+                          <div className="font-semibold">{isAdmin ? 'Admin' : (fullName || user?.email || 'User')}</div>
                           <div className="text-xs opacity-80">{user?.email || 'Admin User'}</div>
                         </div>
                         <div className="py-1">
@@ -400,7 +416,7 @@ export default function Navbar() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-white font-semibold text-base truncate">
-                            {isAuthenticated ? (user?.firstName || 'User') : 'Guest'}
+                            {isAuthenticated ? (fullName || user?.email || 'User') : 'Guest'}
                           </div>
                           <div className="text-white/35 text-sm truncate">
                             {isAuthenticated ? (user?.email || '') : 'Sign in for personalized experience'}
@@ -505,8 +521,9 @@ export default function Navbar() {
                           { to: '/products', label: t('nav.products') },
                           { to: '/wishlist', label: t('nav.wishlist') },
                           { to: '/cart', label: t('nav.cart') },
+                          { to: '/about', label: t('nav.about') },
                         ].map((link, idx) => {
-                          const Icon = [Home, Search, Heart, ShoppingCart][idx];
+                          const Icon = [Home, Search, Heart, ShoppingCart, Info][idx];
                           const isLinkActive = location.pathname === link.to ||
                             (link.to === '/products' && location.pathname.startsWith('/products'));
                           return (

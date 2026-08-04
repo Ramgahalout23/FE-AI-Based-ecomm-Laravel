@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import { NOTIFICATION_TYPES } from '../../utils/constants';
-import { formatDateTime } from '../../utils/formatters';
+import { formatDateTime, getUserFullName } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
@@ -228,7 +228,7 @@ const validateForm = () => {
         setUserOptions(
           users.map((u) => ({
             value: u.id,
-            label: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+            label: u.name || getUserFullName(u) || u.email,
             email: u.email,
           }))
         );

@@ -1,4 +1,5 @@
 import { formatDateTime } from '../../../utils/formatters';
+import PasswordInput from '../../../components/common/PasswordInput';
 import toast from '../../../utils/toast';
 import { adminAPI } from '../../../api/admin';
 
@@ -171,12 +172,11 @@ export default function IntegrationsTab({
           </div>
           <div className="form-group">
             <label>Google Client Secret</label>
-            <input
+            <PasswordInput
               value={settings.googleClientSecret || ''}
               onChange={e => setSettings({ ...settings, googleClientSecret: e.target.value })}
               placeholder="GOCSPX-..."
               disabled={settings.googleLoginEnabled !== 'true'}
-              type="password"
               autoComplete="off"
             />
           </div>
@@ -205,12 +205,11 @@ export default function IntegrationsTab({
           </div>
           <div className="form-group">
             <label>Facebook App Secret</label>
-            <input
+            <PasswordInput
               value={settings.facebookAppSecret || ''}
               onChange={e => setSettings({ ...settings, facebookAppSecret: e.target.value })}
               placeholder="xxxxxxxxxxxx"
               disabled={settings.facebookLoginEnabled !== 'true'}
-              type="password"
               autoComplete="off"
             />
           </div>
@@ -239,11 +238,10 @@ export default function IntegrationsTab({
           <div className="form-grid">
             <div className="form-group">
               <label>Meta Access Token</label>
-              <input
+              <PasswordInput
                 value={settings.metaAccessToken || ''}
                 onChange={e => setSettings({ ...settings, metaAccessToken: e.target.value })}
                 placeholder="EAAD..."
-                type="password"
                 autoComplete="off"
               />
             </div>
@@ -273,11 +271,10 @@ export default function IntegrationsTab({
           <div className="form-grid">
             <div className="form-group">
               <label>WhatsApp Access Token</label>
-              <input
+              <PasswordInput
                 value={settings.whatsappAccessToken || ''}
                 onChange={e => setSettings({ ...settings, whatsappAccessToken: e.target.value })}
                 placeholder="EAAx..."
-                type="password"
                 autoComplete="off"
               />
             </div>
@@ -315,31 +312,28 @@ export default function IntegrationsTab({
             </div>
             <div className="form-group">
               <label>Client Secret</label>
-              <input
+              <PasswordInput
                 value={settings.googleAdsClientSecret || ''}
                 onChange={e => setSettings({ ...settings, googleAdsClientSecret: e.target.value })}
                 placeholder="GOCSPX-..."
-                type="password"
                 autoComplete="off"
               />
             </div>
             <div className="form-group">
               <label>Developer Token</label>
-              <input
+              <PasswordInput
                 value={settings.googleAdsDeveloperToken || ''}
                 onChange={e => setSettings({ ...settings, googleAdsDeveloperToken: e.target.value })}
                 placeholder="A9B8C7D6E5F4..."
-                type="password"
                 autoComplete="off"
               />
             </div>
             <div className="form-group">
               <label>Refresh Token</label>
-              <input
+              <PasswordInput
                 value={settings.googleAdsRefreshToken || ''}
                 onChange={e => setSettings({ ...settings, googleAdsRefreshToken: e.target.value })}
                 placeholder="1//0c..."
-                type="password"
                 autoComplete="off"
               />
             </div>
@@ -387,11 +381,10 @@ export default function IntegrationsTab({
           </div>
           <div className="form-group">
             <label>API Key</label>
-            <input
+            <PasswordInput
               value={settings.aiProviderApiKey || settings.openaiApiKey || ''}
               onChange={e => setSettings({ ...settings, aiProviderApiKey: e.target.value, openaiApiKey: e.target.value })}
               placeholder={settings.aiProvider === 'openai' ? 'sk-proj-...' : 'Enter your API key'}
-              type="password"
               autoComplete="off"
             />
           </div>

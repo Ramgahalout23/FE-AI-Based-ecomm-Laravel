@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { useSettings } from '../../store/useSettings';
@@ -12,6 +13,8 @@ export default function RegisterPage() {
   const { t } = useTranslation();
   const [form, setForm] = useState({ email: '', password: '', firstName: '', lastName: '', phone: '' });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(null); // 'google' | 'facebook' | null
   const { register } = useAuthStore();
   const { getSetting } = useSettings();
   const navigate = useNavigate();
@@ -19,6 +22,8 @@ export default function RegisterPage() {
   const storeName = getSetting('storeName', 'THREVOLT');
   const adminEnabledGoogle = getSetting('googleLoginEnabled', 'true') !== 'false';
   const adminEnabledFacebook = getSetting('facebookLoginEnabled', 'true') !== 'false';
+  const hasGoogleCreds = Boolean(getSetting('googleClientId', '')) && Boolean(getSetting('googleClientSecret', ''));
+  const hasFacebookCreds = Boolean(getSetting('facebookAppId', '')) && Boolean(getSetting('facebookAppSecret', ''));
 
   const [oauthStatus, setOauthStatus] = useState(null);
 
@@ -29,8 +34,8 @@ export default function RegisterPage() {
   }, []);
 
   const providers = oauthStatus?.providers || {};
-  const googleConfigured = providers.google?.enabled === true;
-  const facebookConfigured = providers.facebook?.enabled === true;
+  const googleConfigured = providers.google?.enabled === true || hasGoogleCreds;
+  const facebookConfigured = providers.facebook?.enabled === true || hasFacebookCreds;
   const googleEnabled = adminEnabledGoogle && googleConfigured;
   const facebookEnabled = adminEnabledFacebook && facebookConfigured;
 
@@ -48,14 +53,44 @@ export default function RegisterPage() {
     } finally { setLoading(false); }
   };
 
-  const handleGoogleLogin = () => {
-    trackSignUp('google');
-    window.location.href = authAPI.googleLogin();
+  const handleGoogleLogin = async () => {
+    if (oauthLoading) return;
+    setOauthLoading('google');
+    try {
+      trackSignUp('google');
+      const res = await authAPI.googleLoginRedirect();
+      const redirectUrl = res?.data?.data?.redirect_url || res?.data?.redirect_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        window.location.href = authAPI.googleLogin();
+      }
+    } catch (err) {
+      console.error('Google login failed', err);
+      toast.error('Google login is currently unavailable');
+    } finally {
+      setOauthLoading(null);
+    }
   };
 
-  const handleFacebookLogin = () => {
-    trackSignUp('facebook');
-    window.location.href = authAPI.facebookLogin();
+  const handleFacebookLogin = async () => {
+    if (oauthLoading) return;
+    setOauthLoading('facebook');
+    try {
+      trackSignUp('facebook');
+      const res = await authAPI.facebookLoginRedirect();
+      const redirectUrl = res?.data?.data?.redirect_url || res?.data?.redirect_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        window.location.href = authAPI.facebookLogin();
+      }
+    } catch (err) {
+      console.error('Facebook login failed', err);
+      toast.error('Facebook login is currently unavailable');
+    } finally {
+      setOauthLoading(null);
+    }
   };
 
   return (
@@ -73,7 +108,8 @@ export default function RegisterPage() {
               {googleEnabled && (
                 <button
                   onClick={handleGoogleLogin}
-                  className="w-full flex items-center justify-center gap-3 border-2 border-border rounded-xl px-4 py-3 font-semibold text-sm hover:bg-gray-50 transition-colors"
+                  disabled={!!oauthLoading}
+                  className="w-full flex items-center justify-center gap-3 border-2 border-border rounded-xl px-4 py-3 font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -81,18 +117,33 @@ export default function RegisterPage() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  {t('auth.sign_up_google')}
+                  {oauthLoading === 'google' ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('auth.redirecting_google')}
+                    </>
+                  ) : (
+                    t('auth.sign_up_google')
+                  )}
                 </button>
               )}
               {facebookEnabled && (
                 <button
                   onClick={handleFacebookLogin}
-                  className="w-full flex items-center justify-center gap-3 border-2 border-border rounded-xl px-4 py-3 font-semibold text-sm hover:bg-gray-50 transition-colors"
+                  disabled={!!oauthLoading}
+                  className="w-full flex items-center justify-center gap-3 border-2 border-border rounded-xl px-4 py-3 font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white"
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                   </svg>
-                  {t('auth.sign_up_facebook')}
+                  {oauthLoading === 'facebook' ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      {t('auth.redirecting_facebook')}
+                    </>
+                  ) : (
+                    t('auth.sign_up_facebook')
+                  )}
                 </button>
               )}
             </div>
@@ -129,9 +180,19 @@ export default function RegisterPage() {
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="reg-password" className="text-xs font-bold text-text-muted uppercase tracking-wider">{t('auth.password')}</label>
-            <input id="reg-password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} autoComplete="new-password" className="w-full border-2 border-border rounded-xl px-4 py-3 outline-none focus:border-primary transition-colors" />
+            <div className="relative">
+              <input id="reg-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} autoComplete="new-password" className="w-full border-2 border-border rounded-xl px-4 py-3 pr-12 outline-none focus:border-primary transition-colors" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
-          <button type="submit" className="w-full bg-primary text-white rounded-xl py-3.5 font-bold hover:bg-primary-dark transition-colors shadow-glow-orange mt-6" disabled={loading}>
+          <button type="submit" className="w-full bg-primary text-white rounded-xl py-3.5 font-bold hover:bg-primary-dark transition-colors shadow-glow-orange mt-6" disabled={loading || !!oauthLoading}>
             {loading ? t('auth.creating') : t('auth.create_account')}
           </button>
         </form>

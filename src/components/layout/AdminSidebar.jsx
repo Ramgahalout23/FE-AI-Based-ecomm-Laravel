@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { useSettings } from '../../store/useSettings';
 import useAuthStore from '../../store/authStore';
-import { getImageUrl } from '../../utils/formatters';
+import { getImageUrl, getInitials, getUserFullName } from '../../utils/formatters';
 import { useSocketEvent, useSocketConnection, useOrderCreated, useReviewCreated } from '../../hooks/useSocket';
 import { notificationsAPI } from '../../api/notifications';
 
@@ -186,9 +186,8 @@ export default function AdminSidebar() {
     }
   };
 
-  const initials = user?.firstName
-    ? `${user.firstName[0]}${user.lastName?.[0] || ''}`.toUpperCase()
-    : user?.email?.[0]?.toUpperCase() || 'A';
+  const initials = getInitials(user?.firstName || user?.first_name, user?.lastName || user?.last_name)
+    || user?.email?.[0]?.toUpperCase() || 'A';
 
   const currentGroup = sections.find(g => g.section === activeSection) || sections[0];
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -314,7 +313,7 @@ export default function AdminSidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/60 truncate leading-tight">
-              {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Admin'}
+              {getUserFullName(user) || 'Admin'}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? 'bg-green-500' : 'bg-red-500'}`} />

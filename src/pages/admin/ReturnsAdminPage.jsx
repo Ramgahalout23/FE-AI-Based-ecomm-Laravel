@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
-import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime, getUserFullName } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import Pagination from '../../components/admin/Pagination';
 
@@ -291,7 +291,7 @@ export default function ReturnsAdminPage() {
                   {r.user ? (
                     <div>
                       <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>
-                        {r.user.firstName || r.user.name || r.user.email || '—'}
+                        {getUserFullName(r.user) || r.user.name || r.user.email || '—'}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
                         {r.user.email || ''}

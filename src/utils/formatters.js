@@ -180,6 +180,20 @@ export const getInitials = (firstName, lastName) => {
   return `${(firstName || '')[0] || ''}${(lastName || '')[0] || ''}`.toUpperCase();
 };
 
+/**
+ * Build a user's full display name.
+ * Handles both camelCase (frontend store shape, e.g. after a profile edit via
+ * setUser) and snake_case (Laravel API: first_name/last_name) field shapes.
+ * camelCase wins when both are present because it is the freshest data.
+ */
+export const getUserFullName = (user) => {
+  if (!user) return '';
+  return [user.firstName || user.first_name, user.lastName || user.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+};
+
 export const slugify = (text) => {
   if (!text) return '';
   return text

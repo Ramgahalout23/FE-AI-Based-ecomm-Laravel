@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import '../../styles/order-detail.css';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
-import { formatCurrency, formatDate, formatDateTime, getImageUrl, getProductImage } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatDateTime, getImageUrl, getProductImage, getUserFullName } from '../../utils/formatters';
 import { ORDER_STATUSES, CUSTOM_TEE_PRODUCT_ID } from '../../utils/constants';
 import '../../styles/shipping-label.css';
 import toast from '../../utils/toast';
@@ -194,7 +194,7 @@ export default function OrderDetailAdminPage() {
     if (!addr) return '\u2014';
     if (typeof addr === 'string') return addr;
     const parts = [
-      `${addr.firstName || ''} ${addr.lastName || ''}`.trim(),
+      `${addr.firstName || addr.first_name || ''} ${addr.lastName || addr.last_name || ''}`.trim(),
       addr.addressLine1,
       addr.addressLine2,
       `${addr.city || ''}, ${addr.state || ''} ${addr.zipCode || ''}`.trim(),
@@ -516,7 +516,7 @@ export default function OrderDetailAdminPage() {
         <div id="order-section-customer">
           <CollapsibleSection id="customer" title="Customer" icon="👤" defaultExpanded={false}>
             <div className="detail-grid two-col">
-              <div className="detail-item"><span className="label">Name</span><span className="value">{detail.user ? `${detail.user.firstName || ''} ${detail.user.lastName || ''}`.trim() : detail.customerName || detail.userId || '\u2014'}</span></div>
+              <div className="detail-item"><span className="label">Name</span><span className="value">{getUserFullName(detail.user) || detail.customerName || detail.userId || '\u2014'}</span></div>
               <div className="detail-item"><span className="label">Email</span><span className="value">{detail.user?.email || '\u2014'}</span></div>
               <div className="detail-item"><span className="label">Phone</span><span className="value">{detail.user?.phoneNumber || detail.shippingAddress?.phoneNumber || '\u2014'}</span></div>
               <div className="detail-item"><span className="label">User ID</span><span className="value" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{detail.userId || '\u2014'}</span></div>
@@ -1016,7 +1016,7 @@ export default function OrderDetailAdminPage() {
                   <div className="address-divider" />
                   <div className="address-box">
                     <div className="address-label"><Truck size={12} /> SHIP TO</div>
-                    <div className="address-name">{detail.customerName || detail.userId || 'Customer'}</div>
+                    <div className="address-name">{getUserFullName(detail.user) || detail.customerName || detail.userId || 'Customer'}</div>
                     <div className="address-detail">{formatAddress(detail.shippingAddress)}</div>
                   </div>
                 </div>
@@ -1025,7 +1025,7 @@ export default function OrderDetailAdminPage() {
                     <div className="billing-label"><CreditCard size={12} /> BILL TO</div>
                     <div className="billing-name">
                       {detail.billingAddress
-                        ? `${detail.billingAddress.firstName || ''} ${detail.billingAddress.lastName || ''}`.trim() || detail.customerName || '\u2014'
+                        ? `${detail.billingAddress.firstName || detail.billingAddress.first_name || ''} ${detail.billingAddress.lastName || detail.billingAddress.last_name || ''}`.trim() || detail.customerName || '\u2014'
                         : detail.customerName || '\u2014'}
                     </div>
                     <div className="billing-detail">{formatAddress(detail.billingAddress || detail.shippingAddress)}</div>

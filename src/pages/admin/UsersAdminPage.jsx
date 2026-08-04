@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
-import { formatDate, getInitials } from '../../utils/formatters';
+import { formatDate, getInitials, getUserFullName } from '../../utils/formatters';
 import { USER_ROLES } from '../../utils/constants';
 import toast from '../../utils/toast';
 import { downloadBlob } from '../../utils/download';
@@ -196,9 +196,9 @@ export default function UsersAdminPage() {
           <div className="detail-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), var(--gold-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '1rem' }}>
-                {getInitials(detail.firstName, detail.lastName)}
+                {getInitials(detail.firstName || detail.first_name, detail.lastName || detail.last_name)}
               </div>
-              <div><h3>{detail.firstName} {detail.lastName}</h3><span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{detail.email}</span></div>
+              <div><h3>{getUserFullName(detail) || '—'}</h3><span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{detail.email}</span></div>
             </div>
             <button className="btn-ghost btn-sm" onClick={() => setDetail(null)}>✕ Close</button>
           </div>
@@ -243,8 +243,8 @@ export default function UsersAdminPage() {
               <tr key={u.id}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', flexShrink: 0 }}>{getInitials(u.firstName, u.lastName)}</div>
-                    <strong>{u.firstName} {u.lastName}</strong>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--off-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', flexShrink: 0 }}>{getInitials(u.firstName || u.first_name, u.lastName || u.last_name)}</div>
+                    <strong>{getUserFullName(u) || '—'}</strong>
                   </div>
                 </td>
                 <td style={{ fontSize: '0.82rem' }}>{u.email}</td>

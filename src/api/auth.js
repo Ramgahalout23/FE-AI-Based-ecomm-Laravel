@@ -22,6 +22,8 @@ export const authAPI = {
   // OAuth login URLs (redirect-based)
   googleLogin: () => `${SERVER_BASE}/api/v1/auth/google`,
   facebookLogin: () => `${SERVER_BASE}/api/v1/auth/facebook`,
+  googleLoginRedirect: () => client.get('/auth/google', { headers: { Accept: 'application/json' } }),
+  facebookLoginRedirect: () => client.get('/auth/facebook', { headers: { Accept: 'application/json' } }),
 
   // Refresh OAuth strategies from server DB settings (admin only)
   refreshOAuth: () => client.post('/auth/refresh-oauth'),

@@ -8,7 +8,7 @@ import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import useAuthStore from '../../store/authStore';
 import { userProfileAPI } from '../../api/userProfile';
-import { getImageUrl, getInitials } from '../../utils/formatters';
+import { getImageUrl, getInitials, getUserFullName } from '../../utils/formatters';
 import toast from '../../utils/toast';
 
 export default function ProfilePage() {
@@ -28,8 +28,8 @@ export default function ProfilePage() {
   // Populate form when user data loads or form opens
   const openEditForm = () => {
     setEditForm({
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
+      firstName: user?.firstName || user?.first_name || '',
+      lastName: user?.lastName || user?.last_name || '',
       phone: user?.phone || '',
       avatar: user?.avatar || '',
     });
@@ -72,7 +72,7 @@ export default function ProfilePage() {
         updateData.avatar = editForm.avatar;
       }
       await userProfileAPI.update(updateData);
-      setUser({ ...user, firstName: editForm.firstName, lastName: editForm.lastName, phone: editForm.phone, avatar: editForm.avatar || user?.avatar });
+      setUser({ ...user, firstName: editForm.firstName, lastName: editForm.lastName, first_name: editForm.firstName, last_name: editForm.lastName, phone: editForm.phone, avatar: editForm.avatar || user?.avatar });
       setShowEditForm(false);
       toast.success('Profile updated');
     } catch (err) {
@@ -190,11 +190,11 @@ export default function ProfilePage() {
                   loading="lazy"
                 />
               ) : (
-                <span className="text-white font-bold text-lg">{getInitials(user?.firstName, user?.lastName) || <User size={22} />}</span>
+                <span className="text-white font-bold text-lg">{getInitials(user?.firstName || user?.first_name, user?.lastName || user?.last_name) || <User size={22} />}</span>
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl font-bold truncate">{t('profile.hello_user', { name: user?.firstName || 'User' })}</h2>
+              <h2 className="text-lg sm:text-xl font-bold truncate">{t('profile.hello_user', { name: getUserFullName(user) || 'User' })}</h2>
               <p className="text-white/80 text-xs sm:text-sm truncate">{user?.email}</p>
             </div>
           </div>

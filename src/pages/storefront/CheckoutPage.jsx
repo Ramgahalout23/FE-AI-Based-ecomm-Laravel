@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ShieldCheck, Truck, RefreshCw, Lock, ArrowRight, User, ExternalLink, UserPlus, ExternalLink as ExternalLinkIcon, AlertTriangle } from 'lucide-react';
 import { trackCheckoutStart, trackCheckoutComplete } from '../../services/tracker';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import PasswordInput from '../../components/common/PasswordInput';
 import { motion } from 'framer-motion';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
@@ -14,13 +15,18 @@ import { couponsAPI } from '../../api/coupons';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
 import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
-import { showError, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
+import { showError, showSuccess, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
 import { paymentsAPI } from '../../api/payments';
 import { ordersAPI } from '../../api/orders';
 import { getPaymentIcon } from '../../utils/paymentIcons';
 import { useSettings } from '../../store/useSettings';
 
-
+// Standard built-in methods — shown instantly on page load (respecting admin
+// toggles) while the settings-driven list is fetched from the API.
+const DEFAULT_PAYMENT_METHODS = [
+  { id: 'RAZORPAY', name: 'Razorpay', description: 'Pay via UPI, Card, NetBanking or Wallet' },
+  { id: 'COD', name: 'Cash on Delivery', description: 'Pay when you receive your package' },
+];
 
 export default function CheckoutPage() {
   const { items, subtotal, clearCart, setItems } = useCartStore();
@@ -48,6 +54,20 @@ export default function CheckoutPage() {
   const [autoDiscount, setAutoDiscount] = useState(0);
   const [autoDiscountPromos, setAutoDiscountPromos] = useState([]);
   const [storeOffers, setStoreOffers] = useState([]);
+
+  // Payment methods render instantly on page load: derive them from the admin
+  // settings already available via app-init, so disabled methods are hidden right
+  // away. Falls back to the standard defaults if settings aren't loaded yet. The
+  // API response (which also includes enabled custom gateways) takes precedence
+  // once it arrives below.
+  const seededMethods = useMemo(() => {
+    const m = [];
+    if (getSetting('razorpayEnabled', 'true') !== 'false') m.push(DEFAULT_PAYMENT_METHODS[0]);
+    if (getSetting('codEnabled', 'true') !== 'false') m.push(DEFAULT_PAYMENT_METHODS[1]);
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const displayMethods = paymentMethods.length > 0 ? paymentMethods : (seededMethods.length > 0 ? seededMethods : DEFAULT_PAYMENT_METHODS);
 
   // ── Client-side store offer calculation (works for ALL users, guest or authenticated) ──
   // Mirrors backend FlashSaleService logic: picks the BEST single offer, does NOT stack.
@@ -329,6 +349,15 @@ export default function CheckoutPage() {
 
       if (!orderId) {
         throw new Error('No order ID returned');
+      }
+
+      // Warn the user if some items were skipped (products no longer in database)
+      const skippedItems = data?.skippedItems || [];
+      if (skippedItems.length > 0) {
+        showSuccess(
+          `Some items were skipped because they are no longer available. ` +
+          `Your order has been placed with the remaining items.`
+        );
       }
 
       handleCheckoutAuth(data);
@@ -962,12 +991,11 @@ export default function CheckoutPage() {
                         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <input
+                        <PasswordInput
                           id="checkout-password"
-                          type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all bg-white"
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-black focus:ring-1 focus:ring-black transition-all bg-white"
                           placeholder="Create a secure password"
                           autoComplete="new-password"
                         />
@@ -1232,7 +1260,7 @@ export default function CheckoutPage() {
           <div className="payment-section order-3 md:col-start-1 md:row-start-2">
             <h2 className="font-display text-xl font-bold text-black mb-4">Payment Method</h2>
             <div className="space-y-3">
-              {paymentMethods.map((m) => {
+              {displayMethods.map((m) => {
                 const { icon: IconComponent, bg: iconBg, color: iconColor } = getPaymentIcon(m.id);
                 const isSelected = paymentMethod === m.id;
                 return (
