@@ -258,6 +258,99 @@ function AnimatedCancelled() {
   );
 }
 
+/* ═══════════════ PENDING ORDER AUTO-CANCEL COUNTDOWN ═══════════════ */
+function PendingOrderCountdown({ autoCancelAt, autoCancelMinutes = 45, onRefresh }) {
+  const { t } = useTranslation();
+  const [remaining, setRemaining] = useState(null);
+
+  const totalSeconds = Math.max(1, (Number(autoCancelMinutes) || 45) * 60);
+
+  useEffect(() => {
+    if (!autoCancelAt) {
+      setRemaining(null);
+      return;
+    }
+    const calc = () => Math.max(0, Math.round((new Date(autoCancelAt).getTime() - Date.now()) / 1000));
+    setRemaining(calc());
+    const interval = setInterval(() => setRemaining(calc()), 1000);
+    return () => clearInterval(interval);
+  }, [autoCancelAt]);
+
+  if (remaining == null || !autoCancelAt) return null;
+
+  const expired = remaining <= 0;
+  const urgent = !expired && remaining <= 10 * 60; // last 10 minutes → red
+  const pct = Math.max(0, Math.min(100, (remaining / totalSeconds) * 100));
+  const pad = (n) => String(n).padStart(2, '0');
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+  const timeLabel = h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 1.15 }}
+      className={`mt-6 mx-auto max-w-md rounded-2xl border p-4 text-left ${
+        expired
+          ? 'bg-red-50 border-red-200'
+          : urgent
+          ? 'bg-red-50/70 border-red-200'
+          : 'bg-amber-50 border-amber-200'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+          expired ? 'bg-red-100 text-red-600' : urgent ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'
+        }`}>
+          <Clock size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`text-xs font-bold uppercase tracking-wider ${expired || urgent ? 'text-red-700' : 'text-amber-700'}`}>
+            {expired
+              ? t('orders.detail.auto_cancel_expired')
+              : t('orders.detail.auto_cancel_label')}
+          </p>
+          <p className="text-[11px] text-gray-500 mt-0.5">
+            {expired
+              ? t('orders.detail.auto_cancel_expired_desc')
+              : t('orders.detail.auto_cancel_desc')}
+          </p>
+        </div>
+        <div
+          className={`font-mono font-bold text-xl tabular-nums shrink-0 ${
+            expired ? 'text-red-600' : urgent ? 'text-red-600' : 'text-amber-800'
+          }`}
+          aria-live="polite"
+        >
+          {expired ? '00:00' : timeLabel}
+        </div>
+      </div>
+
+      {/* Elapsed progress bar — shows how much of the payment window is gone */}
+      <div className="mt-3 h-1.5 rounded-full bg-black/5 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ease-linear ${
+            expired || urgent ? 'bg-red-500' : 'bg-amber-500'
+          }`}
+          style={{ width: `${expired ? 100 : 100 - pct}%` }}
+        />
+      </div>
+
+      {expired && onRefresh && (
+        <button
+          onClick={onRefresh}
+          className="mt-3 w-full py-2 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors inline-flex items-center justify-center gap-1.5"
+        >
+          <RefreshCw size={13} />
+          {t('orders.detail.auto_cancel_refresh')}
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
 /* ═══════════════ ORDER TIMELINE ═══════════════ */
 function OrderTimeline({ order }) {
   const { t } = useTranslation();
@@ -1054,6 +1147,22 @@ export default function OrderThankYouPage() {
     });
   };
 
+  // Re-fetch order status (used by the countdown's expired state and retry flows).
+  // Plain function (not useCallback) — it must live after the `loading`/`!order`
+  // early returns alongside the other event handlers, and no effect depends on it.
+  const handleRefreshStatus = async () => {
+    try {
+      const refreshed = await ordersAPI.getById(id);
+      const refreshedData = refreshed.data?.data || refreshed.data || null;
+      if (refreshedData) {
+        sessionStorage.setItem(`order_${id}`, JSON.stringify({ ...refreshedData, _cachedAt: Date.now() }));
+        setOrder(refreshedData);
+      }
+    } catch {
+      toast.error(t('orders.detail.failed_load_order'));
+    }
+  };
+
   // Retry Razorpay payment
   const handleRetryPayment = async () => {
     setRetrying(true);
@@ -1417,7 +1526,7 @@ export default function OrderThankYouPage() {
               transition={{ duration: 0.4, delay: 1.3 }}
               className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 py-2.5 px-4 rounded-xl mx-auto max-w-md"
             >
-              <Check size={14} Circle />
+              <CheckCircle size={14} />
               <span>{t('orders.detail.refund_notice')}</span>
             </motion.div>
           </div>
@@ -1501,6 +1610,13 @@ export default function OrderThankYouPage() {
                 {statusInfo.label}
               </span>
             </motion.div>
+
+            {/* Auto-cancel countdown — how long before this unpaid order is cancelled */}
+            <PendingOrderCountdown
+              autoCancelAt={order.autoCancelAt || (order.createdAt ? new Date(new Date(order.createdAt).getTime() + (Number(order.autoCancelMinutes) || 45) * 60000).toISOString() : null)}
+              autoCancelMinutes={order.autoCancelMinutes || 45}
+              onRefresh={handleRefreshStatus}
+            />
 
             {/* Retry Payment Button */}
             {canRetry && (

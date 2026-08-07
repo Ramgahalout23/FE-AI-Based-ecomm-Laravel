@@ -154,10 +154,10 @@ function HeroBanner({ banners }) {
         {/* Nav Arrows */}
         {slides.length > 1 && (
           <>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
               <ChevronLeft size={24} />
             </button>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
               <ChevronRight size={24} />
             </button>
           </>
@@ -216,10 +216,10 @@ function HeroBanner({ banners }) {
         {/* Nav Arrows */}
         {slides.length > 1 && (
           <>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
               <ChevronLeft size={24} />
             </button>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
               <ChevronRight size={24} />
             </button>
           </>
@@ -326,10 +326,10 @@ function HeroBanner({ banners }) {
       </AnimatePresence>
 
       {/* Nav Arrows (Show on hover on desktop) */}
-      <button onClick={prev} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+      <button onClick={prev} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
         <ChevronLeft size={24} />
       </button>
-      <button onClick={next} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 md:opacity-0 md:group-hover:opacity-100">
+      <button onClick={next} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
         <ChevronRight size={24} />
       </button>
 
@@ -997,19 +997,8 @@ function ProductRow({ title, products }) {
 }
 
 /* â•â•â•â•â•â•â•â•â•â•â• CURATED LOOKS â€” Dynamic Gallery (from Admin) â•â•â•â•â•â•â•â•â•â•â• */
-function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
+function CuratedLooksSection({ looks: curatedLooks = [] }) {
   const { t } = useTranslation();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = useCallback(async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [onRefresh, isRefreshing]);
 
   if (!curatedLooks || curatedLooks.length === 0) return null;
 
@@ -1032,17 +1021,6 @@ function CuratedLooksSection({ looks: curatedLooks = [], onRefresh }) {
             <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
               {t('home.curated_looks')}
             </h2>
-            {onRefresh && (
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="absolute -right-10 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all disabled:opacity-50 active:scale-90"
-                title="Refresh curated looks"
-                aria-label="Refresh curated looks"
-              >
-                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-            )}
           </div>
           <p className="text-gray-500 text-sm md:text-base mt-3 max-w-2xl mx-auto font-medium">
             Curated looks designed to bring together effortless styling, modern streetwear aesthetics, and everyday versatility in one complete fit.
@@ -1439,14 +1417,14 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); goPrev(); }}
-                className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 opacity-0 group-hover/slider:opacity-100 focus:opacity-100"
+                className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
                 aria-label="Previous review"
               >
                 <ChevronLeft size={16} className="transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); goNext(); }}
-                className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 opacity-0 group-hover/slider:opacity-100 focus:opacity-100"
+                className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
                 aria-label="Next review"
               >
                 <ChevronRight size={16} className="transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
@@ -1830,8 +1808,7 @@ export default function HomePage() {
       case 'curated_looks':
         return curatedLooksEnabled && (
           <AnimatedSection key="curated_looks" delay={0.05}>
-            <CuratedLooksSection looks={curatedLooks}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
+            <CuratedLooksSection looks={curatedLooks} />
           </AnimatedSection>
         );
       case 'tshirt_customizer':
@@ -1864,8 +1841,7 @@ export default function HomePage() {
       case 'reels':
         return reelsEnabled && (
           <AnimatedSection key="reels" delay={0.05}>
-            <ReelsSection reels={reels} loading={isLoading}
-              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] })} />
+            <ReelsSection reels={reels} loading={isLoading} />
           </AnimatedSection>
         );
       default:

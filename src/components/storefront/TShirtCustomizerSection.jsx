@@ -147,7 +147,6 @@ export default function TShirtCustomizerSection() {
       },
     });
     openCart();
-    toast.success('Custom design added to cart!');
   }, [frontUpload.designFile, backUpload.designFile, selectedSize, selectedColor, quantity, designNotes, placement, effectiveUnitPrice, addItem, openCart, getSetting, canAddToCart, frontMissing, backMissing]);
 
   return (

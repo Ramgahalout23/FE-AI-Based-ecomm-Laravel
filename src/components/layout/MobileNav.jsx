@@ -1,8 +1,9 @@
-import { Home, Search, Heart, ShoppingBag, User } from 'lucide-react';
+import { Home, Search, Heart, User } from 'lucide-react';
 import { memo, useRef, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import CartIcon from '../common/CartIcon';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 
@@ -118,7 +119,7 @@ export default memo(function MobileNav() {
     { path: '/', icon: Home, label: 'Home' },
     { path: '/products', icon: Search, label: 'Search' },
     { path: '/wishlist', icon: Heart, label: 'Wishlist' },
-    { path: '/cart', icon: ShoppingBag, label: 'Cart', badge: count },
+    { path: '/cart', icon: CartIcon, label: 'Cart', badge: count },
     { path: isAuthenticated ? '/profile' : '/login', icon: User, label: 'Profile' },
   ];
 

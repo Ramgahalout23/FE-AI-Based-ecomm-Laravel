@@ -1,4 +1,5 @@
-import { Heart, Eye, ShoppingCart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, X, Volume2, VolumeX, Minus, Plus, Image as ImageIcon } from 'lucide-react';
+import { Heart, Eye, ShoppingCart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, Pause, X, Volume2, VolumeX, Image as ImageIcon } from 'lucide-react';
+import ReelCard from '../../components/storefront/ReelCard';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -6,12 +7,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import { homepageAPI } from '../../api/homepage';
 import { formatCurrency, getImageUrl, getProductImage } from '../../utils/formatters';
-import { getColorHex, isLightColor } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import useCartStore from '../../store/cartStore';
 import useWishlistStore from '../../store/wishlistStore';
 import { cartAPI } from '../../api/cart';
-import { productsAPI } from '../../api/products';
 import { wishlistAPI } from '../../api/wishlist';
 import useAuthStore from '../../store/authStore';
 import { addedToCart, showError } from '../../utils/toast';
@@ -46,7 +45,8 @@ function getYouTubeEmbedUrl(url) {
   ];
   for (const p of patterns) {
     const m = url.match(p);
-    if (m?.[1]) return `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0`;
+    // enablejsapi=1 lets us pause/play the embed via postMessage
+    if (m?.[1]) return `https://www.youtube.com/embed/${m[1]}?autoplay=1&rel=0&enablejsapi=1`;
   }
   return null;
 }
@@ -56,11 +56,6 @@ function getVimeoEmbedUrl(url) {
   if (!url) return null;
   const m = url.match(/vimeo\.com\/(\d+)/);
   return m?.[1] ? `https://player.vimeo.com/video/${m[1]}?autoplay=1` : null;
-}
-
-function discountPercent(oldPrice, price) {
-  if (!oldPrice || !price) return 0;
-  return Math.round(((Number(oldPrice) - Number(price)) / Number(oldPrice)) * 100);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -73,7 +68,10 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [showPauseFlash, setShowPauseFlash] = useState(false);
   const videoRef = useRef(null);
+  const iframeRef = useRef(null);
+  const pauseFlashTimerRef = useRef(null);
 
   // ── Like state (seeded from backend likesCount / isLikedByUser) ──
   const [liked, setLiked] = useState(!!reel?.isLikedByUser);
@@ -128,6 +126,54 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
     else v.pause();
   }, [isPlaying, isEmbedVideo]);
 
+  // Control embed video (YouTube / Vimeo) via postMessage commands
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !isEmbedVideo || videoError) return;
+    try {
+      const cmd = youTubeEmbed
+        ? JSON.stringify({ event: 'command', func: isPlaying ? 'playVideo' : 'pauseVideo', args: [] })
+        : JSON.stringify({ method: isPlaying ? 'play' : 'pause' });
+      iframe.contentWindow.postMessage(cmd, '*');
+    } catch { /* iframe not ready yet */ }
+  }, [isPlaying, isEmbedVideo, youTubeEmbed, videoError]);
+
+  // Sync isPlaying from embed player state (YouTube onStateChange / Vimeo events)
+  useEffect(() => {
+    if (!isEmbedVideo || videoError) return;
+    const onMessage = (e) => {
+      // Only react to our own player iframe's messages (avoid unrelated embeds)
+      if (iframeRef.current && e.source !== iframeRef.current.contentWindow) return;
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (!data) return;
+        if (data.event === 'onStateChange') {
+          if (data.info === 1) setIsPlaying(true);      // PLAYING
+          else if (data.info === 2) setIsPlaying(false); // PAUSED
+          else if (data.info === 0) setIsPlaying(false); // ENDED → show replay overlay
+        } else if (data.event === 'play') {
+          setIsPlaying(true);
+        } else if (data.event === 'pause') {
+          setIsPlaying(false);
+        }
+      } catch { /* ignore non-JSON messages */ }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [isEmbedVideo, videoError]);
+
+  // Brief center icon flash whenever play state changes (native tap feedback)
+  const togglePlay = useCallback(() => {
+    setIsPlaying((p) => !p);
+    setShowPauseFlash(true);
+    if (pauseFlashTimerRef.current) clearTimeout(pauseFlashTimerRef.current);
+    pauseFlashTimerRef.current = setTimeout(() => setShowPauseFlash(false), 650);
+  }, []);
+
+  useEffect(() => () => {
+    if (pauseFlashTimerRef.current) clearTimeout(pauseFlashTimerRef.current);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -144,8 +190,17 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
         </div>
       )}
 
-      {/* Top-right controls — mute (native videos) + close grouped together */}
+      {/* Top-right controls — play/pause + mute (native) + close grouped together */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        {!videoError && (
+          <button
+            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+            aria-label={isPlaying ? 'Pause video' : 'Play video'}
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/20 hover:text-white transition-all active:scale-90"
+          >
+            {isPlaying ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+          </button>
+        )}
         {!isEmbedVideo && !videoError && (
           <button
             onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m); }}
@@ -168,18 +223,45 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-3xl mx-4 aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl"
+        className="relative w-full max-w-[min(400px,42vh,92vw)] mx-auto aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* YouTube / Vimeo embed */}
         {isEmbedVideo ? (
-          <iframe
-            src={youTubeEmbed || vimeoEmbed}
-            title={title || 'Video'}
-            className="w-full h-full"
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-          />
+          <>
+            <iframe
+              ref={iframeRef}
+              src={youTubeEmbed || vimeoEmbed}
+              title={title || 'Video'}
+              className="w-full h-full"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+            {/* Paused overlay — big play button on center tap for embeds too */}
+            <AnimatePresence>
+              {!isPlaying && (
+                <motion.button
+                  key="embed-paused-overlay"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                  aria-label="Play video"
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 cursor-pointer"
+                >
+                  <motion.span
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}
+                    className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl"
+                  >
+                    <Play size={30} className="text-white fill-white ml-1" />
+                  </motion.span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </>
         ) : videoError ? (
           /* Error fallback */
           <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-gray-900">
@@ -204,11 +286,54 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
               autoPlay
               playsInline
               loop
-              className={`w-full h-full object-contain ${videoReady ? 'opacity-100' : 'opacity-0'}`}
+              className={`w-full h-full object-cover ${videoReady ? 'opacity-100' : 'opacity-0'}`}
               onCanPlay={() => setVideoReady(true)}
               onError={() => setVideoError(true)}
-              onClick={() => setIsPlaying(p => !p)}
+              onClick={togglePlay}
             />
+
+            {/* Paused overlay — big play button on center tap */}
+            <AnimatePresence>
+              {!isPlaying && (
+                <motion.button
+                  key="paused-overlay"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                  aria-label="Play video"
+                  className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 cursor-pointer"
+                >
+                  <motion.span
+                    initial={{ scale: 0.5 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}
+                    className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl"
+                  >
+                    <Play size={30} className="text-white fill-white ml-1" />
+                  </motion.span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            {/* Tap flash feedback (native) */}
+            <AnimatePresence>
+              {showPauseFlash && (
+                <motion.div
+                  key="tap-flash"
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none"
+                >
+                  <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                    {isPlaying ? <Pause size={24} className="text-white" /> : <Play size={26} className="text-white fill-white ml-0.5" />}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Loading spinner */}
             {!videoReady && (
@@ -217,8 +342,8 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
               </div>
             )}
 
-            {/* Bottom controls */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-end gap-3">
+            {/* Bottom controls — z-20 so Like stays clickable above the paused overlay */}
+            <div className="absolute bottom-0 left-0 right-0 z-20 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-end gap-3">
               {reel?.id && (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleLike(); }}
@@ -243,398 +368,70 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
   );
 }
 
-/* ── Per-color thumbnail from the variant's first image (set in admin),
-     falling back to a solid color swatch when no variant image exists. ── */
-function getColorThumb(color, variants) {
-  const pv = variants || [];
-  const v = pv.find(x => (x.attributes || {}).color === color && Array.isArray(x.images) && x.images.length > 0);
-  const img = v?.images?.[0];
-  return typeof img === 'string' ? getImageUrl(img) : null;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   REEL BUY MODAL — Inline variant selection for reel products
-   ═══════════════════════════════════════════════════════════ */
-function ReelBuyModal({ productId, onClose }) {
-  const { isAuthenticated } = useAuthStore();
-  const addToCart = useCartStore((s) => s.addItem);
-  const openCart = useCartStore((s) => s.openCart);
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedColor, setSelectedColor] = useState('');
-  const [selectedSize, setSelectedSize] = useState('');
-  const [qty, setQty] = useState(1);
-  const [isAdding, setIsAdding] = useState(false);
-
-  // Fetch full product details
-  useEffect(() => {
-    if (!productId) return;
-    setLoading(true);
-    productsAPI.getById(productId)
-      .then(res => {
-        const data = res.data?.data || res.data || {};
-        setProduct(data);
-        if (data.colors?.length) setSelectedColor(data.colors[0]);
-        if (data.sizes?.length) setSelectedSize(data.sizes[0]);
-      })
-      .catch(err => {
-        setError(err?.response?.data?.message || 'Failed to load product');
-      })
-      .finally(() => setLoading(false));
-  }, [productId]);
-
-  // Lock body scroll
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
-
-  // Escape to close
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [onClose]);
-
-  const variants = product?.variants || product?.productvariant || [];
-  const hasVariants = Array.isArray(variants) && variants.length > 0;
-
-  const matchedVariant = hasVariants
-    ? variants.find(v =>
-        (v.attributes?.color || '') === selectedColor &&
-        (v.attributes?.size || '') === selectedSize
-      ) || null
-    : null;
-
-  // Auto-select first available variant
-  useEffect(() => {
-    if (!hasVariants || !product) return;
-    if (matchedVariant) return;
-    const first = variants.find(v => (v.quantity || 0) > 0);
-    if (first?.attributes) {
-      if (first.attributes.color && product.colors?.length) setSelectedColor(first.attributes.color);
-      if (first.attributes.size && product.sizes?.length) setSelectedSize(first.attributes.size);
-    }
-  }, [product, hasVariants, variants, matchedVariant]);
-
-  const colors = product?.colors || [];
-  const sizes = product?.sizes || [];
-  const displayPrice = matchedVariant?.price ?? product?.price ?? 0;
-  const displayOldPrice = product?.oldPrice || product?.old_price || null;
-  const displayDiscount = displayOldPrice ? Math.round(((Number(displayOldPrice) - Number(displayPrice)) / Number(displayOldPrice)) * 100) : null;
-  const canAdd = hasVariants
-    ? (selectedColor && selectedSize && matchedVariant && (matchedVariant.quantity || 0) > 0)
-    : !hasVariants && product
-    ? ((product.quantity ?? 0) > 0)
-    : false;
-
-  const handleAddBag = async () => {
-    if (isAdding || !canAdd || !product) return;
-    setIsAdding(true);
-    try {
-      const cartItem = {
-        id: product.id,
-        productId: product.id,
-        name: product.name,
-        price: displayPrice,
-        image: getProductImage(product),
-        imageUrl: matchedVariant?.images?.[0] || getProductImage(product),
-        quantity: qty,
-        ...(selectedSize && { size: selectedSize }),
-        ...(selectedColor && { color: selectedColor }),
-        ...(matchedVariant?.id && { variantId: matchedVariant.id }),
-      };
-      addToCart(cartItem);
-      if (isAuthenticated) {
-        await cartAPI.add({
-          productId: product.id,
-          quantity: qty,
-          size: selectedSize || null,
-          color: selectedColor || null,
-        }).catch(() => {});
-      }
-      addedToCart(product.name);
-      setTimeout(() => openCart(), 300);
-      onClose();
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  const imgUrl = getProductImage(product);
-  const imageSrc = imgUrl ? getImageUrl(imgUrl) : null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Premium bottom sheet */}
-      <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-        className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden sm:mx-4 sm:mb-0 max-h-[85vh] sm:max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Drag handle (mobile) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-gray-300/60" />
-        </div>
-
-        {/* Close button */}
-        <button onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-gray-100/80 backdrop-blur-sm flex items-center justify-center text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all active:scale-90 shadow-sm">
-          <X size={14} />
-        </button>
-
-        {/* Loading */}
-        {loading && (
-          <div className="p-10 flex flex-col items-center justify-center gap-4 min-h-[200px]">
-            <div className="w-8 h-8 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
-            <p className="text-sm text-gray-400 font-medium">Loading product...</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {!loading && error && (
-          <div className="p-10 flex flex-col items-center justify-center gap-3 min-h-[200px]">
-            <span className="text-4xl">😕</span>
-            <p className="text-sm text-gray-500 text-center">{error}</p>
-            <button onClick={onClose} className="px-6 py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-all">Close</button>
-          </div>
-        )}
-
-        {/* Product Details */}
-        {!loading && !error && product && (
-          <>
-            {/* Product header with image row */}
-            <div className="px-5 pt-5 pb-3 flex items-center gap-4">
-              <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 shrink-0 border border-gray-200 shadow-sm relative">
-                {imageSrc ? (
-                  <img src={imageSrc} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl text-gray-200">👕</div>
-                )}
-                {displayDiscount && (
-                  <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-500 text-white text-[7px] font-bold rounded-md shadow-sm">
-                    -{displayDiscount}%
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="card-title">{product.name}</h3>
-                <div className="flex items-baseline gap-2 mt-1">
-                  {displayOldPrice && <span className="text-xs text-gray-400 line-through">{formatCurrency(displayOldPrice)}</span>}
-                  <span className="price-item text-red-500">{formatCurrency(displayPrice)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Scrollable options area */}
-            <div className="px-5 pb-5 space-y-4 overflow-y-auto max-h-[50vh]">
-              <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
-
-              {/* Color Selector */}
-              {colors.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                    Color · <span className="text-gray-900 font-bold">{selectedColor || 'Select'}</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2.5">
-                    {colors.map(c => {
-                      const isLightShade = isLightColor(c);
-                      const isSelected = selectedColor === c;
-                      const colorVariants = variants.filter(v => v.attributes?.color === c);
-                      const hasStock = colorVariants.some(v => (v.quantity || 0) > 0);
-                      const colorThumb = getColorThumb(c, variants);
-                      return (
-                        <button
-                          key={c}
-                          onClick={() => !hasStock ? null : setSelectedColor(c)}
-                          disabled={!hasStock}
-                          className={`relative rounded-[3px] overflow-hidden transition-all duration-200 ${
-                            !hasStock ? 'opacity-30 cursor-not-allowed' :
-                            isSelected ? 'ring-2 ring-black ring-offset-2 scale-110 shadow-md' : 'ring-1 ring-gray-200 hover:ring-gray-400 hover:scale-105'
-                          } w-8 h-8`}
-                          title={!hasStock ? `${c} - Out of Stock` : c}
-                        >
-                          {colorThumb ? (
-                            <img src={colorThumb} alt={c} loading="lazy" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className={`w-full h-full ${isLightShade ? 'border border-gray-300' : ''}`} style={{ background: getColorHex(c) || '#ccc' }} />
-                          )}
-                          {!hasStock && <div className="absolute inset-0 flex items-center justify-center"><div className="w-[140%] h-[1.5px] bg-gray-400 rotate-45 absolute rounded-full" /></div>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Size Selector */}
-              {sizes.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-                    Size · <span className="text-gray-900 font-bold">{selectedSize || 'Select'}</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {sizes.map(s => {
-                      const isSelected = selectedSize === s;
-                      const sizeVariants = variants.filter(v => v.attributes?.size === s);
-                      const hasStock = sizeVariants.some(v => (v.quantity || 0) > 0);
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => !hasStock ? null : setSelectedSize(s)}
-                          disabled={!hasStock}
-                          className={`px-4 py-2 text-[11px] font-bold rounded-xl transition-all duration-150 ${
-                            !hasStock ? 'opacity-25 cursor-not-allowed text-gray-400 bg-gray-50 line-through' :
-                            isSelected ? 'bg-gray-900 text-white shadow-md scale-[1.02] ring-1 ring-gray-900' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-[1.02]'
-                          }`}
-                        >{s}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Quantity + Add to Bag */}
-              <div className="pt-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0 bg-gray-50">
-                    <button
-                      onClick={() => setQty(Math.max(1, qty - 1))}
-                      disabled={qty <= 1}
-                      className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed active:bg-gray-200"
-                    ><Minus size={14} /></button>
-                    <span className="w-11 h-11 flex items-center justify-center text-sm font-bold text-gray-900 bg-white border-x border-gray-200">{qty}</span>
-                    <button
-                      onClick={() => setQty(qty + 1)}
-                      className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all active:bg-gray-200"
-                    ><Plus size={14} /></button>
-                  </div>
-
-                  <button
-                    onClick={handleAddBag}
-                    disabled={!canAdd || isAdding}
-                    className={`flex-1 h-11 flex items-center justify-center gap-2 text-xs font-bold rounded-xl transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed ${
-                      canAdd && !isAdding
-                        ? 'bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-gray-800 hover:to-gray-700 shadow-lg shadow-gray-900/20 hover:shadow-xl'
-                        : 'bg-gray-100 text-gray-400'
-                    }`}
-                  >
-                    {isAdding ? (
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : !canAdd ? (
-                      hasVariants && (!selectedColor || !selectedSize) ? 'Select options' : 'Sold Out'
-                    ) : (
-                      <><ShoppingCart size={15} className="-ml-1" /> Add to Bag</>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════
    WATCH & BUY — Shoppable Video Reels Section
    ═══════════════════════════════════════════════════════════ */
 function ShoppableVideoSection({ reels }) {
+  const { t } = useTranslation();
   const { isAuthenticated } = useAuthStore();
   const addItem = useCartStore((s) => s.addItem);
-  const openCart = useCartStore((s) => s.openCart);
 
   const [activeVideo, setActiveVideo] = useState(null);
-  const [buyProductId, setBuyProductId] = useState(null);
+  const [reelLikeMap, setReelLikeMap] = useState({});
+  const reelLikeMapRef = useRef({});
 
-  // ── Quick-Add Inline State ──
-  const [quickAddProductId, setQuickAddProductId] = useState(null);
-  const [quickAddColor, setQuickAddColor] = useState('');
-  const [quickAddSize, setQuickAddSize] = useState('');
-  const [quickAddQty, setQuickAddQty] = useState(1);
-  const [quickAddIsAdding, setQuickAddIsAdding] = useState(false);
+  // Seed reel-like state from the backend payload
+  useEffect(() => {
+    const map = {};
+    (Array.isArray(reels) ? reels : []).forEach((r) => {
+      map[r.id] = { liked: !!r.isLikedByUser, count: Number(r.likesCount) || 0 };
+    });
+    reelLikeMapRef.current = map;
+    setReelLikeMap(map);
+  }, [reels]);
 
-  const hasSelectableVariants = useCallback((product) => {
-    if (!product) return false;
-    const variants = product.variants || product.productvariant;
-    if (!Array.isArray(variants) || variants.length === 0) return false;
-    return variants.some(v => v.attributes?.color || v.attributes?.size);
-  }, []);
-
-  const openQuickAdd = useCallback((product) => {
-    setQuickAddProductId(product.id);
-    setQuickAddColor(product.colors?.[0] || '');
-    setQuickAddSize(product.sizes?.[0] || '');
-    setQuickAddQty(1);
-    setQuickAddIsAdding(false);
-  }, []);
-
-  const closeQuickAdd = useCallback(() => {
-    setQuickAddProductId(null);
-    setQuickAddColor('');
-    setQuickAddSize('');
-    setQuickAddQty(1);
-    setQuickAddIsAdding(false);
-  }, []);
-
-  const confirmQuickAdd = useCallback(async (product) => {
-    if (quickAddIsAdding || !product) return;
-    setQuickAddIsAdding(true);
-    try {
-      const variants = product.variants || product.productvariant || [];
-      const hasVariants = variants.length > 0;
-      let matchedVariant = null;
-      if (hasVariants && quickAddColor && quickAddSize) {
-        matchedVariant = variants.find(v => v.attributes?.color === quickAddColor && v.attributes?.size === quickAddSize) || null;
-      } else if (hasVariants && quickAddColor) {
-        matchedVariant = variants.find(v => v.attributes?.color === quickAddColor) || null;
-      } else if (hasVariants && quickAddSize) {
-        matchedVariant = variants.find(v => v.attributes?.size === quickAddSize) || null;
-      }
-      if (!matchedVariant && hasVariants) {
-        matchedVariant = variants.find(v => (v.quantity || 0) > 0) || variants[0];
-      }
-      addItem({
-        id: product.id,
+  const addReelProduct = useCallback((product, opts = {}) => {
+    if (!product) return;
+    const qty = Math.max(1, opts?.qty || 1);
+    const variants = product.variants || product.productvariant || [];
+    const matched = variants.find(v => v.id === opts?.variantId) || null;
+    addItem({
+      id: product.id,
+      productId: product.id,
+      name: product.name,
+      price: matched?.price ?? product.price,
+      image: getProductImage(product),
+      imageUrl: matched?.images?.[0] || getProductImage(product),
+      quantity: qty,
+      ...(opts?.size && { size: opts.size }),
+      ...(opts?.color && { color: opts.color }),
+      ...(matched?.id && { variantId: matched.id }),
+    });
+    if (isAuthenticated) {
+      cartAPI.add({
         productId: product.id,
-        name: product.name,
-        price: matchedVariant?.price ?? product.price,
-        image: getProductImage(product),
-        imageUrl: matchedVariant?.images?.[0] || getProductImage(product),
-        quantity: quickAddQty,
-        ...(quickAddSize && { size: quickAddSize }),
-        ...(quickAddColor && { color: quickAddColor }),
-        ...(matchedVariant?.id && { variantId: matchedVariant.id }),
-      });
-      if (isAuthenticated) {
-        await cartAPI.add({
-          productId: product.id,
-          quantity: quickAddQty,
-          size: quickAddSize || null,
-          color: quickAddColor || null,
-        }).catch(() => {});
-      }
-      addedToCart(product.name);
-      setTimeout(() => openCart(), 400);
-      closeQuickAdd();
-    } finally {
-      setQuickAddIsAdding(false);
+        quantity: qty,
+        size: opts?.size || null,
+        color: opts?.color || null,
+      }).catch(() => {});
     }
-  }, [quickAddColor, quickAddSize, quickAddQty, addItem, isAuthenticated, openCart, closeQuickAdd, quickAddIsAdding]);
+    addedToCart(product.name);
+  }, [isAuthenticated, addItem]);
 
-  if (!reels || reels.length === 0) return null;
+  const toggleReelLike = useCallback((reel) => {
+    if (!reel?.id) return;
+    const cur = reelLikeMapRef.current[reel.id] || { liked: false, count: 0 };
+    const nextLiked = !cur.liked;
+    const next = {
+      ...reelLikeMapRef.current,
+      [reel.id]: { liked: nextLiked, count: Math.max(0, cur.count + (nextLiked ? 1 : -1)) },
+    };
+    reelLikeMapRef.current = next;
+    setReelLikeMap(next);
+    if (!isAuthenticated) return;
+    if (nextLiked) reelLikesAPI.like(reel.id).catch(() => {});
+    else reelLikesAPI.unlike(reel.id).catch(() => {});
+  }, [isAuthenticated]);
 
   const handlePlayVideo = (reel) => {
     setActiveVideo({
@@ -645,15 +442,7 @@ function ShoppableVideoSection({ reels }) {
     });
   };
 
-  const handleBuy = (e, product) => {
-    e.stopPropagation();
-    if (!product) return;
-    if (hasSelectableVariants(product)) {
-      openQuickAdd(product);
-    } else {
-      setBuyProductId(product.id);
-    }
-  };
+  if (!reels || reels.length === 0) return null;
 
   return (
     <section className="py-16 md:py-20 bg-white">
@@ -673,228 +462,22 @@ function ShoppableVideoSection({ reels }) {
           </p>
         </div>
 
-        {/* Shoppable Reel Cards Grid */}
+        {/* Shoppable Reel Cards — same compact cards as the homepage */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {reels.slice(0, 8).map((reel, idx) => {
-            const p = reel.products?.[0] || null;
-            const isYouTube = isYouTubeUrl(reel.videoUrl);
-
             return (
-              <motion.div
+              <ReelCard
                 key={reel.id || idx}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-30px' }}
-                transition={{ duration: 0.45, delay: idx * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                className="group cursor-pointer"
-                onClick={() => handlePlayVideo(reel)}
-              >
-                {/* Video Thumbnail Container */}
-                <div className="relative aspect-[9/12] md:aspect-[9/14] bg-gray-100 overflow-hidden mb-3 md:mb-4 rounded-lg shadow-sm">
-                  {reel.imageUrl ? (
-                    <img
-                      loading="lazy"
-                      src={reel.imageUrl}
-                      alt={reel.title || 'Video'}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl">🎬</div>
-                  )}
-
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-
-                  {/* Play button overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30">
-                      <Play size={24} className="text-white ml-0.5" />
-                    </div>
-                  </div>
-
-                  {/* Badge */}
-                  <div className="absolute top-3 left-3">
-                    <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-sm border border-white/15 text-white text-[8px] font-bold uppercase tracking-wider shadow-lg">
-                      {isYouTube ? 'YouTube' : 'Video'}
-                    </span>
-                  </div>
-
-                  {/* Duration / external link indicator */}
-                  {isYouTube && (
-                    <div className="absolute top-3 right-3">
-                      <span className="px-2 py-0.5 rounded-md bg-red-600/80 text-white text-[7px] font-bold uppercase tracking-wider">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="inline-block mr-0.5">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* ── Quick-add options (compact inline within bottom area) ── */}
-                  <AnimatePresence>
-                    {quickAddProductId === p?.id && (
-                      <motion.div key="quick-add-inline"
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden"
-                      >
-                        <div className="p-2.5 bg-white/98 backdrop-blur-xl border-t border-gray-200/80 shadow-lg">
-                          {/* Close + header */}
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[8px] font-bold text-gray-500 uppercase tracking-wider">Quick Add</span>
-                            <button onClick={(e) => { e.stopPropagation(); closeQuickAdd(); }}
-                              className="w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all active:scale-90">
-                              <X size={7} />
-                            </button>
-                          </div>
-                          {/* Colors & Sizes inline */}
-                          {(() => {
-                            const variants = p?.variants || p?.productvariant || [];
-                            const colors = [...new Set(variants.map(v => v.attributes?.color).filter(Boolean))];
-                            const sizes = [...new Set(variants.map(v => v.attributes?.size).filter(Boolean))];
-                            const oosColors = new Set();
-                            const oosSizes = new Set();
-                            colors.forEach(c => { if (!variants.some(v => v.attributes?.color === c && (v.quantity || 0) > 0)) oosColors.add(c); });
-                            sizes.forEach(s => { if (!variants.some(v => v.attributes?.size === s && (v.quantity || 0) > 0)) oosSizes.add(s); });
-                            return (
-                              <div className="space-y-1.5">
-                                {colors.length > 0 && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[7px] font-semibold text-gray-400 uppercase shrink-0">Color:</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {colors.map(c => {
-                                        const isOOS = oosColors.has(c);
-                                        const isSelected = quickAddColor === c;
-                                        const isLightShade = isLightColor(c);
-                                        return (
-                                          <button key={c}
-                                            disabled={isOOS}
-                                            onClick={(e) => { e.stopPropagation(); setQuickAddColor(c); }}
-                                            className={`w-4 h-4 rounded-[3px] border overflow-hidden flex items-center justify-center transition-all duration-150 ${
-                                              isSelected ? 'border-black ring-1 ring-black/20 scale-110' : isOOS ? 'border-gray-200 opacity-30 cursor-not-allowed' : 'border-gray-300 hover:border-gray-500'
-                                            }`}
-                                            title={c}
-                                          >
-                                            <div className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''} ${isOOS ? 'opacity-50' : ''}`}
-                                              style={{ background: getColorHex(c) }} />
-                                            {isOOS && <div className="absolute w-[130%] h-[1px] bg-gray-400 rotate-45 rounded-full" />}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                                {sizes.length > 0 && (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[7px] font-semibold text-gray-400 uppercase shrink-0">Size:</span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {sizes.map(s => {
-                                        const isOOS = oosSizes.has(s);
-                                        const isSelected = quickAddSize === s;
-                                        return (
-                                          <button key={s}
-                                            disabled={isOOS}
-                                            onClick={(e) => { e.stopPropagation(); setQuickAddSize(s); }}
-                                            className={`px-1.5 py-0.5 text-[7px] font-bold rounded transition-all duration-150 ${
-                                              isOOS ? 'opacity-20 cursor-not-allowed text-gray-400 bg-gray-50 line-through' : isSelected ? 'bg-black text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                            }`}
-                                          >{s}</button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Add to Cart row */}
-                                <div className="flex items-center gap-1.5 pt-0.5">
-                                  <div className="flex items-center border border-gray-200 rounded overflow-hidden shrink-0">
-                                    <button onClick={(e) => { e.stopPropagation(); setQuickAddQty(Math.max(1, quickAddQty - 1)); }}
-                                      disabled={quickAddQty <= 1}
-                                      className="w-5 h-5 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-                                      <Minus size={7} />
-                                    </button>
-                                    <span className="w-5 h-5 flex items-center justify-center text-[8px] font-bold text-gray-800 bg-gray-50 border-x border-gray-200">{quickAddQty}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); setQuickAddQty(quickAddQty + 1); }}
-                                      className="w-5 h-5 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-all">
-                                      <Plus size={7} />
-                                    </button>
-                                  </div>
-                                  <button onClick={(e) => { e.stopPropagation(); confirmQuickAdd(p); }}
-                                    disabled={quickAddIsAdding}
-                                    className={`flex-1 h-6 flex items-center justify-center gap-1 text-[7px] font-bold rounded transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed ${
-                                      !quickAddIsAdding ? 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm' : 'bg-gray-100 text-gray-400'
-                                    }`}>
-                                    {quickAddIsAdding ? (
-                                      <span className="w-2 h-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    ) : (
-                                      <><ShoppingCart size={7} /> Add to Cart</>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Regular product info at bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
-                    <div className="bg-white/90 backdrop-blur-md rounded-xl px-3 py-2.5 shadow-lg border border-white/20"
-                      style={quickAddProductId === p?.id ? { opacity: 0 } : {}}>
-                      {/* Product thumbnail + name */}
-                      {p && (
-                        <div className="flex items-center gap-2 mb-2">
-                          {p.image_url && (
-                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
-                              <img src={p.image_url} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="card-title">{p.name || reel.title}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {p.old_price && <span className="text-[9px] text-gray-400 line-through">{formatCurrency(p.old_price)}</span>}
-                              <span className="price-item text-red-500">{formatCurrency(p.price)}</span>
-                              {p.old_price && p.price && (
-                                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[6px] font-bold">
-                                  {discountPercent(p.old_price, p.price)}% OFF
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action buttons */}
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handlePlayVideo(reel); }}
-                          className="flex-1 py-1.5 rounded-lg bg-black text-white text-[8px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-all active:scale-95 flex items-center justify-center gap-1"
-                        >
-                          <Play size={9} />
-                          Watch
-                        </button>
-                        {p && (
-                          <button
-                            onClick={(e) => handleBuy(e, p)}
-                            className="flex-1 py-1.5 rounded-lg bg-emerald-500 text-white text-[8px] font-bold uppercase tracking-wider hover:bg-emerald-600 transition-all active:scale-95 flex items-center justify-center gap-1"
-                          >
-                            <ShoppingCart size={9} />
-                            Buy
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Title below card */}
-                {reel.title && (
-                  <p className="text-xs md:text-sm font-medium text-gray-700 line-clamp-1 leading-tight">{reel.title}</p>
-                )}
-              </motion.div>
+                reel={reel}
+                index={idx}
+                widthClass="w-full"
+                onOpen={() => handlePlayVideo(reel)}
+                badgeFallback={t('reels.watch_and_buy')}
+                autoPlayInView
+                liked={!!reelLikeMap[reel.id]?.liked}
+                onToggleLike={() => toggleReelLike(reel)}
+                onAddToCart={addReelProduct}
+              />
             );
           })}
         </div>
@@ -913,23 +496,10 @@ function ShoppableVideoSection({ reels }) {
           />
         )}
       </AnimatePresence>
-
-      {/* Reel Buy Modal — Inline variant selection */}
-      <AnimatePresence>
-        {buyProductId && (
-          <ReelBuyModal
-            productId={buyProductId}
-            onClose={() => setBuyProductId(null)}
-          />
-        )}
-      </AnimatePresence>
     </section>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HERO SECTION
-   ═══════════════════════════════════════════════════════════ */
 function SelektHero() {
   const navigate = useNavigate();
   return (
@@ -1038,7 +608,7 @@ function SelektProductCard({ product, index }) {
           <div className="w-full h-full flex items-center justify-center text-5xl text-gray-200">👕</div>
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 pointer-events-none" />
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-10">
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 transition-all duration-300 z-10">
           <button onClick={handleWishlist} className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all duration-200 active:scale-90 ${inWishlist ? 'bg-rose-500 text-white' : 'bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-white hover:text-gray-900'}`}>
             <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
           </button>
@@ -1055,7 +625,7 @@ function SelektProductCard({ product, index }) {
           <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-red-500 text-white text-[9px] font-bold rounded-md shadow-md">-{discount}%</div>
         )}
         {!isOutOfStock && (
-          <button onClick={handleQuickAdd} className="absolute bottom-0 inset-x-0 z-20 h-10 bg-black/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+          <button onClick={handleQuickAdd} className="absolute bottom-0 inset-x-0 z-20 h-10 bg-black/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300">
             {isAdding ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><ShoppingCart size={13} /> Quick Add</>}
           </button>
         )}
@@ -1066,7 +636,7 @@ function SelektProductCard({ product, index }) {
           {product.oldPrice && <span className="text-sm md:text-base text-gray-500 line-through font-normal">{formatCurrency(product.oldPrice)}</span>}
           <span className="price-item text-red-500 ml-1.5">{formatCurrency(product.price)}</span>
         </div>
-        <p className="text-[10px] md:text-[11px] text-gray-400 uppercase tracking-[0.03em] mt-0.5 font-medium">Unit price / per</p>
+
       </div>
     </motion.div>
   );

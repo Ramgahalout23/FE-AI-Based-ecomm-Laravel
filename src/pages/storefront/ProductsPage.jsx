@@ -204,7 +204,7 @@ function CategoryChips({ categories, selectedCategory, onCategoryChange }) {
       {canScrollLeft && (
         <button
           onClick={() => scrollBy(-1)}
-          className="hidden md:flex absolute -left-3.5 top-[calc(50%+12px)] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 items-center justify-center text-gray-600 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
+          className="hidden md:flex absolute -left-3.5 top-[calc(50%+12px)] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 items-center justify-center text-gray-600 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95"
           aria-label="Scroll left"
         >
           <ChevronLeft size={16} />
@@ -213,7 +213,7 @@ function CategoryChips({ categories, selectedCategory, onCategoryChange }) {
       {canScrollRight && (
         <button
           onClick={() => scrollBy(1)}
-          className="hidden md:flex absolute -right-3.5 top-[calc(50%+12px)] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 items-center justify-center text-gray-600 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
+          className="hidden md:flex absolute -right-3.5 top-[calc(50%+12px)] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md shadow-lg border border-gray-200/60 items-center justify-center text-gray-600 hover:bg-white hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95"
           aria-label="Scroll right"
         >
           <ChevronRight size={16} />

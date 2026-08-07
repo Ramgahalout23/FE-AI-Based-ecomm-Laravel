@@ -1,8 +1,9 @@
-import { ShoppingCart, Search, User, Menu, X, Heart, LogOut, Home, Info, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Search, User, Menu, X, Heart, LogOut, Home, Info, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+import CartIcon from '../common/CartIcon';
 import NotificationBell from '../common/NotificationBell';
 import SearchModal from '../common/SearchModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +22,7 @@ import LanguageSwitcher from '../common/LanguageSwitcher';
 export default function Navbar() {
   const { t } = useTranslation();
   const { isAuthenticated, user, logout } = useAuthStore();
-  const { count } = useCartStore();
+  const { count, openCart } = useCartStore();
   const navigate = useNavigate();
   const location = useLocation();
   const isAdmin = isAuthenticated && (user?.role === 'ADMIN' || localStorage.getItem('adminToken'));
@@ -131,8 +132,8 @@ export default function Navbar() {
       <AnnouncementBar />
       {/* Main Navbar */}
       <nav>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="relative flex items-center justify-between h-16 gap-4">
 
             {/* Mobile Left — Menu + Search (hidden on desktop) */}
             <div className="flex items-center gap-0.5 lg:hidden">
@@ -154,8 +155,8 @@ export default function Navbar() {
               </button>
             </div>
 
-            {/* Center Logo */}
-            <Link to="/" className="flex items-center flex-shrink-0 group">
+            {/* Center Logo — absolutely centered on desktop (lg+), in-flow on mobile */}
+            <Link to="/" className="flex items-center flex-shrink-0 group lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2">
               {logo ? (
                 <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
                   <img 
@@ -172,8 +173,8 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* Center Nav - Custom Pages */}
-            <div className="hidden lg:flex items-center justify-center flex-1 gap-1">
+            {/* Left Nav Links — Desktop only (logo floats centered, links sit left) */}
+            <div className="hidden lg:flex items-center justify-start gap-1">
               {/* Watch & Buy */}
               <Link
                 to="/watch-and-buy"
@@ -298,19 +299,13 @@ export default function Navbar() {
                 </div>
               ) : (
                 <>
-                  {/* Mobile: User icon */}
+                  {/* User icon — visible on all screens */}
                   <Link
                     to="/login"
-                    className="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
+                    aria-label={t('nav.sign_in')}
+                    className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
                   >
                     <User size={22} />
-                  </Link>
-                  {/* Desktop: Styled Sign In button */}
-                  <Link
-                    to="/login"
-                    className="hidden lg:block px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-white hover:bg-primary-dark transition-colors shadow-sm"
-                  >
-                    {t('nav.sign_in')}
                   </Link>
                 </>
               )}
@@ -319,18 +314,18 @@ export default function Navbar() {
               <button
                 id="cart-btn"
                 data-cart-btn
-                onClick={() => navigate('/cart')}
+                onClick={openCart}
+                aria-label={t('nav.cart')}
                 className="relative flex items-center gap-2 p-2 min-h-[44px] text-white/80 hover:text-primary transition-colors rounded-lg hover:bg-white/10"
               >
-                <ShoppingCart size={22} />
+                <CartIcon size={22} />
                 {count > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-white text-[#1A1A1A] text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full animate-count-pulse shadow-lg"
-                    style={{ boxShadow: '0 2px 8px rgba(255,255,255,0.25)' }}
+                  <span className="absolute -top-1 -right-1 bg-[#232323] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full animate-count-pulse border border-white/20"
+                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}
                   >
                     {count > 9 ? '9+' : count}
                   </span>
                 )}
-                <span className="hidden lg:inline text-sm font-medium">{t('nav.cart')}</span>
               </button>
             </div>
           </div>
@@ -523,7 +518,7 @@ export default function Navbar() {
                           { to: '/cart', label: t('nav.cart') },
                           { to: '/about', label: t('nav.about') },
                         ].map((link, idx) => {
-                          const Icon = [Home, Search, Heart, ShoppingCart, Info][idx];
+                          const Icon = [Home, Search, Heart, CartIcon, Info][idx];
                           const isLinkActive = location.pathname === link.to ||
                             (link.to === '/products' && location.pathname.startsWith('/products'));
                           return (

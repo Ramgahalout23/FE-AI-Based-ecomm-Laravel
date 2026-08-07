@@ -216,17 +216,18 @@ describe('ReelsSection', () => {
 
   it('shows product name from reel products', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
-    expect(screen.getByText('Simple Product')).toBeDefined();
+    // Cards are duplicated for the infinite loop — at least one must show the name
+    expect(screen.getAllByText('Simple Product').length).toBeGreaterThan(0);
   });
 
   it('shows formatted price for reel products', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
-    expect(screen.getByText('₹999')).toBeDefined();
+    expect(screen.getAllByText('₹999').length).toBeGreaterThan(0);
   });
 
   it('shows discount badge when old_price exists', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
-    expect(screen.getByText('23% OFF')).toBeDefined();
+    expect(screen.getAllByText('23% OFF').length).toBeGreaterThan(0);
   });
 
   it('calls addItem on cart store when clicking add to cart on simple product', async () => {
@@ -268,7 +269,8 @@ describe('ReelsSection', () => {
   it('opens the full-screen reel player on card click', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
     const reelCards = document.querySelectorAll('.reel-card');
-    expect(reelCards.length).toBe(2);
+    // Cards are duplicated for the infinite loop (2 copies of the set)
+    expect(reelCards.length).toBeGreaterThanOrEqual(2);
     fireEvent.click(reelCards[0]);
     // Full-screen player overlay should be rendered
     expect(document.querySelector('.fixed.inset-0.z-50')).toBeDefined();

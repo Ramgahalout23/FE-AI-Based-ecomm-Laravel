@@ -1,10 +1,11 @@
-import { Minus, Plus, ShoppingBag, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart } from 'lucide-react';
+import { Minus, Plus, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import SEOHead from '../../components/seo/SEOHead';
+import CartIcon from '../../components/common/CartIcon';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { trackRemoveFromCart } from '../../services/tracker';
 import useCartStore from '../../store/cartStore';
@@ -15,7 +16,8 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, slugify, getImageUrl } from '../../utils/formatters';
-import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
+import { calcBundleDiscount, calcBundleDiscountDetails, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer } from '../../utils/constants';
+import BundleTierProgress from '../../components/cart/BundleTierProgress';
 import { showError, showSuccess, removedFromCart, addedToWishlist } from '../../utils/toast';
 import CartPageSkeleton from '../../components/ui/CartItemSkeleton';
 
@@ -104,37 +106,31 @@ export default function CartPage() {
   );
   const availableCount = availableItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
 
+  // ── How many more items needed for free shipping (based on cheapest item in cart) ──
+  const cheapestItemPrice = availableItems.length ? Math.min(...availableItems.map((item) => item.price || 0)) : 0;
+  const shippingRemaining = Math.max(0, Math.round((freeShippingThreshold - availableSubtotal) * 100) / 100);
+  const itemsNeededForShipping = shippingRemaining > 0 && cheapestItemPrice > 0
+    ? Math.max(1, Math.ceil(shippingRemaining / cheapestItemPrice))
+    : 0;
+
   // Calculate auto-applied store offer discounts.
   // Mirrors backend FlashSaleService logic: picks the BEST single offer, does NOT stack.
   // Uses plain IIFE instead of useMemo to avoid React hooks ordering issues after conditional early return.
   const { autoDiscount, autoDiscountOffers } = (() => {
-    const offers = Array.isArray(storeOffers) ? storeOffers : [];
-    let bestDiscount = 0;
-    let bestOffer = null;
-
-    offers.forEach((offer) => {
-      if (offer.isActive === false) return;
-      if (offer.status && offer.status !== 'ACTIVE') return;
-      if (!offer.discount || offer.discount <= 0) return;
-
-      const discountAmount = availableSubtotal * (offer.discount / 100);
-      if (discountAmount > bestDiscount) {
-        bestDiscount = discountAmount;
-        bestOffer = {
-          id: offer.id,
-          title: offer.title,
-          badge: offer.offerBadge || 'OFFER',
-          highlight: offer.offerHighlight || offer.title,
-          tagline: offer.offerTagline,
-          discountLabel: `-${formatCurrency(discountAmount)}`,
-          discountAmount,
-        };
-      }
-    });
-
+    const bestOffer = getBestStoreOffer(availableSubtotal, storeOffers);
     return {
-      autoDiscount: Math.round(bestDiscount * 100) / 100,
-      autoDiscountOffers: bestOffer ? [bestOffer] : [],
+      autoDiscount: bestOffer?.amount || 0,
+      autoDiscountOffers: bestOffer
+        ? [{
+            id: bestOffer.id,
+            title: bestOffer.highlight,
+            badge: bestOffer.badge,
+            highlight: bestOffer.highlight,
+            tagline: bestOffer.tagline,
+            discountLabel: `-${formatCurrency(bestOffer.amount)}`,
+            discountAmount: bestOffer.amount,
+          }]
+        : [],
     };
   })();
 
@@ -143,6 +139,11 @@ export default function CartPage() {
   const bundleOfferEnabled = isBundleOfferEnabled(getSetting);
   const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
   const bundleDiscount = bundleOfferEnabled ? calcBundleDiscount(availableItems, bundleTiers) : 0;
+  const bundleDetails = bundleOfferEnabled
+    ? calcBundleDiscountDetails(availableItems, bundleTiers)
+    : { discount: 0, tier: null, message: '', totalQty: 0 };
+
+
 
   // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
   // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
@@ -356,7 +357,7 @@ export default function CartPage() {
         </div>
         <div className="max-w-lg mx-auto px-4 pb-20 text-center">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShoppingBag size={48} />
+            <CartIcon size={48} />
           </div>
           <h2 className="font-display text-2xl font-bold text-black mb-3">{t('cart.empty')}</h2>
           <p className="text-gray-500 mb-8">{t('cart.empty_desc')}</p>
@@ -394,6 +395,10 @@ export default function CartPage() {
             {/* Available Items */}
             {availableItems.length > 0 && (
               <div>
+                {/* Next-tier progress bar — selektt-style, follows the bundle offer tiers */}
+                {bundleOfferEnabled && (
+                  <BundleTierProgress totalQty={bundleDetails.totalQty} tiers={bundleTiers} className="mb-4" />
+                )}
                 {hasOutOfStockItems && (
                   <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -465,11 +470,28 @@ export default function CartPage() {
                     <span className="text-gray-700 text-sm font-medium">-{formatCurrency(autoDiscount)}</span>
                   </div>
                 )}
-                {bundleDiscount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 text-sm font-medium">Bundle Discount</span>
-                    <span className="text-emerald-600 text-sm font-medium">-{formatCurrency(bundleDiscount)}</span>
-                  </div>
+                {bundleDiscount > 0 && bundleDetails.tier && (
+                  <>
+                    {/* Detailed bundle discount banner */}
+                    <div className="flex items-start gap-2.5 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-3">
+                      <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-emerald-600 font-bold text-[10px]">%</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-emerald-800 leading-tight">
+                        {bundleDetails.tier.discount}% off applied to your order! 🎉
+                      </p>
+                      <p className="text-[10px] font-medium text-emerald-700 mt-0.5 leading-tight">
+                        {bundleDetails.message} <span className="font-semibold">(-{formatCurrency(bundleDiscount)})</span>
+                      </p>
+                      </div>
+                      <span className="text-[18px] leading-none shrink-0 mt-0.5">🎉</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 text-sm font-medium">Bundle Discount</span>
+                      <span className="text-emerald-600 text-sm font-medium">-{formatCurrency(bundleDiscount)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">{t('cart.shipping')}</span>
@@ -488,9 +510,18 @@ export default function CartPage() {
                   </div>
                 )}
                 {freeShippingThreshold > 0 && availableSubtotal > 0 && availableSubtotal < freeShippingThreshold && (
-                  <p className="text-xs text-emerald-600 font-medium">
-                    {t('cart.add_free_shipping', { amount: formatCurrency(freeShippingThreshold - availableSubtotal, currency) })}
-                  </p>
+                  <div>
+                    <p className="text-xs text-emerald-600 font-semibold">
+                      {t('cart.add_free_shipping', { amount: formatCurrency(shippingRemaining, currency) })}
+                    </p>
+                    {itemsNeededForShipping > 0 && (
+                      <p className="text-[10px] text-emerald-600/80 mt-0.5">
+                        {itemsNeededForShipping === 1
+                          ? t('cart.drawer.free_shipping_one_item')
+                          : t('cart.drawer.free_shipping_items', { count: itemsNeededForShipping })}
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* OOS notice */}

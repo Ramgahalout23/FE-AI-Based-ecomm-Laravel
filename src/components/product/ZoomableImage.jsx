@@ -75,9 +75,9 @@ export default memo(function ZoomableImage({ src, alt, isActive = true }) {
         draggable={false}
       />
 
-      {/* ── Desktop: Zoom hint icon (fades in on hover) ── */}
+      {/* ── Desktop: Zoom hint icon (always visible until zooming starts) ── */}
       {isActive && canHover === true && !isZooming && (
-        <div className="absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-xs border border-gray-200/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div className="absolute bottom-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-xs border border-gray-200/50 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
           <svg
             width="13"
             height="13"
@@ -97,9 +97,9 @@ export default memo(function ZoomableImage({ src, alt, isActive = true }) {
         </div>
       )}
 
-      {/* ── Mobile: Tap-to-zoom hint ── */}
+      {/* ── Mobile: Tap-to-zoom hint (always visible — group-hover never fires on touch; anchored to a corner so it never covers the product) ── */}
       {isActive && canHover === false && !isTouchZoomed && (
-        <div className="absolute inset-0 z-15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div className="absolute bottom-3 left-3 z-15 pointer-events-none">
           <div className="bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
             Tap to zoom
           </div>

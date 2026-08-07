@@ -280,6 +280,21 @@
 
 .toaster-container {
   z-index: 9999 !important;
+  /* Pin the container to the bottom-right corner. react-hot-toast leaves
+     top:16px inline for bottom positions; with bottom also set the fixed
+     container stretches top→bottom and toasts stack near the navbar. */
+  top: auto !important;
+  right: 16px !important;
+  bottom: 16px !important;
+}
+
+/* Lift toasts above the floating bottom nav (80px) so they never cover it.
+   MobileNav is lg:hidden → it renders on every width below 1024px, so the
+   offset must match that breakpoint (not just phones). Desktop has no nav. */
+@media (max-width: 1023px) {
+  .toaster-container {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 92px) !important;
+  }
 }
 
 /* Base premium toast styling */
@@ -450,6 +465,23 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Cart Drawer — premium slide transition ──────
+   Dedicated rules (class + !important) so the drawer always
+   animates smoothly, even if arbitrary Tailwind durations are
+   not generated or OS-level reduced-motion is enabled. */
+.cart-drawer-panel {
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+}
+
+.cart-drawer-panel.is-closing {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cart-drawer-overlay {
+  transition: opacity 400ms ease-out !important;
 }
 
 /* ── Session Timeout Modal ──────────────────────── */

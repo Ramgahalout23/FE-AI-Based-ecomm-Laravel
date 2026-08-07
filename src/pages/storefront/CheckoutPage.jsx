@@ -14,7 +14,7 @@ import { checkoutAPI } from '../../api/checkout';
 import { couponsAPI } from '../../api/coupons';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
-import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
+import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer } from '../../utils/constants';
 import { showError, showSuccess, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
 import { paymentsAPI } from '../../api/payments';
 import { ordersAPI } from '../../api/orders';
@@ -34,6 +34,16 @@ export default function CheckoutPage() {
   const { getSetting } = useSettings();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Available (in-stock) items — the cart drawer, cart page and checkout all
+  // compute their totals from this same set so every screen shows the same total.
+  const availableItems = items.filter((item) => {
+    const stock = item.variantStock ?? item.productStock;
+    return stock === null || stock === undefined || stock > 0;
+  });
+  const availableSubtotal = availableItems.reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0
+  );
   const [createAccount, setCreateAccount] = useState(false);
   const [password, setPassword] = useState('');
   const [coupon, setCoupon] = useState('');
@@ -84,32 +94,20 @@ export default function CheckoutPage() {
     fetchOffers();
   }, []);
 
-  // Calculate auto-discount from store offers based on cart subtotal
+  // Calculate auto-discount from store offers based on cart subtotal.
+  // Mirrors backend FlashSaleService: picks the BEST single offer, does NOT stack.
   useEffect(() => {
-    const offers = Array.isArray(storeOffers) ? storeOffers : [];
-    let bestDiscount = 0;
-    let bestOffer = null;
-
-    for (const offer of offers) {
-      const discountPct = parseFloat(offer.discount) || 0;
-      if (discountPct <= 0) continue;
-      const discountAmount = subtotal * (discountPct / 100);
-      if (discountAmount > bestDiscount) {
-        bestDiscount = discountAmount;
-        bestOffer = offer;
-      }
-    }
-
-    const roundedDiscount = Math.round(bestDiscount * 100) / 100;
-    if (roundedDiscount > 0 && bestOffer) {
+    const bestOffer = getBestStoreOffer(availableSubtotal, storeOffers);
+    const roundedDiscount = bestOffer?.amount || 0;
+    if (roundedDiscount > 0) {
       setAutoDiscount(roundedDiscount);
       setAutoDiscountPromos([{
         id: bestOffer.id,
-        title: bestOffer.title,
+        title: bestOffer.highlight,
         discountLabel: `-${formatCurrency(roundedDiscount)}`,
-        offerBadge: bestOffer.offerBadge || 'OFFER',
-        offerHighlight: bestOffer.offerHighlight || bestOffer.title,
-        offerTagline: bestOffer.offerTagline,
+        offerBadge: bestOffer.badge,
+        offerHighlight: bestOffer.highlight,
+        offerTagline: bestOffer.tagline,
       }]);
     } else if (roundedDiscount <= 0 && !isAuthenticated) {
       // For guest users, clear auto discount if no offers qualify
@@ -117,7 +115,7 @@ export default function CheckoutPage() {
       setAutoDiscount(0);
       setAutoDiscountPromos([]);
     }
-  }, [storeOffers, subtotal, isAuthenticated]);
+  }, [storeOffers, availableSubtotal, isAuthenticated]);
 
   // ── Server summary fetch (authenticated users only — includes flash sales + exact server calc) ──
   // Sync cart from server on mount
@@ -203,24 +201,21 @@ export default function CheckoutPage() {
   const bundleOfferEnabled = isBundleOfferEnabled(getSetting);
   const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
   const bundleDiscount = bundleOfferEnabled
-    ? calcBundleDiscount(
-        items.filter((item) => {
-          const s = item.variantStock ?? item.productStock;
-          return s === null || s === undefined || s > 0;
-        }),
-        bundleTiers
-      )
+    ? calcBundleDiscount(availableItems, bundleTiers)
     : 0;
 
   // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
   // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
   const taxCalculation = getSetting('taxCalculation', 'inclusive');
   const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
-  const tax = calcTax(subtotal, taxCalculation, taxRate);
+  const tax = calcTax(availableSubtotal, taxCalculation, taxRate);
 
-  const shippingCost = subtotal >= 499 ? 0 : 50;
+  // Shipping — same settings as the cart page (mirrors backend CheckoutService::getSummary)
+  const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
+  const shippingFlatRate = Number(getSetting('shippingFlatRate', '50'));
+  const shippingCost = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
   const totalDiscount = discount + autoDiscount + bundleDiscount;
-  const total = subtotal - totalDiscount + tax + shippingCost;
+  const total = availableSubtotal - totalDiscount + tax + shippingCost;
 
   const handleApplyCoupon = async (code) => {
     const codeToApply = code || coupon.trim();
@@ -230,7 +225,7 @@ export default function CheckoutPage() {
     }
     setCouponLoading(true);
     try {
-      const res = await checkoutAPI.applyCoupon({ code: codeToApply, subtotal });
+      const res = await checkoutAPI.applyCoupon({ code: codeToApply, subtotal: availableSubtotal });
       const payload = res.data?.data || res.data || {};
       const discountAmount = payload.discountAmount || payload.discount || 0;
       if (discountAmount > 0) {
@@ -312,10 +307,21 @@ export default function CheckoutPage() {
       showError('Your cart is empty. Please add items before checking out.');
       return;
     }
+    // Only send in-stock items — out-of-stock ones are shown for reference and
+    // excluded from the total (consistent with the cart page), so they must not
+    // be charged. This makes the displayed total match what is actually ordered.
+    const availableCheckoutItems = items.filter((item) => {
+      const stock = item.variantStock ?? item.productStock;
+      return stock === null || stock === undefined || stock > 0;
+    });
+    if (availableCheckoutItems.length === 0) {
+      showError('All items in your cart are out of stock. Please remove them or save them for later.');
+      return;
+    }
     setProcessing(true);
     try {
       // Build item payload with price and name for better validation
-      const checkoutItems = items.map((i) => ({
+      const checkoutItems = availableCheckoutItems.map((i) => ({
         productId: i.productId || i.id,
         quantity: i.quantity,
         name: i.name || '',
@@ -1167,7 +1173,7 @@ export default function CheckoutPage() {
               <div className="space-y-3 border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal</span>
-                  <span className="text-black">{formatCurrency(subtotal)}</span>
+                  <span className="text-black">{formatCurrency(availableSubtotal)}</span>
                 </div>
                 {autoDiscount > 0 && (
                   <div className="flex justify-between text-sm">
@@ -1204,7 +1210,7 @@ export default function CheckoutPage() {
                   <div className="flex items-start gap-1.5 pt-1">
                     <AlertTriangle size={12} className="text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-[10px] text-amber-700 leading-relaxed">
-                      Out-of-stock items are shown for reference and included in the total above. They will be skipped when your order is placed.
+                      Out-of-stock items are shown for reference and excluded from your total. They are skipped when your order is placed.
                     </p>
                   </div>
                 )}

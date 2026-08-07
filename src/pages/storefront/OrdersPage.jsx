@@ -27,7 +27,10 @@ export default function OrdersPage() {
     const fetch = async () => {
       try {
         const res = await ordersAPI.getUserOrders();
-        const raw = res.data?.data?.orders || res.data?.data || [];
+        // Backend paginates: { success, data: { current_page, data: [orders] } }
+        // Handle the paginator array, the legacy .orders key, or a bare array.
+        const body = res.data?.data || {};
+        const raw = body?.data || body?.orders || body;
         setOrders(Array.isArray(raw) ? raw : []);
       } catch (e) {
         console.warn('Failed to load orders:', e);

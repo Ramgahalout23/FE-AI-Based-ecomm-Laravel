@@ -61,7 +61,9 @@ export default function ReturnsPage() {
       ]);
 
       setReturnRequests(retRes?.data?.data || []);
-      const rawOrders = ordRes?.data?.data?.orders || ordRes?.data?.data || [];
+      // Backend paginates getUserOrders: { success, data: { current_page, data: [orders] } }
+      const ordersBody = ordRes?.data?.data || {};
+      const rawOrders = ordersBody?.data || ordersBody?.orders || ordersBody;
       setOrders(Array.isArray(rawOrders) ? rawOrders.filter(o => ['DELIVERED', 'SHIPPED'].includes(o.status)) : []);
     } catch (e) {
       console.warn('Failed to load return data:', e);

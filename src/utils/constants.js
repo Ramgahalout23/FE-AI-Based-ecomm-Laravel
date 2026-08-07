@@ -111,8 +111,8 @@ export const isLightColor = (colorName = '') =>
 
 /**
  * Buy More, Save More — volume discount tiers.
- * Discount applies PER CART LINE based on that line's quantity:
- * qty 1 → 0%, qty 2 → 5%, qty 3 → 10%, qty 4+ → 15%.
+ * Discount applies to the WHOLE ORDER based on the total quantity of items
+ * in the cart: 2+ items → 5% off, 3+ items → 10% off, 4+ items → 15% off.
  */
 export const BUNDLE_TIERS = [
   { minQty: 1, discount: 0 },
@@ -126,8 +126,8 @@ export const BUNDLE_TIERS = [
  * normalized [{minQty, discount, maxQty?}] list. Falls back to the default
  * tiers when the setting is missing, malformed, or empty.
  *
- * maxQty is optional and caps the per-product quantity window for a tier:
- * the discount applies only when a line's quantity is within
+ * maxQty is optional and caps the total-quantity window for a tier:
+ * the discount applies only when the cart's total quantity is within
  * [minQty, maxQty]. When absent, the tier is open-ended (minQty+).
  *
  * @param {string|Array} raw     Value of the bundleTiers setting.
@@ -161,7 +161,7 @@ export const parseBundleTiers = (raw, fallback = BUNDLE_TIERS) => {
 /**
  * Return the applicable bundle tier for a given quantity.
  *
- * A tier qualifies only when the quantity is within its per-product window:
+ * A tier qualifies only when the quantity is within its window:
  * minQty <= qty <= maxQty (maxQty absent = open-ended). Among qualifying
  * tiers the highest discount wins. When no tier qualifies (e.g. qty below
  * the minimum), a zero-discount fallback tier is returned.
@@ -179,6 +179,41 @@ export const getBundleTier = (qty, tiers = BUNDLE_TIERS) => {
     }
   }
   return best || { minQty: tiers[0]?.minQty ?? 1, discount: 0 };
+};
+
+/**
+ * Pick the BEST single auto-applied store offer (Smart Deal, Prepaid Offer, …)
+ * for a subtotal. Mirrors backend FlashSaleService::getApplicableDiscounts
+ * (best single offer per item, no stacking): filters to active offers with a
+ * positive discount and returns the one that discounts the most.
+ *
+ * Shared by CartDrawer, CartPage and CheckoutPage so the cart drawer, cart
+ * page and checkout always show the same auto-applied discount.
+ *
+ * @param {number} subtotal  Cart subtotal the discount is computed on.
+ * @param {Array}  offers    Store offers from promotionsAPI.getStoreOffers().
+ * @returns {{ id: string, badge: string, highlight: string, tagline: ?string, amount: number }|null}
+ */
+export const getBestStoreOffer = (subtotal, offers = []) => {
+  const active = (offers || []).filter((o) =>
+    o.isActive !== false &&
+    (!o.status || o.status === 'ACTIVE') &&
+    Number(o.discount) > 0
+  );
+  let best = null;
+  active.forEach((offer) => {
+    const amount = subtotal * (Number(offer.discount) / 100);
+    if (!best || amount > best.amount) {
+      best = {
+        id: offer.id,
+        badge: offer.offerBadge || 'OFFER',
+        highlight: offer.offerHighlight || offer.title,
+        tagline: offer.offerTagline || null,
+        amount: Math.round(amount * 100) / 100,
+      };
+    }
+  });
+  return best;
 };
 
 /**
@@ -235,17 +270,53 @@ export const isBundleOfferEnabled = (getSetting) => {
 
 /**
  * Total bundle discount (₹) for an array of cart items.
- * Each line's discount is based on that line's own quantity against the
- * configured tiers (defaults to BUNDLE_TIERS).
+ * Applies the tier for the TOTAL quantity across all items to the whole
+ * cart value (e.g. 3 items → 10% off the order), mirroring the backend
+ * CheckoutService::calculateBundleDiscount and calcBundleDiscountDetails.
  */
-export const calcBundleDiscount = (items, tiers = BUNDLE_TIERS) =>
-  Math.round(
-    (items || []).reduce((sum, item) => {
-      const qty = item.quantity || 1;
-      const tier = getBundleTier(qty, tiers);
-      return sum + (item.price || 0) * qty * (tier.discount / 100);
-    }, 0) * 100
-  ) / 100;
+export const calcBundleDiscount = (items, tiers = BUNDLE_TIERS) => {
+  const list = items || [];
+  const totalQty = list.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+  const totalValue = list.reduce((sum, item) => sum + (item.price || 0) * (item.quantity ?? 1), 0);
+  const tier = getBundleTier(totalQty, tiers);
+  return Math.round(totalValue * (tier.discount / 100) * 100) / 100;
+};
+
+/**
+ * Compute detailed bundle discount info for display — includes the discount
+ * amount, the highest applicable tier, and a human-readable message.
+ *
+ * The discount is based on the total quantity across all items in the cart.
+ * Example: if cart has 2 items total, shows "Buy 2 Items, Get 5% Off (-₹X)"
+ *
+ * @param {Array}  items  Cart items with {quantity, price}.
+ * @param {Array}  tiers  Bundle tiers (defaults to BUNDLE_TIERS).
+ * @returns {{ discount: number, tier: object|null, message: string, totalQty: number }}
+ */
+export const calcBundleDiscountDetails = (items, tiers = BUNDLE_TIERS) => {
+  const list = items || [];
+  const totalQty = list.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+  const totalValue = list.reduce((sum, item) => sum + (item.price || 0) * (item.quantity ?? 1), 0);
+
+  // Find the best tier that applies to the total cart quantity
+  const applicableTier = getBundleTier(totalQty, tiers);
+
+  if (!applicableTier || applicableTier.discount <= 0) {
+    return { discount: 0, tier: null, message: '', totalQty };
+  }
+
+  const discount = Math.round(totalValue * (applicableTier.discount / 100) * 100) / 100;
+
+  // Build a human-readable message
+  const minQty = applicableTier.minQty;
+  const maxQty = applicableTier.maxQty;
+  const qtyLabel = maxQty
+    ? `${minQty}–${maxQty} Items`
+    : `${minQty} Items`;
+  const message = `Buy ${qtyLabel}, Get ${applicableTier.discount}% Off`;
+
+  return { discount, tier: applicableTier, message, totalQty };
+};
 
 /**
  * Calculate tax for a subtotal, honoring the admin's taxCalculation setting.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, ticketStatusLabel, ticketStatusClass, ticketPriorityLabel } from './constants';
+import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr, getBestStoreOffer, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, ticketStatusLabel, ticketStatusClass, ticketPriorityLabel } from './constants';
 
 describe('ticket constants', () => {
   it('TICKET_PRIORITIES matches the backend ENUM', () => {
@@ -115,28 +115,33 @@ describe('calcBundleDiscount', () => {
     expect(calcBundleDiscount(undefined)).toBe(0);
   });
 
-  it('returns 0 when no line reaches qty 2', () => {
+  it('returns 0 when the total quantity is 1', () => {
+    const items = [{ price: 100, quantity: 1 }];
+    expect(calcBundleDiscount(items)).toBe(0);
+  });
+
+  it('applies 5% across DIFFERENT items once total qty reaches 2', () => {
+    // 2 different items (qty 1 each) → total qty 2 → 5% of 150 = 7.5
     const items = [
       { price: 100, quantity: 1 },
       { price: 50, quantity: 1 },
     ];
-    expect(calcBundleDiscount(items)).toBe(0);
+    expect(calcBundleDiscount(items)).toBe(7.5);
   });
 
-  it('applies 5% per line for qty 2 items', () => {
+  it('applies 5% for total qty 2', () => {
     // 100 * 2 * 0.05 = 10
     const items = [{ price: 100, quantity: 2 }];
     expect(calcBundleDiscount(items)).toBe(10);
   });
 
-  it('sums per-line discounts across multiple items', () => {
-    // 100 * 2 * 0.05 = 10
-    // 200 * 3 * 0.10 = 60
+  it('applies the tier to the TOTAL cart value (not per line)', () => {
+    // total qty 5 → 15% of (200 + 600) = 120
     const items = [
       { price: 100, quantity: 2 },
       { price: 200, quantity: 3 },
     ];
-    expect(calcBundleDiscount(items)).toBe(70);
+    expect(calcBundleDiscount(items)).toBe(120);
   });
 
   it('uses the highest tier for large quantities', () => {
@@ -161,29 +166,39 @@ describe('calcBundleDiscount', () => {
       { minQty: 3, discount: 8 },
       { minQty: 5, discount: 20 },
     ];
-    // qty 3 → 8%: 100 * 3 * 0.08 = 24
-    // qty 6 → 20%: 100 * 6 * 0.20 = 120
+    // total qty 9 → 20% of 900 = 180
     const items = [
       { price: 100, quantity: 3 },
       { price: 100, quantity: 6 },
     ];
-    expect(calcBundleDiscount(items, tiers)).toBe(144);
+    expect(calcBundleDiscount(items, tiers)).toBe(180);
   });
 
-  it('respects per-tier maxQty windows', () => {
+  it('respects per-tier maxQty windows against the total qty', () => {
     const tiers = [
       { minQty: 2, discount: 5, maxQty: 3 },
       { minQty: 4, discount: 10, maxQty: 6 },
     ];
-    // qty 3 → 5% (in 2–3): 100 * 3 * 0.05 = 15
-    // qty 5 → 10% (in 4–6): 100 * 5 * 0.10 = 50
-    // qty 8 → above cap → 0%
+    // total qty 3 (in 2–3) → 5%: 300 * 0.05 = 15
+    const items = [
+      { price: 100, quantity: 2 },
+      { price: 100, quantity: 1 },
+    ];
+    expect(calcBundleDiscount(items, tiers)).toBe(15);
+  });
+
+  it('returns 0 above the highest maxQty cap', () => {
+    const tiers = [
+      { minQty: 2, discount: 5, maxQty: 3 },
+      { minQty: 4, discount: 10, maxQty: 6 },
+    ];
+    // total qty 16 → above every cap → 0%
     const items = [
       { price: 100, quantity: 3 },
       { price: 100, quantity: 5 },
       { price: 100, quantity: 8 },
     ];
-    expect(calcBundleDiscount(items, tiers)).toBe(65);
+    expect(calcBundleDiscount(items, tiers)).toBe(0);
   });
 });
 
@@ -237,6 +252,47 @@ describe('parseBundleTiers', () => {
     expect(parseBundleTiers('[{"minQty":2,"discount":5,"maxQty":0}]')).toEqual([{ minQty: 2, discount: 5 }]);
     expect(parseBundleTiers('[{"minQty":2,"discount":5,"maxQty":"abc"}]')).toEqual([{ minQty: 2, discount: 5 }]);
     expect(parseBundleTiers('[{"minQty":2,"discount":5,"maxQty":null}]')).toEqual([{ minQty: 2, discount: 5 }]);
+  });
+});
+
+describe('getBestStoreOffer', () => {
+  const offers = [
+    { id: 'smart', title: 'Smart Deal', discount: '10', status: 'ACTIVE', isActive: true, offerBadge: 'BUY 2', offerHighlight: 'GET 10% OFF' },
+    { id: 'prepaid', title: 'Prepaid Offer', discount: '10', status: 'ACTIVE', isActive: true, offerHighlight: 'EXTRA 10% OFF' },
+    { id: 'gift', title: 'Summer Bonus', discount: null, status: 'ACTIVE', isActive: true },
+  ];
+
+  it('returns null without offers or discount', () => {
+    expect(getBestStoreOffer(1000)).toBeNull();
+    expect(getBestStoreOffer(1000, [])).toBeNull();
+    expect(getBestStoreOffer(1000, [{ id: 'gift', discount: null }])).toBeNull();
+  });
+
+  it('returns the best single offer with its rounded amount', () => {
+    const best = getBestStoreOffer(3396, offers);
+    expect(best.id).toBe('smart');
+    expect(best.amount).toBe(339.6);
+    expect(best.badge).toBe('BUY 2');
+    expect(best.highlight).toBe('GET 10% OFF');
+  });
+
+  it('picks the highest discount when offers differ', () => {
+    const best = getBestStoreOffer(1000, [
+      { id: 'a', discount: '5', status: 'ACTIVE', isActive: true },
+      { id: 'b', discount: '20', status: 'ACTIVE', isActive: true },
+    ]);
+    expect(best.id).toBe('b');
+    expect(best.amount).toBe(200);
+  });
+
+  it('ignores inactive or non-ACTIVE offers', () => {
+    const best = getBestStoreOffer(1000, [
+      { id: 'off', discount: '10', status: 'ACTIVE', isActive: false },
+      { id: 'paused', discount: '15', status: 'PAUSED', isActive: true },
+      { id: 'live', discount: '5', status: 'ACTIVE', isActive: true },
+    ]);
+    expect(best.id).toBe('live');
+    expect(best.amount).toBe(50);
   });
 });
 

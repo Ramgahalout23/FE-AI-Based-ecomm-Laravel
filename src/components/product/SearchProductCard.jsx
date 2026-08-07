@@ -446,7 +446,7 @@ export default memo(function SearchProductCard({ product }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5"
+              className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pb-12"
               onClick={(e) => e.stopPropagation()}
             >
               <p className="text-white/90 text-[9px] font-medium leading-tight mb-1.5 line-clamp-2">
@@ -481,7 +481,7 @@ export default memo(function SearchProductCard({ product }) {
             className={`absolute top-2 right-2 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
               inWishlist
                 ? 'bg-danger text-white shadow-md opacity-100 scale-100'
-                : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-danger hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90'
+                : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-danger hover:bg-white shadow-sm'
             }`}
           >
             <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
@@ -492,7 +492,7 @@ export default memo(function SearchProductCard({ product }) {
         {!showQuickAdd && (
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
-            className="absolute top-[52px] right-2 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 bg-white/80 backdrop-blur-sm text-gray-400 hover:text-black hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90"
+            className="absolute top-[52px] right-2 z-10 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 bg-white/80 backdrop-blur-sm text-gray-400 hover:text-black hover:bg-white shadow-sm"
           >
             <Eye size={15} />
           </button>
@@ -549,7 +549,8 @@ export default memo(function SearchProductCard({ product }) {
           !showQuickAdd && (
             <button
               onClick={handleQuickAdd}
-              className="absolute bottom-0 inset-x-0 z-30 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60"
+              /* Always visible — hover-reveal hid QUICK ADD on tablets & touch laptops */
+              className="absolute bottom-0 inset-x-0 z-30 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-white hover:text-black hover:border-t hover:border-gray-200/60"
             >
               {isAdding ? (
                 <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />

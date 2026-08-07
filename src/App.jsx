@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
@@ -40,6 +40,7 @@ import WhatsAppChatWidget from './components/chat/WhatsAppChatWidget';
 import PhoneLeadBanner from './components/common/PhoneLeadBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
+import { useAdminTableLabels } from './hooks/useAdminTableLabels';
 
 // ── Route-level Code Splitting (React.lazy) ──
 // Pages are loaded on-demand, reducing the initial JS bundle significantly.
@@ -204,6 +205,9 @@ function MaintenanceWrapper({ children }) {
 
 function StorefrontLayout() {
   const location = useLocation();
+  // Keep admin-table cards labeled on mobile for storefront pages too
+  // (e.g. OrderDetailPage) — not just admin pages.
+  useAdminTableLabels();
   const { settings: appSettings } = useSettings();
   const chatbotEnabled = appSettings.chatbotEnabled !== 'false';
   const whatsappEnabled = appSettings.whatsappButtonEnabled !== 'false';
@@ -258,35 +262,8 @@ function StorefrontLayout() {
 }
 
 function AdminLayout() {
-  // ── Responsive Table Labels ──
-  // Reads <th> headers from table.admin-table and injects data-label
-  // into matching <td> cells so mobile card CSS can show column labels.
-  // useRef guard skips re-processing if table count hasn't changed.
-  const tableCountRef = useRef(0);
-  useEffect(() => {
-    const tables = document.querySelectorAll('table.admin-table');
-    if (!tables.length) return;
-    const count = tables.length;
-    if (count === tableCountRef.current) return;
-    tableCountRef.current = count;
-
-    tables.forEach(table => {
-      const headerCells = table.querySelectorAll('thead th');
-      if (!headerCells.length) return;
-      const rows = table.querySelectorAll('tbody tr');
-      rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        cells.forEach((cell, idx) => {
-          if (cell.hasAttribute('colspan')) return;
-          if (cell.hasAttribute('data-label')) return;
-          const header = headerCells[idx];
-          if (header) {
-            cell.setAttribute('data-label', header.textContent.trim());
-          }
-        });
-      });
-    });
-  });
+  // ── Responsive Table Labels (shared hook — see useAdminTableLabels.js) ──
+  useAdminTableLabels();
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const { logout } = useAuthStore();
 
@@ -391,7 +368,7 @@ function AppContent() {
     <BrowserRouter>
       <ThemeInjector />
       <Toaster
-        position="top-center"
+        position="bottom-right"
         gutter={12}
         containerClassName="toaster-container"
         reverseOrder={false}

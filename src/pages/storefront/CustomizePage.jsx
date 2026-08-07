@@ -140,7 +140,6 @@ export default function CustomizePage() {
     });
 
     openCart();
-    toast.success('Custom design added to cart!');
   }, [frontUpload.designFile, backUpload.designFile, selectedSize, selectedColor, quantity, designNotes, placement, addItem, openCart, effectiveUnitPrice, canAddToCart, frontMissing, backMissing]);
 
   return (

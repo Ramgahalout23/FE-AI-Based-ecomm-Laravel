@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-;
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -289,7 +288,7 @@ export default function OrderDetailPage() {
           >
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${subscribed ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                {subscribed ? <Check size={20} Circle /> : <Bell size={20} />}
+                {subscribed ? <CheckCircle size={20} /> : <Bell size={20} />}
               </div>
               <div>
                 <h3 className="font-display font-bold text-base text-charcoal">

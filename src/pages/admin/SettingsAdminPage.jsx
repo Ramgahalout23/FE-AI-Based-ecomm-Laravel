@@ -345,6 +345,7 @@ export default function SettingsAdminPage() {
     'general': [
       'storeName', 'brandTagline', 'contactEmail', 'storeEmail', 'currency', 'timezone', 'storeAddress',
       'salesEnabled', 'reviewsEnabled', 'bestSellersEnabled', 'newArrivalsEnabled', 'curatedLooksEnabled',
+      'autoCancelUnpaidEnabled', 'autoCancelUnpaidMinutes',
       'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
       'bundleOfferEnabled', 'bundleTiers', 'bundleOfferStartDate', 'bundleOfferEndDate', 'tshirtCustomizerEnabled', 'reelsEnabled', 'homepageSectionOrder',
       'cookieConsentEnabled',
@@ -862,6 +863,100 @@ export default function SettingsAdminPage() {
                   The "Sales" navigation link will be hidden. All flash sale discounts are paused.
                   Individual promotion records are preserved — re-enable to restore them.
                 </span>
+              </div>
+            )}
+          </div>
+
+          {/* ═══════════ UNPAID ORDER AUTO-CANCEL (auto-saves) ═══════════ */}
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '1.25rem 1.5rem',
+            background: settings.autoCancelUnpaidEnabled !== 'false' ? '#fffbeb' : '#fafafa',
+            borderRadius: 'var(--radius-lg)',
+            border: `1px solid ${settings.autoCancelUnpaidEnabled !== 'false' ? '#fde68a' : '#e5e5e5'}`,
+            transition: 'all 0.3s ease',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>⏳</span>
+                <div>
+                  <strong style={{ fontSize: '1rem' }}>Unpaid Order Auto-Cancel</strong>
+                  <p style={{ fontSize: '0.78rem', color: settings.autoCancelUnpaidEnabled !== 'false' ? '#92400e' : '#6b7280', margin: '0.15rem 0 0' }}>
+                    {settings.autoCancelUnpaidEnabled !== 'false'
+                      ? 'Orders awaiting payment are auto-cancelled (and stock restored) after the window below. Customers see a live countdown on the Payment Pending screen.'
+                      : 'Auto-cancellation is paused. Unpaid orders stay PENDING until paid or manually cancelled.'}
+                  </p>
+                </div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={settings.autoCancelUnpaidEnabled !== 'false'}
+                  onChange={async e => {
+                    const newVal = e.target.checked ? 'true' : 'false';
+                    setSettings({ ...settings, autoCancelUnpaidEnabled: newVal });
+                    try {
+                      await updateContextSettings({ autoCancelUnpaidEnabled: newVal });
+                      toast.success(newVal === 'true' ? 'Auto-cancel enabled' : 'Auto-cancel disabled');
+                    } catch {
+                      toast.error('Failed to save');
+                      setSettings({ ...settings, autoCancelUnpaidEnabled: settings.autoCancelUnpaidEnabled });
+                    }
+                  }}
+                  style={{ width: '18px', height: '18px', accentColor: settings.autoCancelUnpaidEnabled !== 'false' ? '#d97706' : '#6b7280' }}
+                />
+                <span
+                  className="status-badge"
+                  style={{
+                    background: settings.autoCancelUnpaidEnabled !== 'false' ? '#fef3c7' : '#f3f4f6',
+                    color: settings.autoCancelUnpaidEnabled !== 'false' ? '#92400e' : '#4b5563',
+                    border: `1px solid ${settings.autoCancelUnpaidEnabled !== 'false' ? '#fcd34d' : '#d1d5db'}`,
+                    fontWeight: 700,
+                  }}
+                >
+                  {settings.autoCancelUnpaidEnabled !== 'false' ? '🟢 Auto-cancel On' : '⏸️ Auto-cancel Off'}
+                </span>
+              </label>
+            </div>
+
+            {settings.autoCancelUnpaidEnabled !== 'false' && (
+              <div style={{ marginTop: '0.9rem', paddingTop: '0.9rem', borderTop: '1px dashed rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.78rem', color: '#92400e', fontWeight: 600 }}>Auto-cancel unpaid orders after</span>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  {[30, 45, 60].map(min => {
+                    const active = String(settings.autoCancelUnpaidMinutes || 45) === String(min);
+                    return (
+                      <button
+                        key={min}
+                        onClick={async () => {
+                          const newVal = String(min);
+                          setSettings({ ...settings, autoCancelUnpaidMinutes: newVal });
+                          try {
+                            await updateContextSettings({ autoCancelUnpaidMinutes: newVal });
+                            toast.success(`Auto-cancel window set to ${min} minutes`);
+                          } catch {
+                            toast.error('Failed to save');
+                            setSettings({ ...settings, autoCancelUnpaidMinutes: settings.autoCancelUnpaidMinutes });
+                          }
+                        }}
+                        style={{
+                          padding: '0.4rem 0.9rem',
+                          borderRadius: '8px',
+                          border: `1px solid ${active ? '#d97706' : '#e5e7eb'}`,
+                          background: active ? '#fef3c7' : '#fff',
+                          color: active ? '#92400e' : '#374151',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {min} min
+                      </button>
+                    );
+                  })}
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Matches the countdown customers see.</span>
               </div>
             )}
           </div>

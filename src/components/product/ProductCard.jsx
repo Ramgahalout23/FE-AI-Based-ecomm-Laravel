@@ -235,7 +235,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           }).catch(() => {});
         }
         addedToCart(product.name);
-        setShowQuickAdd(false);
+        closePanel();
       } finally {
         setIsAdding(false);
       }
@@ -375,7 +375,8 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           {/* Wishlist */}
           <button
             onClick={handleWishlist}
-            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 ${
+            /* Always visible — hover-reveal hid wishlist on touch/tablet devices */
+            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
               inWishlist
                 ? 'bg-danger text-white shadow-md'
                 : 'bg-white/90 backdrop-blur-sm text-text-muted hover:text-danger hover:bg-white shadow-soft'
@@ -387,7 +388,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           {/* Quick View */}
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
-            className="absolute top-[52px] right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 bg-white/90 backdrop-blur-sm text-text-muted hover:text-black hover:bg-white shadow-soft"
+            className="absolute top-[52px] right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 bg-white/90 backdrop-blur-sm text-text-muted hover:text-black hover:bg-white shadow-soft"
           >
             <Eye size={16} />
           </button>
@@ -436,7 +437,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5"
+                className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pb-12"
                 onClick={(e) => e.stopPropagation()}
               >
                 <p className="text-white/90 text-[9px] font-medium leading-tight mb-1.5 line-clamp-2">
@@ -672,7 +673,8 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
             !showQuickAdd && (
               <button
                 onClick={handleQuickAdd}
-                className="absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 md:opacity-0 md:translate-y-2 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:hover:bg-white md:hover:text-black md:hover:border-t md:hover:border-gray-200/60 max-sm:active:bg-gray-900"
+                /* Always visible — hover-reveal hid QUICK ADD on tablets & touch laptops */
+                className="absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-white hover:text-black hover:border-t hover:border-gray-200/60 max-sm:active:bg-gray-900"
               >
                 {isAdding ? (
                   <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
@@ -693,7 +695,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           <div className="mt-auto">
             <div className="flex items-center gap-1 md:gap-2">
               {product.oldPrice && (
-                <span className="text-xs md:text-sm max-sm:text-xs text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
+                <span className="text-xs md:text-sm max-sm:text-[10px] text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
               )}
               <span className="price-item text-red-500">{formatCurrency(product.price)}</span>
             </div>

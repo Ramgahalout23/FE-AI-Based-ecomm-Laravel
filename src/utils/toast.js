@@ -56,16 +56,15 @@ export const handleApiError = (err, fallback = 'Something went wrong') => {
   return message;
 };
 
-/* ── Cart / Bag ─────────────────────────────────── */
+/* ── Cart / Bag ───────────────────────────────────
+   Intentionally silent — the cart drawer itself gives visual
+   feedback, so adding/removing items shows no toast. */
 
-export const addedToCart = (productName) =>
-  showSuccess(`${productName} added to bag`);
+export const addedToCart = () => {};
 
-export const removedFromCart = () =>
-  showSuccess('Removed from cart');
+export const removedFromCart = () => {};
 
-export const removedFromBag = () =>
-  showSuccess('Removed from bag');
+export const removedFromBag = () => {};
 
 /* ── Wishlist ───────────────────────────────────── */
 
@@ -114,7 +113,9 @@ export const orderPlaced = (orderId) =>
         })
       );
     },
-    { duration: 6000, position: 'top-right' }
+    /* Bottom-right so it never covers the navbar. The global Toaster is also
+       bottom-right; custom toasts must state it explicitly. */
+    { duration: 6000, position: 'bottom-right' }
   );
 
 export const paymentSuccessful = (orderId) =>
@@ -142,7 +143,7 @@ export const paymentSuccessful = (orderId) =>
         })
       );
     },
-    { duration: 6000, position: 'top-right' }
+    { duration: 6000, position: 'bottom-right' }
   );
 
 export const orderCancelled = () =>

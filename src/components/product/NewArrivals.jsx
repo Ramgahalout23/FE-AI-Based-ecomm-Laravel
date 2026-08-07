@@ -443,7 +443,7 @@ function NewArrivalCard({ product, index }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3"
+              className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 pb-12"
               onClick={(e) => e.stopPropagation()}
             >
               {styleTagline && (
@@ -667,7 +667,7 @@ function NewArrivalCard({ product, index }) {
             className={`absolute top-2 right-2 z-20 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
               inWishlist
                 ? 'bg-red-500 text-white shadow-md opacity-100 scale-100'
-                : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90'
+                : 'bg-white/80 backdrop-blur-sm text-gray-400 hover:text-red-500 hover:bg-white shadow-sm'
             }`}
           >
             <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
@@ -678,7 +678,7 @@ function NewArrivalCard({ product, index }) {
         {!showQuickAdd && (
           <button
             onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
-            className="absolute top-10 right-2 z-20 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm text-gray-400 hover:text-black hover:bg-white opacity-0 group-hover:opacity-100 group-hover:scale-100 scale-90 transition-all duration-300"
+            className="absolute top-10 right-2 z-20 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm text-gray-400 hover:text-black hover:bg-white transition-all duration-300"
           >
             <Eye size={13} />
           </button>

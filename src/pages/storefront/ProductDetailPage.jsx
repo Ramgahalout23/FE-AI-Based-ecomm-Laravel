@@ -576,15 +576,12 @@ export default function ProductDetailPage() {
       addItem({ ...product, productId: product.id, quantity: qty, size: selectedSize, color: selectedColor, variantId: matchedVariant?.id || undefined, imageUrl: cartImageUrl });
       if (!isAuthenticated) {
         addedToCart(product.name);
-        navigate('/cart');
         return;
       }
       await cartAPI.add({ productId: product.id, quantity: qty, size: selectedSize || undefined, color: selectedColor || undefined, variantId: matchedVariant?.id || undefined });
       addedToCart(product.name);
-      navigate('/cart');
     } catch {
       addedToCart(product.name);
-      navigate('/cart');
     } finally {
       setIsAddingToCart(false);
     }
@@ -1171,6 +1168,11 @@ export default function ProductDetailPage() {
               ))}
             </div>
 
+            {/* Zoom affordance — always visible so touch users know the image opens the viewer */}
+            <div style={{ position: "absolute", bottom: 16, left: 16, display: "flex", alignItems: "center", gap: 6, background: "rgba(16,16,18,0.15)", color: PAPER, fontSize: 11, padding: "5px 11px", borderRadius: 6, pointerEvents: "none" }}>
+              <ZoomIn size={12} />
+              <span style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Tap to zoom</span>
+            </div>
 
           </div>
         </div>
