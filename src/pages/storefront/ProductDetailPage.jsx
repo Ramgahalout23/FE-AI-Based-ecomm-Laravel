@@ -518,7 +518,7 @@ export default function ProductDetailPage() {
           <div style={{ background: PANEL, height: 160, borderRadius: 12 }} />
         </div>
         {/* Desktop skeleton */}
-        <div className="hidden lg:block" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 56 }}>
+        <div className="hidden lg:block" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1fr)", gap: 56 }}>
           <div style={{ display: "flex", gap: 16 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 80 }}>
               {[1,2,3,4].map(i => (
@@ -644,7 +644,7 @@ export default function ProductDetailPage() {
     <div style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", paddingBottom: showStickyBar ? 76 : 0 }}>
       <style>{`
         @media (min-width: 1024px) {
-          .lg-grid { grid-template-columns: 1.1fr 1fr !important; }
+          .lg-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) !important; }
           .gallery-row { flex-direction: row !important; }
           .gallery-thumbs { flex-direction: column !important; width: 80px !important; }
           .gallery-sticky { position: sticky; top: 80px; align-self: start; }
@@ -1102,7 +1102,7 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
       {/* MAIN CONTENT */}
       {/* ════════════════════════════════════════ */}
-      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "1fr", gap: 56 }} className="lg-grid product-detail-main">
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 56 }} className="lg-grid product-detail-main">
 
         {/* ═══ GALLERY ═══ */}
         <div className="gallery-row gallery-sticky" style={{ display: "flex", gap: 16 }}>
