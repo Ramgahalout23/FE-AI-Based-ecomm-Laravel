@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Flame, PartyPopper, TrendingUp, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
@@ -33,39 +33,17 @@ const normalizeTiers = (tiers) =>
     badge: t.badge ?? (t.discount > 0 ? `Save ${t.discount}%` : null),
   }));
 
-const ACCENT_GOLD = '#C9A96E';
+// ── Palette: light premium (black brand, no gold) ──
+const INK = '#1C1C1E';
+const INK_70 = 'rgba(28,28,30,0.70)';
+const INK_55 = 'rgba(28,28,30,0.55)';
+const INK_40 = 'rgba(28,28,30,0.40)';
+const INK_12 = 'rgba(28,28,30,0.10)';
+const INK_08 = 'rgba(28,28,30,0.07)';
+const INK_05 = 'rgba(28,28,30,0.05)';
 
-const TIER_GRADIENTS = [
-  { bg: 'linear-gradient(135deg, #1C1C1E, #2A2722, #1C1C1E)', accent: '#C9A96E', border: '1px solid rgba(201,169,110,0.12)' },
-  { bg: 'linear-gradient(135deg, #1A1A24, #252236, #1A1A24)', accent: '#A78BFA', border: '1px solid rgba(167,139,250,0.12)' },
-  { bg: 'linear-gradient(135deg, #1C1E1C, #1F2A1E, #1C1E1C)', accent: '#6EE7B7', border: '1px solid rgba(110,231,183,0.12)' },
-  { bg: 'linear-gradient(135deg, #1E1C1C, #2A1F1E, #1E1C1C)', accent: '#FCA5A5', border: '1px solid rgba(252,165,165,0.12)' },
-];
-
-const DEFAULT_BG = 'linear-gradient(135deg, #1C1C1E, #2A2722, #1C1C1E)';
-
-/**
- * Returns a gradient definition for a tier card based on its state.
- */
-function getTierGradient(index, isSelected, isRecommended) {
-  const base = TIER_GRADIENTS[index % TIER_GRADIENTS.length];
-  if (isSelected) return {
-    bg: 'linear-gradient(135deg, #0A0A0B, #1C1C1E, #0A0A0B)',
-    accent: '#C9A96E',
-    border: '1px solid rgba(201,169,110,0.35)',
-    shadow: '0 8px 32px rgba(201,169,110,0.12)',
-  };
-  if (isRecommended) return {
-    ...base,
-    shadow: '0 4px 20px rgba(201,169,110,0.08)',
-  };
-  return {
-    bg: 'linear-gradient(135deg, #161618, #1E1E20, #161618)',
-    accent: '#6B7280',
-    border: '1px solid rgba(255,255,255,0.04)',
-    shadow: 'none',
-  };
-}
+const CARD_BG = '#FFFFFF';
+const CARD_BORDER = '1px solid rgba(0,0,0,0.09)';
 
 export default function BundleOffer({ 
   basePrice = 0, 
@@ -107,241 +85,373 @@ export default function BundleOffer({
   // one with a discount is the top tier) — adapts to admin-configured tiers.
   const bestTier = [...normalizedTiers].reverse().find(t => t.discount > 0);
 
+  const showUpTo = bestTier && currentTier.minQty < bestTier.minQty;
+
+  // ── Savings-meter derived state ──
+  // The next (unlocked) tier strictly above the current quantity.
+  const nextTier = normalizedTiers.find(
+    (t) => t.discount > 0 && selectedQty < t.minQty && (!t.maxQty || selectedQty < t.maxQty)
+  ) || null;
+  const itemsToNext = nextTier ? Math.max(1, nextTier.minQty - selectedQty) : 0;
+  const maxTierReached = !nextTier;
+
+  // Live savings at the current quantity (from the active tier) — only
+  // counts once the user has actually reached the tier's min quantity.
+  const tierReached = currentTier && selectedQty >= currentTier.minQty;
+  const currentSavings = tierReached && currentTier?.discount > 0
+    ? Math.round(basePrice * (currentTier.discount / 100) * effQtyFor(currentTier))
+    : 0;
+
+  // Filled / active / future state per tier segment
+  const segmentState = (tier) => {
+    const reached = selectedQty >= tier.minQty;
+    const isActive = reached && (tier.minQty === currentTier?.minQty);
+    const isNext = !reached && nextTier && tier.minQty === nextTier.minQty;
+    return { reached, isActive, isNext };
+  };
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="pt-2"
+      className="pt-1"
     >
-      {/* Section Header — refined, matching OffersSection language */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 mb-3 group"
+      {/* ── Light premium card container ── */}
+      <div
+        style={{
+          background: CARD_BG,
+          border: CARD_BORDER,
+          borderRadius: 18,
+          padding: '18px 16px 16px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.06)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
       >
-        <div className="flex items-center gap-1.5">
-          <div
-            className="w-1 h-4 rounded-full"
-            style={{ background: `linear-gradient(180deg, ${ACCENT_GOLD}, #A68B4E)` }}
-          />
-          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.15em]">
-            Buy More, Save More
-          </h3>
-        </div>
-        <div className="flex-1 h-px bg-gradient-to-r from-gray-200/60 via-gray-200/30 to-transparent" />
-        {bestTier && currentTier.minQty < bestTier.minQty && (
-          <span
-            className="text-[9px] font-bold tracking-[0.08em] whitespace-nowrap px-2.5 py-1 rounded-full animate-pulse"
-            style={{
-              color: ACCENT_GOLD,
-              background: `${ACCENT_GOLD}12`,
-              border: `1px solid ${ACCENT_GOLD}25`,
-            }}
-          >
-            Up to {bestTier.discount}% off
-          </span>
-        )}
-        <ChevronDown 
-          size={13} 
-          className={`text-gray-500 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} 
-        />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            key="bundle-tiers"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <p className="text-[11px] text-gray-500 mb-3.5 leading-relaxed">
-              Add more items to your bag and unlock exclusive volume discounts automatically applied at checkout.
-            </p>
-
-            {/* Tier Cards — premium gradient design */}
-            <div className="grid grid-cols-4 gap-2.5 mb-3.5">                {tierPrices.map((tier, idx) => {
-                const isSelected = tier.minQty === currentTier.minQty;
-                const isRecommended = tier.minQty === bestTier?.minQty && bestTier?.minQty > 1 && !isSelected;
-                const grad = getTierGradient(idx, isSelected, isRecommended);
-
-                return (
-                  <motion.button
-                    key={tier.minQty}
-                    onClick={() => {
-                      onSelectTier?.(tier.minQty);
-                      setExpanded(false);
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={!isSelected ? { y: -2, scale: 1.02, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } } : {}}
-                    className="group/tier relative rounded-[12px] transition-all duration-200 overflow-hidden cursor-pointer"
-                    style={{
-                      background: grad.bg,
-                      border: grad.border,
-                      boxShadow: grad.shadow || '0 1px 3px rgba(0,0,0,0.2)',
-                    }}
-                  >
-                    {/* Glass-morphism overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
-
-                    {/* Selected/recommended glow */}
-                    {(isSelected || isRecommended) && (
-                      <div
-                        className="absolute -top-6 -right-6 w-16 h-16 rounded-full opacity-15 blur-xl pointer-events-none"
-                        style={{ background: `radial-gradient(circle, ${ACCENT_GOLD} 0%, transparent 70%)` }}
-                      />
-                    )}
-
-                    {/* Top accent bar */}
-                    <div
-                      className="absolute top-0 inset-x-0 h-[2px] opacity-50"
-                      style={{
-                        background: `linear-gradient(90deg, transparent, ${isSelected ? ACCENT_GOLD : grad.accent}60, transparent)`,
-                      }}
-                    />
-
-                    {/* Content */}
-                    <div className="relative z-10 p-[10px_8px] flex flex-col items-center gap-0.5">
-                      {/* Quantity badge */}
-                      <span className="text-[16px] font-black leading-none tracking-tight text-white drop-shadow-sm">
-                        {tier.maxQty ? `${tier.minQty}–${tier.maxQty}` : tier.minQty}
-                      </span>
-                      <span className="text-[8px] font-semibold leading-tight text-white/50">
-                        {tier.maxQty ? 'Items' : tier.minQty === 4 ? '4+' : 'Items'}
-                      </span>
-
-                      {/* Divider */}
-                      <div className="w-5 h-px rounded-full my-1.5 bg-white/[0.08]" />
-
-                      {/* Unit Price */}
-                      <span className="text-[12px] font-bold text-white">
-                        {formatCurrency(tier.unitPrice)}
-                      </span>
-                      <span className="text-[7px] text-white/40">each</span>
-
-                      {/* Selected checkmark */}
-                      {isSelected && (
-                        <div className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full flex items-center justify-center shadow-md"
-                          style={{ background: ACCENT_GOLD }}>
-                          <Check size={9} className="text-[#1C1C1E]" strokeWidth={3} />
-                        </div>
-                      )}
-
-                      {/* Recommended badge */}
-                      {isRecommended && (
-                        <div className="absolute -top-1.5 -right-1.5">
-                          <span className="text-[10px] drop-shadow-sm">🔥</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Hover shine effect */}
-                    <div className="absolute inset-0 opacity-0 group-hover/tier:opacity-100 transition-opacity duration-500 pointer-events-none">
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background: `linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0.05) 50%, transparent 60%)`,
-                        }}
-                      />
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {/* Active savings callout — premium styled */}
-            {currentTier.discount > 0 && (
-              <div
-                className="flex items-center gap-3 rounded-[10px] px-3.5 py-3"
-                style={{
-                  background: `linear-gradient(135deg, ${ACCENT_GOLD}08, ${ACCENT_GOLD}03)`,
-                  border: `1px solid ${ACCENT_GOLD}20`,
-                }}
-              >
-                <div
-                  className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: `${ACCENT_GOLD}15` }}
-                >
-                  <span className="font-black text-[12px]" style={{ color: ACCENT_GOLD }}>₹</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold" style={{ color: ACCENT_GOLD }}>
-                    You save {formatCurrency(tierPrices[currentTierIndex]?.savings || 0)} with this tier!
-                  </p>
-                  <p className="text-[10px] text-white/50">
-                    {currentTier.discount}% off each item • {formatCurrency(currentTier.unitPrice)}/unit
-                  </p>
-                </div>
-                <span
-                  className="text-[18px] font-black shrink-0"
-                  style={{ color: ACCENT_GOLD }}
-                >
-                  {currentTier.discount}%
-                </span>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Collapsed state - show mini summary */}
-      {!expanded && currentTier.discount > 0 && (
-        <div 
-          onClick={() => setExpanded(true)}
-          className="flex items-center justify-between rounded-[10px] px-3.5 py-[10px] cursor-pointer transition-all duration-200 group"
+        {/* Soft ambient glow */}
+        <div
           style={{
-            background: `linear-gradient(135deg, ${ACCENT_GOLD}15, ${ACCENT_GOLD}08)`,
-            border: `1px solid ${ACCENT_GOLD}30`,
+            position: 'absolute',
+            top: -60,
+            right: -60,
+            width: 180,
+            height: 180,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(0,0,0,0.035) 0%, transparent 70%)',
+            pointerEvents: 'none',
           }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 16,
+            right: 16,
+            height: 1,
+            background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.14), transparent)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* ── Header row ── */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-2 mb-4 group relative z-10"
         >
-          <div className="flex items-center gap-2.5">
-            <span className="text-base">🎉</span>
-            <div>
-              <p className="text-[11px] font-bold" style={{ color: ACCENT_GOLD }}>
-                {currentTier.label} Bundle — Save {currentTier.discount}%
-              </p>
-              <p className="text-[10px]" style={{ color: `${ACCENT_GOLD}BB` }}>
-                {formatCurrency(tierPrices[currentTierIndex]?.savings || 0)} in savings
+          <div className="flex items-center gap-2">
+            <span
+              className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center shrink-0"
+              style={{ background: INK_08, color: INK }}
+            >
+              <TrendingUp size={15} strokeWidth={2.2} />
+            </span>
+            <div className="text-left">
+              <h3 className="text-[11px] font-bold text-gray-800 uppercase tracking-[0.16em] leading-tight">
+                Buy More, Save More
+              </h3>
+              <p className="text-[9px] mt-[2px]" style={{ color: INK_55 }}>
+                Auto-applied at checkout
               </p>
             </div>
           </div>
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.12), transparent)' }} />
+          {showUpTo && (
+            <span
+              className="text-[9px] font-bold tracking-[0.08em] whitespace-nowrap px-2.5 py-[5px] rounded-full animate-pulse"
+              style={{ color: '#FFFFFF', background: INK, border: '1px solid rgba(0,0,0,0.9)' }}
+            >
+              UP TO {bestTier.discount}% OFF
+            </span>
+          )}
           <span
-            className="text-[9px] font-semibold px-2.5 py-1 rounded-full transition-colors duration-200"
+            className="w-[26px] h-[26px] rounded-full flex items-center justify-center transition-all duration-300"
             style={{
-              color: ACCENT_GOLD,
-              background: `${ACCENT_GOLD}20`,
+              background: expanded ? INK : INK_08,
+              color: expanded ? '#FFFFFF' : INK_70,
             }}
           >
-            View tiers
+            <ChevronDown size={14} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }} />
           </span>
-        </div>
-      )}
+        </button>
 
-      {/* No active discount - show preview of best tier */}
-      {!expanded && (!currentTier.discount || currentTier.discount === 0) && (
-        <div 
-          onClick={() => setExpanded(true)}
-          className="flex items-center justify-between rounded-[10px] px-3.5 py-[10px] cursor-pointer transition-all duration-200 group bg-gray-100/60 border border-gray-200/80"
-        >
-          <div className="flex items-center gap-2.5">
-            <span className="text-base">📦</span>
+        {/* ── Savings meter ── */}
+        <div className="relative z-10 mb-4">
+          {/* Meter top row: savings so far + next-tier nudge */}
+          <div className="flex items-end justify-between gap-3 mb-3">
             <div>
-              <p className="text-[11px] font-bold text-gray-700">
-                Buy more & save up to {bestTier?.discount || 0}%
+              <p className="text-[11px] font-bold" style={{ color: INK }}>
+                {maxTierReached
+                  ? `Best price unlocked — ${bestTier.discount}% off`
+                  : `Add ${itemsToNext} more item${itemsToNext > 1 ? 's' : ''} → ${nextTier.discount}% off`}
               </p>
-              <p className="text-[10px] text-gray-500">
-                Add {bestTier?.minQty || 2}+ items to unlock exclusive pricing
+              <p className="text-[10px] mt-[2px]" style={{ color: INK_55 }}>
+                {maxTierReached
+                  ? `You're saving ${formatCurrency(currentSavings)} on this tier`
+                  : currentSavings > 0
+                    ? `You're saving ${formatCurrency(currentSavings)} on this tier`
+                    : `Auto-applied at checkout · Up to ${bestTier.discount}% off`}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: INK_40 }}>
+                Saved
+              </p>
+              <p className="text-[18px] font-black leading-none" style={{ color: INK }}>
+                {formatCurrency(currentSavings)}
               </p>
             </div>
           </div>
-          <span className="text-[9px] font-semibold text-gray-500 bg-gray-200/70 px-2.5 py-1 rounded-full group-hover:bg-gray-300/70 transition-colors duration-200">
-            Show
-          </span>
+
+          {/* Segmented progress bar */}
+          <div className="flex gap-1.5">
+            {tierPrices.map((tier) => {
+              const { reached, isActive, isNext } = segmentState(tier);
+              const pct = tier.discount;
+              return (
+                <button
+                  key={tier.minQty}
+                  onClick={() => onSelectTier?.(tier.minQty)}
+                  aria-label={`${tier.minQty}+ items → ${pct}% off`}
+                  className="flex-1 flex flex-col gap-1.5 items-stretch cursor-pointer group/seg"
+                >
+                  {/* Segment label */}
+                  <div className="flex items-center justify-between px-0.5">
+                    <span
+                      className="text-[9px] font-extrabold tracking-wide"
+                      style={{ color: reached ? INK : isNext ? INK : INK_40 }}
+                    >
+                      {tier.minQty}+
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold ${isNext ? 'animate-pulse' : ''}`}
+                      style={{ color: reached ? INK : isNext ? INK : INK_40 }}
+                    >
+                      {pct}%
+                    </span>
+                  </div>
+                  {/* Segment track */}
+                  <span
+                    className="block h-[7px] rounded-full transition-all duration-300 group-hover/seg:opacity-80"
+                    style={{
+                      background: reached
+                        ? `linear-gradient(90deg, ${INK}, ${isActive ? INK : INK_70})`
+                        : isNext
+                          ? 'repeating-linear-gradient(45deg, rgba(28,28,30,0.45) 0 5px, rgba(28,28,30,0.18) 5px 10px)'
+                          : INK_12,
+                      boxShadow: isActive ? `0 0 0 2px rgba(28,28,30,0.15)` : 'none',
+                    }}
+                  />
+                  {/* Active marker */}
+                  {isActive && (
+                    <span className="flex items-center justify-center gap-1 text-[8px] font-bold uppercase tracking-[0.08em]" style={{ color: INK }}>
+                      <Check size={9} strokeWidth={3.5} /> you're here
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
+
+        {/* ── Next-tier callout CTA (when a tier is still unlocked) ── */}
+        {!maxTierReached && nextTier && (
+          <button
+            onClick={() => onSelectTier?.(nextTier.minQty)}
+            className="relative z-10 w-full flex items-center justify-between gap-3 rounded-[12px] px-3.5 py-3 cursor-pointer transition-all duration-200 group/cta"
+            style={{ background: INK, border: '1px solid rgba(0,0,0,0.9)' }}
+          >
+            <span className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(255,255,255,0.14)' }}>
+              <Flame size={14} color="#FFFFFF" strokeWidth={2.2} />
+            </span>
+            <span className="flex-1 text-left min-w-0">
+              <span className="block text-[12px] font-bold text-white leading-tight">
+                Unlock {nextTier.discount}% off with {nextTier.minQty} items
+              </span>
+              <span className="block text-[10px] mt-[2px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                {formatCurrency(tierPrices.find(t => t.minQty === nextTier.minQty)?.unitPrice || 0)}/item · you save {formatCurrency(Math.round(basePrice * (nextTier.discount / 100) * nextTier.minQty))}
+              </span>
+            </span>
+            <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 group-hover/cta:translate-x-0.5" style={{ background: 'rgba(255,255,255,0.14)' }}>
+              <ArrowRight size={13} color="#FFFFFF" strokeWidth={2.4} />
+            </span>
+          </button>
+        )}
+
+        {/* ── Best price achieved CTA ── */}          {maxTierReached && bestTier && currentSavings > 0 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="relative z-10 w-full flex items-center justify-between gap-3 rounded-[12px] px-3.5 py-3 cursor-pointer transition-all duration-200 group/cta"
+            style={{ background: INK_05, border: '1px solid rgba(0,0,0,0.08)' }}
+          >
+            <span className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0" style={{ background: INK }}>
+              <PartyPopper size={14} color="#FFFFFF" strokeWidth={2.2} />
+            </span>
+            <span className="flex-1 text-left min-w-0">
+              <span className="block text-[12px] font-bold leading-tight" style={{ color: INK }}>
+                Best bundle price applied — {bestTier.discount}% off
+              </span>
+              <span className="block text-[10px] mt-[2px]" style={{ color: INK_55 }}>
+                {formatCurrency(currentSavings)} saved · tap for per-item pricing
+              </span>
+            </span>
+            <ChevronDown size={15} color={INK} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }} />
+          </button>
+        )}
+
+        {/* ── Expandable per-tier detail ── */}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="bundle-tiers"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden relative z-10"
+            >
+              <div className="h-px my-4" style={{ background: 'rgba(0,0,0,0.07)' }} />
+              <p className="text-[11px] mb-4 leading-relaxed" style={{ color: INK_55 }}>
+                Volume pricing applied to your whole order automatically at checkout.
+              </p>
+
+              {/* Tier Cards — 2×2 on mobile, 4 across on ≥640px */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+                {tierPrices.map((tier, idx) => {
+                  const { reached, isActive } = segmentState(tier);
+                  const isSelected = tier.minQty === currentTier.minQty;
+                  const isRecommended = tier.minQty === bestTier?.minQty && bestTier?.minQty > 1 && !isSelected;
+                  const isDark = isSelected || reached;
+
+                  return (
+                    <motion.button
+                      key={tier.minQty}
+                      onClick={() => {
+                        onSelectTier?.(tier.minQty);
+                      }}
+                      whileTap={{ scale: 0.96 }}
+                      whileHover={!isSelected ? { y: -2, scale: 1.02, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } } : {}}
+                      aria-label={`${tier.label} — save ${tier.discount}%`}
+                      className="relative rounded-[14px] transition-all duration-200 overflow-hidden cursor-pointer"
+                      style={{
+                        background: isDark
+                          ? 'linear-gradient(160deg, #26262A 0%, #141416 100%)'
+                          : 'linear-gradient(160deg, #FFFFFF, #F7F7F8)',
+                        border: isDark ? '1px solid rgba(0,0,0,0.9)' : '1px solid rgba(0,0,0,0.08)',
+                        boxShadow: isSelected ? '0 10px 26px rgba(0,0,0,0.28)' : '0 2px 8px rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      {/* Glass overlay */}
+                      <div className={`absolute inset-0 pointer-events-none ${isDark ? '' : 'bg-gradient-to-b from-black/[0.02] to-transparent'}`} />
+
+                      {/* Top accent bar */}
+                      <div
+                        className="absolute top-0 inset-x-0 h-[2px]"
+                        style={{ background: `linear-gradient(90deg, transparent, ${isDark ? '#FFFFFF' : INK}${isDark ? '' : '44'}, transparent)` }}
+                      />
+
+                      {/* Content */}
+                      <div className="relative z-10 p-[12px_8px] flex flex-col items-center gap-1">
+                        <span
+                          className="text-[22px] font-black leading-none tracking-tight"
+                          style={{ color: isDark ? '#FFFFFF' : INK }}
+                        >
+                          {tier.maxQty ? `${tier.minQty}–${tier.maxQty}` : `${tier.minQty}+`}
+                        </span>
+                        <span
+                          className="text-[8px] font-semibold uppercase tracking-[0.14em]"
+                          style={{ color: isDark ? 'rgba(255,255,255,0.55)' : INK_55 }}
+                        >
+                          Items
+                        </span>
+
+                        <div className="w-5 h-px rounded-full my-1" style={{ background: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)' }} />
+
+                        {/* Discount badge */}
+                        <span
+                          className="text-[13px] font-extrabold leading-none"
+                          style={{ color: isDark ? '#FFFFFF' : INK }}
+                        >
+                          {tier.discount}% off
+                        </span>
+                        <span
+                          className="text-[8px]"
+                          style={{ color: isDark ? 'rgba(255,255,255,0.55)' : INK_55 }}
+                        >
+                          {formatCurrency(tier.unitPrice)} each
+                        </span>
+
+                        {/* Selected check */}
+                        {isSelected && (
+                          <span className="absolute top-2 right-2 w-[16px] h-[16px] rounded-full flex items-center justify-center" style={{ background: '#FFFFFF' }}>
+                            <Check size={9} color={INK} strokeWidth={3} />
+                          </span>
+                        )}
+                        {/* Recommended flame */}
+                        {isRecommended && (
+                          <span className="absolute top-2 right-2 w-[16px] h-[16px] rounded-full flex items-center justify-center" style={{ background: INK, boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
+                            <Flame size={9} color="#FFFFFF" strokeWidth={2.5} />
+                          </span>
+                        )}
+                        {/* Reached check */}
+                        {reached && !isSelected && (
+                          <span className="absolute top-2 right-2 w-[16px] h-[16px] rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.85)' }}>
+                            <Check size={9} color={INK} strokeWidth={3} />
+                          </span>
+                        )}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Active savings callout */}
+              {currentTier.discount > 0 && (
+                <div
+                  className="flex items-center gap-3 rounded-[12px] px-3.5 py-3"
+                  style={{ background: INK_05, border: '1px solid rgba(0,0,0,0.08)' }}
+                >
+                  <div className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0" style={{ background: INK, color: '#FFFFFF' }}>
+                    <PartyPopper size={15} strokeWidth={2.2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold" style={{ color: INK }}>
+                      You save {formatCurrency(currentSavings)} with this tier!
+                    </p>
+                    <p className="text-[10px] mt-[2px]" style={{ color: INK_55 }}>
+                      {currentTier.discount}% off each item · {formatCurrency(tierPrices[currentTierIndex]?.unitPrice || 0)}/unit
+                    </p>
+                  </div>
+                  <span className="text-[22px] font-black shrink-0" style={{ color: INK }}>
+                    {currentTier.discount}%
+                  </span>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

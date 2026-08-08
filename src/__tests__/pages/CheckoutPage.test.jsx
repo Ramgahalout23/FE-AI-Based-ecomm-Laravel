@@ -134,6 +134,17 @@ describe('CheckoutPage', () => {
     expect(screen.getByText(/Sign in for faster checkout/i)).toBeDefined();
   });
 
+  it('should not infinite-loop for guest users with no qualifying offers', () => {
+    // Regression: the auto-offer effect used to call setAutoDiscountPromos([])
+    // with a fresh array on every render (availableItems is a new reference
+    // each render), which scheduled a state change every pass → infinite
+    // render loop that froze the guest checkout and crashed the vitest
+    // worker. Rendering as a guest with no offers must complete normally.
+    renderCheckoutPage();
+    expect(screen.getByText('Test Product')).toBeDefined();
+    expect(screen.getByText(/Shipping Address/i)).toBeDefined();
+  });
+
   it('should show shipping form fields', () => {
     renderCheckoutPage();
     expect(screen.getByText('Shipping Address')).toBeDefined();

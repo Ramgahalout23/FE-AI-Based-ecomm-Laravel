@@ -262,14 +262,14 @@ describe('getBestStoreOffer', () => {
     { id: 'gift', title: 'Summer Bonus', discount: null, status: 'ACTIVE', isActive: true },
   ];
 
-  it('returns null without offers or discount', () => {
-    expect(getBestStoreOffer(1000)).toBeNull();
-    expect(getBestStoreOffer(1000, [])).toBeNull();
-    expect(getBestStoreOffer(1000, [{ id: 'gift', discount: null }])).toBeNull();
+  it('returns null without offers, items or discount', () => {
+    expect(getBestStoreOffer()).toBeNull();
+    expect(getBestStoreOffer([], [])).toBeNull();
+    expect(getBestStoreOffer([{ price: 1000, quantity: 1 }], [{ id: 'gift', discount: null }])).toBeNull();
   });
 
   it('returns the best single offer with its rounded amount', () => {
-    const best = getBestStoreOffer(3396, offers);
+    const best = getBestStoreOffer([{ price: 3396, quantity: 1 }], offers);
     expect(best.id).toBe('smart');
     expect(best.amount).toBe(339.6);
     expect(best.badge).toBe('BUY 2');
@@ -277,7 +277,7 @@ describe('getBestStoreOffer', () => {
   });
 
   it('picks the highest discount when offers differ', () => {
-    const best = getBestStoreOffer(1000, [
+    const best = getBestStoreOffer([{ price: 1000, quantity: 1 }], [
       { id: 'a', discount: '5', status: 'ACTIVE', isActive: true },
       { id: 'b', discount: '20', status: 'ACTIVE', isActive: true },
     ]);
@@ -286,13 +286,56 @@ describe('getBestStoreOffer', () => {
   });
 
   it('ignores inactive or non-ACTIVE offers', () => {
-    const best = getBestStoreOffer(1000, [
+    const best = getBestStoreOffer([{ price: 1000, quantity: 1 }], [
       { id: 'off', discount: '10', status: 'ACTIVE', isActive: false },
       { id: 'paused', discount: '15', status: 'PAUSED', isActive: true },
       { id: 'live', discount: '5', status: 'ACTIVE', isActive: true },
     ]);
     expect(best.id).toBe('live');
     expect(best.amount).toBe(50);
+  });
+
+  it('honors the per-item maxDiscount cap like the backend', () => {
+    const best = getBestStoreOffer([{ price: 2000, quantity: 1 }], [
+      { id: 'a', discount: '10', status: 'ACTIVE', isActive: true, maxDiscount: 100 },
+    ]);
+    expect(best.amount).toBe(100);
+  });
+
+  it('skips items below the per-item minPurchase like the backend', () => {
+    const best = getBestStoreOffer([
+      { price: 200, quantity: 1 },
+      { price: 500, quantity: 1 },
+    ], [
+      { id: 'a', discount: '10', status: 'ACTIVE', isActive: true, minPurchase: 300 },
+    ]);
+    expect(best.amount).toBe(50);
+  });
+
+  it('evaluates every item so multi-item carts match the per-item backend math', () => {
+    const best = getBestStoreOffer([
+      { price: 350, quantity: 1 },
+      { price: 100, quantity: 1 },
+    ], [
+      { id: 'a', discount: '10', status: 'ACTIVE', isActive: true, minPurchase: 299 },
+    ]);
+    // item 1 qualifies (350 → 35), item 2 does not (100 < 299) → 35 total
+    expect(best.amount).toBe(35);
+  });
+
+  it('applies the best offer PER ITEM and sums (mirrors backend stacking)', () => {
+    // Offer A: 10% capped at 40. Offer B: flat 50 with minPurchase 500.
+    // Item 600: A → min(60,40)=40, B → 50 → B wins.
+    // Item 100: A → 10, B → skipped (100 < 500) → A wins.
+    // Total = 50 + 10 = 60 — the backend sums per-item winners, not one offer.
+    const best = getBestStoreOffer([
+      { price: 600, quantity: 1 },
+      { price: 100, quantity: 1 },
+    ], [
+      { id: 'a', discount: '10', status: 'ACTIVE', isActive: true, maxDiscount: 40 },
+      { id: 'b', discount: '50', type: 'FIXED', status: 'ACTIVE', isActive: true, minPurchase: 500 },
+    ]);
+    expect(best.amount).toBe(60);
   });
 });
 

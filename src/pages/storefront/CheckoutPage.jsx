@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ShieldCheck, Truck, RefreshCw, Lock, ArrowRight, User, ExternalLink, UserPlus, ExternalLink as ExternalLinkIcon, AlertTriangle } from 'lucide-react';
@@ -34,6 +34,20 @@ export default function CheckoutPage() {
   const { getSetting } = useSettings();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Set to true once an order is successfully placed — the cart is then cleared
+  // exactly once, on unmount (below), instead of before navigate(). Clearing
+  // before navigating would re-render this page as an empty cart in the brief
+  // window while the thank-you route mounts; deferring to unmount keeps the
+  // cart untouched until this page is actually gone.
+  const orderPlacedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (orderPlacedRef.current) {
+        clearCart();
+      }
+    };
+  }, [clearCart]);
 
   // Available (in-stock) items — the cart drawer, cart page and checkout all
   // compute their totals from this same set so every screen shows the same total.
@@ -94,28 +108,42 @@ export default function CheckoutPage() {
     fetchOffers();
   }, []);
 
-  // Calculate auto-discount from store offers based on cart subtotal.
-  // Mirrors backend FlashSaleService: picks the BEST single offer, does NOT stack.
+  // Calculate auto-discount from store offers based on cart items (per-item caps
+  // mirrored from backend FlashSaleService so the shown amount == the charged
+  // amount). Picks the BEST single offer, does NOT stack. For authenticated
+  // users the server summary may carry flash-sale discounts, so this effect
+  // never zeroes that value out when no store offer qualifies. Setters compare
+  // the previous value so an unstable availableItems reference never loops.
   useEffect(() => {
-    const bestOffer = getBestStoreOffer(availableSubtotal, storeOffers);
+    const bestOffer = getBestStoreOffer(availableItems, storeOffers);
     const roundedDiscount = bestOffer?.amount || 0;
+    if (!isAuthenticated && roundedDiscount <= 0) {
+      // Guest users have no server summary — clear when no offer qualifies.
+      // Functional updates that bail out keep this idempotent: availableItems
+      // is a fresh array reference every render, and setAutoDiscountPromos([])
+      // would otherwise schedule a state change each render → infinite loop
+      // (frozen guest checkout / vitest worker crash).
+      setAutoDiscount((prev) => (prev === 0 ? prev : 0));
+      setAutoDiscountPromos((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
     if (roundedDiscount > 0) {
-      setAutoDiscount(roundedDiscount);
-      setAutoDiscountPromos([{
+      setAutoDiscount((prev) => (prev === roundedDiscount ? prev : roundedDiscount));
+      const promo = [{
         id: bestOffer.id,
         title: bestOffer.highlight,
         discountLabel: `-${formatCurrency(roundedDiscount)}`,
         offerBadge: bestOffer.badge,
         offerHighlight: bestOffer.highlight,
         offerTagline: bestOffer.tagline,
-      }]);
-    } else if (roundedDiscount <= 0 && !isAuthenticated) {
-      // For guest users, clear auto discount if no offers qualify
-      // (authenticated users will get the server summary, which may have flash sales too)
-      setAutoDiscount(0);
-      setAutoDiscountPromos([]);
+      }];
+      setAutoDiscountPromos((prev) => {
+        const same = (prev[0]?.id ?? null) === (promo[0]?.id ?? null) &&
+          (prev[0]?.discountLabel ?? null) === (promo[0]?.discountLabel ?? null);
+        return same ? prev : promo;
+      });
     }
-  }, [storeOffers, availableSubtotal, isAuthenticated]);
+  }, [storeOffers, availableItems, isAuthenticated]);
 
   // ── Server summary fetch (authenticated users only — includes flash sales + exact server calc) ──
   // Sync cart from server on mount
@@ -372,8 +400,8 @@ export default function CheckoutPage() {
       if (paymentMethod === 'RAZORPAY') {
         await handleRazorpayPayment(orderId);
       } else if (['COD', 'CASH'].includes(paymentMethod)) {
-        // COD — order placed, just redirect
-        clearCart();
+        // COD — order placed, just redirect (cart clears on page unmount)
+        orderPlacedRef.current = true;
         queryClient.invalidateQueries({ queryKey: ['product'] });
         queryClient.invalidateQueries({ queryKey: ['cart'] });
         trackCheckoutComplete(orderId, total);
@@ -402,7 +430,7 @@ export default function CheckoutPage() {
             });
           } else {
             // No redirect URL — just go to thank-you page
-            clearCart();
+            orderPlacedRef.current = true;
             queryClient.invalidateQueries({ queryKey: ['product'] });
             queryClient.invalidateQueries({ queryKey: ['cart'] });
             trackCheckoutComplete(orderId, total);
@@ -413,7 +441,7 @@ export default function CheckoutPage() {
           const msg = gwErr?.response?.data?.message || 'Custom gateway initiation failed';
           console.warn('[Checkout] Custom gateway error:', msg);
           // Order was already created — redirect to thank-you page anyway
-          clearCart();
+          orderPlacedRef.current = true;
           queryClient.invalidateQueries({ queryKey: ['product'] });
           queryClient.invalidateQueries({ queryKey: ['cart'] });
           orderPlaced(orderId);
@@ -479,7 +507,7 @@ export default function CheckoutPage() {
               signature: response.razorpay_signature,
             });
 
-            clearCart();
+            orderPlacedRef.current = true;
             queryClient.invalidateQueries({ queryKey: ['product'] });
             queryClient.invalidateQueries({ queryKey: ['cart'] });
             trackCheckoutComplete(orderId, total);
@@ -528,7 +556,7 @@ export default function CheckoutPage() {
       const orderStatus = orderData.status;
 
       if (paymentStatus === 'COMPLETED' || orderStatus === 'CONFIRMED' || orderStatus === 'PROCESSING') {        setPollingStatus('paid');
-                clearCart();
+                orderPlacedRef.current = true;
         queryClient.invalidateQueries({ queryKey: ['product'] });
         queryClient.invalidateQueries({ queryKey: ['cart'] });
         trackCheckoutComplete(gatewayRedirect.orderId, total);
@@ -545,7 +573,7 @@ export default function CheckoutPage() {
     }
     setPollingStatus('waiting');
     return false;
-  }, [gatewayRedirect, navigate, clearCart, queryClient]);
+  }, [gatewayRedirect, navigate, queryClient]);
 
   // Auto-poll every 5 seconds while on this page
   useEffect(() => {

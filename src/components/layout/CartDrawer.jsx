@@ -84,8 +84,8 @@ export default memo(function CartDrawer() {
   }, []);
 
   const autoDiscountInfo = useMemo(
-    () => getBestStoreOffer(adjustedSubtotal, storeOffers),
-    [storeOffers, adjustedSubtotal]
+    () => getBestStoreOffer(availableItems, storeOffers),
+    [storeOffers, availableItems]
   );
   const autoDiscount = autoDiscountInfo?.amount || 0;
 

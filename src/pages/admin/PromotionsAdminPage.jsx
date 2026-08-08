@@ -125,6 +125,13 @@ export default function PromotionsAdminPage() {
   const openEdit = (p) => { setEditing(p); setForm({ name: p.title || '', type: 'PERCENTAGE', value: p.discount || '', imageUrl: getPromotionImage(p) || '', startDate: p.startDate?.split('T')[0] || '', endDate: p.endDate?.split('T')[0] || '', active: p.status === 'ACTIVE' || p.isActive, productIds: p.productIds || p.products?.map(pr => pr.id) || [], categoryIds: p.categoryIds || p.categories?.map(c => c.id) || [], offerBadge: p.offerBadge || '', offerHighlight: p.offerHighlight || '', offerTagline: p.offerTagline || '', offerTheme: p.offerTheme || '', autoApply: p.autoApply ?? false }); setShowModal(true); };
 
   const handleSave = async () => {
+    // An active promotion must carry a real discount — mirrored on the backend
+    // (PromotionController validation) so admins get instant feedback here.
+    const discountValue = Number(form.value) || 0;
+    if (form.active && discountValue <= 0) {
+      toast.error('Set a discount greater than 0, or turn off Active to save without a discount');
+      return;
+    }
     try {
       const payload = {
         title: form.name,
@@ -152,17 +159,28 @@ export default function PromotionsAdminPage() {
       }
       await load(currentPage);
       setShowModal(false);
-    } catch { toast.error('Failed to save promotion'); }
+    } catch (err) {
+      const msg = err?.response?.data?.errors?.discount?.[0]
+        || err?.response?.data?.message
+        || 'Failed to save promotion';
+      toast.error(msg);
+    }
   };
 
   const handleToggle = async (p) => {
+    const nextStatus = p.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    // Can't activate a promotion that has no real discount to apply.
+    if (nextStatus === 'ACTIVE' && !(Number(p.discount) > 0)) {
+      toast.error('Set a discount greater than 0 before activating this promotion');
+      return;
+    }
     try {
-      const nextStatus = p.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
       await adminAPI.togglePromotion(p.id, { status: nextStatus });
       toast.success(`Campaign ${nextStatus === 'ACTIVE' ? 'Activated' : 'Paused'}`);
       await load(currentPage);
-    } catch {
-      toast.error('Failed to toggle campaign status');
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to toggle campaign status';
+      toast.error(msg);
     }
   };
 
@@ -342,6 +360,22 @@ export default function PromotionsAdminPage() {
                 <div className="form-group"><label>Value (%)</label><input type="number" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} placeholder="20" /></div>
                 <div className="form-group"><label>Start Date</label><input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></div>
                 <div className="form-group"><label>End Date</label><input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} /></div>
+              </div>
+              <div className="form-group form-full" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.active}
+                    onChange={e => setForm({ ...form, active: e.target.checked })}
+                    style={{ accentColor: 'var(--primary)', width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <strong style={{ fontSize: '0.85rem' }}>Active</strong>
+                </label>
+                <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                  {form.active
+                    ? 'Live for customers — an active promotion needs a discount greater than 0'
+                    : 'Saved but hidden — no discount required while inactive'}
+                </span>
               </div>
               {/* ── Offer Card Section ── */}
               <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>

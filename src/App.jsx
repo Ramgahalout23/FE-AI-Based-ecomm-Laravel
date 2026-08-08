@@ -243,13 +243,17 @@ function StorefrontLayout() {
       <Navbar />
       <CartDrawer />
       <main className="flex-1 flex flex-col pb-20">
-        <AnimatePresence mode="wait">
-          <PageTransition key={location.pathname}>
-            <Suspense fallback={<RouteFallback />}>
+        {/* Suspense sits ABOVE the animated wrapper so a lazily-loaded route's
+            chunk (e.g. OrderThankYouPage) swaps in the RouteFallback spinner
+            immediately instead of keeping the outgoing page (checkout) mounted
+            and visible while the chunk downloads. */}
+        <Suspense fallback={<RouteFallback />}>
+          <AnimatePresence mode="wait">
+            <PageTransition key={location.pathname}>
               <Outlet />
-            </Suspense>
-          </PageTransition>
-        </AnimatePresence>
+            </PageTransition>
+          </AnimatePresence>
+        </Suspense>
       </main>
       <Footer />
       <MobileNav />

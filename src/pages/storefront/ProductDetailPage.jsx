@@ -1,11 +1,11 @@
-import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink } from 'lucide-react';
+import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { trackProductView, trackAddToCart } from '../../services/tracker';
 import useInterval from '../../hooks/useInterval';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import SEOHead from '../../components/seo/SEOHead';
 import { productsAPI } from '../../api/products';
@@ -38,16 +38,21 @@ import { addedToCart, removedFromWishlist, addedToWishlist, wishlistError, linkC
 /* ═══════════════════════════════════════════════════
    Brand Design Tokens (matches tailwind.config.js)
    ═══════════════════════════════════════════════════ */
-const INK = "#1a1a1a";        /* brand primary black */
-const PAPER = "#ffffff";      /* white */
-const GOLD = "#1a1a1a";       /* brand primary instead of gold */
-const THREAD = "#4a4a5a";     /* text secondary */
-const STONE = "#8a8a9a";      /* text muted */
-const PANEL = "#f5f5f5";      /* off-white surface container */
+/* Warm stone-black palette (skill: premium dark + warm neutrals, accent stays black) */
+const INK = "#1C1917";         /* brand primary — warm stone black */
+const PAPER = "#FAFAF9";       /* warm off-white background */
+const ACCENT = INK;            /* brand accent = black */
+const ACCENT_DARK = "#44403C"; /* secondary warm gray */
+const ACCENT_TINT = "#F1EFEA"; /* light warm surface */
+const THREAD = "#57534E";     /* text secondary */
+const STONE = "#6E6A66";      /* text muted — 4.5:1 contrast safe */
+const PANEL = "#F0EFEC";      /* off-white surface container */
+const PAPER_WARM = "#FAFAF9"; /* warm white panel */
 
 const displayFont = { fontFamily: "var(--font-display)", fontWeight: 800 };
 
 const stitchBorder = `repeating-linear-gradient(90deg, ${STONE} 0px, ${STONE} 6px, transparent 6px, transparent 12px)`;
+const accentGradient = `linear-gradient(135deg, #2A2724, #161514)`;
 
 // ── Fabric weight meter helpers (dynamic from product attributes) ──
 const FABRIC_METER_MIN = 180;
@@ -60,7 +65,6 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
-  const [recentlyViewedLoaded, setRecentlyViewedLoaded] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
@@ -74,6 +78,7 @@ export default function ProductDetailPage() {
   const stickyColorThumbsRef = useRef(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const hasAutoSelected = useRef(false);
+  const reduceMotion = useReducedMotion();
 
   // Accordion state
   const [openAccordion, setOpenAccordion] = useState('details');
@@ -398,9 +403,6 @@ export default function ProductDetailPage() {
     return stocks.length ? Math.max(...stocks) : 0;
   };
 
-  const isSizeLowStock = (size) => { const stock = getSizeStock(size); return stock > 0 && stock <= LOW_STOCK_THRESHOLD; };
-  const isColorLowStock = (color) => { const stock = getColorStock(color); return stock > 0 && stock <= LOW_STOCK_THRESHOLD; };
-
   const isSizeRequired = product?.sizes?.length > 0;
   const isColorRequired = product?.colors?.length > 0;
   const needsSize = isSizeRequired;
@@ -545,7 +547,7 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 24px" }}>
+      <div className="product-detail-root" style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 24px" }}>
         <div style={{ textAlign: "center", maxWidth: 400 }}>
           <div style={{ width: 72, height: 72, margin: "0 auto 24px", borderRadius: "50%", background: PANEL, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={28} color={STONE} strokeWidth={1.5} />
@@ -641,13 +643,46 @@ export default function ProductDetailPage() {
   const effectiveOldPrice = product.oldPrice || null;
 
   return (
-    <div style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", paddingBottom: showStickyBar ? 76 : 0 }}>
+    <div className="product-detail-root" style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", paddingBottom: showStickyBar ? 76 : 0 }}>
       <style>{`
+        /* ── Accessibility: visible keyboard focus (skill priority 1) ── */
+        .product-detail-root button:focus-visible,
+        .product-detail-root a:focus-visible,
+        .product-detail-root select:focus-visible {
+          outline: 2px solid ${INK};
+          outline-offset: 2px;
+          border-radius: 6px;
+        }
+        .product-detail-root .thumb:focus-visible { outline-offset: 2px; }
+        /* ── Respect reduced-motion (skill priority 7) ── */
+        @media (prefers-reduced-motion: reduce) {
+          .product-detail-root *,
+          .product-detail-root *::before,
+          .product-detail-root *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
         @media (min-width: 1024px) {
-          .lg-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) !important; }
+          .lg-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) !important; gap: 48px !important; }
+          .hero-img { height: 560px !important; }
+          /* Subtle hover zoom on the hero (desktop only, smooth 500ms) */
+          .hero-frame .hero-img { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important; }
+          .hero-frame:hover .hero-img { transform: scale(1.03) !important; }
           .gallery-row { flex-direction: row !important; }
           .gallery-thumbs { flex-direction: column !important; width: 80px !important; }
           .gallery-sticky { position: sticky; top: 80px; align-self: start; }
+          /* Premium buy box — subtle panel framing the purchase info on desktop */
+          .pdp-info-box {
+            align-self: start;
+            background: #ffffff;
+            border: 1px solid rgba(0,0,0,0.07);
+            border-radius: 20px;
+            padding: 28px 28px 32px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+          }
         }
         @media (max-width: 1023px) {
           .gallery-row { flex-direction: column !important; }
@@ -662,6 +697,8 @@ export default function ProductDetailPage() {
           .product-detail-title { font-size: 28px !important; }
           .product-detail-reviews { padding: 24px !important; }
           .sticky-bar-mobile { display: flex !important; }
+          /* Gallery thumbnails on mobile: comfortable 64px scroll row */
+          .gallery-thumbs button { width: 64px !important; min-width: 64px !important; }
         }
         @media (max-width: 480px) {
           .hero-img { height: 280px !important; }
@@ -669,6 +706,9 @@ export default function ProductDetailPage() {
           .product-detail-section { padding: 0 12px 32px !important; }
           .product-detail-title { font-size: 24px !important; }
           .product-detail-reviews { padding: 20px 16px !important; }
+          /* Small phones: drop the bag icon so the label has room */
+          .cta-main .pdp-bag-icon { display: none !important; }
+          .cta-main { font-size: 11.5px !important; letter-spacing: 0.1em !important; }
         }
         @media (min-width: 768px) {
           .sticky-bar-mobile {
@@ -1102,7 +1142,7 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
       {/* MAIN CONTENT */}
       {/* ════════════════════════════════════════ */}
-      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 56 }} className="lg-grid product-detail-main">
+      <main style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px", display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 32 }} className="lg-grid product-detail-main">
 
         {/* ═══ GALLERY ═══ */}
         <div className="gallery-row gallery-sticky" style={{ display: "flex", gap: 16 }}>
@@ -1133,7 +1173,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Hero Image */}
-          <div ref={flyRef} className="hero-frame gallery-hero" style={{ flex: 1, position: "relative", background: PANEL, overflow: "hidden", borderRadius: 20 }}>
+          <div ref={flyRef} className="hero-frame gallery-hero" style={{ flex: 1, position: "relative", background: `linear-gradient(180deg, ${PAPER_WARM}, ${PANEL})`, overflow: "hidden", borderRadius: 24, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 24px 60px rgba(0,0,0,0.08)" }}>
             <div ref={mobileGalleryRef} style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollBehavior: "smooth", scrollbarWidth: "none" }}>
               {galleryImages.map((img, idx) => (
                 <button
@@ -1150,13 +1190,13 @@ export default function ProductDetailPage() {
 
             {/* Discount badge */}
             {discount && (
-              <span style={{ position: "absolute", top: 16, left: 16, background: INK, color: PAPER, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", padding: "6px 12px", borderRadius: 6 }}>
+              <span style={{ position: "absolute", top: 16, left: 16, background: INK, color: PAPER, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", padding: "7px 14px", borderRadius: 999, boxShadow: "0 6px 18px rgba(0,0,0,0.25)", fontWeight: 700 }}>
                 {discount}% Off
               </span>
             )}
 
             {/* Image counter */}
-            <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(16,16,18,0.15)", color: PAPER, fontSize: 11, padding: "4px 10px", borderRadius: 6 }}>
+            <div style={{ position: "absolute", bottom: 16, right: 16, background: "rgba(255,255,255,0.85)", color: INK, fontSize: 11, padding: "5px 12px", borderRadius: 999, backdropFilter: "blur(8px)", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
               <span>{selectedImageIdx + 1}</span>
               <span style={{ margin: "0 4px", opacity: 0.5 }}>/</span>
               <span style={{ opacity: 0.7 }}>{galleryImages.length}</span>
@@ -1169,53 +1209,63 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Zoom affordance — always visible so touch users know the image opens the viewer */}
-            <div style={{ position: "absolute", bottom: 16, left: 16, display: "flex", alignItems: "center", gap: 6, background: "rgba(16,16,18,0.15)", color: PAPER, fontSize: 11, padding: "5px 11px", borderRadius: 6, pointerEvents: "none" }}>
+            <div style={{ position: "absolute", bottom: 16, left: 16, display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.85)", color: INK, fontSize: 11, padding: "6px 12px", borderRadius: 999, pointerEvents: "none", backdropFilter: "blur(8px)", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
               <ZoomIn size={12} />
-              <span style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>Tap to zoom</span>
+              <span style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700 }}>Tap to zoom</span>
             </div>
 
           </div>
         </div>
 
-        {/* ═══ PRODUCT DETAILS ═══ */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* ═══ PRODUCT DETAILS — premium buy box ═══ */}
+        <div className="pdp-info-box" style={{ display: "flex", flexDirection: "column" }}>
           {/* Category + Viewer count */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: GOLD, fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, letterSpacing: "0.15em", textTransform: "uppercase", color: ACCENT_DARK, fontWeight: 700, background: ACCENT_TINT, padding: "5px 12px", borderRadius: 999 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
               {typeof product.category === 'object' ? product.category.name : product.category}
             </span>
-            <span style={{ fontSize: 11, color: STONE, background: PANEL, padding: "3px 10px", borderRadius: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: STONE, background: PANEL, padding: "5px 12px", borderRadius: 999 }}>
               ● {viewerCount} {t('product.people_viewing')}
             </span>
           </div>
 
           {/* Product Title */}
-          <h1 className="product-detail-title" style={{ fontSize: 40, lineHeight: 1.1, letterSpacing: "-0.02em", marginBottom: 16, ...displayFont }}>
+          <h1 className="product-detail-title" style={{ fontSize: 40, lineHeight: 1.08, letterSpacing: "-0.025em", marginBottom: 14, ...displayFont }}>
             {product.name}
           </h1>
 
           {/* Rating & Sold */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, fontSize: 13, color: STONE }}>
-            <div style={{ display: "flex", gap: 2, color: GOLD }}>
+            <div style={{ display: "flex", gap: 2 }}>
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={14} fill={i < Math.floor(product.rating ?? 5) ? GOLD : "none"} stroke={i < Math.floor(product.rating ?? 5) ? "none" : STONE} strokeWidth={1} />
+                <Star key={i} size={14} fill={i < Math.floor(product.rating ?? 5) ? ACCENT : "none"} stroke={i < Math.floor(product.rating ?? 5) ? "none" : STONE} strokeWidth={1} />
               ))}
             </div>
-            <span>{formatRating(product.rating)} · {t('product.reviews', { count: reviews.length })}</span>
+            <span style={{ fontWeight: 600, color: INK }}>{formatRating(product.rating)}</span>
+            <span>{t('product.reviews', { count: reviews.length })}</span>
             <span style={{ width: 4, height: 4, borderRadius: "50%", background: STONE, display: "inline-block" }} />
             <span>{t('product.sold', { count: product.soldCount ?? 0 })}</span>
           </div>
 
-          {/* Price */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 26, lineHeight: 1, fontWeight: 800, color: "#ef4444" }}>{formatCurrency(effectivePrice)}</span>
+          {/* Price — premium block: sale price, MRP, savings context */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 30, lineHeight: 1, fontWeight: 800, color: INK, letterSpacing: "-0.02em" }}>{formatCurrency(effectivePrice)}</span>
             {effectiveOldPrice && (
               <>
-                <span style={{ fontSize: 17, color: STONE, textDecoration: "line-through" }}>{formatCurrency(effectiveOldPrice)}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.02em", color: "#047857", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 999, padding: "4px 10px", alignSelf: "center" }}>Save {formatCurrency(effectiveOldPrice - effectivePrice)}</span>
+                <span style={{ fontSize: 16, color: STONE, textDecoration: "line-through", marginBottom: 1 }}>{formatCurrency(effectiveOldPrice)}</span>
+                {discount > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.02em", color: "#0E9F6E", background: "#E4F4EC", border: "1px solid rgba(14,159,110,0.18)", borderRadius: 999, padding: "3px 10px", alignSelf: "center" }}>Save {discount}%</span>
+                )}
               </>
             )}
           </div>
+          {effectiveOldPrice && effectiveOldPrice > effectivePrice && (
+            <p style={{ fontSize: 12, color: STONE, marginBottom: 20, marginTop: 0 }}>
+              MRP incl. of all taxes · <span style={{ color: INK, fontWeight: 600 }}>You save {formatCurrency(Math.max(0, effectiveOldPrice - effectivePrice))}</span>
+            </p>
+          )}
+          {!effectiveOldPrice && <div style={{ marginBottom: 20 }} />}
 
           {/* Fabric weight meter — only shown when the product has a GSM attribute set */}
           {product.attributes?.gsm && (() => {
@@ -1230,7 +1280,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div style={{ position: "relative", height: 6, background: PANEL, borderRadius: 3 }}>
                   <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${meterPct}%`, background: INK, borderRadius: 3 }} />
-                  <div style={{ position: "absolute", left: `${meterPct}%`, top: -5, width: 2, height: 16, background: GOLD }} />
+                  <div style={{ position: "absolute", left: `${meterPct}%`, top: -5, width: 2, height: 16, background: ACCENT }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: STONE, marginTop: 6, ...{ fontFamily: "Jost, sans-serif" } }}>
                   <span>180 · standard tee</span>
@@ -1242,11 +1292,13 @@ export default function ProductDetailPage() {
 
           {/* ══ Flash Sale Badge ══ */}
           {activeFlashSale && activeFlashSale.endDate && (
-            <div style={{ marginBottom: 20, padding: "14px 16px", border: `1px solid ${GOLD}`, background: "rgba(176, 141, 79, 0.06)", display: "flex", alignItems: "center", gap: 12, borderRadius: 12 }}>
-              <Zap size={18} color={GOLD} />
+            <div style={{ marginBottom: 20, padding: "14px 16px", border: `1px solid ${INK}20`, background: `linear-gradient(135deg, ${ACCENT_TINT}, #FBFBFB)`, display: "flex", alignItems: "center", gap: 12, borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.06)" }}>
+              <span style={{ width: 34, height: 34, borderRadius: 10, background: INK, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                <Zap size={16} color="#fff" />
+              </span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  {t('product.flash_sale')} {activeFlashSale.discount && <span style={{ color: GOLD }}>{t('product.percent_off', { percent: activeFlashSale.discount })}</span>}
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: INK }}>
+                  {t('product.flash_sale')} {activeFlashSale.discount && <span style={{ color: ACCENT_DARK }}>{t('product.percent_off', { percent: activeFlashSale.discount })}</span>}
                 </div>
                 <div style={{ fontSize: 12, color: STONE, marginTop: 2 }}>{activeFlashSale.title}</div>
               </div>
@@ -1258,9 +1310,9 @@ export default function ProductDetailPage() {
           {product.colors && product.colors.length > 0 && (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.15em", color: STONE, marginBottom: 12 }}>
-                {t('product.color')} — <span style={{ color: INK, fontWeight: 500 }}>{selectedColor || t('product.select')}</span>
+                {t('product.color')} — <span style={{ color: INK, fontWeight: 600 }}>{selectedColor || t('product.select')}</span>
               </div>
-              <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {product.colors.map((c, i) => {
                   const colorAvailable = isColorAvailable(c);
                   const isOOS = variantsList.length > 0 && !colorAvailable;
@@ -1272,16 +1324,18 @@ export default function ProductDetailPage() {
                       onClick={() => { if (isOOS) return; setSelectedColor(c); scrollToOffers(); }}
                       disabled={isOOS}
                       style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 12,
-                        border: `1px solid ${isActive ? INK : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.15)"}`,
+                        width: 46,
+                        height: 46,
+                        borderRadius: "50%",
+                        border: `2px solid ${isActive ? ACCENT : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.12)"}`,
+                        outline: isActive ? `2px solid ${ACCENT_TINT}` : "none",
+                        outlineOffset: 3,
                         cursor: isOOS ? "not-allowed" : "pointer",
                         background: isOOS ? PANEL : "transparent",
                         padding: 0,
-                        opacity: isOOS ? 0.5 : 1,
+                        opacity: isOOS ? 0.45 : 1,
                         overflow: "hidden",
-                        transition: "all 0.15s ease",
+                        transition: "all 0.2s ease",
                       }}
                       title={isOOS ? `${c} - Out of Stock` : c}
                       aria-label={`Select color ${c}`}
@@ -1290,7 +1344,7 @@ export default function ProductDetailPage() {
                         display: "block",
                         width: "100%",
                         height: "100%",
-                        borderRadius: 11,
+                        borderRadius: "50%",
                         position: "relative",
                         overflow: "hidden",
                       }}>
@@ -1307,6 +1361,15 @@ export default function ProductDetailPage() {
                         {isOOS && (
                           <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.45)" }}>
                             <X size={14} color={STONE} strokeWidth={2} />
+                          </span>
+                        )}
+                        {isActive && !isOOS && (
+                          <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                            <span style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.85)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.25)" }}>
+                              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6L5 9L10 3" stroke={INK} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </span>
                           </span>
                         )}
                       </span>
@@ -1346,15 +1409,16 @@ export default function ProductDetailPage() {
                         width: 48,
                         height: 48,
                         fontSize: 13,
-                        fontWeight: 500,
-                        border: `1px solid ${isActive ? INK : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.15)"}`,
-                        background: isActive ? INK : isOOS ? PANEL : "transparent",
+                        fontWeight: 600,
+                        border: `1px solid ${isActive ? "transparent" : isOOS ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.15)"}`,
+                        background: isActive ? accentGradient : isOOS ? PANEL : "transparent",
                         color: isActive ? PAPER : isOOS ? STONE : INK,
                         cursor: isOOS ? "not-allowed" : "pointer",
                         opacity: isOOS ? 0.5 : 1,
                         textDecoration: isOOS ? "line-through" : "none",
                         borderRadius: 12,
-                        transition: "all 0.15s ease",
+                        boxShadow: isActive ? "0 6px 16px rgba(0,0,0,0.22)" : "none",
+                        transition: "all 0.2s ease",
                       }}
                     >
                       {s}
@@ -1364,7 +1428,12 @@ export default function ProductDetailPage() {
               </div>
             </div>
           )}
-          <p style={{ fontSize: 12, color: STONE, marginBottom: 20 }}>Runs true to size · relaxed drop-shoulder fit</p>
+          <p style={{ fontSize: 12, color: STONE, marginBottom: 20, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 14, height: 14, borderRadius: "50%", background: ACCENT_TINT, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: ACCENT }} />
+            </span>
+            Runs true to size · relaxed drop-shoulder fit
+          </p>
 
           {/* Stock Status */}
           {!showOutOfStockBadge && (
@@ -1401,21 +1470,23 @@ export default function ProductDetailPage() {
           </div>
 
           {/* ══ Qty + CTA ══ */}
-          <div ref={sentinelRef} style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+          <div ref={sentinelRef} style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
             {/* Quantity selector */}
-            <div style={{ display: "flex", alignItems: "center", border: `1px solid rgba(0,0,0,0.15)`, borderRadius: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", border: `1px solid rgba(0,0,0,0.15)`, borderRadius: 12, flexShrink: 0 }}>
               <button
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 disabled={qty <= 1}
-                style={{ width: 44, height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: qty <= 1 ? "not-allowed" : "pointer", opacity: qty <= 1 ? 0.35 : 1 }}
+                aria-label="Decrease quantity"
+                style={{ width: 46, height: 52, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: qty <= 1 ? "not-allowed" : "pointer", opacity: qty <= 1 ? 0.35 : 1 }}
               >
                 <Minus size={14} />
               </button>
-              <span style={{ width: 40, textAlign: "center", fontSize: 14, fontWeight: 500 }}>{qty}</span>
+              <span style={{ width: 42, textAlign: "center", fontSize: 14, fontWeight: 600 }}>{qty}</span>
               <button
                 onClick={() => setQty(qty + 1)}
                 disabled={qty >= maxQty || availableStock <= 0}
-                style={{ width: 44, height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: (qty >= maxQty || availableStock <= 0) ? "not-allowed" : "pointer", opacity: (qty >= maxQty || availableStock <= 0) ? 0.35 : 1 }}
+                aria-label="Increase quantity"
+                style={{ width: 46, height: 52, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: (qty >= maxQty || availableStock <= 0) ? "not-allowed" : "pointer", opacity: (qty >= maxQty || availableStock <= 0) ? 0.35 : 1 }}
               >
                 <Plus size={14} />
               </button>
@@ -1428,29 +1499,38 @@ export default function ProductDetailPage() {
               disabled={!canAddToCart || isAddingToCart}
               style={{
                 flex: 1,
-                background: canAddToCart && !isAddingToCart ? INK : "rgba(16,16,18,0.15)",
+                height: 52,
+                background: canAddToCart && !isAddingToCart ? accentGradient : "rgba(16,16,18,0.12)",
                 color: canAddToCart && !isAddingToCart ? PAPER : STONE,
                 textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                fontSize: 13,
-                fontWeight: 600,
+                letterSpacing: "0.12em",
+                fontSize: 12.5,
+                fontWeight: 700,
                 border: "none",
                 borderRadius: 12,
                 cursor: (canAddToCart && !isAddingToCart) ? "pointer" : "not-allowed",
-                transition: "background 0.2s",
+                boxShadow: canAddToCart && !isAddingToCart ? "0 10px 24px rgba(0,0,0,0.22)" : "none",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                minWidth: 0,
+                lineHeight: 1.2,
+                whiteSpace: "normal",
               }}
             >
-              {isAddingToCart ? `${t('product.adding')}...` : isStockUnavailable ? t('product.out_of_stock') : !hasAllSelections ? t('product.select_options') : t('product.add_to_bag')}
+              {isAddingToCart ? `${t('product.adding')}...` : isStockUnavailable ? t('product.out_of_stock') : !hasAllSelections ? t('product.select_options') : (<><ShoppingBag className="pdp-bag-icon" size={15} strokeWidth={2} />{t('product.add_to_bag')}</>)}
             </button>
 
             {/* Share */}
-            <button onClick={handleShare} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer", borderRadius: 12 }}>
+            <button onClick={handleShare} aria-label="Share product" title="Share" style={{ width: 52, height: 52, flexShrink: 0, border: "1px solid rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", background: PAPER, cursor: "pointer", borderRadius: 12, transition: "all 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
               <Share2 size={16} strokeWidth={1.5} />
             </button>
 
             {/* Wishlist */}
-            <button onClick={handleWishlist} style={{ width: 48, border: "1px solid rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center", background: "none", cursor: "pointer", borderRadius: 12 }}>
-              <Heart size={16} strokeWidth={1.5} fill={inWishlist ? INK : "none"} color={inWishlist ? INK : STONE} />
+            <button onClick={handleWishlist} aria-label="Add to wishlist" title={inWishlist ? "Remove from wishlist" : "Add to wishlist"} style={{ width: 52, height: 52, flexShrink: 0, border: "1px solid rgba(0,0,0,0.12)", display: "flex", alignItems: "center", justifyContent: "center", background: inWishlist ? "#FDEBEF" : PAPER, cursor: "pointer", borderRadius: 12, transition: "all 0.2s", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+              <Heart size={16} strokeWidth={1.5} fill={inWishlist ? "#E0245C" : "none"} color={inWishlist ? "#E0245C" : STONE} />
             </button>
           </div>
 
@@ -1471,13 +1551,13 @@ export default function ProductDetailPage() {
             disabled={!canAddToCart || isAddingToCart}
             style={{
               width: "100%",
+              height: 52,
               border: `1px solid ${canAddToCart ? INK : "rgba(0,0,0,0.1)"}`,
               textTransform: "uppercase",
               letterSpacing: "0.15em",
               fontSize: 13,
               fontWeight: 600,
-              padding: "16px 0",
-              background: "none",
+              background: canAddToCart ? "transparent" : "rgba(0,0,0,0.03)",
               borderRadius: 12,
               cursor: canAddToCart ? "pointer" : "not-allowed",
               marginBottom: 32,
@@ -1491,8 +1571,11 @@ export default function ProductDetailPage() {
           {/* ══ Premium Trust Features — Small Premium Boxes ══ */}
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: STONE, textTransform: "uppercase", letterSpacing: "0.15em" }}>Why Choose Us</span>
-              <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, color: ACCENT_DARK, textTransform: "uppercase", letterSpacing: "0.15em" }}>
+                <span style={{ width: 4, height: 4, borderRadius: "50%", background: ACCENT }} />
+                Why Choose Us
+              </span>
+              <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ACCENT}55, rgba(0,0,0,0.04))` }} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
               {[
@@ -1508,22 +1591,22 @@ export default function ProductDetailPage() {
                     style={{
                       padding: "16px 10px",
                       textAlign: "center",
-                      borderRadius: 10,
-                      border: "1px solid rgba(0,0,0,0.08)",
-                      background: i === 0 ? "#fafafa" : "transparent",
+                      borderRadius: 14,
+                      border: `1px solid ${i === 0 ? `${ACCENT}40` : "rgba(0,0,0,0.08)"}`,
+                      background: i === 0 ? ACCENT_TINT : "#fafafa",
                     }}
                   >
                     <div style={{
                       width: 32,
                       height: 32,
                       borderRadius: "50%",
-                      background: "#f0f0f0",
+                      background: i === 0 ? accentGradient : "#f0f0f0",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       margin: "0 auto 8px",
                     }}>
-                      <IconComp size={15} strokeWidth={1.5} color={INK} />
+                      <IconComp size={15} strokeWidth={1.5} color={i === 0 ? PAPER : INK} />
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: INK, marginBottom: 2 }}>{t.label}</div>
                     <div style={{ fontSize: 9, color: STONE, lineHeight: 1.3 }}>{t.sub}</div>
@@ -1533,55 +1616,120 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* ══ "The Label" Module ══ */}
-          <div style={{ background: INK, color: PAPER, padding: "22px 24px 24px", position: "relative", borderRadius: 16 }}>
-            <div style={{ position: "absolute", top: 0, left: 24, right: 24, height: 1, background: stitchBorder, opacity: 0.35 }} />
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: GOLD, fontWeight: 600 }}>The Label</span>
-              <span style={{ fontSize: 10, letterSpacing: "0.1em", color: "rgba(239,234,224,0.5)", ...{ fontFamily: "Jost, sans-serif" } }}>No. {(product.id || '0043').toString().slice(0,4)}</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 12, fontSize: 13 }}>
-              <span style={{ color: "rgba(239,234,224,0.5)" }}>Fabric</span>
-              <span style={{ textAlign: "right" }}>{(product.attributes?.fabric) || (product.attributes?.gsm ? `${product.attributes.gsm} GSM ${getFabricTier(Number(product.attributes.gsm))} Cotton` : '—')}</span>
-              <span style={{ color: "rgba(239,234,224,0.5)" }}>Fit</span>
-              <span style={{ textAlign: "right" }}>{(product.description || 'Drop shoulder, relaxed').slice(0,45)}</span>
-              <span style={{ color: "rgba(239,234,224,0.5)" }}>Origin</span>
-              <span style={{ textAlign: "right" }}>Made in India</span>
-              <span style={{ color: "rgba(239,234,224,0.5)" }}>Treatment</span>
-              <span style={{ textAlign: "right" }}>Pre-shrunk fabric</span>
-            </div>
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px dashed rgba(239,234,224,0.2)", fontSize: 10, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(239,234,224,0.4)", textAlign: "center" }}>
-              Made for the ones who move different
-            </div>
-          </div>
+          {/* ══ "The Label" Module — light premium spec card ══ */}
+          {(() => {
+            // Sizes present → garment (tee/hoodie/jacket); caps & totes have none.
+            const isApparel = Array.isArray(product.sizes) && product.sizes.length > 0;
+            // Unique short label number: admin-set label_number wins, else
+            // derive from SKU suffix (seeded UUIDs share the "a273" prefix,
+            // so slice(-4) stays unique). Strip a stray "No." prefix if the
+            // store owner typed it, since the card already renders "No.".
+            const labelNo = String(product.labelNumber || product.label_number ||
+              String(product.sku || product.id || '0043')
+                .replace(/[^a-zA-Z0-9]/g, '').slice(-4))
+              .replace(/^\s*no\.?\s*/i, '').trim().toUpperCase();
+            const specRows = [
+              {
+                Icon: Layers,
+                label: 'Fabric',
+                value: (product.attributes?.fabric) || (product.attributes?.gsm ? `${product.attributes.gsm} GSM ${getFabricTier(Number(product.attributes.gsm))} Cotton` : '—'),
+              },
+              {
+                Icon: Ruler,
+                label: 'Fit',
+                value: product.attributes?.fit || (isApparel ? 'Relaxed, oversized fit' : 'True to size'),
+              },
+              {
+                Icon: MapPin,
+                label: 'Origin',
+                value: product.attributes?.origin || 'Made in India',
+              },
+              {
+                Icon: ShieldCheck,
+                label: 'Treatment',
+                value: product.attributes?.treatment || (isApparel ? 'Pre-shrunk fabric' : 'Standard care'),
+              },
+            ];
+            return (
+              <div style={{ background: `linear-gradient(160deg, #FDFDFC, #F5F4F1)`, color: INK, padding: "22px 24px 0", position: "relative", borderRadius: 18, border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 4px rgba(0,0,0,0.05), 0 18px 40px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: 0, left: 24, right: 24, height: 1, background: stitchBorder, opacity: 0.45 }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, marginBottom: 18 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: INK, fontWeight: 700 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentGradient }} />
+                    The Label
+                  </span>
+                  <span style={{ fontSize: 11, letterSpacing: "0.12em", color: STONE, ...displayFont }}>No. {labelNo}</span>
+                </div>
+                <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                  {specRows.map((row) => (
+                    <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                      <span style={{ width: 30, height: 30, borderRadius: 9, background: PANEL, border: "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <row.Icon size={14} color={INK} strokeWidth={1.8} />
+                      </span>
+                      <span style={{ flex: 1, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.16em", textTransform: "uppercase", color: THREAD }}>{row.label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: INK, textAlign: "right" }}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background: accentGradient, color: PAPER, margin: "18px -24px 0", padding: "17px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(250,250,249,0.55)" }} />
+                  <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: PAPER, opacity: 0.92 }}>Made for the ones who move different</span>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(250,250,249,0.55)" }} />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </main>
 
       {/* ════════════════════════════════════════ */}
-      {/* ACCORDION SECTIONS */}
+      {/* ACCORDION — premium spec card (matches The Label) */}
       {/* ════════════════════════════════════════ */}
       <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 40px" }}>
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.1)" }}>
-          {[
-            { id: "details", label: "Product Details", content: product.description || "Premium quality crafted for lasting comfort and structure, built for everyday wear without losing shape." },
-            { id: "material", label: "Material & Care", content: "100% pre-shrunk cotton, machine wash cold with like colors, do not bleach, tumble dry low, iron inside out if needed." },
-            { id: "shipping", label: "Shipping & Returns", content: `Free shipping on orders above ₹${freeShippingThreshold}. Easy 7-day returns and exchanges, no questions asked.` },
-          ].map((panel) => (
-            <div key={panel.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.1)" }}>
-              <button
-                onClick={() => toggleAccordion(panel.id)}
-                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 0", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
-              >
-                <span style={{ fontSize: 14, letterSpacing: "0.02em", fontWeight: 600, color: INK }}>{panel.label}</span>
-                <ChevronDown size={18} style={{ transform: openAccordion === panel.id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
-              </button>
-              {openAccordion === panel.id && (
-                <div style={{ paddingBottom: 24, fontSize: 14, color: STONE, lineHeight: 1.6, maxWidth: 640 }}>
-                  {panel.content}
-                </div>
-              )}
-            </div>
-          ))}
+        <div style={{ background: `linear-gradient(160deg, #FDFDFC, #F5F4F1)`, color: INK, padding: "22px 24px 0", position: "relative", borderRadius: 18, border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 4px rgba(0,0,0,0.05), 0 18px 40px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 24, right: 24, height: 1, background: stitchBorder, opacity: 0.45 }} />
+          {/* Eyebrow header — same rhythm as The Label */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 14, marginBottom: 16 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 11, letterSpacing: "0.25em", textTransform: "uppercase", color: INK, fontWeight: 700, whiteSpace: "nowrap" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: accentGradient }} />
+              Know Your Piece
+            </span>
+            <span style={{ fontSize: 11, letterSpacing: "0.12em", color: STONE, ...displayFont }}>All you need to know</span>
+          </div>
+          <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+            {[
+              { id: "details", Icon: Info, label: "Product Details", content: product.description || "Premium quality crafted for lasting comfort and structure, built for everyday wear without losing shape." },
+              { id: "material", Icon: Droplets, label: "Material & Care", content: product.attributes?.care || "100% pre-shrunk cotton, machine wash cold with like colors, do not bleach, tumble dry low, iron inside out if needed." },
+              { id: "shipping", Icon: Truck, label: "Shipping & Returns", content: product.attributes?.shipping || `Free shipping on orders above ₹${freeShippingThreshold}. Easy 7-day returns and exchanges, no questions asked.` },
+            ].map((panel) => (
+              <div key={panel.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <button
+                  onClick={() => toggleAccordion(panel.id)}
+                  aria-expanded={openAccordion === panel.id}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "15px 0", background: "none", border: "none", cursor: "pointer", textAlign: "left", transition: "opacity 0.2s" }}
+                >
+                  <span style={{ width: 32, height: 32, borderRadius: 9, background: openAccordion === panel.id ? accentGradient : PANEL, border: openAccordion === panel.id ? "none" : "1px solid rgba(0,0,0,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.25s", boxShadow: openAccordion === panel.id ? "0 4px 10px rgba(0,0,0,0.18)" : "none" }}>
+                    <panel.Icon size={15} color={openAccordion === panel.id ? PAPER : INK} strokeWidth={1.8} />
+                  </span>
+                  <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, letterSpacing: "0.01em", color: INK }}>{panel.label}</span>
+                  <span style={{ width: 26, height: 26, borderRadius: "50%", background: openAccordion === panel.id ? ACCENT_TINT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+                    <ChevronDown size={15} color={openAccordion === panel.id ? ACCENT_DARK : STONE} style={{ transform: openAccordion === panel.id ? "rotate(180deg)" : "none", transition: "transform 0.25s" }} />
+                  </span>
+                </button>
+                {openAccordion === panel.id && (
+                  <div style={{ padding: "2px 0 20px 44px", fontSize: 13.5, color: THREAD, lineHeight: 1.7, maxWidth: 640, whiteSpace: "pre-line" }}>
+                    {panel.content}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* Black band footer — matches The Label's signature band */}
+          <div style={{ background: accentGradient, color: PAPER, margin: "16px -24px 0", padding: "15px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(250,250,249,0.55)" }} />
+            <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: PAPER, opacity: 0.92 }}>Questions? We're here to help</span>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(250,250,249,0.55)" }} />
+          </div>
         </div>
       </section>
 
@@ -1591,11 +1739,18 @@ export default function ProductDetailPage() {
       {relatedProducts.length > 0 && (
         <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
-            <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, whiteSpace: "nowrap", ...displayFont }}>
-              You May Also Like
-            </h2>
-            <div style={{ flex: 1, height: 1, background: `rgba(0,0,0,0.06)` }} />
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${ACCENT}44)` }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT_DARK }}>Complete the look</span>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
+              </div>
+              <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, whiteSpace: "nowrap", ...displayFont }}>
+                You May Also Like
+              </h2>
+            </div>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ACCENT}44, transparent)` }} />
           </div>
           <div className="product-grid">
             {relatedProducts.slice(0, 8).map((p) => (
@@ -1610,10 +1765,21 @@ export default function ProductDetailPage() {
       {/* (design matched to selektt.com Trustoo reviews widget) */}
       {/* ════════════════════════════════════════ */}
       <section ref={reviewsRef} className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 80px" }}>
-        {/* Heading */}
-        <h2 style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 600, letterSpacing: "-0.01em", color: "#303030", margin: "0 0 18px", fontFamily: "Jost, sans-serif" }}>
-          {t('product.reviews_heading', { defaultValue: 'Customer Reviews' })}
-        </h2>
+        {/* Heading — unified eyebrow + rule pattern */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${ACCENT}44)` }} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT_DARK }}>Social proof</span>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
+            </div>
+            <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", color: INK, whiteSpace: "nowrap", ...displayFont }}>
+              {t('product.reviews_heading', { defaultValue: 'Customer Reviews' })}
+            </h2>
+          </div>
+          <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ACCENT}44, transparent)` }} />
+        </div>
 
         {/* Header: summary + breakdown + album | write + sort */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 8 }}>
@@ -1808,8 +1974,12 @@ export default function ProductDetailPage() {
         <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 48px", position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 3, height: 36, background: INK }} />
+              <div style={{ width: 4, height: 36, borderRadius: 2, background: accentGradient }} />
               <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT_DARK }}>Keep exploring</span>
+                </div>
                 <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", ...displayFont }}>
                   {t('product.recently_viewed', { defaultValue: 'Recently Viewed' })}
                 </h2>
@@ -1876,7 +2046,7 @@ export default function ProductDetailPage() {
         gap: 12,
       }}
           >
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT, flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3 }}>
                 {recentPurchase.name}
@@ -1927,10 +2097,10 @@ export default function ProductDetailPage() {
       {/* ── PREMIUM STICKY BAR — Single Row ── */}
       {/* ════════════════════════════════════════ */}{showStickyBar && (
         <motion.div
-          initial={{ y: 100, opacity: 0 }}
+          initial={reduceMotion ? { opacity: 0 } : { y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30, mass: 0.9 }}
+          exit={reduceMotion ? { opacity: 0 } : { y: 100, opacity: 0 }}
+          transition={reduceMotion ? { duration: 0.1 } : { type: 'spring', stiffness: 350, damping: 30, mass: 0.9 }}
           className="sticky-bar-mobile"
           style={{
             position: "fixed",
@@ -2082,7 +2252,7 @@ export default function ProductDetailPage() {
               disabled={!canAddToCart || isAddingToCart}
               style={{
                 flexShrink: 0,
-                background: canAddToCart ? INK : "rgba(16,16,18,0.12)",
+                background: canAddToCart ? accentGradient : "rgba(16,16,18,0.12)",
                 color: canAddToCart ? PAPER : STONE,
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",

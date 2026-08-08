@@ -182,38 +182,107 @@ export const getBundleTier = (qty, tiers = BUNDLE_TIERS) => {
 };
 
 /**
- * Pick the BEST single auto-applied store offer (Smart Deal, Prepaid Offer, …)
- * for a subtotal. Mirrors backend FlashSaleService::getApplicableDiscounts
- * (best single offer per item, no stacking): filters to active offers with a
- * positive discount and returns the one that discounts the most.
+ * Auto-applied store-offer discount for a cart.
+ *
+ * Mirrors backend FlashSaleService::getApplicableDiscounts + calculateItemDiscount
+ * so the cart drawer, cart page, checkout page and the final order all
+ * show/charge the same amount:
+ *  - per-item: amount = itemSubtotal × % (FIXED offers use a flat per-item
+ *    amount), skipped when itemSubtotal < minPurchase, capped at maxDiscount,
+ *    never exceeding the item subtotal
+ *  - BEST OFFER PER ITEM: for each cart item the offer that yields the highest
+ *    discount for THAT item wins (different offers can win on different items),
+ *    and the per-item amounts are summed — exactly like the backend. The
+ *    returned `id`/`badge`/`highlight` describe the offer that contributed the
+ *    most so the UI still names a single offer while the amount stays correct.
+ *
+ * Note: this helper only sees the store-wide auto-apply offers returned by
+ * promotionsAPI.getStoreOffers(). The backend additionally applies product- and
+ * category-linked flash sales, so a cart containing a product with its own flash
+ * sale could show a different (lower) total here than the order record — for the
+ * seeded catalog (identical 10% store-wide offers) the two match exactly.
  *
  * Shared by CartDrawer, CartPage and CheckoutPage so the cart drawer, cart
  * page and checkout always show the same auto-applied discount.
  *
- * @param {number} subtotal  Cart subtotal the discount is computed on.
- * @param {Array}  offers    Store offers from promotionsAPI.getStoreOffers().
+ * @param {Array}  items    Cart items with {price, quantity} (in-stock only).
+ * @param {Array}  offers   Store offers from promotionsAPI.getStoreOffers().
  * @returns {{ id: string, badge: string, highlight: string, tagline: ?string, amount: number }|null}
  */
-export const getBestStoreOffer = (subtotal, offers = []) => {
+export const getBestStoreOffer = (items = [], offers = []) => {
+  const list = Array.isArray(items) ? items : [];
   const active = (offers || []).filter((o) =>
     o.isActive !== false &&
     (!o.status || o.status === 'ACTIVE') &&
     Number(o.discount) > 0
   );
-  let best = null;
-  active.forEach((offer) => {
-    const amount = subtotal * (Number(offer.discount) / 100);
-    if (!best || amount > best.amount) {
-      best = {
-        id: offer.id,
-        badge: offer.offerBadge || 'OFFER',
-        highlight: offer.offerHighlight || offer.title,
-        tagline: offer.offerTagline || null,
-        amount: Math.round(amount * 100) / 100,
-      };
+  if (list.length === 0 || active.length === 0) return null;
+
+  const percentTypes = ['PERCENTAGE', 'FLASH_SALE', 'SEASONAL', 'PRODUCT_LAUNCH', 'NEWSLETTER', 'LOYALTY_REWARD'];
+
+  // Per-item discount for one offer (mirrors backend calculateItemDiscount).
+  const itemDiscount = (itemSubtotal, offer) => {
+    const type = String(offer.type || 'PERCENTAGE').toUpperCase();
+    const discountValue = Number(offer.discount);
+    const maxDiscount = Number(offer.maxDiscount ?? offer.max_discount ?? 0);
+    const minPurchase = Number(offer.minPurchase ?? offer.min_purchase ?? 0);
+    if (minPurchase > 0 && itemSubtotal < minPurchase) return 0;
+    let discount = 0;
+    if (percentTypes.includes(type)) {
+      discount = itemSubtotal * (discountValue / 100);
+    } else if (type === 'FIXED') {
+      discount = discountValue;
+    } else {
+      return 0; // unknown type — not applicable
+    }
+    if (maxDiscount > 0 && discount > maxDiscount) discount = maxDiscount;
+    return Math.min(discount, itemSubtotal);
+  };
+
+  let total = 0;
+  const contribution = new Map(); // offerId -> total contributed
+  for (const item of list) {
+    const price = Number(item?.price ?? 0);
+    const quantity = Number(item?.quantity ?? 1);
+    if (price <= 0) continue;
+    const itemSubtotal = price * quantity;
+
+    let bestAmount = 0;
+    let bestOffer = null;
+    for (const offer of active) {
+      const amount = itemDiscount(itemSubtotal, offer);
+      if (amount > bestAmount) {
+        bestAmount = amount;
+        bestOffer = offer;
+      }
+    }
+    if (bestOffer && bestAmount > 0) {
+      total += bestAmount;
+      contribution.set(bestOffer.id, (contribution.get(bestOffer.id) || 0) + bestAmount);
+    }
+  }
+
+  total = Math.round(total * 100) / 100;
+  if (total <= 0) return null;
+
+  // Name the offer that contributed the most (amounts may combine offers).
+  let dominantId = null;
+  let dominantAmount = -1;
+  contribution.forEach((amt, id) => {
+    if (amt > dominantAmount) {
+      dominantAmount = amt;
+      dominantId = id;
     }
   });
-  return best;
+  const dominant = active.find((o) => o.id === dominantId) || active[0];
+
+  return {
+    id: dominant.id,
+    badge: dominant.offerBadge || 'OFFER',
+    highlight: dominant.offerHighlight || dominant.title,
+    tagline: dominant.offerTagline || null,
+    amount: total,
+  };
 };
 
 /**

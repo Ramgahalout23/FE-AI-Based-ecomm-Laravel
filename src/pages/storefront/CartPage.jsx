@@ -117,7 +117,7 @@ export default function CartPage() {
   // Mirrors backend FlashSaleService logic: picks the BEST single offer, does NOT stack.
   // Uses plain IIFE instead of useMemo to avoid React hooks ordering issues after conditional early return.
   const { autoDiscount, autoDiscountOffers } = (() => {
-    const bestOffer = getBestStoreOffer(availableSubtotal, storeOffers);
+    const bestOffer = getBestStoreOffer(availableItems, storeOffers);
     return {
       autoDiscount: bestOffer?.amount || 0,
       autoDiscountOffers: bestOffer

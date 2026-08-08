@@ -10,7 +10,7 @@ import Pagination from '../../components/admin/Pagination';
 import { downloadBlob } from '../../utils/download';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 
-const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '', fabricWeight: '', fabric: '' };
+const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '', labelNumber: '', fabricWeight: '', fabric: '', fit: '', origin: '', treatment: '', care: '', shipping: '' };
 
 // Fabric weight presets shown as quick-select chips in the product form
 const FABRIC_WEIGHT_PRESETS = [
@@ -241,8 +241,14 @@ export default function ProductsAdminPage() {
       badge: p.badge || '',
       hoverImageUrl: p.hoverImageUrl || p.hover_image_url || '',
       videoUrl: p.videoUrl || p.video_url || '',
+      labelNumber: p.labelNumber || p.label_number || '',
       fabricWeight: p.attributes?.gsm || '',
-      fabric: p.attributes?.fabric || ''
+      fabric: p.attributes?.fabric || '',
+      fit: p.attributes?.fit || '',
+      origin: p.attributes?.origin || '',
+      treatment: p.attributes?.treatment || '',
+      care: p.attributes?.care || '',
+      shipping: p.attributes?.shipping || ''
     });
     // Show modal immediately, load variants async
     setShowVariants(false);
@@ -272,10 +278,16 @@ export default function ProductsAdminPage() {
       badge: form.badge || null,
       hoverImageUrl: form.hoverImageUrl || null,
       videoUrl: form.videoUrl || null,
-      // Fabric & weight specs → stored as product attributes (fabric, gsm)
+      labelNumber: form.labelNumber ? form.labelNumber.trim() : null,
+      // Fabric & weight specs → stored as product attributes (fabric, gsm, fit, origin, treatment, care, shipping)
       attributes: {
         ...(form.fabricWeight ? { gsm: String(form.fabricWeight).trim() } : {}),
         ...(form.fabric ? { fabric: form.fabric.trim() } : {}),
+        ...(form.fit ? { fit: form.fit.trim() } : {}),
+        ...(form.origin ? { origin: form.origin.trim() } : {}),
+        ...(form.treatment ? { treatment: form.treatment.trim() } : {}),
+        ...(form.care ? { care: form.care.trim() } : {}),
+        ...(form.shipping ? { shipping: form.shipping.trim() } : {}),
       },
     };
     try {
@@ -664,6 +676,7 @@ export default function ProductsAdminPage() {
                 </div>
                 <div className="form-group"><label>Cost ($)</label><input type="number" value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} placeholder="50.00" /></div>
                 <div className="form-group"><label>SKU</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="SKU-001" /></div>
+                <div className="form-group"><label>Label Number</label><input value={form.labelNumber} onChange={e => setForm({ ...form, labelNumber: e.target.value })} placeholder="Auto-generated if blank (e.g. MT-0001)" /><small className="form-hint">Leave blank to auto-generate a per-category number (e.g. MT-0001 for Men's Tees).</small></div>
                 <div className="form-group"><label>Stock Quantity</label><input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="50" /></div>
                 <div className="form-group"><label>Fabric Weight (GSM)</label>
                   <input type="number" min="100" max="500" value={form.fabricWeight} onChange={e => setForm({ ...form, fabricWeight: e.target.value })} placeholder="e.g. 240" />
@@ -690,6 +703,11 @@ export default function ProductsAdminPage() {
                   </div>
                 </div>
                 <div className="form-group"><label>Fabric</label><input value={form.fabric} onChange={e => setForm({ ...form, fabric: e.target.value })} placeholder="e.g. 240 GSM Heavyweight Cotton" /></div>
+                <div className="form-group"><label>Fit</label><input value={form.fit} onChange={e => setForm({ ...form, fit: e.target.value })} placeholder="e.g. Relaxed, oversized fit" /></div>
+                <div className="form-group"><label>Origin</label><input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} placeholder="e.g. Made in India" /></div>
+                <div className="form-group"><label>Treatment</label><input value={form.treatment} onChange={e => setForm({ ...form, treatment: e.target.value })} placeholder="e.g. Pre-shrunk fabric" /></div>
+                <div className="form-group form-full"><label>Material &amp; Care</label><textarea rows={3} value={form.care} onChange={e => setForm({ ...form, care: e.target.value })} placeholder="e.g. 100% pre-shrunk cotton, machine wash cold, do not bleach, iron inside out" /></div>
+                <div className="form-group form-full"><label>Shipping &amp; Returns</label><textarea rows={3} value={form.shipping} onChange={e => setForm({ ...form, shipping: e.target.value })} placeholder="e.g. Free shipping above ₹499. Easy 7-day returns and exchanges" /></div>
                 <div className="form-group form-full">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <ImageUploadZone
