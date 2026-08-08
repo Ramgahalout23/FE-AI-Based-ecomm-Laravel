@@ -270,6 +270,15 @@ export const getVideoUrl = (url) => {
   const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
   const backendBase = apiBase.replace('/api/v1', '');
   const cleanUrl = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+
+  // Route stored media through the /media endpoint: it is served with proper
+  // HTTP Range support (Symfony BinaryFileResponse), so the browser can seek
+  // videos. The raw /storage path served by the PHP dev server ignores Range
+  // requests, leaving videos unseekable (seekable range [0,0]) — which made
+  // reel videos appear to restart from 0 on every carousel fold-back.
+  if (cleanUrl.startsWith('/storage/')) {
+    return `${backendBase}/media/${cleanUrl.slice('/storage/'.length)}`;
+  }
   return `${backendBase}${cleanUrl}`;
 };
 

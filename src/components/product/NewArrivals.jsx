@@ -688,7 +688,8 @@ function NewArrivalCard({ product, index }) {
         {!showQuickAdd && !isOutOfStock && (
           <button
             onClick={handleQuickAdd}
-            className="absolute bottom-0 inset-x-0 z-20 py-3 bg-white border-t border-black/10 text-black text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-all duration-200"
+            /* Hidden until card hover on desktop (hover-capable); always visible on touch */
+            className="qa-reveal absolute bottom-0 inset-x-0 z-20 py-3 bg-white border-t border-black/10 text-black text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-black hover:text-white transition-all duration-200"
           >              <span className="flex items-center justify-center gap-1.5">
               <ShoppingBag size={13} />
               {t('product.quick_add')}

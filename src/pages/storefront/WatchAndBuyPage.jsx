@@ -1,12 +1,12 @@
-import { Heart, Eye, ShoppingCart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, Pause, X, Volume2, VolumeX, Image as ImageIcon } from 'lucide-react';
-import ReelCard from '../../components/storefront/ReelCard';
+import { Heart, Eye, ShoppingCart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, Pause, X, Volume2, VolumeX, Image as ImageIcon, ChevronLeft, ChevronRight, Maximize2, Sparkles, Crown, Compass, Gem, Quote } from 'lucide-react';
+import ReelCard, { getReelBadge, discountPercent } from '../../components/storefront/ReelCard';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import { homepageAPI } from '../../api/homepage';
-import { formatCurrency, getImageUrl, getProductImage } from '../../utils/formatters';
+import { formatCurrency, getImageUrl, getProductImage, getVideoUrl } from '../../utils/formatters';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import useCartStore from '../../store/cartStore';
 import useWishlistStore from '../../store/wishlistStore';
@@ -16,6 +16,7 @@ import useAuthStore from '../../store/authStore';
 import { addedToCart, showError } from '../../utils/toast';
 import { useTranslation } from 'react-i18next';
 import { reelLikesAPI } from '../../api/reelLikes';
+import { useSettings } from '../../store/useSettings';
 
 /* ═══════════════════════════════════════════════════════════
    VIDEO HELPERS — YouTube / Vimeo / MP4 detection
@@ -369,14 +370,24 @@ function VideoPlayerModal({ videoUrl, imageUrl, title, reel, onClose }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   WATCH & BUY — Shoppable Video Reels Section
+   WATCH & BUY — Featured player + thumb rail
    ═══════════════════════════════════════════════════════════ */
-function ShoppableVideoSection({ reels }) {
+function FeaturedVideoShowcase({ reels }) {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuthStore();
   const addItem = useCartStore((s) => s.addItem);
+  const navigate = useNavigate();
 
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+  const [showPauseFlash, setShowPauseFlash] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);
+  const videoRef = useRef(null);
+  const playerWrapRef = useRef(null);
+  const pauseFlashTimerRef = useRef(null);
   const [reelLikeMap, setReelLikeMap] = useState({});
   const reelLikeMapRef = useRef({});
 
@@ -433,57 +444,273 @@ function ShoppableVideoSection({ reels }) {
     else reelLikesAPI.unlike(reel.id).catch(() => {});
   }, [isAuthenticated]);
 
-  const handlePlayVideo = (reel) => {
-    setActiveVideo({
-      videoUrl: reel.videoUrl,
-      imageUrl: reel.imageUrl,
-      title: reel.title,
-      reel,
-    });
+  const total = (Array.isArray(reels) ? reels : []).length;
+  const active = total > 0 ? reels[activeIdx % total] : null;
+  const activeProduct = active?.products?.[0] || null;
+  const youTubeEmbed = active ? getYouTubeEmbedUrl(active.videoUrl) : null;
+  const vimeoEmbed = active ? getVimeoEmbedUrl(active.videoUrl) : null;
+  const isEmbed = youTubeEmbed || vimeoEmbed;
+  const likeState = (active && reelLikeMap[active.id]) || { liked: false, count: 0 };
+  const discount = activeProduct?.old_price ? discountPercent(activeProduct.old_price, activeProduct.price) : null;
+
+  const selectReel = useCallback((idx) => {
+    if (!total) return;
+    const nextIdx = ((idx % total) + total) % total;
+    setActiveIdx(nextIdx);
+    setVideoError(false);
+    setVideoReady(false);
+    setIsPlaying(true);
+    if (playerWrapRef.current && window.innerWidth < 1024) {
+      playerWrapRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [total]);
+
+  const next = () => selectReel(activeIdx + 1);
+  const prev = () => selectReel(activeIdx - 1);
+
+  // Control the featured player's native video
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (isPlaying) v.play().catch(() => {});
+    else v.pause();
+  }, [isPlaying, activeIdx, active?.id]);
+
+  const togglePlay = () => {
+    setIsPlaying((p) => !p);
+    setShowPauseFlash(true);
+    if (pauseFlashTimerRef.current) clearTimeout(pauseFlashTimerRef.current);
+    pauseFlashTimerRef.current = setTimeout(() => setShowPauseFlash(false), 650);
+  };
+  useEffect(() => () => {
+    if (pauseFlashTimerRef.current) clearTimeout(pauseFlashTimerRef.current);
+  }, []);
+
+  const handleAdd = () => {
+    if (!activeProduct) return;
+    const variants = activeProduct.variants || activeProduct.productvariant || [];
+    // Products with size/color → choose on the product page
+    if (variants.length > 0) {
+      navigate(`/products/${activeProduct.slug || activeProduct.id}`);
+      return;
+    }
+    addItem({ id: activeProduct.id, productId: activeProduct.id, name: activeProduct.name, price: activeProduct.price, image: activeProduct.image_url, quantity: 1 });
+    if (isAuthenticated) cartAPI.add({ productId: activeProduct.id, quantity: 1 }).catch(() => {});
+    addedToCart(activeProduct.name);
   };
 
-  if (!reels || reels.length === 0) return null;
+  if (!total) return null;
 
   return (
-    <section className="py-16 md:py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center mb-8 md:mb-10">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="h-px w-8 bg-gradient-to-r from-transparent via-gray-300 to-transparent rounded-full" />
-            <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.2em]">Shop the look</span>
-            <span className="h-px w-8 bg-gradient-to-l from-transparent via-gray-300 to-transparent rounded-full" />
+    <section id="watch-buy" className="relative py-16 md:py-24 bg-gray-950 text-white overflow-hidden">
+      {/* ambient glow */}
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[640px] h-[320px] bg-amber-500/10 blur-[130px] rounded-full pointer-events-none" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section header */}
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10 md:mb-12">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-amber-300 text-[10px] font-bold uppercase tracking-[0.22em]">Shop The Look</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-black tracking-tight">Watch & Buy</h2>
+            <p className="text-white/60 text-sm md:text-base mt-2 max-w-xl">Play a video, tap the product, and it's in your cart — the fastest way to shop.</p>
           </div>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold text-gray-900 tracking-tight">
-            Watch & Buy
-          </h2>
-          <p className="text-gray-500 text-sm md:text-base mt-2 max-w-xl mx-auto">
-            Tap any reel to watch — then buy the look directly.
-          </p>
+          <div className="flex items-center gap-2 text-white/40 text-[11px] font-semibold uppercase tracking-widest">
+            <Play size={12} className="fill-current" /> Tap to play · <span className="text-white/70">{total} videos</span>
+          </div>
         </div>
 
-        {/* Shoppable Reel Cards — same compact cards as the homepage */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {reels.slice(0, 8).map((reel, idx) => {
-            return (
-              <ReelCard
+        <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-8 lg:gap-12 items-start">
+          {/* ── Featured player ── */}
+          <div ref={playerWrapRef} className="w-full max-w-[min(320px,84vw)] mx-auto lg:mx-0">
+            <div className="relative aspect-[9/16] rounded-[28px] overflow-hidden bg-black ring-1 ring-white/10 shadow-2xl shadow-black/60">
+              {isEmbed ? (
+                <iframe
+                  src={youTubeEmbed || vimeoEmbed}
+                  title={active?.title || 'Reel'}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : videoError ? (
+                <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                  {active?.imageUrl && (
+                    <img src={getImageUrl(active.imageUrl)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                  )}
+                  <span className="relative text-white/40 text-xs font-bold uppercase tracking-wider">Video unavailable</span>
+                </div>
+              ) : active?.videoUrl ? (
+                <video
+                  key={active.id}
+                  ref={videoRef}
+                  src={getVideoUrl(active.videoUrl)}
+                  poster={active.imageUrl ? getImageUrl(active.imageUrl) : undefined}
+                  muted={isMuted}
+                  autoPlay
+                  playsInline
+                  loop
+                  preload="auto"
+                  className={`w-full h-full object-cover ${videoReady ? 'opacity-100' : 'opacity-0'}`}
+                  onCanPlay={() => setVideoReady(true)}
+                  onError={() => setVideoError(true)}
+                  onClick={togglePlay}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                  {active?.imageUrl && (
+                    <img src={getImageUrl(active.imageUrl)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                  )}
+                  <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-amber-400 animate-spin" />
+                </div>
+              )}
+
+              {/* Loading spinner */}
+              {!isEmbed && !videoError && !videoReady && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-amber-400 animate-spin" />
+                </div>
+              )}
+
+              {/* Tap flash feedback */}
+              <AnimatePresence>
+                {showPauseFlash && !isEmbed && (
+                  <motion.div
+                    key="tap-flash"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 z-[5] flex items-center justify-center pointer-events-none"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                      {isPlaying ? <Pause size={24} className="text-white" /> : <Play size={26} className="text-white fill-white ml-0.5" />}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Badge */}
+              {active?.id && (
+                <div className="absolute top-3 left-3 z-10">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-amber-900/90 to-amber-700/90 backdrop-blur-sm border border-amber-300/40 text-amber-100 text-[8px] font-bold uppercase tracking-[0.1em] shadow-lg">
+                    <Crown size={8} />
+                    {getReelBadge(active, t('reels.watch_and_buy'))}
+                  </span>
+                </div>
+              )}
+
+              {/* Top-right: mute + like + fullscreen */}
+              <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+                {!isEmbed && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsMuted((m) => !m); }}
+                    aria-label={isMuted ? 'Unmute video' : 'Mute video'}
+                    className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 hover:bg-white/25 transition-all active:scale-90"
+                  >
+                    {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                  </button>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleReelLike(active); }}
+                  aria-label={likeState.liked ? t('reels.liked') : t('reels.like')}
+                  className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 hover:bg-white/25 transition-all active:scale-90"
+                >
+                  <Heart size={15} className={`${likeState.liked ? 'fill-rose-400 text-rose-400' : ''} transition-transform duration-300 ${likeState.liked ? 'scale-110' : ''}`} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveVideo({ videoUrl: active.videoUrl, imageUrl: active.imageUrl, title: active.title, reel: active }); }}
+                  aria-label="Open fullscreen"
+                  className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white/80 hover:bg-white/25 transition-all active:scale-90"
+                >
+                  <Maximize2 size={15} />
+                </button>
+              </div>
+
+              {/* Prev / next arrows */}
+              <button
+                onClick={(e) => { e.stopPropagation(); prev(); }}
+                aria-label="Previous reel"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/60 transition-all active:scale-90"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); next(); }}
+                aria-label="Next reel"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/70 hover:bg-black/60 transition-all active:scale-90"
+              >
+                <ChevronRight size={16} />
+              </button>
+
+              {/* Bottom: title + product chip */}
+              <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-16 pb-4 px-4">
+                <p className="text-white font-display font-bold text-lg leading-tight mb-3">{active?.title || 'Watch & Buy'}</p>
+
+                {activeProduct && (
+                  <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-2">
+                    {activeProduct.image_url && (
+                      <div className="w-11 h-11 rounded-xl overflow-hidden bg-white/10 shrink-0">
+                        <img src={getImageUrl(activeProduct.image_url)} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-bold text-white truncate">{activeProduct.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        {activeProduct.old_price && <span className="text-[9px] text-white/40 line-through">{formatCurrency(activeProduct.old_price)}</span>}
+                        <span className="text-[12px] font-black text-amber-300">{formatCurrency(activeProduct.price)}</span>
+                        {discount && <span className="text-[8px] font-bold text-emerald-300 bg-emerald-500/20 rounded-full px-1.5 py-0.5">{discount}% OFF</span>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleAdd(); }}
+                      className="shrink-0 px-3.5 py-2 rounded-xl bg-white text-gray-900 text-[10px] font-black uppercase tracking-wider hover:bg-amber-300 transition-all active:scale-95"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Position dots */}
+            <div className="flex items-center justify-center gap-1.5 mt-4">
+              {reels.map((r, i) => (
+                <button
+                  key={r.id || i}
+                  onClick={() => selectReel(i)}
+                  aria-label={`Reel ${i + 1}`}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${i === activeIdx ? 'w-6 bg-amber-400' : 'w-1.5 bg-white/25 hover:bg-white/50'}`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── Thumb rail ── */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-5">
+            {reels.slice(0, 6).map((reel, idx) => (
+              <div
                 key={reel.id || idx}
-                reel={reel}
-                index={idx}
-                widthClass="w-full"
-                onOpen={() => handlePlayVideo(reel)}
-                badgeFallback={t('reels.watch_and_buy')}
-                autoPlayInView
-                liked={!!reelLikeMap[reel.id]?.liked}
-                onToggleLike={() => toggleReelLike(reel)}
-                onAddToCart={addReelProduct}
-              />
-            );
-          })}
+                className={`relative rounded-2xl overflow-hidden transition-all duration-300 ${idx === activeIdx ? 'ring-2 ring-amber-400/80 shadow-lg shadow-amber-500/10' : 'ring-1 ring-white/10 hover:ring-white/30'}`}
+              >
+                <ReelCard
+                  reel={reel}
+                  index={idx}
+                  widthClass="w-full"
+                  onOpen={() => selectReel(idx)}
+                  badgeFallback={t('reels.watch_and_buy')}
+                  liked={!!reelLikeMap[reel.id]?.liked}
+                  onToggleLike={() => toggleReelLike(reel)}
+                  onAddToCart={addReelProduct}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Video Player Modal */}
+      {/* Fullscreen modal */}
       <AnimatePresence>
         {activeVideo && (
           <VideoPlayerModal
@@ -500,47 +727,140 @@ function ShoppableVideoSection({ reels }) {
   );
 }
 
-function SelektHero() {
+/* ── CINEMATIC HERO — dark, video-forward, with marquee ticker ── */
+function CinematicHero({ reels }) {
   const navigate = useNavigate();
+  const heroReel = (Array.isArray(reels) ? reels : []).find((r) => r?.videoUrl) || null;
+  const isEmbedHero = heroReel && (isYouTubeUrl(heroReel.videoUrl) || isVimeoUrl(heroReel.videoUrl));
+  const heroVideoRef = useRef(null);
+
+  // Save battery/data — pause the hero's background video once it scrolls out of view
+  useEffect(() => {
+    const el = heroVideoRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) el.play().catch(() => {});
+      else el.pause();
+    }, { threshold: 0.05 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [heroReel?.videoUrl]);
+
+  const marqueeItems = ['Free Shipping Over ₹499', 'Easy 7-Day Returns', 'Premium Quality Guaranteed', 'Secure Checkout', 'New Drops Weekly'];
+
   return (
-    <section className="relative w-full bg-white overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-gray-50/50 to-white pointer-events-none" />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
-        <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 border border-black/10 text-black/60 text-[11px] font-bold uppercase tracking-[0.2em] mb-6"
+    <section className="relative w-full bg-black overflow-hidden">
+      {/* Layered background: muted video + gradients + glow */}
+      <div className="absolute inset-0">
+        {heroReel && !isEmbedHero ? (
+          <video
+            ref={heroVideoRef}
+            src={getVideoUrl(heroReel.videoUrl)}
+            poster={heroReel.imageUrl ? getImageUrl(heroReel.imageUrl) : undefined}
+            muted
+            autoPlay
+            loop
+            playsInline
+            preload="auto"
+            className="w-full h-full object-cover opacity-45"
+          />
+        ) : heroReel?.imageUrl ? (
+          <img src={getImageUrl(heroReel.imageUrl)} alt="" className="w-full h-full object-cover opacity-40" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-950 via-gray-900 to-amber-950" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/30 to-black" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-amber-500/20 blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-24 w-80 h-80 rounded-full bg-white/10 blur-[100px] pointer-events-none" />
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 md:pt-28 md:pb-20 lg:pt-36 lg:pb-24 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-amber-200 text-[11px] font-bold uppercase tracking-[0.2em] mb-6"
+        >
+          <Sparkles size={12} />
+          Watch & Buy · Shoppable Videos
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="text-5xl sm:text-6xl md:text-7xl font-display font-black text-white tracking-[-0.03em] leading-[0.95] mb-5"
+        >
+          WATCH IT.
+          <br />
+          <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-white bg-clip-text text-transparent">LOVE IT. BUY IT.</span>
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="text-base md:text-lg text-white/70 max-w-xl mx-auto mb-8 leading-relaxed"
+        >
+          Tap any reel to play the video — then add the exact look to your cart. No searching, no scrolling.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10"
+        >
+          <button
+            onClick={() => document.getElementById('watch-buy')?.scrollIntoView({ behavior: 'smooth' })}
+            className="px-8 py-3.5 rounded-full bg-white text-gray-900 text-sm font-bold hover:bg-amber-300 hover:text-gray-900 transition-all duration-200 active:scale-[0.97] shadow-xl shadow-black/30"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Watch & Buy
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black text-black tracking-[-0.03em] leading-[0.9] mb-4"
+            ▶ Start Watching
+          </button>
+          <button
+            onClick={() => navigate('/products')}
+            className="px-8 py-3.5 rounded-full bg-white/10 border border-white/25 backdrop-blur-md text-white text-sm font-bold hover:bg-white/20 transition-all duration-200 active:scale-[0.97]"
           >
-            THREVOLT
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="text-lg sm:text-xl md:text-2xl text-gray-600 font-medium tracking-wide mb-8"
-          >
-            FOR THE ONES WHO CREATE
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center gap-4"
-          >
-            <span className="px-4 py-2 bg-emerald-500/10 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200/50">Out Now</span>
-            <button onClick={() => navigate('/products')} className="px-8 py-3 bg-black text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-all duration-200 active:scale-[0.97] shadow-lg hover:shadow-xl">Shop Now</button>
-          </motion.div>
+            Shop New Arrivals
+          </button>
+        </motion.div>
+
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.45 }}
+          className="flex items-center justify-center gap-6 md:gap-10 flex-wrap"
+        >
+          <div className="text-center">
+            <p className="text-2xl md:text-3xl font-black text-white">{Array.isArray(reels) ? reels.length : 0}+</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/50 mt-1">Videos</p>
+          </div>
+          <div className="w-px h-10 bg-white/15" />
+          <div className="text-center">
+            <p className="text-2xl md:text-3xl font-black text-white">100%</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/50 mt-1">Authentic</p>
+          </div>
+          <div className="w-px h-10 bg-white/15" />
+          <div className="text-center">
+            <p className="text-2xl md:text-3xl font-black text-white">7-Day</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/50 mt-1">Returns</p>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Marquee ticker */}
+      <div className="relative border-t border-white/10 bg-black/60 backdrop-blur-md overflow-hidden py-3">
+        <div className="flex whitespace-nowrap animate-marquee">
+          {[0, 1].map((dup) => (
+            <div key={dup} className="flex shrink-0 items-center">
+              {marqueeItems.concat(marqueeItems).map((item, i) => (
+                <span key={`${dup}-${i}`} className="flex items-center gap-3 mx-5 text-[11px] font-bold uppercase tracking-[0.2em] text-white/60">
+                  {item} <span className="text-amber-400">✦</span>
+                </span>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -625,7 +945,8 @@ function SelektProductCard({ product, index }) {
           <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-red-500 text-white text-[9px] font-bold rounded-md shadow-md">-{discount}%</div>
         )}
         {!isOutOfStock && (
-          <button onClick={handleQuickAdd} className="absolute bottom-0 inset-x-0 z-20 h-10 bg-black/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300">
+          /* Hidden until card hover on desktop (hover-capable); always visible on touch */
+          <button onClick={handleQuickAdd} className="qa-reveal absolute bottom-0 inset-x-0 z-20 h-10 bg-black/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300">
             {isAdding ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><ShoppingCart size={13} /> Quick Add</>}
           </button>
         )}
@@ -659,29 +980,118 @@ function SectionHeader({ title, subtitle, tagline }) {
   );
 }
 
-/* ── BRAND STORY SECTION ── */
+/* ── BRAND STORY SECTION — dark editorial narrative ── */
 function BrandStorySection() {
+  const { getSetting } = useSettings();
+  const storeName = getSetting('storeName', 'THREVOLT');
+  const chapters = [
+    {
+      num: '01',
+      Icon: Compass,
+      eyebrow: 'Chapter One',
+      title: 'Journey',
+      copy: [
+        'What started with just 2–3 orders a day slowly grew into something far bigger than we ever imagined. From packing orders late at night to building a brand people genuinely connect with, every step of this journey has been driven by passion, consistency, and the support of our community.',
+        'There were moments of doubt, setbacks, and long nights, but every small win kept us going. This brand is more than clothing to us — it\'s a reflection of growth, self-expression, and the people who believed in us from the very beginning.',
+      ],
+    },
+    {
+      num: '02',
+      Icon: Gem,
+      eyebrow: 'Chapter Two',
+      title: 'Identity',
+      copy: [
+        'Identity is more than just the way you dress — it\'s the way you carry yourself, express your thoughts, and show the world who you truly are without saying a word.',
+        'In a world where everyone is constantly trying to fit in, we believe real style comes from embracing what makes you different. Every piece we create is designed to help you feel confident, comfortable, and unapologetically yourself.',
+      ],
+    },
+  ];
+
   return (
-    <section className="py-16 md:py-24 bg-white border-t border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-2 gap-12 md:gap-16">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
-            <div className="flex items-center gap-3 mb-5"><span className="text-3xl">📖</span><span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.25em]">Our Story</span></div>
-            <h3 className="text-xl md:text-2xl font-display font-bold text-gray-900 mb-4">Journey</h3>
-            <div className="text-sm md:text-base text-gray-600 leading-relaxed space-y-4">
-              <p>What started with just 2–3 orders a day slowly grew into something far bigger than we ever imagined. From packing orders late at night to building a brand people genuinely connect with, every step of this journey has been driven by passion, consistency, and the support of our community.</p>
-              <p>There were moments of doubt, setbacks, and long nights, but every small win kept us going. This brand is more than clothing to us — it's a reflection of growth, self-expression, and the people who believed in us from the very beginning.</p>
-            </div>
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }} transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}>
-            <div className="flex items-center gap-3 mb-5"><span className="text-3xl">🎯</span><span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.25em]">Our Identity</span></div>
-            <h3 className="text-xl md:text-2xl font-display font-bold text-gray-900 mb-4">Identity</h3>
-            <div className="text-sm md:text-base text-gray-600 leading-relaxed space-y-4">
-              <p>Identity is more than just the way you dress — it's the way you carry yourself, express your thoughts, and show the world who you truly are without saying a word.</p>
-              <p>In a world where everyone is constantly trying to fit in, we believe real style comes from embracing what makes you different. Every piece we create is designed to help you feel confident, comfortable, and unapologetically yourself.</p>
-            </div>
-          </motion.div>
+    <section className="relative py-20 md:py-28 bg-gray-950 text-white overflow-hidden">
+      {/* ambient glows + subtle grid texture */}
+      <div className="absolute -top-32 right-0 w-[480px] h-[380px] bg-amber-500/10 blur-[130px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-0 -left-24 w-80 h-80 bg-white/5 blur-[110px] rounded-full pointer-events-none" />
+      <div
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-3xl mb-12 md:mb-16"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-px w-10 bg-gradient-to-r from-amber-400 to-transparent" />
+            <span className="text-amber-300 text-[10px] font-bold uppercase tracking-[0.25em]">Our Story</span>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-display font-black tracking-tight leading-[1.05]">
+            More than clothing —<br />
+            <span className="bg-gradient-to-r from-amber-300 via-amber-200 to-white bg-clip-text text-transparent">it's a reflection of us.</span>
+          </h2>
+        </motion.div>
+
+        {/* Narrative chapters */}
+        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+          {chapters.map((ch, idx) => {
+            const Icon = ch.Icon;
+            return (
+              <motion.article
+                key={ch.num}
+                initial={{ opacity: 0, y: 28 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-40px' }}
+                transition={{ duration: 0.6, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
+                className="group relative rounded-3xl bg-white/[0.04] border border-white/10 p-7 md:p-9 overflow-hidden hover:border-amber-300/30 hover:bg-white/[0.06] transition-all duration-500"
+              >
+                {/* watermark number */}
+                <span className="absolute -top-4 -right-2 text-[88px] md:text-[110px] font-black leading-none text-white/[0.05] group-hover:text-amber-400/10 transition-colors duration-500 select-none">
+                  {ch.num}
+                </span>
+
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-300/25 flex items-center justify-center">
+                      <Icon size={19} className="text-amber-300" />
+                    </span>
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">{ch.eyebrow}</p>
+                      <h3 className="text-xl md:text-2xl font-display font-bold">{ch.title}</h3>
+                    </div>
+                  </div>
+                  <div className="space-y-4 text-sm md:text-[15px] text-white/60 leading-relaxed">
+                    {ch.copy.map((p, i) => (
+                      <p key={i}>{p}</p>
+                    ))}
+                  </div>
+                </div>
+              </motion.article>
+            );
+          })}
         </div>
+
+        {/* Pull-quote band */}
+        <motion.blockquote
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mt-12 md:mt-16 rounded-3xl bg-gradient-to-r from-amber-400/10 via-white/[0.04] to-transparent border border-white/10 px-7 md:px-12 py-8 md:py-10"
+        >
+          <Quote size={28} className="text-amber-400/60 mb-4" />
+          <p className="text-lg md:text-2xl font-display font-semibold leading-snug text-white/90 max-w-3xl">
+            "Every piece we create is designed to help you feel confident, comfortable, and unapologetically yourself."
+          </p>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">— {storeName}</p>
+        </motion.blockquote>
       </div>
     </section>
   );
@@ -840,11 +1250,11 @@ export default function WatchAndBuyPage() {
     <div className="min-h-screen bg-white">
       <SEOHead title="Watch & Buy — Shoppable Video Shopping | THREVOLT" description="Watch and shop the latest streetwear drops. Browse our collection of premium t-shirts, oversized tees, and streetwear essentials. Watch product videos and buy directly." />
 
-      {/* ── HERO ── */}
-      <SelektHero />
+      {/* ── CINEMATIC HERO ── */}
+      <CinematicHero reels={reels} />
 
-      {/* ── SHOPPABLE VIDEO SECTION (Reels from backend — YouTube + MP4 both work) ── */}
-      <ShoppableVideoSection reels={reels} />
+      {/* ── WATCH & BUY — featured player + thumb rail ── */}
+      <FeaturedVideoShowcase reels={reels} />
 
       {/* ── PRODUCT GRID ── */}
       {isLoading ? (

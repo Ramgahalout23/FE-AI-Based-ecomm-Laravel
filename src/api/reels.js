@@ -14,6 +14,7 @@ export const reelsAPI = {
   // Admin: Create reel
   create: (data) => adminClient.post('/admin/reels', {
     title: data.title,
+    badge: data.badge ?? '',
     description: data.description,
     video_url: data.videoUrl ?? data.video_url ?? '',
     image_url: data.imageUrl ?? data.image_url ?? '',
@@ -26,6 +27,7 @@ export const reelsAPI = {
   // Admin: Update reel
   update: (id, data) => adminClient.put(`/admin/reels/${id}`, {
     title: data.title,
+    badge: data.badge ?? '',
     description: data.description,
     video_url: data.videoUrl ?? data.video_url,
     image_url: data.imageUrl ?? data.image_url,

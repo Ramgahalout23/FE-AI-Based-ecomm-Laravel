@@ -21,7 +21,8 @@ export function discountPercent(oldPrice, price) {
 }
 
 export function getReelBadge(reel, fallback = 'THREVOLT') {
-  return reel?.products?.[0]?.badge || fallback;
+  // Per-reel badge set from admin wins; fall back to the linked product's badge
+  return reel?.badge || reel?.products?.[0]?.badge || fallback;
 }
 
 export function isYouTubeUrl(url) {
@@ -226,9 +227,9 @@ export default function ReelCard({
             </>
           )}
 
-          <div className="absolute top-3 left-3 z-10">
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-amber-900/80 to-amber-700/80 backdrop-blur-sm border border-amber-300/40 text-amber-100 text-[7px] font-bold uppercase tracking-[0.12em] shadow-lg">
-              <Crown size={8} />
+          <div className="absolute top-2 left-2 z-10">
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-[4px] bg-gradient-to-r from-amber-900/80 to-amber-700/80 backdrop-blur-sm border border-amber-300/40 text-amber-100 text-[6px] font-bold uppercase tracking-[0.06em] shadow-md">
+              <Crown size={5.5} />
               {getReelBadge(reel, badgeFallback)}
             </span>
           </div>

@@ -549,8 +549,8 @@ export default memo(function SearchProductCard({ product }) {
           !showQuickAdd && (
             <button
               onClick={handleQuickAdd}
-              /* Always visible — hover-reveal hid QUICK ADD on tablets & touch laptops */
-              className="absolute bottom-0 inset-x-0 z-30 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-white hover:text-black hover:border-t hover:border-gray-200/60"
+              /* Hidden until card hover on desktop (hover-capable); always visible on touch */
+              className="qa-reveal absolute bottom-0 inset-x-0 z-30 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-white hover:text-black hover:border-t hover:border-gray-200/60"
             >
               {isAdding ? (
                 <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />

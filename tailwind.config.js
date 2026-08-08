@@ -156,6 +156,10 @@ export default {
           '0%, 100%': { transform: 'scale(1)' },
           '50%': { transform: 'scale(1.1)' },
         },
+        'marquee': {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
         'shake': {
           '0%, 100%': { transform: 'translateX(0)' },
           '10%': { transform: 'translateX(-6px) rotate(-0.5deg)' },
@@ -176,6 +180,7 @@ export default {
         'shimmer': 'shimmer 2s linear infinite',
         'count-pulse': 'count-pulse 0.3s ease-out',
         'shake': 'shake 0.5s ease-in-out',
+        'marquee': 'marquee 28s linear infinite',
       },
     },
   },

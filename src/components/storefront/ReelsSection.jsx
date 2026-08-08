@@ -31,7 +31,8 @@ function discountPercent(oldPrice, price) {
 }
 
 function getReelBadge(reel, fallback = 'THREVOLT') {
-  return reel.products?.[0]?.badge || fallback;
+  // Per-reel badge set from admin wins; fall back to the linked product's badge
+  return reel?.badge || reel?.products?.[0]?.badge || fallback;
 }
 
 function isYouTubeUrl(url) {

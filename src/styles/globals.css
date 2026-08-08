@@ -457,6 +457,24 @@
   }
 }
 
+/* ── QUICK ADD hover-reveal ────────────────
+   Product-card QUICK ADD reveals on card hover on hover-capable devices
+   (desktop). On touch devices there is no hover, so it stays always visible
+   — the media query never matches, keeping the button tappable. */
+@media (hover: hover) {
+  .qa-reveal {
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+  }
+  .group:hover .qa-reveal,
+  .group:focus-within .qa-reveal {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

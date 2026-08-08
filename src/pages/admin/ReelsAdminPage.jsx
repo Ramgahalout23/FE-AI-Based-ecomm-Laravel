@@ -34,6 +34,7 @@ function getVimeoEmbedUrl(url) {
 
 const EMPTY_FORM = {
   title: '',
+  badge: '',
   description: '',
   videoUrl: '',
   imageUrl: '',
@@ -224,6 +225,7 @@ export default function ReelsAdminPage() {
       const data = res.data?.data || reel;
       setForm({
         title: data.title || '',
+        badge: data.badge || '',
         description: data.description || '',
         videoUrl: data.video_url || '',
         imageUrl: data.image_url || '',
@@ -234,6 +236,7 @@ export default function ReelsAdminPage() {
     } catch {
       setForm({
         title: reel.title || '',
+        badge: reel.badge || '',
         description: reel.description || '',
         videoUrl: reel.video_url || '',
         imageUrl: reel.image_url || '',
@@ -253,6 +256,7 @@ export default function ReelsAdminPage() {
     try {
       const payload = {
         title: form.title,
+        badge: form.badge,
         description: form.description,
         videoUrl: form.videoUrl,
         imageUrl: form.imageUrl,
@@ -421,6 +425,7 @@ export default function ReelsAdminPage() {
               <th style={{ width: 32 }}></th>
               <th>Preview</th>
               <th>Title</th>
+              <th>Badge / Tag</th>
               <th>Description</th>
               <th>Type</th>
               <th>Likes</th>
@@ -558,6 +563,29 @@ export default function ReelsAdminPage() {
                   </td>
                   <td>
                     <strong>{reel.title}</strong>
+                  </td>
+                  <td>
+                    {reel.badge ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          background: 'linear-gradient(90deg, #92400e, #b45309)',
+                          color: '#fef3c7',
+                        }}
+                      >
+                        {reel.badge}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                        —
+                      </span>
+                    )}
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: '0.82rem', maxWidth: 280 }}>
                     {reel.description || <span style={{ fontStyle: 'italic' }}>No description</span>}
@@ -718,6 +746,18 @@ export default function ReelsAdminPage() {
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     placeholder="e.g. Summer Collection 2024"
                   />
+                </div>
+
+                <div className="form-group">
+                  <label>Badge / Tag (optional)</label>
+                  <input
+                    value={form.badge}
+                    onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                    placeholder="e.g. Bestseller, Trending, New Drop"
+                  />
+                  <small style={{ color: '#888', fontSize: '0.7rem' }}>
+                    Shown as the small tag on the reel card. Leave blank to use the linked product's badge.
+                  </small>
                 </div>
 
                 <div className="form-group">
