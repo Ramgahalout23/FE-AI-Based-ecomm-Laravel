@@ -1,5 +1,5 @@
 import { ChevronRight, Star, Package } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +11,7 @@ import { useSettings } from '../../store/useSettings';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
 import { ORDER_STATUSES } from '../../utils/constants';
 import OrderListSkeleton from '../../components/ui/OrderListSkeleton';
-import ReviewFormModal from '../../components/product/ReviewFormModal';
+const ReviewFormModal = lazy(() => import('../../components/product/ReviewFormModal'));
 import toast from '../../utils/toast';
 
 export default function OrdersPage() {
@@ -21,6 +21,7 @@ export default function OrdersPage() {
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
   const [reviewModal, setReviewModal] = useState({ open: false, productId: '', productName: '', orderId: '' });
+  const [reviewEverOpened, setReviewEverOpened] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +40,8 @@ export default function OrdersPage() {
     };
     fetch();
   }, []);
+
+  useEffect(() => { if (reviewModal.open) setReviewEverOpened(true); }, [reviewModal.open]);
 
   const handleReviewSubmitted = useCallback(() => {
     toast.success(t('orders.detail.review_submitted'));
@@ -266,14 +269,18 @@ export default function OrdersPage() {
       </div>
 
       {/* Review Form Modal */}
-      <ReviewFormModal
-        isOpen={reviewModal.open}
-        onClose={() => setReviewModal({ open: false, productId: '', productName: '', orderId: '' })}
-        productId={reviewModal.productId}
-        productName={reviewModal.productName}
-        orderId={reviewModal.orderId}
-        onSuccess={handleReviewSubmitted}
-      />
+      {reviewEverOpened && (
+        <Suspense fallback={null}>
+          <ReviewFormModal
+            isOpen={reviewModal.open}
+            onClose={() => setReviewModal({ open: false, productId: '', productName: '', orderId: '' })}
+            productId={reviewModal.productId}
+            productName={reviewModal.productName}
+            orderId={reviewModal.orderId}
+            onSuccess={handleReviewSubmitted}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

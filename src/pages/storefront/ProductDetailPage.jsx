@@ -1,5 +1,5 @@
-import { Minus, Plus, Star, ChevronDown, Share2, X, ChevronRight, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Minus, Plus, Star, ChevronDown, Share2, X, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -9,7 +9,6 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import SEOHead from '../../components/seo/SEOHead';
 import { productsAPI } from '../../api/products';
-import { recentlyViewedAPI } from '../../api/recentlyViewed';
 import { seoAPI } from '../../api/seo';
 import { reviewsAPI } from '../../api/reviews';
 import useCartStore from '../../store/cartStore';
@@ -17,10 +16,10 @@ import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
 import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
-import SizeGuideModal from '../../components/product/SizeGuideModal';
-import ReviewFormModal from '../../components/product/ReviewFormModal';
+const SizeGuideModal = lazy(() => import('../../components/product/SizeGuideModal'));
+const ReviewFormModal = lazy(() => import('../../components/product/ReviewFormModal'));
 import { formatCurrency, getImageUrl, getProductImages, getVideoUrl } from '../../utils/formatters';
-import ReviewImageLightbox from '../../components/product/ReviewImageLightbox';
+const ReviewImageLightbox = lazy(() => import('../../components/product/ReviewImageLightbox'));
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../store/useSettings';
 import useFlyToCart from '../../hooks/useFlyToCart';
@@ -54,17 +53,13 @@ const displayFont = { fontFamily: "var(--font-display)", fontWeight: 800 };
 const stitchBorder = `repeating-linear-gradient(90deg, ${STONE} 0px, ${STONE} 6px, transparent 6px, transparent 12px)`;
 const accentGradient = `linear-gradient(135deg, #2A2724, #161514)`;
 
-// ── Fabric weight meter helpers (dynamic from product attributes) ──
-const FABRIC_METER_MIN = 180;
-const FABRIC_METER_MAX = 320;
+// ── Fabric tier helper (used in the details accordion FABRIC attribute) ──
 const getFabricTier = (gsm) => gsm >= 280 ? 'Fleece-grade' : gsm >= 200 ? 'Heavyweight' : 'Standard tee';
-const getFabricMeterPct = (gsm) => Math.max(0, Math.min(100, ((gsm - FABRIC_METER_MIN) / (FABRIC_METER_MAX - FABRIC_METER_MIN)) * 100));
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
-  const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
@@ -157,6 +152,8 @@ export default function ProductDetailPage() {
   const queryClient = useQueryClient();
 
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewEverOpened, setReviewEverOpened] = useState(false);
+  const [sizeGuideEverOpened, setSizeGuideEverOpened] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [reviewSort, setReviewSort] = useState('relevant');
   const reviewsRef = useRef(null);
@@ -207,6 +204,8 @@ export default function ProductDetailPage() {
   }));
   const albumShow = photoAlbum.slice(0, 6);
 
+  useEffect(() => { if (showReviewModal) setReviewEverOpened(true); }, [showReviewModal]);
+  useEffect(() => { if (showSizeGuide) setSizeGuideEverOpened(true); }, [showSizeGuide]);
   useEffect(() => { setShowAllReviews(false); }, [reviewSort]);
   useEffect(() => { setShowAllReviews(false); setReviewSort('relevant'); }, [product?.id]);
 
@@ -303,23 +302,11 @@ export default function ProductDetailPage() {
     hasAutoSelected.current = true;
   }, [product]);
 
-  // ── Tracking & Recently Viewed ──
+  // ── Product View Tracking ──
   useEffect(() => {
     if (!product) return;
     const catName = typeof product.category === 'object' ? product.category.name : product.category;
     trackProductView(product.id, product.name, catName);
-    let viewed = JSON.parse(localStorage.getItem('luxe_recently_viewed') || '[]');
-    viewed = viewed.filter(v => v.id !== product.id);
-    viewed.unshift(product);
-    viewed = viewed.slice(0, 5);
-    localStorage.setItem('luxe_recently_viewed', JSON.stringify(viewed));
-    setRecentlyViewed(viewed.filter(v => v.id !== product.id));
-    // Brief skeleton delay for polish
-    const timer = setTimeout(() => setRecentlyViewedLoaded(true), 400);
-    if (isAuthenticated && product.id) {
-      recentlyViewedAPI.trackView(product.id).catch(() => {});
-    }
-    return () => clearTimeout(timer);
   }, [product]);
 
   // ── Wishlist server sync ──
@@ -383,25 +370,6 @@ export default function ProductDetailPage() {
 
   const LOW_STOCK_THRESHOLD = 5;
 
-  const getSizeStock = (size) => {
-    if (!variantsList.length) return product?.quantity || 0;
-    if (selectedColor) {
-      const key = `${size}::${selectedColor}`;
-      return variantStockMap.get(key) || 0;
-    }
-    const stocks = variantsList.filter(v => (v.attributes || {}).size === size).map(v => v.quantity || 0);
-    return stocks.length ? Math.max(...stocks) : 0;
-  };
-
-  const getColorStock = (color) => {
-    if (!variantsList.length) return product?.quantity || 0;
-    if (selectedSize) {
-      const key = `${selectedSize}::${color}`;
-      return variantStockMap.get(key) || 0;
-    }
-    const stocks = variantsList.filter(v => (v.attributes || {}).color === color).map(v => v.quantity || 0);
-    return stocks.length ? Math.max(...stocks) : 0;
-  };
 
   const isSizeRequired = product?.sizes?.length > 0;
   const isColorRequired = product?.colors?.length > 0;
@@ -1260,35 +1228,7 @@ export default function ProductDetailPage() {
               </>
             )}
           </div>
-          {effectiveOldPrice && effectiveOldPrice > effectivePrice && (
-            <p style={{ fontSize: 12, color: STONE, marginBottom: 20, marginTop: 0 }}>
-              MRP incl. of all taxes · <span style={{ color: INK, fontWeight: 600 }}>You save {formatCurrency(Math.max(0, effectiveOldPrice - effectivePrice))}</span>
-            </p>
-          )}
-          {!effectiveOldPrice && <div style={{ marginBottom: 20 }} />}
-
-          {/* Fabric weight meter — only shown when the product has a GSM attribute set */}
-          {product.attributes?.gsm && (() => {
-            const gsm = Number(product.attributes.gsm);
-            const meterPct = getFabricMeterPct(gsm);
-            const tier = getFabricTier(gsm);
-            return (
-              <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: `1px dashed ${STONE}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: STONE, marginBottom: 8 }}>
-                  <span>Fabric weight</span>
-                  <span style={{ color: INK, fontWeight: 700 }}>{gsm} GSM — {tier}</span>
-                </div>
-                <div style={{ position: "relative", height: 6, background: PANEL, borderRadius: 3 }}>
-                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${meterPct}%`, background: INK, borderRadius: 3 }} />
-                  <div style={{ position: "absolute", left: `${meterPct}%`, top: -5, width: 2, height: 16, background: ACCENT }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: STONE, marginTop: 6, ...{ fontFamily: "Jost, sans-serif" } }}>
-                  <span>180 · standard tee</span>
-                  <span>320 · fleece-grade</span>
-                </div>
-              </div>
-            );
-          })()}
+          <div style={{ marginBottom: 20 }} />
 
           {/* ══ Flash Sale Badge ══ */}
           {activeFlashSale && activeFlashSale.endDate && (
@@ -1836,7 +1776,7 @@ export default function ProductDetailPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={() => setShowReviewModal(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: "0 6px 18px rgba(0,0,0,0.12)", transition: "all 0.2s" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 6px 18px rgba(0,0,0,0.12)", transition: "all 0.2s" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = '#000'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = INK; e.currentTarget.style.transform = 'none'; }}
             >
@@ -1922,7 +1862,7 @@ export default function ProductDetailPage() {
               <p style={{ color: "#8a8a9a", margin: 0, fontSize: 14 }}>{t('product.no_reviews', { defaultValue: 'No reviews yet — be the first to share your thoughts.' })}</p>
               <button
                 onClick={() => setShowReviewModal(true)}
-                style={{ marginTop: 18, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.2s" }}
+                style={{ marginTop: 18, background: INK, color: PAPER, border: "none", cursor: "pointer", borderRadius: 999, padding: "11px 22px", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", transition: "all 0.2s" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = '#000'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = INK; }}
               >
@@ -1968,59 +1908,6 @@ export default function ProductDetailPage() {
       </section>
       {/* ════════════════════════════════════════ */}
 
-      {/* RECENTLY VIEWED */}
-      {/* ════════════════════════════════════════ */}
-      {recentlyViewed.length > 0 && (
-        <section className="product-detail-section" style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px 48px", position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 4, height: 36, borderRadius: 2, background: accentGradient }} />
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: ACCENT_DARK }}>Keep exploring</span>
-                </div>
-                <h2 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: "-0.02em", ...displayFont }}>
-                  {t('product.recently_viewed', { defaultValue: 'Recently Viewed' })}
-                </h2>
-                <p style={{ fontSize: 12, color: STONE, fontWeight: 400, marginTop: 2 }}>
-                  Pick up where you left off
-                </p>
-              </div>
-            </div>
-            <motion.button
-              whileHover={{ x: 4 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              onClick={() => navigate('/products')}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: INK,
-                background: "none",
-                border: `1px solid ${INK}`,
-                borderRadius: 12,
-                padding: "8px 16px",
-                cursor: "pointer",
-                transition: "all 0.2s",
-              }}
-            >
-              View All
-              <ChevronRight size={12} strokeWidth={2} />
-            </motion.button>
-          </div>
-          <div className="product-grid">
-            {recentlyViewed.slice(0, 8).map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ════════════════════════════════════════ */}
       {/* FOMO Purchase Notification Toast */}
       {/* ════════════════════════════════════════ */}
@@ -2062,34 +1949,46 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
       {/* MODALS */}
       {/* ════════════════════════════════════════ */}
-      <ReviewFormModal
-        isOpen={showReviewModal}
-        onClose={() => setShowReviewModal(false)}
-        productId={product.id}
-        productName={product.name}
-        onSuccess={handleReviewSubmitted}
-      />
+      {reviewEverOpened && (
+        <Suspense fallback={null}>
+          <ReviewFormModal
+            isOpen={showReviewModal}
+            onClose={() => setShowReviewModal(false)}
+            productId={product.id}
+            productName={product.name}
+            onSuccess={handleReviewSubmitted}
+          />
+        </Suspense>
+      )}
 
-      <SizeGuideModal isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
+      {sizeGuideEverOpened && (
+        <Suspense fallback={null}>
+          <SizeGuideModal isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
+        </Suspense>
+      )}
 
       <AnimatePresence>
         {galleryLightboxOpen && galleryImages.length > 0 && (
-          <ReviewImageLightbox
-            images={galleryImages}
-            initialIndex={galleryLightboxIdx}
-            onClose={() => setGalleryLightboxOpen(false)}
-          />
+          <Suspense fallback={null}>
+            <ReviewImageLightbox
+              images={galleryImages}
+              initialIndex={galleryLightboxIdx}
+              onClose={() => setGalleryLightboxOpen(false)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {reviewLightboxOpen && reviewLightboxImages.length > 0 && (
-          <ReviewImageLightbox
-            images={reviewLightboxImages}
-            initialIndex={reviewLightboxIdx}
-            onClose={() => setReviewLightboxOpen(false)}
-            zIndex={220}
-          />
+          <Suspense fallback={null}>
+            <ReviewImageLightbox
+              images={reviewLightboxImages}
+              initialIndex={reviewLightboxIdx}
+              onClose={() => setReviewLightboxOpen(false)}
+              zIndex={220}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
@@ -2706,8 +2605,4 @@ function formatRelativeTime(dateStr) {
   const yr = Math.floor(mon / 12);
   return yr + ' year' + (yr === 1 ? '' : 's') + ' ago';
 }
-
-/* ════════════════════════════════════════ */
-/* Recently Viewed Carousel Component      */
-/* ════════════════════════════════════════ */
 

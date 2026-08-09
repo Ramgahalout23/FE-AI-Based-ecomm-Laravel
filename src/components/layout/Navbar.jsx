@@ -1,11 +1,12 @@
 import { Search, User, Menu, X, Heart, LogOut, Home, Info, ArrowRight, LayoutDashboard } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import CartIcon from '../common/CartIcon';
 import NotificationBell from '../common/NotificationBell';
-import SearchModal from '../common/SearchModal';
+// Search modal only loads its chunk when the user opens search
+const SearchModal = lazy(() => import('../common/SearchModal'));
 import { motion, AnimatePresence } from 'framer-motion';
 import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
@@ -37,6 +38,13 @@ export default function Navbar() {
 
   const [showAccount, setShowAccount] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  // Mount SearchModal on first open, then keep it mounted so its internal
+  // AnimatePresence exit animation plays on close — the chunk is deferred
+  // until the user actually opens search.
+  const [searchEverOpened, setSearchEverOpened] = useState(false);
+  useEffect(() => {
+    if (showSearchModal) setSearchEverOpened(true);
+  }, [showSearchModal]);
   const [searchFocused, setSearchFocused] = useState(false);
   const [isReelsOpen, setIsReelsOpen] = useState(false);
   const searchRef = useRef(null);
@@ -641,8 +649,13 @@ export default function Navbar() {
         </AnimatePresence>
       </nav>
 
-      {/* Search Modal */}
-      <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
+      {/* Search Modal — lazily loaded; mounts on first open, then stays mounted
+          so its internal exit animation still plays when closing */}
+      {(showSearchModal || searchEverOpened) && (
+        <Suspense fallback={null}>
+          <SearchModal isOpen={showSearchModal} onClose={() => setShowSearchModal(false)} />
+        </Suspense>
+      )}
 
     </header>
   );

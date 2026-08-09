@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
 import { formatDate } from '../../utils/formatters';
@@ -6,7 +6,7 @@ import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
-import AdvancedPageEditor from '../../components/common/AdvancedPageEditor';
+const AdvancedPageEditor = lazy(() => import('../../components/common/AdvancedPageEditor'));
 
 export default function PagesAdminPage() {
   const [pages, setPages] = useState([]);
@@ -279,7 +279,9 @@ export default function PagesAdminPage() {
                     {aiLoadingContent ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '✨'} {aiLoadingContent ? 'Generating...' : 'AI Generate Content'}
                   </button>
                 </div>
-                <AdvancedPageEditor key={editing?.id || 'new'} value={form.content} onChange={(content) => setForm({ ...form, content })} />
+                <Suspense fallback={null}>
+                  <AdvancedPageEditor key={editing?.id || 'new'} value={form.content} onChange={(content) => setForm({ ...form, content })} />
+                </Suspense>
               </div>
             </div>
             <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); setIsFullscreen(false); }}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update Page' : 'Publish Page'}</button></div>

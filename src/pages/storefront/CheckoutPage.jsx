@@ -297,7 +297,7 @@ export default function CheckoutPage() {
 
   // Handle authentication tokens from checkout response
   // Guest users always receive a token so the thank-you page can authenticate.
-  // Account creation is separate — only fire the toast + set user if opted in.
+  // Account creation is separate — only fire the toast if opted in.
   const handleCheckoutAuth = (data) => {
     // Save token for ALL guest users (regardless of createAccount)
     if (data?.tokens?.accessToken) {
@@ -305,12 +305,18 @@ export default function CheckoutPage() {
       if (data.tokens.refreshToken) {
         localStorage.setItem('refreshToken', data.tokens.refreshToken);
       }
-    }
-    // Only create account state if the user explicitly opted in
-    if (data?.accountCreated) {
+      // Sync the auth store immediately — otherwise ProtectedRoute pages
+      // (e.g. /orders/:id opened from a notification) redirect to /login right
+      // after a guest checkout, even though the token is valid.
       if (data?.user) {
         useAuthStore.getState().setUser(data.user);
+      } else {
+        useAuthStore.getState().init();
       }
+    }
+    // Only fire the "account created" toast if the user explicitly opted in
+    // (the session itself was already established above via setUser/init).
+    if (data?.accountCreated) {
       accountCreated();
     }
   };

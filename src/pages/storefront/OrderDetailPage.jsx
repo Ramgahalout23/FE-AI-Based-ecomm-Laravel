@@ -1,5 +1,5 @@
 import { Star, Bell, Mail, Phone, CheckCircle } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -10,9 +10,10 @@ import { ordersAPI } from '../../api/orders';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
 import { ORDER_STATUSES, SHIPPING_STATUSES, calcBundleDiscount, parseBundleTiers } from '../../utils/constants';
 import { useSettings } from '../../store/useSettings';
+import useAuthStore from '../../store/authStore';
 import toast from '../../utils/toast';
 import OrderDetailSkeleton from '../../components/ui/OrderDetailSkeleton';
-import ReviewFormModal from '../../components/product/ReviewFormModal';
+const ReviewFormModal = lazy(() => import('../../components/product/ReviewFormModal'));
 
 export default function OrderDetailPage() {
   const { t } = useTranslation();
@@ -23,7 +24,13 @@ export default function OrderDetailPage() {
   const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Why the order failed to load — drives the empty-state heading so we never
+  // claim "Order Not Found" for transient network/server failures.
+  const [loadError, setLoadError] = useState(null);
+  // Guards state updates after unmount (a retry timer may still be pending).
+  const cancelledRef = useRef(false);
   const [reviewModal, setReviewModal] = useState({ open: false, productId: '', productName: '' });
+  const [reviewEverOpened, setReviewEverOpened] = useState(false);
 
   // ── Order Subscription State ──
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
@@ -34,33 +41,60 @@ export default function OrderDetailPage() {
   const [subscribing, setSubscribing] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await ordersAPI.getById(id);
-        setOrder(res.data?.data || null);
-      } catch (err) {
-        const status = err?.response?.status;
-        const serverMsg = err?.response?.data?.error?.message || err?.response?.data?.message || '';
+  // Retry-able order fetch. Transient failures (network blips / aborted
+  // requests) are retried once, a stale token triggers a re-auth + retry, and
+  // only a genuine 404 shows the "Order Not Found" state.
+  const fetchOrder = useCallback(async (attempt = 0) => {
+    if (cancelledRef.current) return;
+    try {
+      const res = await ordersAPI.getById(id);
+      setOrder(res.data?.data || null);
+      setLoading(false);
+      return;
+    } catch (err) {
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.error?.message || err?.response?.data?.message || '';
 
-        if (status === 404) {
-          toast.error(t('orders.detail.not_found'));
-        } else if (status === 403) {
-          toast.error(t('orders.detail.forbidden', { defaultValue: 'You do not have permission to view this order' }));
-        } else if (status === 401) {
-          toast.error(t('orders.detail.login_required', { defaultValue: 'Please log in to view this order' }));
-        } else if (status >= 500) {
-          toast.error(serverMsg || t('orders.detail.server_error', { defaultValue: 'Server error. Please try again later.' }));
-        } else {
-          toast.error(serverMsg || t('orders.detail.not_found'));
-        }
+      if (status === 404) {
+        setLoading(false);
+        setLoadError('not_found');
+        toast.error(t('orders.detail.not_found'));
+      } else if (status === 403) {
+        setLoading(false);
+        setLoadError('forbidden');
+        toast.error(t('orders.detail.forbidden', { defaultValue: 'You do not have permission to view this order' }));
+      } else if (status === 401) {
+        // Stale/expired token — refresh the session and retry once.
+        try { await useAuthStore.getState().init(); } catch { /* ignore */ }
+        if (attempt < 1) return fetchOrder(attempt + 1);
+        setLoading(false);
+        setLoadError('forbidden');
+        toast.error(t('orders.detail.login_required', { defaultValue: 'Please log in to view this order' }));
+      } else if (status >= 500) {
+        setLoading(false);
+        setLoadError('server');
+        toast.error(serverMsg || t('orders.detail.server_error', { defaultValue: 'Server error. Please try again later.' }));
+      } else if (attempt < 1) {
+        // Transient failure (network error / aborted request) — retry once.
+        setTimeout(() => fetchOrder(attempt + 1), 500);
+      } else {
+        setLoading(false);
+        setLoadError('network');
+        toast.error(t('orders.detail.failed_load_order', { defaultValue: 'Could not load this order. Please check your connection and try again.' }));
+      }
 
-        // Log the full error for debugging
-        console.warn('[OrderDetailPage] Failed to fetch order:', { id, status, message: serverMsg || err.message });
-      } finally { setLoading(false); }
-    };
-    fetch();
+      // Log the full error for debugging
+      console.warn('[OrderDetailPage] Failed to fetch order:', { id, status, message: serverMsg || err.message });
+    }
   }, [id]);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+    fetchOrder();
+    return () => { cancelledRef.current = true; };
+  }, [fetchOrder]);
+
+  useEffect(() => { if (reviewModal.open) setReviewEverOpened(true); }, [reviewModal.open]);
 
   const handleCancel = async () => {
     try { await ordersAPI.cancel(id); setOrder((o) => ({ ...o, status: 'CANCELLED' })); toast.success(t('orders.detail.order_cancelled')); } catch { toast.error(t('orders.detail.failed_cancel')); }
@@ -84,8 +118,14 @@ export default function OrderDetailPage() {
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
           </div>
-          <h3 className="font-display text-lg font-bold text-gray-900 mb-2">{t('orders.detail.not_found')}</h3>
-          <p className="text-sm text-gray-500 mb-6">{t('orders.detail.not_found_desc', { defaultValue: 'We couldn\'t find this order. It may have been removed or you may not have access.' })}</p>
+          <h3 className="font-display text-lg font-bold text-gray-900 mb-2">
+            {t(loadError === 'not_found' ? 'orders.detail.not_found' : 'orders.detail.failed_load_order', { defaultValue: 'Order not found' })}
+          </h3>
+          <p className="text-sm text-gray-500 mb-6">
+            {loadError === 'not_found'
+              ? t('orders.detail.not_found_desc', { defaultValue: 'We couldn\'t find this order. It may have been removed or you may not have access.' })
+              : t('orders.detail.failed_load_desc', { defaultValue: 'We couldn\'t load this order. Please check your connection and try again.' })}
+          </p>
           <button
             onClick={() => navigate('/orders')}
             className="px-5 py-2.5 rounded-xl bg-charcoal text-white text-sm font-bold hover:bg-charcoal/90 transition-all duration-200 inline-flex items-center gap-2"
@@ -433,14 +473,18 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Review Form Modal */}
-      <ReviewFormModal
-        isOpen={reviewModal.open}
-        onClose={() => setReviewModal({ open: false, productId: '', productName: '' })}
-        productId={reviewModal.productId}
-        productName={reviewModal.productName}
-        orderId={id}
-        onSuccess={handleReviewSubmitted}
-      />
+      {reviewEverOpened && (
+        <Suspense fallback={null}>
+          <ReviewFormModal
+            isOpen={reviewModal.open}
+            onClose={() => setReviewModal({ open: false, productId: '', productName: '' })}
+            productId={reviewModal.productId}
+            productName={reviewModal.productName}
+            orderId={id}
+            onSuccess={handleReviewSubmitted}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

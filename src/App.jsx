@@ -8,6 +8,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { Toaster } from './utils/toast';
 import useAuthStore from './store/authStore';
 import useWishlistStore from './store/wishlistStore';
+import useCartStore from './store/cartStore';
 import { wishlistAPI } from './api/wishlist';
 import { SettingsProvider } from './store/settingsStore';
 import { useSettings } from './store/useSettings';
@@ -15,7 +16,6 @@ import { connectSocket, disconnectSocket } from './services/socketService';
 
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import CartDrawer from './components/layout/CartDrawer';
 import MobileNav from './components/layout/MobileNav';
 import AdminSidebar from './components/layout/AdminSidebar';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -35,8 +35,6 @@ initI18nSync();
 import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
 import ThemeInjector from './components/common/ThemeInjector';
-import LiveChatWidget from './components/chat/LiveChatWidget';
-import WhatsAppChatWidget from './components/chat/WhatsAppChatWidget';
 import PhoneLeadBanner from './components/common/PhoneLeadBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
@@ -44,6 +42,12 @@ import { useAdminTableLabels } from './hooks/useAdminTableLabels';
 
 // ── Route-level Code Splitting (React.lazy) ──
 // Pages are loaded on-demand, reducing the initial JS bundle significantly.
+
+// App-shell widgets — lazy so they never block initial paint. Chat widgets are
+// deferred past first load; CartDrawer mounts on first open.
+const CartDrawer = lazy(() => import('./components/layout/CartDrawer'));
+const LiveChatWidget = lazy(() => import('./components/chat/LiveChatWidget'));
+const WhatsAppChatWidget = lazy(() => import('./components/chat/WhatsAppChatWidget'));
 
 // Storefront pages
 const CustomizePage = lazy(() => import('./pages/storefront/CustomizePage'));
@@ -205,6 +209,20 @@ function MaintenanceWrapper({ children }) {
 
 function StorefrontLayout() {
   const location = useLocation();
+  const isCartOpen = useCartStore((s) => s.isOpen);
+  // Mount the cart drawer on first open, then keep it mounted so its slide
+  // animations work for the rest of the session — the chunk is deferred until
+  // the user actually opens the cart.
+  const [cartEverOpened, setCartEverOpened] = useState(false);
+  useEffect(() => {
+    if (isCartOpen) setCartEverOpened(true);
+  }, [isCartOpen]);
+  // Defer chat widgets past initial paint so their chunks don't block LCP.
+  const [deferChatWidgets, setDeferChatWidgets] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDeferChatWidgets(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
   // Keep admin-table cards labeled on mobile for storefront pages too
   // (e.g. OrderDetailPage) — not just admin pages.
   useAdminTableLabels();
@@ -241,7 +259,9 @@ function StorefrontLayout() {
   return (
     <div className="flex flex-col min-h-[100dvh]">
       <Navbar />
-      <CartDrawer />
+      <Suspense fallback={null}>
+        {(isCartOpen || cartEverOpened) && <CartDrawer />}
+      </Suspense>
       <main className="flex-1 flex flex-col pb-20">
         {/* Suspense sits ABOVE the animated wrapper so a lazily-loaded route's
             chunk (e.g. OrderThankYouPage) swaps in the RouteFallback spinner
@@ -258,8 +278,16 @@ function StorefrontLayout() {
       <Footer />
       <MobileNav />
       <PhoneLeadBanner />
-      {chatbotEnabled && <LiveChatWidget />}
-      {location.pathname === '/' && whatsappEnabled && whatsappNumber && <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} quickReplies={whatsappQuickReplies} />}
+      {deferChatWidgets && chatbotEnabled && (
+        <Suspense fallback={null}>
+          <LiveChatWidget />
+        </Suspense>
+      )}
+      {deferChatWidgets && location.pathname === '/' && whatsappEnabled && whatsappNumber && (
+        <Suspense fallback={null}>
+          <WhatsAppChatWidget phoneNumber={whatsappNumber} message={whatsappMessage || undefined} position={whatsappPosition} quickReplies={whatsappQuickReplies} />
+        </Suspense>
+      )}
       <ScrollToTopButton />
     </div>
   );

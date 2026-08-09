@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
   LayoutDashboard, BarChart3, Building2, Sparkles, PieChart, GitCompare,
   AlertCircle, Plus, RefreshCw, CheckSquare
@@ -16,7 +16,7 @@ import BrandTab from './ads/BrandTab';
 import AiToolsTab from './ads/AiToolsTab';
 import AnalyticsTab from './ads/AnalyticsTab';
 import CompareTab from './ads/CompareTab';
-import CampaignModal from './ads/CampaignModal';
+const CampaignModal = lazy(() => import('./ads/CampaignModal'));
 
 // New Feature Components
 import CampaignCalendar from '../../components/admin/ads/CampaignCalendar';
@@ -46,6 +46,10 @@ export default function AdsAdminPage() {
     loadCampaigns, loadStats, openNew, openEdit, handleSave, handleDelete,
     openDetail, handleBulkStatusChange, handleDuplicate,
   } = useAdCampaigns(search);
+
+  // Lazy modal — mount only after first open so its chunk loads on demand
+  const [campaignEverOpened, setCampaignEverOpened] = useState(false);
+  useEffect(() => { if (showModal) setCampaignEverOpened(true); }, [showModal]);
 
   // Brand & AI state
   const [brandSettings, setBrandSettings] = useState(null);
@@ -301,11 +305,15 @@ export default function AdsAdminPage() {
       {tab === 'compare' && <CompareTab campaigns={campaigns} adsAPI={adsAPI} />}
 
       {/* Campaign Modal */}
-      <CampaignModal
-        show={showModal} onClose={() => setShowModal(false)}
-        editing={editing} form={form} setForm={setForm}
-        loading={modalLoading} handleSave={handleSave}
-      />
+      {campaignEverOpened && (
+        <Suspense fallback={null}>
+          <CampaignModal
+            show={showModal} onClose={() => setShowModal(false)}
+            editing={editing} form={form} setForm={setForm}
+            loading={modalLoading} handleSave={handleSave}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

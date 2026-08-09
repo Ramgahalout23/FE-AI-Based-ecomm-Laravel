@@ -1,5 +1,5 @@
 ﻿import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,11 +13,15 @@ import { productsAPI } from '../../api/products';
 import usePullToRefresh from '../../hooks/usePullToRefresh';
 
 import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
-import ReelsSection from '../../components/storefront/ReelsSection';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
-import NewArrivalOfTheWeek from '../../components/storefront/NewArrivalOfTheWeek';
-import ProfessionalDesignCTA from '../../components/storefront/ProfessionalDesignCTA';
-import AllReviewsModal from '../../components/reviews/AllReviewsModal';
+
+// Tier 2 — below-fold / on-demand sections are code-split so they don't ride
+// along with the HomePage route chunk. ReelsSection additionally only mounts
+// once the user scrolls near it (see ReelsLazyBoundary).
+const ReelsSection = lazy(() => import('../../components/storefront/ReelsSection'));
+const NewArrivalOfTheWeek = lazy(() => import('../../components/storefront/NewArrivalOfTheWeek'));
+const ProfessionalDesignCTA = lazy(() => import('../../components/storefront/ProfessionalDesignCTA'));
+const AllReviewsModal = lazy(() => import('../../components/reviews/AllReviewsModal'));
 
 
 /* â•â•â•â•â•â•â•â•â•â•â• ANIMATION WRAPPERS â€” Premium Entrance â•â•â•â•â•â•â•â•â•â•â• */
@@ -33,6 +37,45 @@ function AnimatedSection({ children, className = '', delay = 0, margin = '-60px'
     >
       {children}
     </motion.div>
+  );
+}
+
+/* ── Reels lazy boundary — mounts ReelsSection only when the user scrolls
+     near it (600px ahead), so the heavy video-reel chunk never blocks the
+     initial HomePage paint or the rest of the page's scripts. ── */
+function ReelsLazyBoundary({ reels, loading }) {
+  const [mounted, setMounted] = useState(false);
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || mounted) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setMounted(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setMounted(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '600px 0px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mounted]);
+
+  return (
+    <>
+      {/* 1px-tall sentinel — a zero-height div never intersects (IntersectionObserver
+          reports isIntersecting:false for zero-area targets), so the reels section
+          would never mount. */}
+      <div ref={sentinelRef} aria-hidden="true" className="h-px" />
+      {mounted && (
+        <Suspense fallback={null}>
+          <ReelsSection reels={reels} loading={loading} />
+        </Suspense>
+      )}
+    </>
   );
 }
 
@@ -1796,7 +1839,9 @@ export default function HomePage() {
       case 'new_arrival_week':
         return newArrivalProductId && !isExpired && featuredNewArrival && (
           <AnimatedSection key="new_arrival_week" delay={0.05} margin="-40px">
-            <NewArrivalOfTheWeek product={featuredNewArrival} />
+            <Suspense fallback={null}>
+              <NewArrivalOfTheWeek product={featuredNewArrival} />
+            </Suspense>
           </AnimatedSection>
         );
       case 'new_arrivals':
@@ -1814,7 +1859,9 @@ export default function HomePage() {
       case 'tshirt_customizer':
         return tshirtCustomizerEnabled && (
           <AnimatedSection key="tshirt_customizer" delay={0.05}>
-            <ProfessionalDesignCTA />
+            <Suspense fallback={null}>
+              <ProfessionalDesignCTA />
+            </Suspense>
           </AnimatedSection>
         );
       case 'categories':
@@ -1841,7 +1888,7 @@ export default function HomePage() {
       case 'reels':
         return reelsEnabled && (
           <AnimatedSection key="reels" delay={0.05}>
-            <ReelsSection reels={reels} loading={isLoading} />
+            <ReelsLazyBoundary reels={reels} loading={isLoading} />
           </AnimatedSection>
         );
       default:
@@ -1876,6 +1923,13 @@ export default function HomePage() {
 
   /* â”€â”€ All Reviews Modal state â”€â”€ */
   const [allReviewsOpen, setAllReviewsOpen] = useState(false);
+  // Mount the modal on first open, then keep it mounted so its internal
+  // AnimatePresence exit animation still plays — the chunk is deferred until
+  // the user actually opens "view all reviews".
+  const [allReviewsEverOpened, setAllReviewsEverOpened] = useState(false);
+  useEffect(() => {
+    if (allReviewsOpen) setAllReviewsEverOpened(true);
+  }, [allReviewsOpen]);
 
 
   const { pullDistance, isRefreshing, isPulling } = usePullToRefresh({
@@ -1939,12 +1993,16 @@ export default function HomePage() {
       </div>
 
       {/* All Reviews Modal â€” rendered OUTSIDE the transformed container so position: fixed works correctly */}
-      <AllReviewsModal
-        reviews={homepageReviews}
-        isOpen={allReviewsOpen}
-        onClose={() => setAllReviewsOpen(false)}
-        onReviewSuccess={refetchAll}
-      />
+      {(allReviewsOpen || allReviewsEverOpened) && (
+        <Suspense fallback={null}>
+          <AllReviewsModal
+            reviews={homepageReviews}
+            isOpen={allReviewsOpen}
+            onClose={() => setAllReviewsOpen(false)}
+            onReviewSuccess={refetchAll}
+          />
+        </Suspense>
+      )}
 
     </div>
   );
