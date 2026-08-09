@@ -1,5 +1,5 @@
 import { Minus, Plus, Star, ChevronDown, Share2, X, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -138,7 +138,7 @@ export default function ProductDetailPage() {
   }, []);
 
   // ── React Query: Product data ──
-  const { data: product, isLoading, isError } = useQuery({
+  const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: async () => {
       const res = await productsAPI.getById(slug);
@@ -320,6 +320,8 @@ export default function ProductDetailPage() {
       else if (wishlisted === false && isInWishlist(product.id)) removeFromWL(product.id);
     }).catch(() => {});
     return () => { cancelled = true; };
+    // zustand store actions are stable; product?.id covers the real changing dep
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, isAuthenticated]);
 
   useEffect(() => { setSelectedImageIdx(0); }, [selectedColor, selectedSize]);
@@ -333,7 +335,10 @@ export default function ProductDetailPage() {
   }, [selectedImageIdx]);
 
   // ── Variant availability maps ──
-  const variantsList = product?.variants || product?.productvariant || [];
+  const variantsList = useMemo(
+    () => product?.variants || product?.productvariant || [],
+    [product?.variants, product?.productvariant]
+  );
   // Per-color thumbnail from the variant's first image (set in admin),
   // falling back to a solid color swatch when no variant image exists.
   const getColorThumb = (color) => {
@@ -367,9 +372,6 @@ export default function ProductDetailPage() {
     }
     return variantsList.some(v => { const a = v.attributes || {}; return a.color === color && (v.quantity || 0) > 0; });
   };
-
-  const LOW_STOCK_THRESHOLD = 5;
-
 
   const isSizeRequired = product?.sizes?.length > 0;
   const isColorRequired = product?.colors?.length > 0;
@@ -455,11 +457,11 @@ export default function ProductDetailPage() {
     const url = window.location.href;
     const title = product?.name || 'Check this out';
     if (navigator.share) {
-      try { await navigator.share({ title, url, text: `Check out ${title} at ${storeName}` }); } catch {}
+      try { await navigator.share({ title, url, text: `Check out ${title} at ${storeName}` }); } catch { /* user cancelled share */ }
     } else {
-      try { await navigator.clipboard.writeText(url); linkCopied(); } catch {}
+      try { await navigator.clipboard.writeText(url); linkCopied(); } catch { /* clipboard unavailable */ }
     }
-  }, [product]);
+  }, [product, storeName]);
 
   if (isLoading) {
     return (
@@ -563,7 +565,6 @@ export default function ProductDetailPage() {
   const isSimpleOutOfStock = isSimpleProduct && (product.quantity || 0) <= 0;
   const showOutOfStockBadge = isSimpleProduct ? (product.quantity || 0) <= 0 : !variantsList.length || variantsList.every(v => (v.quantity || 0) <= 0);
   const isStockUnavailable = isOutOfStock || isSimpleOutOfStock || showOutOfStockBadge;
-  const isLowStock = !isStockUnavailable && availableStock > 0 && availableStock <= 5;
   const maxQty = Math.max(availableStock, 1);
   const variantUnavailable = variantNotFound && hasAllSelections && !isSimpleProduct;
   const canAddToCart = hasAllSelections && !isStockUnavailable && !variantUnavailable && availableStock > 0;
@@ -611,7 +612,7 @@ export default function ProductDetailPage() {
   const effectiveOldPrice = product.oldPrice || null;
 
   return (
-    <div className="product-detail-root" style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", paddingBottom: showStickyBar ? 76 : 0 }}>
+    <div className="product-detail-root" style={{ minHeight: "100vh", background: PAPER, color: INK, fontFamily: "Jost, sans-serif", paddingBottom: showStickyBar ? 84 : 0 }}>
       <style>{`
         /* ── Accessibility: visible keyboard focus (skill priority 1) ── */
         .product-detail-root button:focus-visible,
@@ -677,6 +678,7 @@ export default function ProductDetailPage() {
           /* Small phones: drop the bag icon so the label has room */
           .cta-main .pdp-bag-icon { display: none !important; }
           .cta-main { font-size: 11.5px !important; letter-spacing: 0.1em !important; }
+          .sticky-cta { min-width: 72px !important; padding: 8px 12px !important; }
         }
         @media (min-width: 768px) {
           .sticky-bar-mobile {
@@ -736,6 +738,15 @@ export default function ProductDetailPage() {
         }
         .sticky-color-thumbs::-webkit-scrollbar {
           display: none !important;
+        }
+        /* Color thumbs hide on very narrow phones so the name/price + size + BAG stay clean */
+        @media (max-width: 420px) {
+          .sticky-colors { display: none !important; }
+        }
+        .rating-reviews-link:focus-visible {
+          outline: 2px solid rgba(28, 25, 23, 0.25) !important;
+          outline-offset: 2px;
+          border-radius: 3px;
         }
         .sticky-cta {
           position: relative;
@@ -1211,7 +1222,16 @@ export default function ProductDetailPage() {
               ))}
             </div>
             <span style={{ fontWeight: 600, color: INK }}>{formatRating(product.rating)}</span>
-            <span>{t('product.reviews', { count: reviews.length })}</span>
+            <span
+              className="rating-reviews-link"
+              role="button"
+              tabIndex={0}
+              onClick={() => reviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reviewsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }}
+              style={{ fontWeight: 600, color: INK, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}
+            >
+              {t('product.reviews', { count: reviews.length })}
+            </span>
             <span style={{ width: 4, height: 4, borderRadius: "50%", background: STONE, display: "inline-block" }} />
             <span>{t('product.sold', { count: product.soldCount ?? 0 })}</span>
           </div>
@@ -1253,7 +1273,7 @@ export default function ProductDetailPage() {
                 {t('product.color')} — <span style={{ color: INK, fontWeight: 600 }}>{selectedColor || t('product.select')}</span>
               </div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {product.colors.map((c, i) => {
+                {product.colors.map((c) => {
                   const colorAvailable = isColorAvailable(c);
                   const isOOS = variantsList.length > 0 && !colorAvailable;
                   const isActive = selectedColor === c;
@@ -1395,21 +1415,7 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* ══ Offers Section ══ */}
-          <div ref={offersRef} style={{ marginBottom: 24 }}>
-            <OffersSection promotions={storeOffers} />
-            {isBundleOfferEnabled(getSetting) && (
-              <BundleOffer
-                basePrice={effectivePrice}
-                tiers={parseBundleTiers(getSetting('bundleTiers'))}
-                onSelectTier={(minQty) => setQty(minQty)}
-                selectedQty={qty}
-                isInStock={!isStockUnavailable}
-              />
-            )}
-          </div>
-
-          {/* ══ Qty + CTA ══ */}
+          {/* ══ Qty + CTA — kept directly after selection so the purchase action is one glance away ══ */}
           <div ref={sentinelRef} style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
             {/* Quantity selector */}
             <div style={{ display: "flex", alignItems: "center", border: `1px solid rgba(0,0,0,0.15)`, borderRadius: 12, flexShrink: 0 }}>
@@ -1508,7 +1514,21 @@ export default function ProductDetailPage() {
             Buy it Now
           </button>
 
-          {/* ══ Premium Trust Features — Small Premium Boxes ══ */}
+          {/* ══ Offers Section — moved below the CTA so selection → purchase is uninterrupted ══ */}
+          <div ref={offersRef} style={{ marginBottom: 28 }}>
+            <OffersSection promotions={storeOffers} />
+            {isBundleOfferEnabled(getSetting) && (
+              <BundleOffer
+                basePrice={effectivePrice}
+                tiers={parseBundleTiers(getSetting('bundleTiers'))}
+                onSelectTier={(minQty) => setQty(minQty)}
+                selectedQty={qty}
+                isInStock={!isStockUnavailable}
+              />
+            )}
+          </div>
+
+          {/* ══ Premium Trust Features — Compact trust strip ══ */}
           <div style={{ marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, color: ACCENT_DARK, textTransform: "uppercase", letterSpacing: "0.15em" }}>
@@ -1517,9 +1537,9 @@ export default function ProductDetailPage() {
               </span>
               <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${ACCENT}55, rgba(0,0,0,0.04))` }} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 14, background: "#FCFCFB", overflow: "hidden" }}>
               {[
-                { icon: Truck, label: "Free Shipping", sub: "On orders above ₹499" },
+                { icon: Truck, label: "Free Shipping", sub: "On orders ₹499+" },
                 { icon: RotateCcw, label: "7-Day Returns", sub: "No questions asked" },
                 { icon: ShieldCheck, label: "Secure", sub: "100% secure checkout" },
               ].map((t, i) => {
@@ -1527,29 +1547,19 @@ export default function ProductDetailPage() {
                 return (
                   <div
                     key={t.label}
-                    className="premium-feature-card"
                     style={{
-                      padding: "16px 10px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "14px 8px",
                       textAlign: "center",
-                      borderRadius: 14,
-                      border: `1px solid ${i === 0 ? `${ACCENT}40` : "rgba(0,0,0,0.08)"}`,
-                      background: i === 0 ? ACCENT_TINT : "#fafafa",
+                      borderLeft: i > 0 ? "1px solid rgba(0,0,0,0.06)" : "none",
                     }}
                   >
-                    <div style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      background: i === 0 ? accentGradient : "#f0f0f0",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      margin: "0 auto 8px",
-                    }}>
-                      <IconComp size={15} strokeWidth={1.5} color={i === 0 ? PAPER : INK} />
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: INK, marginBottom: 2 }}>{t.label}</div>
-                    <div style={{ fontSize: 9, color: STONE, lineHeight: 1.3 }}>{t.sub}</div>
+                    <IconComp size={17} strokeWidth={1.5} color={INK} />
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: INK, lineHeight: 1.15 }}>{t.label}</div>
+                    <div style={{ fontSize: 9, color: STONE, lineHeight: 1.25 }}>{t.sub}</div>
                   </div>
                 );
               })}
@@ -2015,7 +2025,7 @@ export default function ProductDetailPage() {
             gap: 10,
           }}>
           {/* Thumbnail + Info */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 96, flex: 1 }}>
             <div style={{
               width: 44,
               height: 44,
@@ -2074,7 +2084,7 @@ export default function ProductDetailPage() {
               const thumbSize = product.colors.length > 6 ? 30 : 38;
               const showFade = product.colors.length > 4;
               return (
-                <div style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 1, minWidth: 0, maxWidth: "min(190px, 32vw)" }}>
+                <div className="sticky-colors" style={{ position: "relative", display: "flex", alignItems: "center", flexShrink: 1, minWidth: 0, maxWidth: "min(190px, 32vw)" }}>
                   <div
                     ref={stickyColorThumbsRef}
                     className="sticky-color-thumbs"
