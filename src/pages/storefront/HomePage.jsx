@@ -1,9 +1,9 @@
-﻿import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight, Zap } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
@@ -24,16 +24,15 @@ const ProfessionalDesignCTA = lazy(() => import('../../components/storefront/Pro
 const AllReviewsModal = lazy(() => import('../../components/reviews/AllReviewsModal'));
 
 
-/* â•â•â•â•â•â•â•â•â•â•â• ANIMATION WRAPPERS â€” Premium Entrance â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── ANIMATION WRAPPER — clean rise-and-fade entrance ─────────────── */
 function AnimatedSection({ children, className = '', delay = 0, margin = '-60px' }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 28, scale: 0.98, filter: 'blur(4px)' }}
-      whileInView={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin }}
-      transition={{ duration: 0.75, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
-      style={{ willChange: 'transform, opacity' }}
     >
       {children}
     </motion.div>
@@ -79,7 +78,7 @@ function ReelsLazyBoundary({ reels, loading }) {
   );
 }
 
-/* ── Scroll Progress Bar — Premium reading progress ── */
+/* ── Scroll Progress Bar — subtle reading progress ── */
 function ScrollProgressBar() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -90,32 +89,59 @@ function ScrollProgressBar() {
 
   return (
     <motion.div
-      className="fixed top-0 left-0 right-0 h-[3px] origin-left z-[101] pointer-events-none bg-gradient-to-r from-gray-900 via-gray-600 to-gray-900"
+      className="fixed top-0 left-0 right-0 h-[3px] origin-left z-[101] pointer-events-none bg-gray-900"
       style={{ scaleX }}
       aria-hidden="true"
     />
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• FULL-BLEED HERO BANNER â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── SHARED SECTION HEADER — editorial, type-led ─────────────── */
+function SectionHeading({ eyebrow, title, description, action }) {
+  return (
+    <div className="mb-6 md:mb-10">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-gray-200 pb-4 md:pb-5">
+        <div className="min-w-0">
+          {eyebrow && (
+            <p className="flex items-center gap-2.5 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400 mb-2.5">
+              <span className="w-8 h-px bg-gray-300" />
+              {eyebrow}
+            </p>
+          )}
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-gray-900 leading-[1.1]">
+            {title}
+          </h2>
+          {description && (
+            <p className="mt-2.5 text-sm md:text-[15px] leading-relaxed text-gray-500 max-w-xl">
+              {description}
+            </p>
+          )}
+        </div>
+        {action}
+      </div>
+    </div>
+  );
+}
+
+function ViewAllLink({ onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="hidden md:inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-900 group shrink-0 pb-0.5"
+    >
+      <span className="border-b border-gray-900 pb-0.5 transition-colors duration-300 group-hover:border-gray-300">{children}</span>
+      <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
+    </button>
+  );
+}
+
+/* ─────────────── FULL-BLEED HERO BANNER — clean editorial carousel ─────────────── */
 function HeroBanner({ banners }) {
   const { t } = useTranslation();
   const [current, setCurrent] = useState(0);
   const navigate = useNavigate();
 
   const slides = banners || [];
-  const heroRef = useRef(null);
-
-  // Premium scroll parallax — hero content drifts & fades as you scroll away
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ['start start', 'end start'],
-  });
-  const heroSpring = useSpring(scrollYProgress, { stiffness: 110, damping: 26, mass: 0.4 });
-  const bgY = useTransform(heroSpring, [0, 1], ['0%', '16%']);
-  const bgScale = useTransform(heroSpring, [0, 1], [1, 1.12]);
-  const contentY = useTransform(heroSpring, [0, 1], [0, -70]);
-  const contentOpacity = useTransform(heroSpring, [0, 0.75], [1, 0]);
 
   const next = useCallback(() => setCurrent((c) => (c + 1) % slides.length), [slides.length]);
   const prev = useCallback(() => setCurrent((c) => (c - 1 + slides.length) % slides.length), [slides.length]);
@@ -132,109 +158,113 @@ function HeroBanner({ banners }) {
     return null;
   }
 
-  // Determine display mode from banner's displayMode field
   const displayMode = slide.displayMode || 'DEFAULT';
   const isImageOnly = displayMode === 'IMAGE_ONLY';
   const isTitleOnly = displayMode === 'TITLE_ONLY';
   const bannerLink = slide.linkUrl || (isImageOnly ? '/products' : null);
 
   const handleBannerClick = () => {
-    if (bannerLink) {
-      navigate(bannerLink);
-    }
+    if (bannerLink) navigate(bannerLink);
   };
 
-  // Title-Only Mode: Show text without image background
+  const heroContent = (align) => (
+    <div className={`max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex ${
+      align === 'left' ? 'justify-start text-left' :
+      align === 'right' ? 'justify-end text-right' :
+      'justify-center text-center'
+    }`}>
+      <div className="max-w-xl">
+        {slide.tagline && (
+          <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/25 text-white/85 text-[10px] md:text-xs font-bold px-4 py-1.5 rounded-full mb-5 tracking-[0.2em] uppercase">
+            {slide.tagline}
+          </span>
+        )}
+        <h1 className={`text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-extrabold leading-[1.05] mb-5 whitespace-pre-line ${
+          slide.textDark ? 'text-gray-900' : 'text-white'
+        }`}>
+          {slide.title}
+        </h1>
+        {slide.subtitle && (
+          <p className={`text-base md:text-lg mb-8 leading-relaxed font-medium ${
+            slide.textDark ? 'text-gray-600' : 'text-white/80'
+          }`}>
+            {slide.subtitle}
+          </p>
+        )}
+        <button
+          onClick={() => navigate(bannerLink || '/products')}
+          className={`group/btn inline-flex items-center gap-2.5 px-8 md:px-10 py-3.5 md:py-4 rounded-full text-sm md:text-base font-bold transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-black/10 ${
+            slide.textDark
+              ? 'bg-black text-white hover:bg-gray-800'
+              : 'bg-white text-black hover:bg-gray-100'
+          }`}
+        >
+          {slide.cta || t('home.shop_now')}
+          <ArrowRight size={17} className="transition-transform duration-300 group-hover/btn:translate-x-1" />
+        </button>
+      </div>
+    </div>
+  );
+
+  const heroNav = (
+    <>
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            aria-label="Previous slide"
+            className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/25 transition-colors flex items-center justify-center"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            onClick={next}
+            aria-label="Next slide"
+            className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/25 transition-colors flex items-center justify-center"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
+      )}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+        {slides.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={() => setCurrent(idx)}
+            aria-label={`Go to slide ${idx + 1}`}
+            className={`h-[3px] rounded-full transition-all duration-300 ${idx === current ? 'w-8 bg-white' : 'w-3 bg-white/40 hover:bg-white/70'}`}
+          />
+        ))}
+      </div>
+    </>
+  );
+
+  // Title-Only Mode: text on a black canvas
   if (isTitleOnly) {
     return (
-      <div ref={heroRef} className="relative w-full h-[350px] sm:h-[400px] md:h-[500px] overflow-hidden group bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="relative w-full h-[420px] sm:h-[480px] md:h-[560px] overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
         <AnimatePresence mode="wait">
           <motion.div
             key={current}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
-            className="absolute inset-0 flex items-center justify-center"
+            transition={{ duration: 0.7 }}
+            className="absolute inset-0 flex items-center"
           >
-            <div className={`max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex ${
-              slide.align === 'left' ? 'justify-start text-left' :
-              slide.align === 'right' ? 'justify-end text-right' :
-              'justify-center text-center'
-            }`}>
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
-                className="max-w-xl"
-              >
-                {slide.tagline && (
-                  <span className="inline-block bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-full mb-5 tracking-widest uppercase">
-                    {slide.tagline}
-                  </span>
-                )}
-                <h1 className={`text-4xl md:text-5xl lg:text-7xl font-display font-extrabold leading-[1.1] mb-5 whitespace-pre-line text-white`}>
-                  {slide.title}
-                </h1>
-                {slide.subtitle && (
-                  <p className="text-base md:text-xl mb-8 leading-relaxed font-medium text-white/80">
-                    {slide.subtitle}
-                  </p>
-                )}
-                <button
-                  onClick={() => navigate(bannerLink || '/products')}
-                  className="group/btn relative bg-primary text-white px-10 py-4 rounded-full text-base font-bold hover:bg-primary-dark transition-all duration-500 shadow-xl shadow-black/20 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 inline-flex items-center gap-2 overflow-hidden"
-                >
-                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/15 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out" />
-                  <span className="relative z-10">{slide.cta || t('home.shop_now')}</span>
-                  <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover/btn:translate-x-1" />
-                </button>
-              </motion.div>
-            </div>
+            {heroContent(slide.align)}
           </motion.div>
         </AnimatePresence>
-
-        {/* Nav Arrows */}
-        {slides.length > 1 && (
-          <>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-              <ChevronLeft size={24} />
-            </button>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-              <ChevronRight size={24} />
-            </button>
-          </>
-        )}
-
-        {/* Progress Bars */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {slides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrent(idx); }}
-              className="h-1.5 rounded-full overflow-hidden transition-all duration-300"
-              style={{ width: idx === current ? '40px' : '20px', background: 'rgba(255,255,255,0.3)' }}
-            >
-              {idx === current && (
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 6, ease: "linear" }}
-                  className="h-full bg-white"
-                />
-              )}
-            </button>
-          ))}
-        </div>
+        {heroNav}
       </div>
     );
   }
 
+  // Image-Only Mode: plain image strip
   if (isImageOnly) {
     const imgSrc = getImageUrl(getBannerImage(slide));
     return (
       <a
-        ref={heroRef}
         href={bannerLink || '#'}
         onClick={(e) => { e.preventDefault(); handleBannerClick(); }}
         className="relative w-full block bg-gray-950 group"
@@ -245,7 +275,7 @@ function HeroBanner({ banners }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.7 }}
           >
             <img
               src={imgSrc}
@@ -255,292 +285,164 @@ function HeroBanner({ banners }) {
             />
           </motion.div>
         </AnimatePresence>
-
-        {/* Nav Arrows */}
-        {slides.length > 1 && (
-          <>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-              <ChevronLeft size={24} />
-            </button>
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-              <ChevronRight size={24} />
-            </button>
-          </>
-        )}
-
-        {/* Progress Bars */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-          {slides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrent(idx); }}
-              className="h-1.5 rounded-full overflow-hidden transition-all duration-300"
-              style={{ width: idx === current ? '40px' : '20px', background: 'rgba(255,255,255,0.3)' }}
-            >
-              {idx === current && (
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '100%' }}
-                  transition={{ duration: 6, ease: "linear" }}
-                  className="h-full bg-white"
-                />
-              )}
-            </button>
-          ))}
-        </div>
+        {heroNav}
       </a>
     );
   }
 
+  // Default Mode: image background + text
   return (
-    <div ref={heroRef} className="relative w-full h-[320px] sm:h-[450px] md:h-[700px] overflow-hidden group">
+    <div className="relative w-full h-[420px] sm:h-[520px] md:h-[640px] lg:h-[700px] overflow-hidden bg-gray-950">
       <AnimatePresence mode="wait">
         <motion.div
           key={current}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.7 }}
           className="absolute inset-0"
         >
-          {/* Background Image with slight zoom + scroll parallax */}
-          <motion.div
-            className="absolute inset-0"
-            style={{ y: bgY, scale: bgScale }}
-          >
-            <motion.img
-              initial={{ scale: 1.05 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 6, ease: "linear" }}
-              src={getImageUrl(getBannerImage(slide))}
-              alt="Hero Banner"
-              className="w-full h-full object-cover"
-            />
-          </motion.div>
-          
-          {/* Gradient Overlay for Text Readability */}
-          <div className={`absolute inset-0 bg-gradient-to-r ${
-            slide.align === 'left' ? 'from-black/80 via-black/40 to-transparent' :
-            slide.align === 'right' ? 'from-transparent via-black/40 to-black/80' :
-            'from-black/60 via-black/40 to-black/60'
+          <img
+            src={getImageUrl(getBannerImage(slide))}
+            alt="Hero Banner"
+            className="w-full h-full object-cover"
+          />
+          {/* Readability overlay */}
+          <div className={`absolute inset-0 ${
+            slide.align === 'left' ? 'bg-gradient-to-r from-black/70 via-black/35 to-black/10' :
+            slide.align === 'right' ? 'bg-gradient-to-l from-black/70 via-black/35 to-black/10' :
+            'bg-black/45'
           }`} />
-
-          {/* Text Content — drifts & fades on scroll */}
-          <motion.div
-            className="absolute inset-0 flex items-center"
-            style={{ y: contentY, opacity: contentOpacity }}
-          >
-            <div className={`max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex ${
-              slide.align === 'left' ? 'justify-start text-left' :
-              slide.align === 'right' ? 'justify-end text-right' :
-              'justify-center text-center'
-            }`}>
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
-                className="max-w-xl"
-              >
-                <span className="inline-block bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-full mb-5 tracking-widest uppercase">
-                  {slide.tagline}
-                </span>
-                <h1 className={`text-4xl md:text-5xl lg:text-7xl font-display font-extrabold leading-[1.1] mb-5 whitespace-pre-line ${
-                  slide.textDark ? 'text-text-primary' : 'text-white'
-                }`}>
-                  {slide.title}
-                </h1>
-                <p className={`text-base md:text-xl mb-8 leading-relaxed font-medium ${
-                  slide.textDark ? 'text-text-secondary' : 'text-white/90'
-                }`}>
-                  {slide.subtitle}
-                </p>
-                <button
-                  onClick={() => navigate(bannerLink || '/products')}
-                  className="group/btn relative bg-primary text-white px-10 py-4 rounded-full text-base font-bold hover:bg-primary-dark transition-all duration-500 shadow-xl shadow-black/20 hover:shadow-2xl hover:shadow-primary/30 hover:-translate-y-1 inline-flex items-center gap-2 overflow-hidden"
-                >
-                  <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/15 to-white/0 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out" />
-                  <span className="relative z-10">{slide.cta || t('home.shop_now')}</span>
-                  <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover/btn:translate-x-1" />
-                </button>
-              </motion.div>
-            </div>
-          </motion.div>
+          {/* Text Content */}
+          <div className="absolute inset-0 flex items-center">
+            {heroContent(slide.align)}
+          </div>
         </motion.div>
       </AnimatePresence>
-
-      {/* Nav Arrows (Show on hover on desktop) */}
-      <button onClick={prev} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-        <ChevronLeft size={24} />
-      </button>
-      <button onClick={next} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-colors z-10 ">
-        <ChevronRight size={24} />
-      </button>
-
-      {/* Progress Bars */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrent(idx)}
-            className="h-1.5 rounded-full overflow-hidden transition-all duration-300"
-            style={{ width: idx === current ? '40px' : '20px', background: 'rgba(255,255,255,0.3)' }}
-          >
-            {idx === current && (
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 6, ease: "linear" }}
-                className="h-full bg-primary"
-              />
-            )}
-          </button>
-        ))}
-      </div>
+      {heroNav}
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• CATEGORIES â€” Premium Editorial Grid â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── CATEGORIES — horizontal card carousel with arrows ─────────────── */
 function CategorySection({ categories }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const cats = Array.from(Array.isArray(categories) ? categories : []);
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => {
+      setCanScrollLeft(el.scrollLeft > 10);
+      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+    };
+    el.addEventListener('scroll', update, { passive: true });
+    update();
+    window.addEventListener('resize', update);
+    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, [cats.length]);
 
   if (cats.length === 0) return null;
 
-  // First card spans 2 cols for editorial hero treatment
-  const hero = cats[0];
-  const rest = cats.slice(1, 7); // up to 7 more cards
+  const openCategory = (cat) => navigate(`/products?category=${cat.slug}`);
+
+  const scrollBy = (dir) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const card = el.querySelector('.category-slide');
+    const w = card?.offsetWidth || 280;
+    el.scrollBy({ left: dir * (w + 20), behavior: 'smooth' });
+  };
 
   return (
-    <section className="content-section py-10 md:py-14 bg-white border-b border-border">
+    <section className="py-12 md:py-20 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header â€” Centered */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
-        >
-          <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
-            {t('home.shop_by_category')}
-          </h2>
-          <button
-            onClick={() => navigate('/products')}
-            className="hidden md:inline-flex items-center gap-2 text-sm font-bold text-text-primary hover:text-primary transition-colors uppercase tracking-wider group shrink-0 mt-4"
+        {/* Section heading — matches other sections */}
+        <SectionHeading
+          eyebrow={t('home.explore')}
+          title={t('home.shop_by_category')}
+        />
+
+        {/* Horizontal card row with arrows */}
+        <div className="relative">
+          <div
+            ref={scrollRef}
+            className="flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide select-none"
           >
-            {t('home.browse_all')}
-            <ArrowRight size={15} />
-          </button>
-        </motion.div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
-          {/* Hero Card â€” spans 2 cols on desktop */}
-          <motion.button
-            key={hero.slug}
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            onClick={() => navigate(`/products?category=${hero.slug}`)}
-            className="col-span-2 md:col-span-2 row-span-1 group relative overflow-hidden rounded-2xl md:rounded-3xl bg-gray-50 border border-border/50 hover:border-gray-300 transition-all duration-500"
-          >
-            <div className="aspect-[4/3] md:aspect-[3/2] relative">
-              <img loading="lazy" src={getImageUrl(getCategoryImage(hero))}
-                alt={hero.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-              />
-              {/* Gradient overlay for readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              {/* Name at bottom */}
-              <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
-                <span className="text-white/50 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.2em] mb-1 block">
-                  {t('home.featured_collection')}
-                </span>
-                <h3 className="text-white font-display text-xl md:text-3xl font-extrabold tracking-tight">
-                  {hero.name}
-                </h3>
-              </div>
-              {/* Arrow button */}
-              <div className="absolute top-5 right-5 w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
-                <ArrowRight size={16} />
-              </div>
-            </div>
-          </motion.button>
-
-          {/* Small cards alongside hero â€” 2 cards to keep grid balanced */}
-          {rest.slice(0, 2).map((cat, idx) => (
-            <motion.button
-              key={cat.slug}
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.7, delay: 0.05 + idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
-              onClick={() => navigate(`/products?category=${cat.slug}`)}
-              className="group relative overflow-hidden rounded-2xl bg-gray-50 border border-border/50 hover:border-gray-300 transition-all duration-500"
-            >
-              <div className="aspect-square md:aspect-[4/5] relative">
-                <img loading="lazy" src={getImageUrl(getCategoryImage(cat))}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
-                  <h3 className="text-white font-display text-base md:text-lg font-bold tracking-tight">
-                    {cat.name}
-                  </h3>
-                </div>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-
-        {/* Second row â€” 4 more cards (including the 3rd from rest) */}
-        {rest.length > 2 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 mt-3 md:mt-5">
-            {rest.slice(2, 6).map((cat, idx) => (
+            {cats.slice(0, 8).map((cat, i) => (
               <motion.button
                 key={cat.slug}
+                type="button"
+                onClick={() => openCategory(cat)}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.7, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                onClick={() => navigate(`/products?category=${cat.slug}`)}
-                className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-gray-50 border border-border/50 hover:border-gray-300 transition-all duration-500"
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                className="category-slide group shrink-0 w-[120px] sm:w-[180px] md:w-[260px] lg:w-[280px] snap-start text-center"
               >
-                <div className="aspect-[4/3] relative">
-                  <img loading="lazy" src={getImageUrl(getCategoryImage(cat))}
+                {/* Card — tall image with gradient overlay + text */}
+                <div className="relative overflow-hidden rounded-lg md:rounded-xl bg-gray-100 aspect-[3/4]">
+                  <img
+                    loading="lazy"
+                    src={getImageUrl(getCategoryImage(cat))}
                     alt={cat.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                    <h3 className="text-white font-display text-sm md:text-base font-bold tracking-tight">
+                  {/* Bottom gradient for text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  {/* Category name + tagline on the image bottom */}
+                  <div className="absolute bottom-0 inset-x-0 p-2 sm:p-4 md:p-5 text-left">
+                    <h3 className="text-white font-display font-bold text-[10px] sm:text-sm md:text-lg tracking-tight uppercase leading-tight">
                       {cat.name}
                     </h3>
+                    {cat.description && (
+                      <p className="text-white/70 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.15em] mt-0.5 sm:mt-1.5 hidden sm:block">
+                        {cat.description}
+                      </p>
+                    )}
                   </div>
                 </div>
+                {/* Category name below card — underlined */}
+                <p className="mt-2 sm:mt-3.5 text-[10px] sm:text-sm font-medium text-gray-900 underline underline-offset-4 decoration-gray-900 decoration-1 truncate">
+                  {cat.name}
+                </p>
               </motion.button>
             ))}
           </div>
-        )}
 
-        {/* Mobile: Browse All CTA */}
-        <button
-          onClick={() => navigate('/products')}
-          className="md:hidden w-full mt-6 py-3.5 rounded-xl bg-gray-100 text-text-primary font-bold text-sm uppercase tracking-wider hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-        >
-          {t('home.browse_all_categories')}
-          <ArrowRight size={15} />
-        </button>
+          {/* Left / Right arrows */}
+          {cats.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => scrollBy(-1)}
+                aria-label="Scroll categories left"
+                className={`absolute left-0 top-[calc(50%-20px)] -translate-x-1 sm:-translate-x-3 z-20 w-7 h-7 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:scale-105 transition-all duration-300 active:scale-90 ${canScrollLeft ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <ChevronLeft size={14} className="sm:w-[18px] sm:h-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBy(1)}
+                aria-label="Scroll categories right"
+                className={`absolute right-0 top-[calc(50%-20px)] translate-x-1 sm:translate-x-3 z-20 w-7 h-7 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:scale-105 transition-all duration-300 active:scale-90 ${canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <ChevronRight size={14} className="sm:w-[18px] sm:h-[18px]" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) â•â•â•â•â•â•â•â•â•â•â• */
-function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName = '', compact = false }) {
+/* ─────────────── PREMIUM PRODUCT SLIDER (Horizontal Desktop / Vertical Mobile) ─────────────── */
+function ProductSlider({ products: rawProducts, cardClassName = '', compact = false }) {
   // Hide the custom t-shirt design product from all homepage listings
   const products = (rawProducts || []).filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const scrollRef = useRef(null);
@@ -548,10 +450,14 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [progress, setProgress] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  // When every product fits fully in view, render a static row instead of a
+  // carousel so no card is ever cut off at the edge.
+  const [fitsAll, setFitsAll] = useState(false);
   const autoplayRef = useRef(null);
   // Infinite loop: duplicate the product set on desktop and wrap seamlessly.
-  const isLoop = !isMobile && products.length > 1;
+  const isLoop = !isMobile && products.length > 1 && !fitsAll;
   const programmaticRef = useRef(false);
   const wrapTimeoutRef = useRef(null);
   const finishWrapRef = useRef(null);
@@ -599,6 +505,41 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
       clearTimeout(t);
     };
   }, [isMobile, products.length, getCopyWidth]);
+
+  // If every product fits fully in view, stop pretending it's a carousel —
+  // render them all (no loop, no scroll) so nothing is ever cut off.
+  useEffect(() => {
+    if (isMobile || products.length <= 1) {
+      setFitsAll(false);
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+    let disposed = false;
+    const measure = () => {
+      if (disposed) return;
+      const cards = el.querySelectorAll('.product-slide');
+      if (!cards.length || cards.length < products.length) return;
+      let fullyVisible = 0;
+      for (let i = 0; i < products.length; i++) {
+        const card = cards[i];
+        if (card.offsetLeft + card.offsetWidth <= el.clientWidth + 1) fullyVisible++;
+        else break;
+      }
+      setFitsAll(products.length <= fullyVisible);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    const t = setTimeout(measure, 250);
+    return () => {
+      disposed = true;
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+      clearTimeout(t);
+    };
+  }, [isMobile, products.length, fitsAll]);
 
   // Smooth-scroll forward, wrapping invisibly at the end of the set so the
   // carousel loops forever instead of stopping at the last product.
@@ -686,9 +627,9 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     wrapTimeoutRef.current = setTimeout(finishWrap, 2500);
   }, [isLoop, getCopyWidth]);
 
-  // Autoplay â€” scrolls every 5s (pauses on hover)
+  // Autoplay — scrolls every 5s (pauses on hover)
   useEffect(() => {
-    if (isMobile || products.length <= 1) return;
+    if (isMobile || products.length <= 1 || fitsAll) return;
     const el = scrollRef.current;
     if (!el) return;
 
@@ -709,7 +650,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     }
 
     return () => clearInterval(autoplayRef.current);
-  }, [isMobile, isHovered, products.length, smoothAdvance]);
+  }, [isMobile, isHovered, products.length, smoothAdvance, fitsAll]);
 
   // Update scroll button visibility on scroll
   useEffect(() => {
@@ -720,11 +661,20 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
       // In infinite-loop mode both directions are always available (seamless wrap)
       setCanScrollLeft(isLoop || scrollLeft > 8);
       setCanScrollRight(isLoop || scrollLeft < scrollWidth - clientWidth - 8);
+      // Scroll progress — inside the loop, measure against one copy width so
+      // the bar fills once per full lap and resets invisibly on the wrap.
+      if (isLoop) {
+        const cw = getCopyWidth();
+        if (cw > 0) setProgress(Math.min(1, (scrollLeft % cw) / cw));
+      } else {
+        const max = scrollWidth - clientWidth;
+        setProgress(max > 0 ? Math.min(1, Math.max(0, scrollLeft / max)) : 0);
+      }
     };
     el.addEventListener('scroll', update, { passive: true });
     update();
     return () => el.removeEventListener('scroll', update);
-  }, [products, isLoop]);
+  }, [products, isLoop, getCopyWidth]);
 
   // Infinite loop — wrap the scroll position back to the first copy seamlessly
   useEffect(() => {
@@ -766,14 +716,14 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     smoothAdvance(direction * (cardWidth + gap));
   };
 
-  /* â”€â”€ Drag-to-scroll (touch + mouse) â”€â”€ */
+  /* ── Drag-to-scroll (touch + mouse) ── */
   const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
   const [isDragActive, setIsDragActive] = useState(false);
 
   const onDragStart = (clientX) => {
     const el = scrollRef.current;
     // Mobile uses a plain grid (no inner scroll) — don't hijack taps with drag.
-    if (!el || isMobile) return;
+    if (!el || isMobile || fitsAll) return;
     // User drag takes over: cancel any pending programmatic wrap so the
     // delayed snap-back can't fire mid-drag and jump the carousel.
     if (wrapTimeoutRef.current) {
@@ -830,7 +780,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     if (!el) return;
 
     const handlePreventClick = (e) => {
-      // Skip drag prevention for "View All" card â€” it should always be clickable
+      // Skip drag prevention for "View All" card — it should always be clickable
       if (dragState.current.moved && !e.target.closest('[data-no-drag]')) {
         e.preventDefault();
         e.stopPropagation();
@@ -857,7 +807,7 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
     'sm:overflow-x-auto',
     'sm:snap-x snap-mandatory',
     'scrollbar-hide select-none',
-    isDragActive ? 'cursor-grabbing' : 'cursor-grab',
+    fitsAll ? 'cursor-default' : isDragActive ? 'cursor-grabbing' : 'cursor-grab',
   ].join(' ');
 
   // NOTE: keep the plain `product-slide` token on desktop too — it is the JS
@@ -877,7 +827,6 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-
 
       {/* Scrollable Track */}
       <div
@@ -902,37 +851,50 @@ function ProductSlider({ products: rawProducts, skeletonCount = 6, cardClassName
           </motion.div>
         ))}
 
-
       </div>
 
-      {/* Desktop scroll arrows â€” premium glassmorphism with glow */}
-      {!isMobile && (
+      {/* Scroll progress indicator — premium underline */}
+      {!isMobile && !fitsAll && products.length > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <span className="h-px w-6 bg-gray-200" />
+          <div className="w-36 md:w-44 h-[2px] rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gray-900 transition-[width] duration-300 ease-out"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+          <span className="h-px w-6 bg-gray-200" />
+        </div>
+      )}
+
+      {/* Desktop scroll arrows — glass, refined */}
+      {!isMobile && !fitsAll && (
         <>
           <button
             onClick={() => scrollByCard(-1)}
-            className={`absolute left-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
+            className={`absolute left-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-sm border border-gray-200/90 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:text-gray-900 hover:border-gray-400 hover:scale-105 hover:shadow-xl transition-all duration-300 active:scale-90 ${
               canScrollLeft ? 'opacity-100' : 'opacity-25'
             }`}
             aria-label="Scroll left"
           >
-            <ChevronLeft size={16} className="transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
+            <ChevronLeft size={16} />
           </button>
           <button
             onClick={() => scrollByCard(1)}
-            className={`absolute right-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:bg-white hover:text-gray-900 hover:shadow-xl hover:shadow-primary/10 hover:scale-110 hover:border-primary/20 transition-all duration-300 active:scale-90 active:shadow-md group/arrow ${
+            className={`absolute right-1 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 backdrop-blur-sm border border-gray-200/90 shadow-lg shadow-black/5 flex items-center justify-center text-gray-700 hover:text-gray-900 hover:border-gray-400 hover:scale-105 hover:shadow-xl transition-all duration-300 active:scale-90 ${
               canScrollRight ? 'opacity-100' : 'opacity-25'
             }`}
             aria-label="Scroll right"
           >
-            <ChevronRight size={16} className="transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
+            <ChevronRight size={16} />
           </button>
         </>
       )}
 
-
     </div>
   );
 }
+
 function NewArrivalsSection({ products }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -940,33 +902,23 @@ function NewArrivalsSection({ products }) {
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="content-section py-10 md:py-14 bg-white">
+    <section className="py-12 md:py-20 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header â€” Editorial Centered */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
-        >
-          <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
-            {t('home.new_arrivals')}
-          </h2>
-          <button
-            onClick={() => navigate('/products/section/new-arrivals')}
-            className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
-          >
-            <span className="border-b border-gray-300 group-hover:border-primary pb-0.5 transition-colors duration-300">
-              {t('home.browse_all')}
-            </span>
-            <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
-          </button>
-        </motion.div>
-
+        <SectionHeading
+          eyebrow={t('home.fresh_drops')}
+          title={t('home.new_arrivals')}
+          action={<ViewAllLink onClick={() => navigate('/products/section/new-arrivals')}>{t('home.browse_all')}</ViewAllLink>}
+        />
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
           <ProductSlider products={products} compact />
         </div>
+        <button
+          onClick={() => navigate('/products/section/new-arrivals')}
+          className="md:hidden w-full mt-6 py-3.5 rounded-xl border border-gray-200 text-gray-900 font-bold text-sm uppercase tracking-wider hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {t('home.browse_all')}
+          <ArrowRight size={15} />
+        </button>
       </div>
     </section>
   );
@@ -974,14 +926,18 @@ function NewArrivalsSection({ products }) {
 
 function NewArrivalsSkeleton() {
   return (
-    <section className="py-12 md:py-16 bg-white">
+    <section className="py-12 md:py-20 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <Skeleton className="!w-48 !h-10 !rounded-lg mx-auto" />
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-gray-200 pb-5 mb-10">
+          <div className="space-y-3">
+            <Skeleton className="!w-28 !h-3 !rounded-md" />
+            <Skeleton className="!w-48 !h-8 md:!h-10 !rounded-lg" />
+          </div>
+          <Skeleton className="!w-24 !h-4 !rounded-md hidden md:block" />
         </div>
         <div className="flex gap-3 md:gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
+            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-xl overflow-hidden border border-gray-200/80">
               <Skeleton className="!w-full !aspect-[300/392] !rounded-none" />
               <div className="p-4 space-y-3">
                 <Skeleton className="!w-20 !h-3 !rounded-md" />
@@ -999,7 +955,7 @@ function NewArrivalsSkeleton() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• PRODUCT ROW â€” Editorial Style â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── PRODUCT ROW — Best Sellers / Featured ─────────────── */
 function ProductRow({ title, products }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1009,108 +965,184 @@ function ProductRow({ title, products }) {
   const sectionSlug = title === 'Best Sellers' ? 'best-sellers' : 'featured';
 
   return (
-    <section className="content-section py-10 md:py-14 bg-surface">
+    <section className="py-12 md:py-20 bg-[#fafafa] border-y border-gray-100">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header â€” Editorial Centered */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
-        >
-          <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">{title}</h2>
-          <button
-            onClick={() => navigate(`/products/section/${sectionSlug}`)}
-            className="hidden md:inline-flex mt-4 items-center gap-2 text-xs font-bold text-gray-700 hover:text-primary uppercase tracking-[0.15em] transition-colors duration-300 group shrink-0"
-          >
-            <span className="border-b border-gray-300 group-hover:border-primary pb-0.5 transition-colors duration-300">
-              {t('home.browse_all')}
-            </span>
-            <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
-          </button>
-        </motion.div>
-        
+        <SectionHeading
+          eyebrow={t('home.trending_now')}
+          title={title}
+          action={<ViewAllLink onClick={() => navigate(`/products/section/${sectionSlug}`)}>{t('home.browse_all')}</ViewAllLink>}
+        />
         <div className="-mx-4 sm:-mx-6 lg:mx-0 max-sm:mx-0">
           <ProductSlider products={products} compact />
         </div>
+        <button
+          onClick={() => navigate(`/products/section/${sectionSlug}`)}
+          className="md:hidden w-full mt-6 py-3.5 rounded-xl border border-gray-200 text-gray-900 font-bold text-sm uppercase tracking-wider hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+        >
+          {t('home.browse_all')}
+          <ArrowRight size={15} />
+        </button>
       </div>
     </section>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• CURATED LOOKS â€” Dynamic Gallery (from Admin) â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── CURATED LOOKS — mobile grid + desktop scroll gallery ─────────────── */
+function LookCard({ item, idx }) {
+  return (
+    <div className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-gray-100">
+      {/* Same image ratio as the homepage product cards so rows align */}
+      <div className="aspect-[300/392] max-sm:aspect-[4/5] relative overflow-hidden">
+        <img
+          src={item.image_url || item.imageUrl || item.image}
+          alt={item.name}
+          loading="lazy"
+          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+        />
+        {/* Gradient overlay for label readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        {/* Look number */}
+        <span className="absolute top-2.5 left-2.5 md:top-3 md:left-3 inline-flex items-center px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white/90 text-[8px] md:text-[9px] font-bold tracking-[0.18em]">
+          {String(idx + 1).padStart(2, '0')}
+        </span>
+        <div className="absolute bottom-0 left-0 right-0 p-3 md:p-5">
+          <h4 className="text-white font-display font-bold text-[13px] md:text-lg tracking-tight leading-tight line-clamp-2">
+            {item.name}
+          </h4>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CuratedLooksSection({ looks: curatedLooks = [] }) {
   const { t } = useTranslation();
+  const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  /* ── Mouse drag-to-scroll (same feel as the product slider, desktop only) ── */
+  const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const updateArrows = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  };
+
+  useEffect(() => {
+    updateArrows();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateArrows, { passive: true });
+    window.addEventListener('resize', updateArrows);
+    return () => {
+      el.removeEventListener('scroll', updateArrows);
+      window.removeEventListener('resize', updateArrows);
+    };
+  }, [curatedLooks.length]);
+
+  const onDragStart = (e) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    dragState.current = { isDragging: true, startPos: e.clientX, scrollPos: el.scrollLeft, moved: false };
+    setIsDragging(true);
+  };
+
+  const onDragMove = (e) => {
+    const ds = dragState.current;
+    if (!ds.isDragging) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const delta = e.clientX - ds.startPos;
+    if (Math.abs(delta) > 4) ds.moved = true;
+    el.scrollLeft = ds.scrollPos - delta;
+  };
+
+  const onDragEnd = () => {
+    dragState.current.isDragging = false;
+    setIsDragging(false);
+    setTimeout(() => { dragState.current.moved = false; }, 50);
+  };
 
   if (!curatedLooks || curatedLooks.length === 0) return null;
 
+  const scrollBy = (dir) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const card = el.querySelector('.look-card');
+    const w = card?.offsetWidth || 320;
+    el.scrollBy({ left: dir * (w + 20), behavior: 'smooth' });
+  };
+
   return (
-    <section className="content-section curated-section py-10 md:py-14 bg-surface">
+    <section className="py-12 md:py-20 bg-[#fafafa]">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
-        >
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <span className="h-px w-8 bg-gradient-to-r from-transparent via-primary/30 to-primary/20 rounded-full" />
-            <span className="text-text-muted text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em]">{t('home.style_inspiration')}</span>
-            <span className="h-px w-8 bg-gradient-to-l from-transparent via-primary/30 to-primary/20 rounded-full" />
-          </div>
-          <div className="relative inline-block">
-            <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
-              {t('home.curated_looks')}
-            </h2>
-          </div>
-          <p className="text-gray-500 text-sm md:text-base mt-3 max-w-2xl mx-auto font-medium">
-            Curated looks designed to bring together effortless styling, modern streetwear aesthetics, and everyday versatility in one complete fit.
-          </p>
+        <SectionHeading
+          eyebrow={t('home.style_inspiration')}
+          title={t('home.curated_looks')}
+          description="Curated looks designed to bring together effortless styling, modern streetwear aesthetics, and everyday versatility in one complete fit."
+        />
 
-        </motion.div>
-
-        {/* View-Only Image Gallery â€” prices hidden */}
-        <div className="flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 select-none">
+        {/* Mobile: static 2-column grid — all looks visible at once */}
+        <div className="grid grid-cols-2 gap-3 sm:hidden">
           {curatedLooks.map((item, idx) => (
-            <motion.div
-              key={item.id || idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-30px' }}
-              transition={{ duration: 0.6, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
-              className="max-sm:w-[180px] max-sm:min-w-[180px] sm:w-[320px] sm:min-w-[320px] snap-start shrink-0"
-            >
-              <div className="group relative overflow-hidden rounded-2xl bg-gray-50 border border-border/50">
-                <div className="aspect-[3/4] relative overflow-hidden">
-                  <img
-                    src={item.image_url || item.imageUrl || item.image}
-                    alt={item.name}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  {/* Name only â€” no price */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3.5 md:p-5">
-                    <h4 className="text-white font-display text-xs md:text-sm font-bold tracking-tight leading-tight line-clamp-2">
-                      {item.name}
-                    </h4>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            <LookCard key={item.id || idx} item={item} idx={idx} />
           ))}
+        </div>
+
+        {/* Desktop: scrollable row with drag + arrows */}
+        <div className="hidden sm:block relative group/looks">
+          <div
+            ref={scrollRef}
+            onMouseDown={onDragStart}
+            onMouseMove={onDragMove}
+            onMouseUp={onDragEnd}
+            onMouseLeave={onDragEnd}
+            className={`flex gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          >
+            {curatedLooks.map((item, idx) => (
+              <motion.div
+                key={item.id || idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ duration: 0.55, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                className="look-card snap-start shrink-0 w-[320px] md:w-[360px]"
+              >
+                <LookCard item={item} idx={idx} />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Desktop scroll arrows */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scrollBy(-1)}
+              aria-label="Scroll looks left"
+              className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-lg shadow-black/5 text-gray-700 hover:border-gray-400 hover:scale-105 items-center justify-center transition-all duration-300 active:scale-90"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
+          {canScrollRight && (
+            <button
+              onClick={() => scrollBy(1)}
+              aria-label="Scroll looks right"
+              className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-lg shadow-black/5 text-gray-700 hover:border-gray-400 hover:scale-105 items-center justify-center transition-all duration-300 active:scale-90"
+            >
+              <ChevronRight size={16} />
+            </button>
+          )}
         </div>
       </div>
     </section>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• PREMIUM REVIEW SLIDER â•â•â•â•â•â•â•â•â•â•â• */
-
-/* â”€â”€ Map API review data to component format â”€â”€ */
+/* ─────────────── REVIEW SLIDER ─────────────── */
 function mapReview(review) {
   const user = review.user || {};
   const product = review.product || {};
@@ -1323,17 +1355,18 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-40px' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
+          className="mb-6 md:mb-8"
         >
-          <button onClick={onOpenAllReviews} className="text-center w-full group">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <span className="h-px w-6 bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-full" />
-              <span className="text-white/30 text-[9px] font-bold uppercase tracking-[0.2em] group-hover:text-white/50 transition-colors">{t('home.testimonials')}</span>
-              <span className="h-px w-6 bg-gradient-to-l from-transparent via-white/20 to-transparent rounded-full" />
+          <button onClick={onOpenAllReviews} className="w-full group text-left">
+            <div className="border-b border-white/10 pb-4 md:pb-5">
+              <p className="flex items-center gap-2.5 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-white/40 mb-2.5">
+                <span className="w-8 h-px bg-white/20" />
+                {t('home.testimonials')}
+              </p>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-white leading-[1.1]">
+                {t('home.what_customers_say')}
+              </h2>
             </div>
-            <h2 className="text-lg md:text-2xl lg:text-3xl font-display font-bold tracking-tight text-white group-hover:text-white/90 transition-colors">
-              {t('home.what_customers_say')}
-            </h2>
             {/* Compact social proof row */}
             <div className="flex items-center justify-center gap-2.5 mt-2.5">
               <div className="flex -space-x-1">
@@ -1529,7 +1562,9 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• SKELETON LOADING COMPONENTS â•â•â•â•â•â•â•â•â•â•â• */
+
+
+/* ─────────────── SKELETON LOADING COMPONENTS ─────────────── */
 
 function Skeleton({ className = '' }) {
   return <div className={`skeleton ${className}`} />;
@@ -1537,7 +1572,7 @@ function Skeleton({ className = '' }) {
 
 function HeroSkeleton() {
   return (
-    <div className="relative w-full h-[600px] md:h-[700px] overflow-hidden bg-gray-100">
+    <div className="relative w-full h-[420px] sm:h-[520px] md:h-[640px] lg:h-[700px] overflow-hidden bg-gray-100">
       <div className="absolute inset-0 p-8 md:p-16 flex items-center">
         <div className="max-w-xl space-y-5">
           <Skeleton className="!w-32 !h-6 !rounded-full" />
@@ -1546,11 +1581,10 @@ function HeroSkeleton() {
           <Skeleton className="!w-40 !h-12 !rounded-full" />
         </div>
       </div>
-      {/* Progress bar dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
-        <Skeleton className="!w-10 !h-1.5 !rounded-full" />
-        <Skeleton className="!w-5 !h-1.5 !rounded-full" />
-        <Skeleton className="!w-5 !h-1.5 !rounded-full" />
+        <Skeleton className="!w-8 !h-1.5 !rounded-full" />
+        <Skeleton className="!w-3 !h-1.5 !rounded-full" />
+        <Skeleton className="!w-3 !h-1.5 !rounded-full" />
       </div>
     </div>
   );
@@ -1558,71 +1592,18 @@ function HeroSkeleton() {
 
 function CategorySkeleton() {
   return (
-    <section className="py-12 md:py-16 bg-white border-b border-border">
+    <section className="py-12 md:py-20 bg-white">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <Skeleton className="!w-72 !h-10 !rounded-lg mx-auto" />
+        <div className="border-b border-gray-200 pb-5 mb-10">
+          <Skeleton className="!w-28 !h-3 !rounded-md mb-3" />
+          <Skeleton className="!w-64 !h-8 md:!h-10 !rounded-lg" />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="text-center">
-              <Skeleton className="!w-full !aspect-[4/5] !rounded-3xl mb-4" />
-              <Skeleton className="!w-24 !h-4 !rounded-md mx-auto" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProductGridSkeleton({ count = 4 }) {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="bg-white rounded-2xl overflow-hidden border border-border">
-          <Skeleton className="!w-full !aspect-[3/4] !rounded-none" />
-          <div className="p-4 space-y-3">
-            <Skeleton className="!w-20 !h-3 !rounded-md" />
-            <Skeleton className="!w-40 !h-4 !rounded-md" />
-            <div className="flex items-center gap-1.5">
-              <Skeleton className="!w-10 !h-5 !rounded" />
-              <Skeleton className="!w-16 !h-3 !rounded-md" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Skeleton className="!w-20 !h-6 !rounded-md" />
-              <Skeleton className="!w-14 !h-4 !rounded-md" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProductRowSkeleton() {
-  return (
-    <section className="py-12 md:py-16 bg-surface">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8">
-          <div className="space-y-2">
-            <Skeleton className="!w-32 !h-4 !rounded-md" />
-            <Skeleton className="!w-56 !h-9 !rounded-lg" />
-            <Skeleton className="!w-72 !h-3 !rounded-md" />
-          </div>
-          <Skeleton className="!w-24 !h-4 !rounded-md mt-4 md:mt-0" />
-        </div>
-        <div className="flex gap-3 md:gap-4 overflow-hidden">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-2xl overflow-hidden border border-border">
-              <Skeleton className="!w-full !aspect-[300/392] !rounded-none" />
-              <div className="p-4 space-y-3">
-                <Skeleton className="!w-20 !h-3 !rounded-md" />
-                <Skeleton className="!w-40 !h-4 !rounded-md" />
-                <Skeleton className="!w-10 !h-5 !rounded" />
-                <Skeleton className="!w-16 !h-3 !rounded-md" />
-                <Skeleton className="!w-20 !h-6 !rounded-md" />
-                <Skeleton className="!w-14 !h-4 !rounded-md" />
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-white rounded-xl overflow-hidden border border-gray-200/80">
+              <Skeleton className="!w-full !aspect-[4/5] !rounded-none" />
+              <div className="p-3.5">
+                <Skeleton className="!w-24 !h-4 !rounded-md" />
               </div>
             </div>
           ))}
@@ -1632,10 +1613,38 @@ function ProductRowSkeleton() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• PULL-TO-REFRESH INDICATOR â•â•â•â•â•â•â•â•â•â•â• */
+function ProductRowSkeleton() {
+  return (
+    <section className="py-12 md:py-20 bg-[#fafafa] border-y border-gray-100">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-gray-200 pb-5 mb-10">
+          <div className="space-y-3">
+            <Skeleton className="!w-28 !h-3 !rounded-md" />
+            <Skeleton className="!w-48 !h-8 md:!h-10 !rounded-lg" />
+          </div>
+          <Skeleton className="!w-24 !h-4 !rounded-md hidden md:block" />
+        </div>
+        <div className="flex gap-3 md:gap-4 overflow-hidden">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="max-sm:w-[160px] max-sm:min-w-[160px] sm:w-[300px] sm:min-w-[300px] shrink-0 bg-white rounded-xl overflow-hidden border border-gray-200/80">
+              <Skeleton className="!w-full !aspect-[300/392] !rounded-none" />
+              <div className="p-4 space-y-3">
+                <Skeleton className="!w-20 !h-3 !rounded-md" />
+                <Skeleton className="!w-40 !h-4 !rounded-md" />
+                <Skeleton className="!w-10 !h-5 !rounded" />
+                <Skeleton className="!w-16 !h-3 !rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────── PULL-TO-REFRESH INDICATOR ─────────────── */
 function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
   const { t } = useTranslation();
-  const progress = Math.min(pullDistance / threshold, 1);
   const isPastThreshold = pullDistance >= threshold;
 
   if (pullDistance === 0 && !isRefreshing) return null;
@@ -1686,7 +1695,7 @@ function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• FLASH SALE BANNER â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── FLASH SALE BANNER — bold black band ─────────────── */
 function FlashSaleSection({ promotions }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1705,53 +1714,49 @@ function FlashSaleSection({ promotions }) {
   const promo = active[0];
 
   return (
-    <section className="content-section relative overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900">
-      {/* Animated background orbs */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-red-500/20 blur-[80px] animate-pulse" />
-        <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full bg-amber-500/15 blur-[60px] animate-pulse" style={{ animationDelay: '1s' }} />
-      </div>
-
-      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <section className="relative overflow-hidden bg-black text-white">
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-9">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           {/* Left: Info */}
-          <div className="flex items-center gap-3 md:gap-5">
-            <div className="hidden md:flex w-12 h-12 rounded-full bg-red-500/20 items-center justify-center">
-              <span className="text-2xl">âš¡</span>
+          <div className="flex items-start gap-3.5 md:gap-4 min-w-0">
+            <div className="hidden md:flex w-12 h-12 rounded-full border border-white/25 items-center justify-center text-white shrink-0">
+              <Zap size={20} />
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="inline-block text-[9px] font-bold text-red-400 bg-red-500/15 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">
                   {t('home.flash_sale')}
                 </span>
-                <span className="text-[10px] font-bold text-amber-400">
+                <span className="w-px h-3 bg-white/20" />
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
                   {t('product.percent_off', { percent: promo.discount })}
                 </span>
               </div>
-              <h3 className="text-white font-display font-bold text-sm md:text-lg lg:text-xl tracking-tight">
+              <h3 className="font-display font-extrabold text-lg md:text-2xl tracking-tight leading-tight">
                 {promo.title}
               </h3>
               {promo.description && (
-                <p className="text-white/60 text-[11px] md:text-sm mt-0.5 line-clamp-1">{promo.description}</p>
+                <p className="text-white/55 text-xs md:text-sm mt-1 line-clamp-1">{promo.description}</p>
               )}
             </div>
           </div>
 
           {/* Right: Countdown + CTA */}
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex flex-wrap items-center gap-4 md:gap-6">
             {promo.endDate && (
               <FlashSaleCountdown
                 endDate={promo.endDate}
-                label=""
+                label={t('flash_sale.sale_ends_in')}
                 compact
                 className="text-white"
               />
             )}
             <button
               onClick={() => navigate('/products')}
-              className="shrink-0 bg-red-600 hover:bg-red-500 text-white text-[11px] md:text-xs font-bold px-4 md:px-6 py-2 md:py-2.5 rounded-full transition-all duration-200 hover:shadow-lg hover:shadow-red-500/25 active:scale-[0.97] whitespace-nowrap"
+              className="shrink-0 inline-flex items-center gap-2 bg-white text-black text-xs md:text-sm font-bold px-6 md:px-8 py-3 rounded-full transition-all duration-300 hover:bg-gray-200 hover:-translate-y-0.5 active:translate-y-0"
             >
               {t('home.shop_sale')}
+              <ArrowRight size={15} />
             </button>
           </div>
         </div>
@@ -1760,12 +1765,11 @@ function FlashSaleSection({ promotions }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• MAIN HOMEPAGE â•â•â•â•â•â•â•â•â•â•â• */
+/* ─────────────── MAIN HOMEPAGE ─────────────── */
 export default function HomePage() {
-  const navigate = useNavigate();
   const contentRef = useRef(null);
   const queryClient = useQueryClient();
-  // â”€â”€ Consolidated homepage query â€” fetches ALL data in a single request â”€â”€
+  // ── Consolidated homepage query — fetches ALL data in a single request ──
   // This replaces 15+ separate API calls, eliminating redundant Laravel boots
   // and dramatically improving page load time.
   const { data: homepageData, isLoading } = useQuery({
@@ -1774,7 +1778,7 @@ export default function HomePage() {
       const res = await homepageAPI.getAll();
       return res?.data?.data || {};
     },
-    staleTime: 0, // Always refetch â€” ensures stock counts are fresh after order placement
+    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
   });
 
   // Extract all data from the consolidated response
@@ -1809,19 +1813,21 @@ export default function HomePage() {
   const tshirtCustomizerEnabled = mergedGetSetting('tshirtCustomizerEnabled', 'false') !== 'false';
   const reelsEnabled = mergedGetSetting('reelsEnabled', 'true') !== 'false';
 
-  // â”€â”€ Read section order from settings (with fallback to default) â”€â”€
+  // ── Read section order from settings (with fallback to default) ──
   const sectionOrder = (() => {
     const raw = mergedGetSetting('homepageSectionOrder', '');
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
+      } catch {
+        // Invalid stored order — fall through to the default
+      }
     }
     return ['hero_banner','flash_sales','new_arrival_week','new_arrivals','curated_looks','tshirt_customizer','categories','best_sellers','reviews','reels'];
   })();
 
-  // â”€â”€ Section renderer map â€” maps section keys to JSX â”€â”€
+  // ── Section renderer map — maps section keys to JSX ──
   const renderSection = (key) => {
     switch (key) {
       case 'hero_banner':
@@ -1896,7 +1902,7 @@ export default function HomePage() {
     }
   };
 
-  // â”€â”€ Check if the featured product has expired (local date comparison) â”€â”€
+  // ── Check if the featured product has expired (local date comparison) ──
   const isExpired = newArrivalExpiryDate && (() => {
     const now = new Date();
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -1904,7 +1910,7 @@ export default function HomePage() {
     return expiryEnd < todayLocal;
   })();
 
-  // â”€â”€ Fetch specific New Arrival of the Week product if admin selected one (and not expired) â”€â”€
+  // ── Fetch specific New Arrival of the Week product if admin selected one (and not expired) ──
   const { data: featuredNewArrival } = useQuery({
     queryKey: ['homepage', 'featuredNewArrival', newArrivalProductId],
     queryFn: async () => {
@@ -1912,7 +1918,7 @@ export default function HomePage() {
       const res = await productsAPI.getById(newArrivalProductId);
       return res?.data?.data || res?.data || null;
     },
-    staleTime: 0, // Always refetch â€” ensures stock counts are fresh after order placement
+    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
     enabled: !!newArrivalProductId && !isExpired,
   });
 
@@ -1921,7 +1927,7 @@ export default function HomePage() {
     await queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] });
   }, [queryClient]);
 
-  /* â”€â”€ All Reviews Modal state â”€â”€ */
+  /* ── All Reviews Modal state ── */
   const [allReviewsOpen, setAllReviewsOpen] = useState(false);
   // Mount the modal on first open, then keep it mounted so its internal
   // AnimatePresence exit animation still plays — the chunk is deferred until
@@ -1957,7 +1963,7 @@ export default function HomePage() {
 
       {/* SEO meta tags from global settings */}
       <SEOHead
-        title={seoData.title || `${storeName} â€” Premium Streetwear`}
+        title={seoData.title || `${storeName} — Premium Streetwear`}
         description={seoData.description || `Discover premium streetwear fashion at ${storeName}. Shop the latest oversized tees, hoodies, accessories and more.`}
         keywords="streetwear, fashion, premium clothing, oversized t-shirts, hoodies, accessories"
       />
@@ -1968,7 +1974,7 @@ export default function HomePage() {
         threshold={80}
       />
 
-      {/* Content wrapper â€” translates down during pull */}
+      {/* Content wrapper — translates down during pull */}
       <div
         ref={contentRef}
         className="relative bg-surface gpu-layer"
@@ -1979,7 +1985,7 @@ export default function HomePage() {
             : 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* â•â• Dynamic Section Rendering from Admin Order â•â• */}
+        {/* ── Dynamic Section Rendering from Admin Order ── */}
         {sectionOrder.map((key) => {
           const section = renderSection(key);
           if (!section) return null;
@@ -1992,7 +1998,7 @@ export default function HomePage() {
 
       </div>
 
-      {/* All Reviews Modal â€” rendered OUTSIDE the transformed container so position: fixed works correctly */}
+      {/* All Reviews Modal — rendered OUTSIDE the transformed container so position: fixed works correctly */}
       {(allReviewsOpen || allReviewsEverOpened) && (
         <Suspense fallback={null}>
           <AllReviewsModal
@@ -2007,4 +2013,3 @@ export default function HomePage() {
     </div>
   );
 }
-

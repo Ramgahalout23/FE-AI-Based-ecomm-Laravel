@@ -1,4 +1,4 @@
-import { ShoppingBag, Plus, Minus, X, Heart, Eye, Sparkles } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Heart, Eye } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
 import { cartAPI } from '../../api/cart';
 import useAuthStore from '../../store/authStore';
-import { buildHighlights, getStyleTagline } from '../../utils/productHelpers.jsx';
+import { getAttributes } from '../../utils/productHelpers.jsx';
 import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
@@ -319,8 +319,18 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : null;
   const { isOutOfStock, isLowStock, effectiveStockQty } = computeStockStatus(product);
 
-  const highlights = useMemo(() => buildHighlights(product, true), [product]);
-  const styleTagline = useMemo(() => getStyleTagline(product), [product]);
+  // Attributes — always show the 5 key attributes (real data if available, mock defaults otherwise)
+  const attrs = useMemo(() => getAttributes(product), [product]);
+  const fabricLabel = attrs['fabric'] || '100% Cotton';
+  const fitLabel = attrs['fit'] || 'Oversized Fit';
+
+  const highlights = useMemo(() => [
+    { label: 'Composition', value: attrs['fabric'] || '100% Cotton' },
+    { label: 'GSM', value: attrs['gsm'] || '240' },
+    { label: 'Neckline', value: attrs['neckline'] || attrs['neck'] || 'Round Neck' },
+    { label: 'Sleeve Length', value: attrs['sleeve'] || attrs['sleeve length'] || 'Short Sleeve' },
+    { label: 'Fit', value: attrs['fit'] || 'Oversized Fit' },
+  ], [attrs]);
 
   // Computed "New" badge — based on badge field, isNew flag, or recent creation
   const isNew = useMemo(() => {
@@ -333,30 +343,11 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
     return false;
   }, [product.badge, product.isNew, product.createdAt]);
 
-  // Badge priority: Out of Stock > Low Stock > Sale (discount) > New > custom badge
-  let topLeftBadge = null;
-  if (isOutOfStock) {
-    topLeftBadge = { label: t('product.out_of_stock'), className: 'bg-red-500 text-white' };
-  } else if (isLowStock) {
-    topLeftBadge = { label: t('product.low_stock', { count: effectiveStockQty }), className: 'bg-amber-500 text-white' };
-  } else if (discount) {
-    topLeftBadge = { label: t('product.sale_badge'), className: 'bg-red-500 text-white' };
-  } else if (isNew) {
-    topLeftBadge = { label: t('product.new_badge'), className: 'bg-emerald-600 text-white' };
-  } else if (product.badge) {
-    const badgeClass = (product.badge === 'Bestseller' || product.badge === 'Hot' || product.badge === 'Trending')
-      ? 'bg-black text-white'
-      : product.badge === 'Limited'
-      ? 'bg-gray-600 text-white'
-      : 'bg-gray-200 text-gray-800';
-    topLeftBadge = { label: product.badge, className: badgeClass };
-  }
-
   return (
     <>
       {/* ════ Product Card ════ */}
       <div
-        className={`product-card group bg-white ${className} rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lift cursor-pointer flex flex-col h-full`}
+        className={`product-card group bg-white ${className} rounded-xl overflow-hidden border border-gray-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-1 hover:border-gray-200 hover:shadow-[0_24px_50px_-24px_rgba(0,0,0,0.3)] cursor-pointer flex flex-col h-full`}
         onClick={() => navigate(`/products/${productSlug}`)}
       >
         {/* Image Container */}
@@ -365,33 +356,46 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           onMouseEnter={handleImageMouseEnter}
           onMouseLeave={handleImageMouseLeave}
         >
-          {/* Top-left Badge */}
-          {topLeftBadge && (
-            <div className={`absolute top-3 left-3 max-sm:top-2 max-sm:left-2 z-10 text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-wider ${topLeftBadge.className}`}>
-              {topLeftBadge.label}
-            </div>
-          )}
+          {/* Premium shine sweep on hover — a soft light streak glides across the image */}
+          <div className="absolute inset-0 z-[5] pointer-events-none overflow-hidden">
+            <div className="absolute inset-y-0 left-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-[900ms] ease-out group-hover:translate-x-full" />
+          </div>
 
-          {/* Wishlist */}
-          <button
-            onClick={handleWishlist}
-            /* Always visible — hover-reveal hid wishlist on touch/tablet devices */
-            className={`absolute top-2 right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
-              inWishlist
-                ? 'bg-danger text-white shadow-md'
-                : 'bg-white/90 backdrop-blur-sm text-text-muted hover:text-danger hover:bg-white shadow-soft'
-            }`}
-          >
-            <Heart size={16} fill={inWishlist ? 'currentColor' : 'none'} />
-          </button>
+          {/* Badges — stacked: New (white) + Sale (red) like the reference */}
+          <div className="absolute top-2.5 left-2.5 max-sm:top-2 max-sm:left-2 z-[11] flex flex-col gap-1">
+            {isNew && (
+              <span className="inline-block text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-[0.12em] rounded-[4px] bg-white text-black shadow-sm">
+                {t('product.new_badge')}
+              </span>
+            )}
+            {discount > 0 && (
+              <span className="inline-block text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-[0.12em] rounded-[4px] bg-red-600 text-white shadow-sm">
+                {t('product.sale_badge')}
+              </span>
+            )}
+          </div>
 
-          {/* Quick View */}
-          <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
-            className="absolute top-[52px] right-2 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 bg-white/90 backdrop-blur-sm text-text-muted hover:text-black hover:bg-white shadow-soft"
-          >
-            <Eye size={16} />
-          </button>
+          {/* Wishlist + Eye — white circles, revealed on hover, sit ABOVE highlights overlay */}
+          <div className="qa-reveal absolute top-2.5 right-2.5 z-[20] flex flex-col gap-2">
+            <button
+              onClick={handleWishlist}
+              className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+                inWishlist
+                  ? 'bg-white text-red-500 shadow-md'
+                  : 'bg-white/95 backdrop-blur-sm text-gray-700 hover:text-black shadow-md'
+              }`}
+              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <Heart size={17} fill={inWishlist ? 'currentColor' : 'none'} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
+              className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-white/95 backdrop-blur-sm text-gray-700 hover:text-black shadow-md transition-all duration-200"
+              aria-label="View product"
+            >
+              <Eye size={17} />
+            </button>
+          </div>
 
           {/* Product Image — premium hover crossfade with multi-image layering */}
           <div className="product-img-stack">
@@ -421,38 +425,74 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
             )}
           </div>
 
+          {/* Seamless image→card blend — softens the hard image/body edge */}
+          <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-white/70 via-white/20 to-transparent pointer-events-none z-[6]" />
+
           {/* Out of Stock overlay on image */}
           {isOutOfStock && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10"><div className="bg-white/90 backdrop-blur-sm text-gray-800 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.15em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-full shadow-lg">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/20"><div className="bg-white backdrop-blur-sm text-gray-900 text-[11px] max-sm:text-[10px] font-bold uppercase tracking-[0.18em] px-4 max-sm:px-3 py-1.5 max-sm:py-1 rounded-sm shadow-lg ring-1 ring-gray-900/10">
                 {t('product.sold_out')}</div>
             </div>
           )}
 
-          {/* Highlights Overlay */}
+          {/* Fabric tag — bottom left on image */}
+          {fabricLabel && (
+            <span className="absolute bottom-3 left-3 max-sm:bottom-2.5 max-sm:left-2.5 z-[8] inline-flex items-center px-2 py-1 rounded-[4px] bg-white/90 backdrop-blur-sm text-black text-[7px] max-sm:text-[6px] font-bold uppercase tracking-[0.1em] shadow-sm">
+              {fabricLabel}
+            </span>
+          )}
+
+          {/* Style Highlights Overlay — premium editorial style */}
           <AnimatePresence>
-            {!showQuickAdd && showHighlights && highlights.length > 0 && (
+            {!showQuickAdd && showHighlights && (
               <motion.div
                 key="highlights-overlay"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute inset-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pb-12"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute inset-0 z-[15] flex flex-col justify-end"
                 onClick={(e) => e.stopPropagation()}
               >
-                <p className="text-white/90 text-[9px] font-medium leading-tight mb-1.5 line-clamp-2">
-                  {styleTagline}
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {highlights.slice(0, 4).map((h, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-[7px] font-semibold uppercase tracking-wider"
-                    >
-                      {h.icon}
-                      {h.value}
-                    </span>
-                  ))}
+                {/* Cinematic gradient — dark bottom, transparent top */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                {/* Subtle side vignette */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
+
+                {/* Content — positioned at bottom */}
+                <div className="relative z-10 p-4 md:p-5">
+                  {/* Title — editorial, staggered entrance */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <h4 className="text-white font-display font-bold text-base md:text-lg leading-[1.1] mb-3">
+                      Style<br />Highlights
+                    </h4>
+                    <div className="w-6 h-px bg-white/30 mb-3" />
+                  </motion.div>
+
+                  {/* Attribute list — staggered slide-up per row */}
+                  <div className="flex flex-col gap-2">
+                    {highlights.map((h, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
+                        className="flex items-baseline justify-between"
+                      >
+                        <span className="text-white/50 text-[8px] md:text-[9px] font-semibold uppercase tracking-[0.18em]">
+                          {h.label}
+                        </span>
+                        <span className="text-white text-[11px] md:text-[12px] font-medium">
+                          {h.value}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </div>
+
                 </div>
               </motion.div>
             )}
@@ -466,15 +506,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
             </div>
           )}
 
-          {/* Details hint */}
-          {!showQuickAdd && !isOutOfStock && !showHighlights && (
-            <div className="absolute top-2 left-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/70 backdrop-blur-sm text-[7px] font-semibold text-gray-600 uppercase tracking-wider shadow-sm">
-                <Sparkles size={8} />
-                {t('product.details_label')}
-              </span>
-            </div>
-          )}
+
 
           {/* ── Quick Add — Desktop: Inline Panel (inside card) ── */}
           {/* Wrapper hidden on mobile so AnimatePresence doesn't run simultaneously with mobile sheet */}
@@ -665,7 +697,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
           {/* ── Quick Add / Out of Stock (always visible at bottom) ── */}
           {isOutOfStock ? (
-            <div className="absolute bottom-0 inset-x-0 z-20 h-8 md:h-9 flex items-center justify-center gap-1.5 bg-gray-800/80 text-gray-300 text-[9px] max-sm:text-[8px] font-bold uppercase tracking-wider">
+            <div className="absolute bottom-0 inset-x-0 z-20 h-8 md:h-9 flex items-center justify-center gap-1.5 bg-gray-900/90 text-gray-300 text-[9px] max-sm:text-[8px] font-bold uppercase tracking-[0.14em]">
               <X size={10} />
               <span>{t('product.out_of_stock')}</span>
             </div>
@@ -674,10 +706,10 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
               <button
                 onClick={handleQuickAdd}
                 /* Hidden until card hover on desktop (hover-capable); always visible on touch */
-                className="qa-reveal absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black/90 md:bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-wider transition-all duration-300 hover:bg-white hover:text-black hover:border-t hover:border-gray-200/60 max-sm:active:bg-gray-900"
+                className="qa-reveal absolute bottom-0 inset-x-0 z-20 h-9 md:h-10 flex items-center justify-center gap-1.5 bg-black text-white text-[10px] max-sm:text-[9px] font-bold uppercase tracking-[0.16em] transition-colors duration-300 hover:bg-gray-900 max-sm:active:bg-gray-900"
               >
                 {isAdding ? (
-                  <span className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <><ShoppingBag size={12} /><span>{t('product.quick_add')}</span></>
                 )}
@@ -686,19 +718,28 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           )}
         </div>
 
-        {/* Details */}
-        <div className={`max-sm:p-2.5 p-3 md:p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          <h3 className="card-title">
+        {/* Details — typography-led editorial design (SSENSE / MR PORTER style) */}
+        <div className={`max-sm:p-3 p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
+          {/* Title — refined, tight tracking */}
+          <h3 className="card-title line-clamp-2">
             {product.name}
           </h3>
 
-          <div className="mt-auto">
-            <div className="flex items-center gap-1 md:gap-2">
+          {/* Price — current in black, old in red struck-through (reference style) */}
+          <div className="mt-auto pt-3.5">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="price-item tabular-nums text-gray-900">
+                {formatCurrency(product.price)}
+              </span>
               {product.oldPrice && (
-                <span className="text-xs md:text-sm max-sm:text-[10px] text-black line-through font-semibold">{formatCurrency(product.oldPrice)}</span>
+                <span className="text-[10px] md:text-[11px] text-red-500 line-through font-medium">{formatCurrency(product.oldPrice)}</span>
               )}
-              <span className="price-item text-red-500">{formatCurrency(product.price)}</span>
             </div>
+            {!isOutOfStock && isLowStock && (
+              <p className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+                {t('product.low_stock', { count: effectiveStockQty })}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -103,6 +103,8 @@ export default function ReelCard({
   instanceKey = null,
   // Duplicated copies render off-screen already-visible; skip the entrance anim.
   skipEntrance = false,
+  // Mobile peek carousel: scale/opacity transforms for center vs side cards
+  mobileStyle = null,
 }) {
   const cardId = instanceKey ?? reel?.id;
   const { t } = useTranslation();
@@ -177,10 +179,11 @@ export default function ReelCard({
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.45, delay: index * 0.07, ease: [0.16, 1, 0.3, 1] }}
       className={`reel-card snap-start shrink-0 ${widthClass} cursor-pointer group/card`}
+      style={mobileStyle || undefined}
       data-reel-id={cardId}
       onClick={onOpen}
     >
-      <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-[0_16px_40px_-12px_rgba(217,119,6,0.35)] hover:-translate-y-0.5 transition-all duration-400 border border-gray-100/80 hover:border-amber-300/70">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-[0_16px_40px_-16px_rgba(0,0,0,0.22)] hover:-translate-y-0.5 transition-all duration-400 border border-gray-200/80 hover:border-gray-300">
         <div className="relative aspect-[9/16] overflow-hidden bg-gray-100">
           {hasVideoError && reel?.imageUrl ? (
             <div className="relative w-full h-full">
@@ -228,7 +231,7 @@ export default function ReelCard({
           )}
 
           <div className="absolute top-2 left-2 z-10">
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-[4px] bg-gradient-to-r from-amber-900/80 to-amber-700/80 backdrop-blur-sm border border-amber-300/40 text-amber-100 text-[6px] font-bold uppercase tracking-[0.06em] shadow-md">
+            <span className="inline-flex items-center gap-1 px-1.5 py-[2px] rounded-[4px] bg-black/85 backdrop-blur-sm text-white text-[6px] font-bold uppercase tracking-[0.08em] shadow-md">
               <Crown size={5.5} />
               {getReelBadge(reel, badgeFallback)}
             </span>
@@ -252,9 +255,9 @@ export default function ReelCard({
                   <p className="card-title text-[10px] leading-tight truncate">{p?.name || reel?.title}</p>
                   <div className="flex items-center gap-1 mt-0 flex-nowrap overflow-hidden">
                     {p?.old_price && <span className="hidden sm:inline text-[8px] text-gray-400 line-through shrink-0">{formatCurrency(p.old_price)}</span>}
-                    {p?.price && <span className="price-item text-[10px] font-bold text-red-500 shrink-0">{formatCurrency(p.price)}</span>}
+                    {p?.price && <span className="price-item text-[10px] font-bold text-gray-900 shrink-0">{formatCurrency(p.price)}</span>}
                     {p?.old_price && p?.price && (
-                      <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[6px] font-bold shrink-0">
+                      <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-gray-900 text-white text-[6px] font-bold shrink-0">
                         {discountPercent(p.old_price, p.price)}% OFF
                       </span>
                     )}
@@ -308,7 +311,7 @@ export default function ReelCard({
                                       ) : (
                                         <div className={`w-full h-full ${isLightShade ? 'border border-black/10' : ''} ${isColorOOS ? 'opacity-50' : ''}`} style={{ background: getColorHex(c) }} />
                                       )}
-                                      {isColorOOS && (<span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" className="w-3 h-3 text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="4" x2="20" y2="20" /></svg></span>)}
+                                      {isColorOOS && (<span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" className="w-3 h-3 text-gray-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="4" x2="20" y2="20" /></svg></span>)}
                                     </button>
                                   );
                                 })}
@@ -360,15 +363,15 @@ export default function ReelCard({
               <div className="flex items-center gap-1 mt-1">
                 <button onClick={(e) => { e.stopPropagation(); onToggleLike?.(); }}
                   className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[7px] font-bold uppercase tracking-wider transition-all ${
-                    liked ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
+                    liked ? 'bg-black text-white border border-black' : 'bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200'
                   }`}>
-                  <Heart size={8} className={liked ? 'fill-rose-500' : ''} />
+                  <Heart size={8} className={liked ? 'fill-white' : ''} />
                   {liked ? t('reels.liked') : t('reels.like')}
                 </button>
                 {p && (
                   <button onClick={openPicker}
                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[7px] font-bold uppercase tracking-wider transition-all ${
-                      addedFlash ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-gray-900 text-white border border-gray-900 hover:bg-gray-800'
+                      addedFlash ? 'bg-black text-white border border-black' : 'bg-gray-900 text-white border border-gray-900 hover:bg-gray-800'
                     }`}>
                     {addedFlash ? <Check size={8} /> : <ShoppingCart size={8} />}
                     {addedFlash ? t('reels.added') : t('reels.cart')}

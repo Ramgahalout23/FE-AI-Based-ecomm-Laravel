@@ -165,6 +165,8 @@ function FashionShowcase({ reels }) {
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const autoplayRef = useRef(null);
   const autoplayRestartRef = useRef(null);
+  // ── Mobile peek carousel: track which card is centered ──
+  const [mobileCenterIdx, setMobileCenterIdx] = useState(0);
 
   // ── Infinite loop: duplicate the reel set so the carousel can scroll
   //    forever and fold back invisibly at the copy boundary (like the
@@ -543,22 +545,26 @@ function FashionShowcase({ reels }) {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-40px' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-6 md:mb-8"
+          className="mb-6 md:mb-10"
         >
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="h-px w-6 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent rounded-full" />
-            <span className="text-black text-[9px] font-bold uppercase tracking-[0.2em]">{t('reels.shop_the_look')}</span>
-            <span className="h-px w-6 bg-gradient-to-l from-transparent via-amber-300/70 to-transparent rounded-full" />
-          </div>
-          <div className="relative inline-block">
-            <h2 className="text-xl md:text-2xl lg:text-headline-lg font-display font-bold tracking-tight text-gray-900">
-              {t('reels.watch_and_buy')}
-            </h2>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-gray-200 pb-4 md:pb-5">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2.5 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-gray-400 mb-2.5">
+                <span className="w-8 h-px bg-gray-300" />
+                {t('reels.shop_the_look')}
+              </p>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-gray-900 leading-[1.1]">
+                {t('reels.watch_and_buy')}
+              </h2>
+            </div>
             <Link
               to="/watch-and-buy"
-              className="absolute -left-28 top-1/2 -translate-y-1/2 hidden md:inline-flex items-center gap-0.5 text-[10px] font-bold text-gray-500 hover:text-black uppercase tracking-wider whitespace-nowrap transition-colors"
+              className="hidden md:inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-gray-900 group shrink-0 pb-0.5"
             >
-              {t('reels.view_all')} <ChevronRight size={12} />
+              <span className="border-b border-gray-900 pb-0.5 transition-colors duration-300 group-hover:border-gray-300">
+                {t('reels.view_all')}
+              </span>
+              <ChevronRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
           </div>
         </motion.div>
@@ -568,23 +574,44 @@ function FashionShowcase({ reels }) {
           onMouseEnter={() => setIsCarouselHovered(true)}
           onMouseLeave={() => setIsCarouselHovered(false)}
         >
+          {/* Desktop arrows */}
           {reels.length > 1 && (
             <button onClick={() => scrollGallery('left')}
               disabled={!canScrollLeft}
               aria-label="Scroll reels left"
-              className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
+              className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
               <ChevronLeft size={16} />
             </button>
           )}
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2"
+            className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 sm:pb-2 max-sm:pb-0 max-sm:px-[calc(50vw-75px)] max-sm:snap-center max-sm:[scroll-snap-type:x_mandatory] sm:max-sm:gap-3"
+            style={{ scrollPaddingInline: 'max(0px, calc(50vw - 75px))' }}
+            onScroll={(e) => {
+              handleTrackInteraction();
+              // Detect centered card on mobile
+              const el = e.currentTarget;
+              const cards = el.querySelectorAll('.reel-card');
+              const containerCenter = el.scrollLeft + el.clientWidth / 2;
+              let closestIdx = 0;
+              let closestDist = Infinity;
+              cards.forEach((card, i) => {
+                const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+                const dist = Math.abs(cardCenter - containerCenter);
+                if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+              });
+              setMobileCenterIdx(closestIdx);
+            }}
             onPointerDown={handleTrackInteraction}
             onWheel={handleTrackInteraction}
             onTouchStart={handleTrackInteraction}
           >
             {loopReels.map((reel, idx) => {
               const realIdx = idx % reels.length;
+              // Mobile peek: center card full scale, side cards dim + smaller
+              const dist = Math.abs(idx - mobileCenterIdx);
+              const mobileScale = dist === 0 ? 1 : dist === 1 ? 0.85 : 0.7;
+              const mobileOpacity = dist === 0 ? 1 : dist === 1 ? 0.7 : 0.4;
               return (
                 <ReelCard
                   key={`${reel.id}-${idx}`}
@@ -593,6 +620,12 @@ function FashionShowcase({ reels }) {
                   instanceKey={`${reel.id}-${idx}`}
                   skipEntrance={idx >= reels.length}
                   widthClass="w-[150px] sm:w-[200px] xl:w-[240px]"
+                  mobileStyle={{
+                    transform: `scale(${mobileScale})`,
+                    opacity: mobileOpacity,
+                    transition: 'transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease',
+                    transformOrigin: 'center center',
+                  }}
                   onOpen={() => openReel(realIdx)}
                   badgeFallback={getSetting('storeName', 'THREVOLT')}
                   liked={!!reelLikeMap[reel.id]?.liked}
@@ -603,32 +636,39 @@ function FashionShowcase({ reels }) {
               );
             })}
           </div>
+          {/* Desktop arrows right */}
           {reels.length > 1 && (
             <button onClick={() => scrollGallery('right')}
               disabled={!canScrollRight}
               aria-label="Scroll reels right"
-              className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
+              className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-white shadow-lg border border-gray-200 items-center justify-center text-gray-600 hover:bg-gray-50 hover:scale-105 transition-all active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:scale-100">
               <ChevronRight size={16} />
             </button>
           )}
         </div>
 
-        {/* Mobile affordances — swipe hint + full page link (hidden once interacted) */}
+        {/* Mobile dot indicators */}
         {reels.length > 1 && (
-          <div className="mt-2.5 flex items-center justify-center gap-4 sm:hidden">
-            {showSwipeHint && (
-              <span className="text-[10px] text-gray-400 select-none pointer-events-none">
-                {t('reels.swipe_hint')} →
-              </span>
-            )}
-            <Link
-              to="/watch-and-buy"
-              className="text-[10px] font-bold text-gray-600 hover:text-black uppercase tracking-wider inline-flex items-center gap-0.5 transition-colors"
-            >
-              {t('reels.view_all')} <ChevronRight size={12} />
-            </Link>
+          <div className="flex sm:hidden items-center justify-center gap-1.5 mt-3">
+            {reels.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const el = scrollRef.current;
+                  if (!el) return;
+                  const cards = el.querySelectorAll('.reel-card');
+                  if (cards[i]) cards[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }}
+                className={`rounded-full transition-all duration-300 ${
+                  i === (mobileCenterIdx % reels.length)
+                    ? 'w-5 h-1.5 bg-gray-900'
+                    : 'w-1.5 h-1.5 bg-gray-300'
+                }`} aria-label={`Go to reel ${i + 1}`} />
+            ))}
           </div>
         )}
+
+
       </div>
 
       {createPortal(
@@ -976,8 +1016,8 @@ function ReelPlayer({
 
             {/* Background gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-              <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-yellow-600/10 blur-3xl pointer-events-none" />
+              <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/[0.04] blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-white/[0.03] blur-3xl pointer-events-none" />
               {!videoReady && !videoError && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center">
                   <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white/30 animate-spin" />
@@ -1089,7 +1129,7 @@ function ReelPlayer({
 
             {/* Top bar — counter centered, close + mute grouped on the right */}
             <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-center px-3 pt-3 pb-2 bg-gradient-to-b from-black/50 to-transparent pointer-events-none">
-              <div className="pointer-events-auto px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-amber-400/30 text-amber-200 text-[9px] font-bold tracking-wider">
+              <div className="pointer-events-auto px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white/80 text-[9px] font-bold tracking-wider">
                 <Crown size={9} className="inline -mt-0.5 mr-1" />
                 {reelIndex + 1} / {total}
               </div>
@@ -1113,13 +1153,13 @@ function ReelPlayer({
                 aria-label={isLiked ? t('reels.liked') : t('reels.like')}
                 className="pointer-events-auto flex flex-col items-center gap-0.5 group">
                 <div className={`w-11 h-11 rounded-full backdrop-blur-md border flex items-center justify-center transition-all duration-300 ${
-                  isLiked ? 'bg-rose-500/20 border-rose-400/40 text-rose-400' : 'bg-black/50 border-white/15 text-white/70 hover:bg-white/20 hover:text-white'
+                  isLiked ? 'bg-white border-white text-black' : 'bg-black/50 border-white/15 text-white/70 hover:bg-white/20 hover:text-white'
                 }`}>
-                  <Heart size={17} className={`${isLiked ? 'fill-rose-400' : ''} transition-transform duration-300 ${isLiked ? 'scale-110' : 'group-hover:scale-110'}`} />
+                  <Heart size={17} className={`${isLiked ? 'fill-black' : ''} transition-transform duration-300 ${isLiked ? 'scale-110' : 'group-hover:scale-110'}`} />
                 </div>
-                <span className={`text-[7px] font-bold uppercase tracking-wider ${isLiked ? 'text-rose-400' : 'text-white/50'}`}>{isLiked ? t('reels.liked') : t('reels.like')}</span>
+                <span className={`text-[7px] font-bold uppercase tracking-wider ${isLiked ? 'text-white' : 'text-white/50'}`}>{isLiked ? t('reels.liked') : t('reels.like')}</span>
                 {reelLike.count > 0 && (
-                  <span className={`text-[9px] font-bold tabular-nums -mt-0.5 ${isLiked ? 'text-rose-400' : 'text-white/60'}`}>{reelLike.count}</span>
+                  <span className={`text-[9px] font-bold tabular-nums -mt-0.5 ${isLiked ? 'text-white' : 'text-white/60'}`}>{reelLike.count}</span>
                 )}
               </button>
               <button onClick={(e) => { e.stopPropagation(); onShare(reel); }}
@@ -1260,7 +1300,7 @@ function ReelPlayer({
                               )}
                               {isOOS && (
                                 <span className="absolute inset-0 flex items-center justify-center">
-                                  <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                  <svg viewBox="0 0 24 24" className="w-full h-full text-gray-400 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
                                     <line x1="4" y1="4" x2="20" y2="20" />
                                   </svg>
                                 </span>
@@ -1392,9 +1432,9 @@ function ReelPlayer({
                       <p className="card-title">{prodName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {prodOld && <span className="text-[10px] text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
-                        {prodPrice && <span className="price-item text-red-500">{formatCurrency(prodPrice)}</span>}
+                        {prodPrice && <span className="price-item text-gray-900">{formatCurrency(prodPrice)}</span>}
                         {prodOld && prodPrice && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[7px] font-bold">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-900 text-white text-[7px] font-bold">
                             -{discountPercent(prodOld, prodPrice)}%
                           </span>
                         )}
@@ -1433,7 +1473,7 @@ function ReelPlayer({
                       disabled={isAddingProduct}
                       className={`shrink-0 h-9 px-4 rounded-xl text-[9px] font-extrabold uppercase tracking-wider transition-all duration-200 shadow-sm ${
                         isAddingProduct
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          ? 'bg-gray-900 text-white border border-gray-900'
                           : 'bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950 hover:shadow-md'
                       }`}>
                       {isAddingProduct ? (
@@ -1496,5 +1536,5 @@ function ReelProgressBar({ isPlaying, videoRef, duration = 10, onComplete }) {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [isPlaying, videoRef, duration]);
 
-  return <div className="h-full w-full bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500" ref={barRef} />;
+  return <div className="h-full w-full bg-white" ref={barRef} />;
 }

@@ -401,22 +401,16 @@ function AppContent() {
       <ThemeInjector />
       <Toaster
         position="bottom-right"
-        gutter={12}
+        gutter={14}
         containerClassName="toaster-container"
         reverseOrder={false}
         toastOptions={{
           className: 'toast-premium',
-          duration: 2800,
+          duration: 3500,
           style: {
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            color: '#1a1a1a',
-            borderRadius: '16px',
-            padding: '14px 20px 18px',
-            boxShadow: '0 12px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)',
-            letterSpacing: '0.01em',
-            lineHeight: 1.5,
+            background: 'transparent',
+            boxShadow: 'none',
+            padding: 0,
           },
           success: {
             icon: (

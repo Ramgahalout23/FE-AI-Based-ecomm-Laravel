@@ -6,22 +6,61 @@ import OrderConfirmedToast from './OrderConfirmedToast';
 // This wrapper ensures ALL files that import `toast` get consistent duration defaults.
 // Instead of `import toast from 'react-hot-toast'`, use `import toast from '../../utils/toast'`.
 
+// ── Detect if we're on a storefront route (not admin) ──
+// On storefront, toasts are suppressed for a cleaner UX.
+const isStorefront = () => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return !path.startsWith('/admin');
+};
+
+// Silent no-ops for storefront
+const noop = () => {};
+const silentToast = {
+  success: noop,
+  error: noop,
+  info: noop,
+  custom: noop,
+  loading: () => '',
+  dismiss: noop,
+  promise: (promise) => promise,
+  remove: noop,
+};
+
 const toast = {
-  success: (message, opts = {}) => hotToast.success(message, { duration: 3000, ...opts }),
-  error: (message, opts = {}) => hotToast.error(message, { duration: 4000, ...opts }),
-  info: (message, opts = {}) => hotToast(message, { duration: 3000, ...opts }),
-  custom: (component, opts = {}) => hotToast.custom(component, opts),
-  loading: (message, opts = {}) => hotToast.loading(message, {
-    style: {
-      background: '#ffffff',
-      borderRadius: '16px',
-      padding: '14px 20px 18px',
-      boxShadow: '0 12px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)',
-    },
-    ...opts,
-  }),
+  success: (message, opts = {}) => {
+    if (isStorefront()) return;
+    hotToast.success(message, { duration: 3000, ...opts });
+  },
+  error: (message, opts = {}) => {
+    if (isStorefront()) return;
+    hotToast.error(message, { duration: 4000, ...opts });
+  },
+  info: (message, opts = {}) => {
+    if (isStorefront()) return;
+    hotToast(message, { duration: 3000, ...opts });
+  },
+  custom: (component, opts = {}) => {
+    if (isStorefront()) return;
+    hotToast.custom(component, opts);
+  },
+  loading: (message, opts = {}) => {
+    if (isStorefront()) return '';
+    return hotToast.loading(message, {
+      style: {
+        background: '#ffffff',
+        borderRadius: '16px',
+        padding: '14px 20px 18px',
+        boxShadow: '0 12px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)',
+      },
+      ...opts,
+    });
+  },
   dismiss: (toastId) => hotToast.dismiss(toastId),
-  promise: (promise, msgs, opts) => hotToast.promise(promise, msgs, opts),
+  promise: (promise, msgs, opts) => {
+    if (isStorefront()) return promise;
+    return hotToast.promise(promise, msgs, opts);
+  },
   remove: (toastId) => hotToast.remove(toastId),
 };
 
@@ -68,27 +107,40 @@ export const removedFromBag = () => {};
 
 /* ── Wishlist ───────────────────────────────────── */
 
-export const addedToWishlist = () =>
+export const addedToWishlist = () => {
+  if (isStorefront()) return;
   showSuccess('Added to wishlist');
+};
 
-export const removedFromWishlist = () =>
+export const removedFromWishlist = () => {
+  if (isStorefront()) return;
   showSuccess('Removed from wishlist');
+};
 
-export const wishlistError = () =>
+export const wishlistError = () => {
+  if (isStorefront()) return;
   showError('Could not update wishlist');
+};
 
-export const movedToCart = (productName) =>
+export const movedToCart = (productName) => {
+  if (isStorefront()) return;
   showSuccess(`${productName || 'Item'} moved to cart`);
+};
 
-export const linkCopied = () =>
+export const linkCopied = () => {
+  if (isStorefront()) return;
   showSuccess('Link copied to clipboard!');
+};
 
-export const wishlistCleared = () =>
+export const wishlistCleared = () => {
+  if (isStorefront()) return;
   showSuccess('Wishlist cleared', { duration: 2000 });
+};
 
 /* ── Premium Order Confirmed Toast ─────────────── */
 
-export const orderPlaced = (orderId) =>
+export const orderPlaced = (orderId) => {
+  if (isStorefront()) return;
   hotToast.custom(
     (t) => {
       return React.createElement(
@@ -117,8 +169,10 @@ export const orderPlaced = (orderId) =>
        bottom-right; custom toasts must state it explicitly. */
     { duration: 6000, position: 'bottom-right' }
   );
+};
 
-export const paymentSuccessful = (orderId) =>
+export const paymentSuccessful = (orderId) => {
+  if (isStorefront()) return;
   hotToast.custom(
     (t) => {
       return React.createElement(
@@ -145,76 +199,117 @@ export const paymentSuccessful = (orderId) =>
     },
     { duration: 6000, position: 'bottom-right' }
   );
+};
 
-export const orderCancelled = () =>
+export const orderCancelled = () => {
+  if (isStorefront()) return;
   showSuccess('Order cancelled');
+};
 
-export const couponApplied = (savings) =>
+export const couponApplied = (savings) => {
+  if (isStorefront()) return;
   showSuccess(`Coupon applied! You saved ${savings}`);
+};
 
-export const couponRemoved = () =>
+export const couponRemoved = () => {
+  if (isStorefront()) return;
   showSuccess('Coupon removed');
+};
 
 /* ── Auth ───────────────────────────────────────── */
 
-export const welcomeBack = () =>
+export const welcomeBack = () => {
+  if (isStorefront()) return;
   showSuccess('Welcome back!');
+};
 
-export const accountCreated = () =>
+export const accountCreated = () => {
+  if (isStorefront()) return;
   showSuccess('Account created!', { duration: 5000 });
+};
 
-export const passwordReset = () =>
+export const passwordReset = () => {
+  if (isStorefront()) return;
   showSuccess('Password reset!');
+};
 
-export const resetLinkSent = () =>
+export const resetLinkSent = () => {
+  if (isStorefront()) return;
   showSuccess('Reset link sent!');
+};
 
 /* ── Addresses ──────────────────────────────────── */
 
-export const addressAdded = () =>
+export const addressAdded = () => {
+  if (isStorefront()) return;
   showSuccess('Address added');
+};
 
-export const addressDeleted = () =>
+export const addressDeleted = () => {
+  if (isStorefront()) return;
   showSuccess('Address deleted');
+};
 
-export const addressUpdated = () =>
+export const addressUpdated = () => {
+  if (isStorefront()) return;
   showSuccess('Default address updated');
+};
 
 /* ── Notifications ──────────────────────────────── */
 
-export const allMarkedRead = () =>
+export const allMarkedRead = () => {
+  if (isStorefront()) return;
   showSuccess('All marked as read');
+};
 
 /* ── Admin CRUD helpers ─────────────────────────── */
 
-export const itemCreated = (label) =>
+export const itemCreated = (label) => {
+  if (isStorefront()) return;
   showSuccess(`${label} created`);
+};
 
-export const itemUpdated = (label) =>
+export const itemUpdated = (label) => {
+  if (isStorefront()) return;
   showSuccess(`${label} updated`);
+};
 
-export const itemDeleted = (label) =>
+export const itemDeleted = (label) => {
+  if (isStorefront()) return;
   showSuccess(`${label} deleted`);
+};
 
-export const itemPublished = (label) =>
+export const itemPublished = (label) => {
+  if (isStorefront()) return;
   showSuccess(`${label} published`);
+};
 
-export const itemArchived = (label) =>
+export const itemArchived = (label) => {
+  if (isStorefront()) return;
   showSuccess(`${label} archived`);
+};
 
-export const settingsSaved = () =>
+export const settingsSaved = () => {
+  if (isStorefront()) return;
   showSuccess('Settings updated successfully');
+};
 
-export const cacheCleared = () =>
+export const cacheCleared = () => {
+  if (isStorefront()) return;
   showSuccess('Cache cleared successfully');
+};
 
 /* ── Validation shorthands ──────────────────────── */
 
-export const fillRequiredFields = () =>
+export const fillRequiredFields = () => {
+  if (isStorefront()) return;
   showError('Please fill all required fields');
+};
 
-export const invalidCoupon = () =>
+export const invalidCoupon = () => {
+  if (isStorefront()) return;
   showError('Coupon is not applicable to your cart');
+};
 
 /* ── Generic success/error for one-off messages ─── */
 

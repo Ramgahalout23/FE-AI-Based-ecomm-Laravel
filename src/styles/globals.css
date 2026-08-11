@@ -280,51 +280,139 @@
 
 .toaster-container {
   z-index: 9999 !important;
-  /* Pin the container to the bottom-right corner. react-hot-toast leaves
-     top:16px inline for bottom positions; with bottom also set the fixed
-     container stretches top→bottom and toasts stack near the navbar. */
   top: auto !important;
-  right: 16px !important;
-  bottom: 16px !important;
+  right: 20px !important;
+  bottom: 20px !important;
 }
 
-/* Lift toasts above the floating bottom nav (80px) so they never cover it.
-   MobileNav is lg:hidden → it renders on every width below 1024px, so the
-   offset must match that breakpoint (not just phones). Desktop has no nav. */
 @media (max-width: 1023px) {
   .toaster-container {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px) !important;
+    right: 12px !important;
+    left: 12px !important;
   }
 }
 
-/* Base premium toast styling */
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM ADMIN TOAST SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+
 .toast-premium {
-  position: relative;
+  position: relative !important;
   overflow: hidden !important;
-  backdrop-filter: blur(16px) saturate(1.2) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
-  background: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  animation: toastSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 320px !important;
+  max-width: 420px !important;
+  padding: 14px 18px !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 20px -5px rgba(0, 0, 0, 0.08),
+    0 25px 50px -12px rgba(0, 0, 0, 0.12) !important;
+  animation: toastSlideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: var(--font-body) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #1a1a1a !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1.5 !important;
 }
 
 .toast-premium:hover {
-  transform: translateX(0) scale(1.02) !important;
-  box-shadow: 0 16px 56px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.08) !important;
+  transform: translateX(-4px) scale(1.01) !important;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 20px -5px rgba(0, 0, 0, 0.08),
+    0 25px 50px -12px rgba(0, 0, 0, 0.18) !important;
 }
 
-/* Progress bar at the bottom of each toast */
+/* Colored accent bar on left */
+.toast-premium::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 4px !important;
+  border-radius: 14px 0 0 14px !important;
+}
+
+/* Success accent */
+[data-success="true"].toast-premium::before {
+  background: linear-gradient(180deg, #22c55e, #16a34a) !important;
+}
+
+/* Error accent */
+[data-error="true"].toast-premium::before {
+  background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+}
+
+/* Info/Default accent */
+.toast-premium::before {
+  background: linear-gradient(180deg, #3b82f6, #2563eb) !important;
+}
+
+/* Icon container */
+.toast-premium svg {
+  flex-shrink: 0 !important;
+  width: 20px !important;
+  height: 20px !important;
+  animation: toastIconPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both !important;
+}
+
+/* Success icon green */
+[data-success="true"].toast-premium svg {
+  color: #22c55e !important;
+}
+
+/* Error icon red */
+[data-error="true"].toast-premium svg {
+  color: #ef4444 !important;
+}
+
+/* Progress bar — premium gradient */
 .toast-premium::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12));
-  animation: toastProgress 4s linear forwards;
-  transform-origin: left;
-  pointer-events: none;
+  content: '' !important;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899) !important;
+  animation: toastProgress 3.5s linear forwards !important;
+  transform-origin: left !important;
+  pointer-events: none !important;
+  border-radius: 0 0 14px 14px !important;
+}
+
+[data-success="true"].toast-premium::after {
+  background: linear-gradient(90deg, #22c55e, #10b981, #06b6d4) !important;
+}
+
+[data-error="true"].toast-premium::after {
+  background: linear-gradient(90deg, #ef4444, #f97316, #eab308) !important;
+}
+
+@keyframes toastSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(60px) scale(0.92);
+    filter: blur(4px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 @keyframes toastProgress {
@@ -332,27 +420,43 @@
   to { width: 0%; }
 }
 
-@keyframes toastSlideIn {
-  from {
+@keyframes toastIconPop {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Exit animation */
+.toast-premium[data-exit] {
+  animation: toastSlideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes toastSlideOut {
+  to {
     opacity: 0;
     transform: translateX(40px) scale(0.95);
     filter: blur(2px);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-    filter: blur(0);
-  }
 }
 
-/* Reduced motion: simple fade only */
 @media (prefers-reduced-motion: reduce) {
   .toast-premium {
-    animation: toastFadeIn 0.25s ease forwards !important;
+    animation: toastFadeIn 0.2s ease forwards !important;
   }
   .toast-premium::after {
     animation: none !important;
     width: 0 !important;
+  }
+  .toast-premium svg {
+    animation: none !important;
   }
 }
 
@@ -361,15 +465,14 @@
   to { opacity: 1; }
 }
 
-/* Toast icon bounce animation */
-.toast-premium svg {
-  animation: toastIconBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
-}
-
-@keyframes toastIconBounce {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
+/* Mobile toast — full width, centered */
+@media (max-width: 640px) {
+  .toast-premium {
+    min-width: unset !important;
+    max-width: none !important;
+    width: 100% !important;
+    border-radius: 12px !important;
+  }
 }
 
 /* ── Premium Checkout Toast ─────────────────────── */

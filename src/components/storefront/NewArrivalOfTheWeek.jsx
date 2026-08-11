@@ -187,7 +187,7 @@ export default function NewArrivalOfTheWeek({ product }) {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-md text-black text-[10px] font-bold uppercase tracking-[0.15em] px-3.5 py-2 rounded-full shadow-lg border border-white/40"
               >
-                <Sparkles size={12} className="text-amber-500" />
+                <Sparkles size={12} className="text-gray-900" />
                 {t('home.new_arrival_week') || 'New Arrival of the Week'}
               </motion.div>
             </div>
@@ -203,7 +203,7 @@ export default function NewArrivalOfTheWeek({ product }) {
             )}
             {isLowStock && !isOutOfStock && (
               <div className="absolute top-5 right-5 z-10">
-                <span className="inline-flex items-center gap-1.5 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg border border-amber-400/40">
+                <span className="inline-flex items-center gap-1.5 bg-gray-900/90 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg border border-gray-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   {t('product.low_stock', { count: availableStock }) || `Only ${availableStock} left`}
                 </span>
@@ -334,7 +334,7 @@ export default function NewArrivalOfTheWeek({ product }) {
                         />
                         {isOOS && (
                           <span className="absolute inset-0 flex items-center justify-center">
-                            <svg viewBox="0 0 24 24" className="w-full h-full text-red-400 opacity-80" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <svg viewBox="0 0 24 24" className="w-full h-full text-gray-400 opacity-80" fill="none" stroke="currentColor" strokeWidth="1.5">
                               <line x1="4" y1="4" x2="20" y2="20" />
                             </svg>
                           </span>
@@ -411,13 +411,13 @@ export default function NewArrivalOfTheWeek({ product }) {
                 className="mb-4"
               >
                 {isLowStock ? (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50/80 border border-amber-200/60 px-4 py-2 rounded-xl">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 bg-gray-50/80 border border-gray-200/80 px-4 py-2 rounded-xl">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 shrink-0 animate-pulse" />
                     {t('product.low_stock_count', { count: availableStock }) || `Only ${availableStock} left`}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 px-4 py-2 rounded-xl">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 bg-gray-50/80 border border-gray-200/80 px-4 py-2 rounded-xl">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-700 shrink-0" />
                     {t('product.in_stock') || 'In Stock'}
                   </div>
                 )}
@@ -460,7 +460,7 @@ export default function NewArrivalOfTheWeek({ product }) {
                     canAddToCart && !isAdding
                       ? 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-900/20 hover:shadow-xl hover:shadow-gray-900/25'
                       : isOutOfStock
-                      ? 'bg-red-50 text-red-500 cursor-not-allowed border border-red-200/60'
+                      ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200/60'
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 >

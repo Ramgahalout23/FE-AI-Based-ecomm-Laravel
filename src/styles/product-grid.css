@@ -28,7 +28,7 @@
 .product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.5rem}
 
 .product-card{position:relative;cursor:pointer;transition:all 0.35s ease}
-.product-card:hover{transform:translateY(-4px)}
+.product-card:hover{transform:translateY(-3px)}
 
 /* Premium hover crossfade: multi-image layer stacking (inspired by selektt.com) */
 .product-img-stack{position:absolute;inset:0;border-radius:inherit;overflow:hidden}
@@ -74,7 +74,15 @@
 
 /* ── Mobile: scale down card title/price so they fit the narrow 2-col grid ── */
 @media(max-width:480px){
-  .card-title{font-size:10px;line-height:1.35;margin-bottom:6px}
-  .price-item{font-size:11px;line-height:1.3}
+  .card-title{font-size:11px;line-height:1.4;margin-bottom:6px}
+  .price-item{font-size:12px;line-height:1.3}
   .product-card .price .original{font-size:10px}
 }
+
+/* ── Editorial Spotlight: story-style progress fill (New Arrivals showcase) ── */
+@keyframes showcase-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+

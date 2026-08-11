@@ -227,7 +227,9 @@ const DEFAULT_EN_TRANSLATIONS = {
 
   // ── Home ──
   'home.collections': 'Collections',
+  'home.shop': 'Shop',
   'home.shop_by_category': 'Shop by Category',
+  'home.explore': 'Explore',
   'home.browse_all': 'Browse All',
   'home.fresh_drops': 'Fresh Drops',
   'home.seasonal': 'Seasonal',
@@ -1145,6 +1147,7 @@ const DEFAULT_HI_TRANSLATIONS = {
   'auth.redirecting_google': 'Google पर रीडायरेक्ट हो रहा है...',
   'auth.redirecting_facebook': 'Facebook पर रीडायरेक्ट हो रहा है...',
   'home.collections': 'कलेक्शन',
+  'home.shop': 'खरीदें',
   'home.shop_by_category': 'श्रेणी के अनुसार खरीदें',
   'home.browse_all': 'सभी ब्राउज़ करें',
   'home.fresh_drops': 'नए ड्रॉप्स',
