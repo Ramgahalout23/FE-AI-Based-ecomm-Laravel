@@ -89,7 +89,6 @@ export default function BrandsAdminPage() {
     { key: 'name', label: 'Brand Name' },
     { key: 'slug', label: 'Slug' },
     { key: 'description', label: 'Description' },
-    { key: 'isActive', label: 'Active' },
     { key: 'createdAt', label: 'Created Date' },
   ];
 
