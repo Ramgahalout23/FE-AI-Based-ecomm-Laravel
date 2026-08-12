@@ -83,6 +83,7 @@ export default function ProductsAdminPage() {
     { key: 'badge', label: 'Badge' },
     { key: 'description', label: 'Description' },
     { key: 'shortDescription', label: 'Short Description' },
+    { key: 'labelNumber', label: 'Label Number' },
     { key: 'createdAt', label: 'Created Date' },
   ];
 

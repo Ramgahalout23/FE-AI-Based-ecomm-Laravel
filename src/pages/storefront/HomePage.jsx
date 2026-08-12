@@ -78,6 +78,32 @@ function ReelsLazyBoundary({ reels, loading }) {
   );
 }
 
+/* ── useInView — fires once when the element nears the viewport, used to
+     lazily fetch the below-the-fold homepage sections on scroll. ── */
+function useInView(ref, enabled = true, rootMargin = '600px 0px') {
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || inView) return;
+    const el = ref.current;
+    if (!el) return; // section not mounted yet — effect re-runs when enabled flips
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setInView(true);
+        observer.disconnect();
+      }
+    }, { rootMargin });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, enabled, inView, rootMargin]);
+
+  return inView;
+}
+
 /* ── Scroll Progress Bar — subtle reading progress ── */
 function ScrollProgressBar() {
   const { scrollYProgress } = useScroll();
@@ -1781,14 +1807,12 @@ export default function HomePage() {
     staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
   });
 
-  // Extract all data from the consolidated response
+  // Extract data from the core (always-on) payload. The below-the-fold
+  // sections (new arrivals, best sellers, reviews, reels) are fetched lazily
+  // on scroll — see the lazy queries below.
   const featuredProducts = homepageData?.featured || [];
-  const newArrivals = homepageData?.newArrivals || [];
-  const bestSellers = homepageData?.bestSellers || [];
   const banners = homepageData?.banners || [];
   const categories = homepageData?.categories || [];
-  const homepageReviews = homepageData?.reviews?.reviews || [];
-  const reels = homepageData?.reels || [];
   const curatedLooks = homepageData?.curatedLooks || [];
   const flashSales = homepageData?.promotions || [];
   const seoData = homepageData?.seo || { title: '', description: '' };
@@ -1812,6 +1836,44 @@ export default function HomePage() {
   const newArrivalExpiryDate = mergedGetSetting('newArrivalExpiryDate', '');
   const tshirtCustomizerEnabled = mergedGetSetting('tshirtCustomizerEnabled', 'false') !== 'false';
   const reelsEnabled = mergedGetSetting('reelsEnabled', 'true') !== 'false';
+
+  // ── Lazy-loaded below-the-fold sections — fetched when scrolled near ──
+  const newArrivalsRef = useRef(null);
+  const bestSellersRef = useRef(null);
+  const reviewsRef = useRef(null);
+  const reelsRef = useRef(null);
+  // new-arrivals sits just below the hero/flash-sale fold; a 0px margin keeps
+  // it out of the initial request wave so the first payload stays < 100KB.
+  const newArrivalsInView = useInView(newArrivalsRef, !isLoading && newArrivalsEnabled, '0px 0px');
+  const bestSellersInView = useInView(bestSellersRef, !isLoading && bestSellersEnabled);
+  const reviewsInView = useInView(reviewsRef, !isLoading && reviewsEnabled);
+  const reelsInView = useInView(reelsRef, !isLoading && reelsEnabled);
+
+  const { data: newArrivals = [], isLoading: newArrivalsLoading } = useQuery({
+    queryKey: ['homepage', 'newArrivals'],
+    queryFn: async () => (await homepageAPI.getNewArrivals())?.data?.data || [],
+    enabled: newArrivalsInView,
+    staleTime: 0,
+  });
+  const { data: bestSellers = [], isLoading: bestSellersLoading } = useQuery({
+    queryKey: ['homepage', 'bestSellers'],
+    queryFn: async () => (await homepageAPI.getBestSellers())?.data?.data || [],
+    enabled: bestSellersInView,
+    staleTime: 0,
+  });
+  const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
+    queryKey: ['homepage', 'reviews'],
+    queryFn: async () => (await homepageAPI.getReviews())?.data?.data || { reviews: [] },
+    enabled: reviewsInView,
+    staleTime: 0,
+  });
+  const { data: reels = [], isLoading: reelsLoading } = useQuery({
+    queryKey: ['homepage', 'reels'],
+    queryFn: async () => (await homepageAPI.getReels())?.data?.data || [],
+    enabled: reelsInView,
+    staleTime: 0,
+  });
+  const homepageReviews = reviewsData?.reviews || [];
 
   // ── Read section order from settings (with fallback to default) ──
   const sectionOrder = (() => {
@@ -1853,7 +1915,11 @@ export default function HomePage() {
       case 'new_arrivals':
         return newArrivalsEnabled && (
           <AnimatedSection key="new_arrivals" delay={0.05}>
-            <NewArrivalsSection products={newArrivals} />
+            {/* Skeleton shows until the lazy fetch completes — it also keeps the
+                observer target non-zero-height so the on-scroll fetch triggers. */}
+            <div ref={newArrivalsRef}>
+              {(!newArrivalsInView || newArrivalsLoading) && newArrivals.length === 0 ? <NewArrivalsSkeleton /> : <NewArrivalsSection products={newArrivals} />}
+            </div>
           </AnimatedSection>
         );
       case 'curated_looks':
@@ -1879,22 +1945,34 @@ export default function HomePage() {
       case 'best_sellers':
         return bestSellersEnabled && (
           <AnimatedSection key="best_sellers" delay={0.05}>
-            <ProductRow
-              title="Best Sellers"
-              products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
-            />
+            <div ref={bestSellersRef}>
+              {(!bestSellersInView || bestSellersLoading) && bestSellers.length === 0 ? <ProductRowSkeleton /> : (
+                <ProductRow
+                  title="Best Sellers"
+                  products={bestSellers.length > 0 ? bestSellers : featuredProducts.slice(0, 8)}
+                />
+              )}
+            </div>
           </AnimatedSection>
         );
       case 'reviews':
         return reviewsEnabled && (
           <AnimatedSection key="reviews" delay={0.05}>
-            <PremiumReviewSlider reviews={homepageReviews} loading={isLoading} onReviewSuccess={refetchAll} onOpenAllReviews={() => setAllReviewsOpen(true)} />
+            <div ref={reviewsRef}>
+              {(!reviewsInView || reviewsLoading) && homepageReviews.length === 0 ? <ProductRowSkeleton /> : (
+                <PremiumReviewSlider reviews={homepageReviews} onReviewSuccess={refetchAll} onOpenAllReviews={() => setAllReviewsOpen(true)} />
+              )}
+            </div>
           </AnimatedSection>
         );
       case 'reels':
         return reelsEnabled && (
           <AnimatedSection key="reels" delay={0.05}>
-            <ReelsLazyBoundary reels={reels} loading={isLoading} />
+            <div ref={reelsRef}>
+              {/* loading stays true until the lazy fetch fires, so the reel
+                  skeleton (non-zero height) keeps the observer target alive. */}
+              <ReelsLazyBoundary reels={reels} loading={!reelsInView || reelsLoading} />
+            </div>
           </AnimatedSection>
         );
       default:
@@ -1922,9 +2000,10 @@ export default function HomePage() {
     enabled: !!newArrivalProductId && !isExpired,
   });
 
-  // Pull-to-refresh: invalidate the consolidated cache so it re-fetches
+  // Pull-to-refresh: invalidate every homepage query (core + lazy sections)
+  // so a refresh re-fetches stock counts and section data.
   const refetchAll = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['homepage', 'all'] });
+    await queryClient.invalidateQueries({ queryKey: ['homepage'] });
   }, [queryClient]);
 
   /* ── All Reviews Modal state ── */

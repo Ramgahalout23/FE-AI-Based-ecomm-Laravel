@@ -35,7 +35,7 @@ export default function ProductImportAdminPage() {
   const availableFields = [
     'name', 'description', 'short_description', 'price', 'old_price', 'cost',
     'quantity', 'sku', 'barcode', 'category', 'brand', 'images', 'tags', 'status',
-    'badge', 'is_featured', 'seo_title', 'seo_description', 'seo_keywords',
+    'badge', 'is_featured', 'label_number', 'seo_title', 'seo_description', 'seo_keywords',
     'variant_sku', 'variant_color', 'variant_size', 'variant_price', 'variant_quantity',
   ];
 
@@ -198,7 +198,7 @@ export default function ProductImportAdminPage() {
     const headers = [
       'name', 'description', 'shortDescription', 'price', 'oldPrice', 'cost',
       'quantity', 'sku', 'barcode', 'category', 'brand', 'images', 'tags', 'status',
-      'badge', 'isFeatured', 'seoTitle', 'seoDescription', 'seoKeywords',
+      'badge', 'isFeatured', 'labelNumber', 'seoTitle', 'seoDescription', 'seoKeywords',
       'variantSku', 'variantColor', 'variantSize', 'variantPrice', 'variantQuantity',
     ];
     const sampleRow = [
@@ -206,7 +206,7 @@ export default function ProductImportAdminPage() {
       '29.99', '39.99', '12.00', '100', 'TSH-001', '8901234567890', 'T-Shirts', 'Nike',
       'https://example.com/tshirt-front.jpg,https://example.com/tshirt-back.jpg',
       'summer,cotton,basics', 'PUBLISHED', 'New', 'true',
-      'Classic T-Shirt | Threvolt', 'Shop our premium classic t-shirt', 't-shirt, cotton, premium',
+      'TSH-0001', 'Classic T-Shirt | Threvolt', 'Shop our premium classic t-shirt', 't-shirt, cotton, premium',
       'TSH-001-BLK-M', 'Black', 'M', '29.99', '25',
     ];
     const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
@@ -640,6 +640,7 @@ export default function ProductImportAdminPage() {
             <div><span style={{ fontWeight: 600 }}>status</span> — DRAFT / PUBLISHED / ARCHIVED</div>
             <div><span style={{ fontWeight: 600 }}>badge</span> — New / Sale / Bestseller / etc.</div>
             <div><span style={{ fontWeight: 600 }}>isFeatured</span> — true / false</div>
+            <div><span style={{ fontWeight: 600 }}>labelNumber</span> — Label number (auto-generated if empty)</div>
             <div><span style={{ fontWeight: 600 }}>variantSku</span> — Variant SKU</div>
             <div><span style={{ fontWeight: 600 }}>variantColor</span> — Variant color</div>
             <div><span style={{ fontWeight: 600 }}>variantSize</span> — Variant size</div>

@@ -1226,6 +1226,9 @@ function OverviewSection() {
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
 export default function WatchAndBuyPage() {
+  // Core homepage payload (featured, new arrivals, categories) — reels and
+  // best sellers now come from the lazy homepage-section endpoints, fetched
+  // immediately here since this page is built around them.
   const { data: homepageData, isLoading } = useQuery({
     queryKey: ['watch-and-buy', 'homepage'],
     queryFn: async () => {
@@ -1234,13 +1237,23 @@ export default function WatchAndBuyPage() {
     },
     staleTime: 60000,
   });
+  const { data: reelsData, isLoading: reelsLoading } = useQuery({
+    queryKey: ['watch-and-buy', 'reels'],
+    queryFn: async () => (await homepageAPI.getReels())?.data?.data || [],
+    staleTime: 60000,
+  });
+  const { data: bestSellersData } = useQuery({
+    queryKey: ['watch-and-buy', 'bestSellers'],
+    queryFn: async () => (await homepageAPI.getBestSellers())?.data?.data || [],
+    staleTime: 60000,
+  });
 
   const newArrivals = homepageData?.newArrivals || [];
-  const bestSellers = homepageData?.bestSellers || [];
+  const bestSellers = bestSellersData || [];
   const categories = homepageData?.categories || [];
   const featuredProducts = homepageData?.featured || [];
-  /** @type {Array} reels — fetched from homepage API, each has videoUrl, imageUrl, title, products[] */
-  const reels = homepageData?.reels || [];
+  /** @type {Array} reels — each has videoUrl, imageUrl, title, products[] */
+  const reels = reelsData || [];
 
   const fallbackProducts = featuredProducts.length > 0 ? featuredProducts : (homepageData?.products || []);
   const mainProducts = newArrivals.length > 0 ? newArrivals : bestSellers.length > 0 ? bestSellers : fallbackProducts;
@@ -1257,7 +1270,7 @@ export default function WatchAndBuyPage() {
       <FeaturedVideoShowcase reels={reels} />
 
       {/* ── PRODUCT GRID ── */}
-      {isLoading ? (
+      {isLoading || reelsLoading ? (
         <section className="py-12 md:py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionHeader title="New Arrivals" tagline="Fresh Drops" />

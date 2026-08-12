@@ -27,7 +27,9 @@ export const BANNER_TYPES = ['HERO', 'SALE', 'CATEGORY', 'POPUP', 'FEATURED', 'N
 
 export const SHIPPING_STATUSES = ['PENDING', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'];
 
-export const COUPON_TYPES = ['PERCENTAGE', 'FIXED'];
+// Values mirror the `coupons.discount_type` DB ENUM ('FLAT','PERCENTAGE').
+// Use 'FLAT' (not 'FIXED') so coupon saves don't hit a data-truncation error.
+export const COUPON_TYPES = ['PERCENTAGE', 'FLAT'];
 
 // ── Support Tickets ──
 // Values mirror the `support_tickets` table ENUMs (see
