@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { taxAPI } from '../../api/tax';
 import { settingsAPI } from '../../api/settings';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, rateValue } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 const COUNTRIES = [
@@ -42,7 +47,6 @@ const EMPTY_FORM = {
 export default function TaxAdminPage() {
   const [taxRates, setTaxRates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingTaxRate, setEditingTaxRate] = useState(null);
   const [taxForm, setTaxForm] = useState(EMPTY_FORM);
@@ -61,7 +65,9 @@ export default function TaxAdminPage() {
     setLoading(true);
     try {
       const res = await taxAPI.getAll();
-      const data = res.data?.data || [];
+      // Backend returns a Laravel paginator ({ data: [...] }) — unwrap both layers.
+      const body = res.data?.data || {};
+      const data = body?.data || (Array.isArray(body) ? body : []);
       setTaxRates(Array.isArray(data) ? data : []);
     } catch (err) {
       console.warn('Failed to load tax rates:', err);
@@ -115,10 +121,13 @@ export default function TaxAdminPage() {
     setShowModal(true);
   };
 
+  const validation = useAdminFormValidation({
+    name: requiredField('Tax rate name'),
+    rate: rateValue('Tax rate', 'Valid tax rate is required'),
+  });
+
   const handleCreate = async () => {
-    if (!taxForm.name.trim()) { toast.error('Tax rate name is required'); return; }
-    if (!taxForm.rate || parseFloat(taxForm.rate) < 0) { toast.error('Valid tax rate is required'); return; }
-    setSaving(true);
+    if (!validation.validateForm(taxForm)) return;
     try {
       const payload = {
         name: taxForm.name,
@@ -132,19 +141,16 @@ export default function TaxAdminPage() {
       };
       await taxAPI.create(payload);
       toast.success('Tax rate created');
-      setShowModal(false);
-      resetForm();
       loadTaxRates();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create tax rate');
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
   const handleUpdate = async () => {
-    if (!taxForm.name.trim() || !editingTaxRate) return;
-    setSaving(true);
+    if (!editingTaxRate || !validation.validateForm(taxForm)) return;
     try {
       const payload = {
         name: taxForm.name,
@@ -158,24 +164,23 @@ export default function TaxAdminPage() {
       };
       await taxAPI.update(editingTaxRate.id, payload);
       toast.success('Tax rate updated');
-      setShowModal(false);
-      resetForm();
       loadTaxRates();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update tax rate');
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this tax rate?')) return;
     try {
       await taxAPI.delete(id);
       toast.success('Tax rate deleted');
       loadTaxRates();
+      return true;
     } catch (err) {
       toast.error('Failed to delete tax rate');
+      return false;
     }
   };
 
@@ -184,8 +189,10 @@ export default function TaxAdminPage() {
       await taxAPI.update(rate.id, { isActive: !rate.isActive });
       toast.success(rate.isActive ? 'Tax rate disabled' : 'Tax rate enabled');
       loadTaxRates();
+      return true;
     } catch (err) {
       toast.error('Failed to toggle tax rate');
+      return false;
     }
   };
 
@@ -347,18 +354,17 @@ export default function TaxAdminPage() {
                     </span>
                   </td>
                   <td>
-                    <button
+                    <ActionButton
                       onClick={() => handleToggle(rate)}
                       className={`status-badge ${rate.isActive ? 'status-active' : 'status-pending'}`}
                       style={{ border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}
-                    >
-                      {rate.isActive ? 'Active' : 'Disabled'}
-                    </button>
+                      idle={rate.isActive ? 'Active' : 'Disabled'}
+                    />
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
                       <button className="btn-edit" onClick={() => openEdit(rate)}>Edit</button>
-                      <button className="btn-del" onClick={() => handleDelete(rate.id)}>Delete</button>
+                      <ActionButton className="btn-del" confirm="Are you sure you want to delete this tax rate?" onClick={() => handleDelete(rate.id)} idle="Delete" />
                     </div>
                   </td>
                 </tr>
@@ -381,27 +387,28 @@ export default function TaxAdminPage() {
             </div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Tax Rate Name *</label>
+                <AdminFormField label="Tax Rate Name" required error={validation.errors.name} valid={validation.validFields.name} className="form-full">
                   <input
                     value={taxForm.name}
-                    onChange={e => setTaxForm({ ...taxForm, name: e.target.value })}
+                    onChange={e => { setTaxForm({ ...taxForm, name: e.target.value }); validation.handleChange('name', e.target.value); }}
                     placeholder="e.g. India GST 18%"
                   />
-                </div>
+                </AdminFormField>
 
-                <div className="form-group">
-                  <label>Rate *</label>
+                <AdminFormField
+                  label="Rate"
+                  required
+                  error={validation.errors.rate}
+                  valid={validation.validFields.rate}
+                  hint={taxForm.type === 'PERCENTAGE' ? 'Percentage value (e.g., 18 for 18%)' : 'Flat amount'}
+                >
                   <input
                     type="number" step="0.01" min="0" max="100"
                     value={taxForm.rate}
-                    onChange={e => setTaxForm({ ...taxForm, rate: e.target.value })}
+                    onChange={e => { setTaxForm({ ...taxForm, rate: e.target.value }); validation.handleChange('rate', e.target.value); }}
                     placeholder={taxForm.type === 'PERCENTAGE' ? 'e.g. 18.0' : 'e.g. 5.00'}
                   />
-                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-                    {taxForm.type === 'PERCENTAGE' ? 'Percentage value (e.g., 18 for 18%)' : 'Flat amount'}
-                  </span>
-                </div>
+                </AdminFormField>
 
                 <div className="form-group">
                   <label>Type</label>
@@ -514,13 +521,11 @@ export default function TaxAdminPage() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-              <button
-                className="btn-dark btn-sm"
+              <SaveButton
                 onClick={editingTaxRate ? handleUpdate : handleCreate}
-                disabled={saving || !taxForm.name.trim() || !taxForm.rate}
-              >
-                {saving ? 'Saving...' : editingTaxRate ? 'Update Tax Rate' : 'Create Tax Rate'}
-              </button>
+                onSuccess={() => { setShowModal(false); resetForm(); }}
+                idleLabel={editingTaxRate ? 'Update Tax Rate' : 'Create Tax Rate'}
+              />
             </div>
           </div>
         </div>

@@ -9,6 +9,9 @@ import { getImageUrl } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import { Eye, Ban, Download, Save, Palette, Image as ImageIcon, Edit, Plus, X, AlertTriangle, Lightbulb, Package } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -242,9 +245,12 @@ export default function CuratedLooksAdminPage() {
     );
   };
 
+  const validation = useAdminFormValidation({
+    name: requiredField('Name'),
+  });
+
   const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error('Name is required');
+    if (!validation.validateForm(form)) {
       return;
     }
     try {
@@ -637,16 +643,16 @@ export default function CuratedLooksAdminPage() {
                   )}
                 </div>
 
-                <div className="form-group">
-                  <label>
-                    Name <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
+                <AdminFormField label="Name" required error={validation.errors.name} valid={validation.validFields.name}>
                   <input
                     value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, name: e.target.value });
+                      validation.handleChange('name', e.target.value);
+                    }}
                     placeholder="e.g. Summer Essentials"
                   />
-                </div>
+                </AdminFormField>
 
                 <div className="form-group">
                   <label>Active</label>

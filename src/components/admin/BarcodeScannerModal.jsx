@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { inventoryAPI } from '../../api/inventory';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 
 /* CSS animation is in components.css (@keyframes scanLine + .scan-line class) */
 
@@ -16,6 +18,9 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
   const [error, setError] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const skuValidation = useAdminFormValidation({
+    sku: requiredField('Barcode or SKU'),
+  });
 
   const videoRef = useRef(null);
   const codeReaderRef = useRef(null);
@@ -83,6 +88,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
       setError(null);
       setSelectedVariant(null);
       resultClickRef.current = false;
+      skuValidation.reset();
       startCamera();
     } else {
       stopCamera();
@@ -183,6 +189,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
+    if (!skuValidation.validateForm({ sku: skuInput })) return;
     handleLookup(skuInput);
   };
 
@@ -313,9 +320,10 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
                   ref={inputRef}
                   type="text"
                   value={skuInput}
-                  onChange={e => setSkuInput(e.target.value)}
+                  onChange={e => { setSkuInput(e.target.value); skuValidation.handleChange('sku', e.target.value); }}
                   placeholder="Scan or type barcode / SKU..."
                   autoFocus
+                  className={`${skuValidation.errors.sku ? 'qty-invalid' : ''} ${skuValidation.validFields.sku ? 'is-valid-input' : ''}`}
                   style={{
                     flex: 1,
                     padding: '0.65rem 0.75rem',
@@ -331,7 +339,7 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
                 />
                 <button
                   type="submit"
-                  disabled={!skuInput.trim() || lookingUp}
+                  disabled={lookingUp}
                   className="btn-dark btn-sm"
                   style={{ padding: '0.65rem 1.2rem', borderRadius: 8, fontSize: '0.82rem' }}
                 >
@@ -340,6 +348,9 @@ export default function BarcodeScannerModal({ isOpen, onClose, onVariantFound })
                   ) : 'Search'}
                 </button>
               </div>
+              {skuValidation.errors.sku && (
+                <div className="form-error" role="alert">{skuValidation.errors.sku}</div>
+              )}
               <p style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.3rem' }}>
                 Tip: Hardware barcode scanners work here — just scan and the result appears automatically
               </p>

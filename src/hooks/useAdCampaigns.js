@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adsAPI } from '../api/ads';
 import toast from '../utils/toast';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 export default function useAdCampaigns(search) {
   const [campaigns, setCampaigns] = useState([]);
@@ -136,8 +137,10 @@ export default function useAdCampaigns(search) {
     setModalLoading(false);
   };
 
+  const confirm = useConfirm();
+
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this ad campaign?')) return;
+    if (!(await confirm({ title: 'Delete ad campaign?', message: 'This campaign will be permanently removed.', confirmLabel: 'Delete' }))) return;
     try {
       await adsAPI.deleteCampaign(id);
       toast.success('Campaign deleted');

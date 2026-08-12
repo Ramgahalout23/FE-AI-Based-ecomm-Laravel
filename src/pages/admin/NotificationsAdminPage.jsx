@@ -7,6 +7,9 @@ import { formatDateTime, getUserFullName } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation, minLength, composeValidators } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 const EMPTY = { title: '', message: '', type: 'SYSTEM', targetAudience: 'ALL', selectedUserId: '' };
@@ -119,20 +122,13 @@ export default function NotificationsAdminPage() {
   // Module-level cache for user reference data (bulk notification recipient resolution)
 let _cachedAllUsers = null;
 
-const validateForm = () => {
-    if (!form.title || form.title.trim().length < 3) {
-      toast.error('Title must be at least 3 characters');
-      return false;
-    }
-    if (!form.message || form.message.trim().length < 5) {
-      toast.error('Message must be at least 5 characters');
-      return false;
-    }
-    return true;
-  };
+  const validation = useAdminFormValidation({
+    title: composeValidators(requiredField('Title'), minLength(3, 'Title must be at least 3 characters')),
+    message: composeValidators(requiredField('Message'), minLength(5, 'Message must be at least 5 characters')),
+  });
 
   const handleSend = async () => {
-    if (!validateForm()) return;
+    if (!validation.validateForm(form)) return;
     try {
       // If sending to a specific user, use the single notification endpoint
       if (form.targetAudience === 'SPECIFIC_USER') {
@@ -360,7 +356,9 @@ const validateForm = () => {
             <div className="modal-header"><h3>📢 Send Notification</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group"><label>Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Flash Sale Alert!" /></div>
+                <AdminFormField label="Title" required error={validation.errors.title} valid={validation.validFields.title}>
+                  <input value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); validation.handleChange('title', e.target.value); }} placeholder="Flash Sale Alert!" />
+                </AdminFormField>
                 <div className="form-group"><label>Type</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>{NOTIFICATION_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
                 <div className="form-group">
                   <label>Target</label>
@@ -496,15 +494,14 @@ const validateForm = () => {
                   </div>
                 )}
                 
-                <div className="form-group form-full">
-                  <label>Message</label>
+                <AdminFormField label="Message" required error={validation.errors.message} valid={validation.validFields.message} className="form-full">
                   <textarea 
                     rows={3} 
                     value={form.message} 
-                    onChange={e => setForm({ ...form, message: e.target.value })} 
+                    onChange={e => { setForm({ ...form, message: e.target.value }); validation.handleChange('message', e.target.value); }} 
                     placeholder="Your notification message..."
                   />
-                </div>
+                </AdminFormField>
               </div>
             </div>
             <div className="modal-footer">

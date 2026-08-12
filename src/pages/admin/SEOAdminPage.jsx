@@ -1,7 +1,10 @@
 import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle, Code2, Facebook, Languages, FolderTree } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, imageUrl } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 
 ;
@@ -75,6 +78,7 @@ const readField = (obj, ...keys) => {
 };
 
 export default function SEOAdminPage() {
+  const confirm = useConfirm();
   const [tab, setTab] = useState('global');
   const [loading, setLoading] = useState(false);
   const tabs = [
@@ -117,6 +121,18 @@ export default function SEOAdminPage() {
   const [bulkAuditLoading, setBulkAuditLoading] = useState(false);
   const [advSettings, setAdvSettings] = useState(null);
   const [advSettingsLoading, setAdvSettingsLoading] = useState(false);
+
+  // Global SEO — site title is required.
+  const globalValidation = useAdminFormValidation({
+    title: requiredField('Site title'),
+  });
+
+  // Entity SEO — meta title required; image/canonical URLs validated when filled.
+  const entityValidation = useAdminFormValidation({
+    metaTitle: requiredField('Meta title'),
+    ogImage: imageUrl('Enter a valid image URL (https://...)'),
+    canonicalUrl: imageUrl('Enter a valid canonical URL (https://...)'),
+  });
 
   const loadGlobalSEO = useCallback(async () => {
     try { const res = await adminAPI.getGlobalSEO(); const d = res.data?.data || {}; setGlobalSeo({ title: d.title || '', description: d.description || '', keywords: d.keywords || '' }); }
@@ -184,6 +200,7 @@ export default function SEOAdminPage() {
   }, [tab, loadGlobalSEO, loadSchemas, loadAdvancedSettings, loadEntityList, loadSitemap, loadRobots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveGlobal = async () => {
+    if (!globalValidation.validateForm(globalSeo)) return;
     setLoading(true);
     try { await adminAPI.updateGlobalSEO(globalSeo); toast.success('Global SEO settings saved'); }
     catch { toast.error('Failed to save global SEO'); }
@@ -225,6 +242,7 @@ export default function SEOAdminPage() {
 
   const handleSaveEntitySEO = async () => {
     if (!selectedEntity) return;
+    if (!entityValidation.validateForm({ metaTitle: seoForm.metaTitle, ogImage: seoForm.ogImage, canonicalUrl: seoForm.canonicalUrl })) return;
     setLoading(true);
     try {
       const payload = {};
@@ -237,7 +255,7 @@ export default function SEOAdminPage() {
 
   const handleDeleteEntitySEO = async () => {
     if (!selectedEntity) return;
-    if (!window.confirm('Delete SEO metadata for this entity? This cannot be undone.')) return;
+    if (!(await confirm({ title: 'Delete SEO metadata?', message: `SEO for "${selectedEntity.name || selectedEntity.title || selectedEntity.id}" will be removed. This cannot be undone.`, confirmLabel: 'Delete' }))) return;
     setLoading(true);
     try {
       const res = await adminAPI.getEntitySEO(entityType, selectedEntity.id);
@@ -329,10 +347,13 @@ export default function SEOAdminPage() {
         <div className="detail-panel">
           <div className="detail-header"><h3>Global SEO Settings</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>These values apply site-wide as defaults</span></div>
           <div className="form-grid">
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${globalValidation.errors.title ? 'has-error' : ''} ${globalValidation.validFields.title ? 'is-valid' : ''}`}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><label>Site Title (Meta Title)</label><CharCounter current={globalSeo.title.length} max={60} /></div>
-              <input value={globalSeo.title} onChange={e => setGlobalSeo({ ...globalSeo, title: e.target.value })} placeholder="Your Store Name — Tagline" maxLength={70} />
+              <input value={globalSeo.title} onChange={e => { setGlobalSeo({ ...globalSeo, title: e.target.value }); globalValidation.handleChange('title', e.target.value); }} placeholder="Your Store Name — Tagline" maxLength={70} />
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Recommended: 50–60 characters.</span>
+              {globalValidation.errors.title && (
+                <div className="form-error" role="alert">{globalValidation.errors.title}</div>
+              )}
             </div>
             <div className="form-group form-full">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><label>Meta Description</label><CharCounter current={globalSeo.description.length} max={160} /></div>
@@ -653,9 +674,12 @@ export default function SEOAdminPage() {
         ) : (
           <>
             <div className="form-grid">
-              <div className="form-group form-full">
+              <div className={`form-group form-full ${entityValidation.errors.metaTitle ? 'has-error' : ''} ${entityValidation.validFields.metaTitle ? 'is-valid' : ''}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><label>Meta Title</label><CharCounter current={seoForm.metaTitle.length} max={60} /></div>
-                <input value={seoForm.metaTitle} onChange={e => setSeoForm({ ...seoForm, metaTitle: e.target.value })} placeholder="Product Name | Store" maxLength={70} />
+                <input value={seoForm.metaTitle} onChange={e => { setSeoForm({ ...seoForm, metaTitle: e.target.value }); entityValidation.handleChange('metaTitle', e.target.value); }} placeholder="Product Name | Store" maxLength={70} />
+                {entityValidation.errors.metaTitle && (
+                  <div className="form-error" role="alert">{entityValidation.errors.metaTitle}</div>
+                )}
               </div>
               <div className="form-group form-full">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><label>Meta Description</label><CharCounter current={seoForm.metaDescription.length} max={160} /></div>
@@ -667,8 +691,8 @@ export default function SEOAdminPage() {
               </div>
               <div className="form-group"><label>OG Title</label><input value={seoForm.ogTitle} onChange={e => setSeoForm({ ...seoForm, ogTitle: e.target.value })} /></div>
               <div className="form-group"><label>OG Description</label><input value={seoForm.ogDescription} onChange={e => setSeoForm({ ...seoForm, ogDescription: e.target.value })} /></div>
-              <div className="form-group form-full"><label>OG Image URL</label><input value={seoForm.ogImage} onChange={e => setSeoForm({ ...seoForm, ogImage: e.target.value })} /></div>
-              <div className="form-group form-full"><label>Canonical URL</label><input value={seoForm.canonicalUrl} onChange={e => setSeoForm({ ...seoForm, canonicalUrl: e.target.value })} /></div>
+              <div className={`form-group form-full ${entityValidation.errors.ogImage ? 'has-error' : ''} ${entityValidation.validFields.ogImage ? 'is-valid' : ''}`}><label>OG Image URL</label><input value={seoForm.ogImage} onChange={e => { setSeoForm({ ...seoForm, ogImage: e.target.value }); entityValidation.handleChange('ogImage', e.target.value); }} />{entityValidation.errors.ogImage && <div className="form-error" role="alert">{entityValidation.errors.ogImage}</div>}</div>
+              <div className={`form-group form-full ${entityValidation.errors.canonicalUrl ? 'has-error' : ''} ${entityValidation.validFields.canonicalUrl ? 'is-valid' : ''}`}><label>Canonical URL</label><input value={seoForm.canonicalUrl} onChange={e => { setSeoForm({ ...seoForm, canonicalUrl: e.target.value }); entityValidation.handleChange('canonicalUrl', e.target.value); }} />{entityValidation.errors.canonicalUrl && <div className="form-error" role="alert">{entityValidation.errors.canonicalUrl}</div>}</div>
               <div className="form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Settings size={14} /> Advanced Meta</h4>
               </div>

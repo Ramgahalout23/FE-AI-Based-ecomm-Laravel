@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AdminSelect from './AdminSelect';
 
 /**
  * Reusable Pagination component for admin tables.
@@ -45,19 +46,6 @@ export default function Pagination({
     borderTop: '1px solid var(--border)',
     background: 'var(--off-white)',
     borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
-  };
-
-  const selectStyle = {
-    padding: '0.3rem 0.5rem',
-    borderRadius: 6,
-    border: '1px solid var(--border)',
-    fontSize: '0.78rem',
-    background: '#fff',
-    color: 'var(--charcoal)',
-    fontWeight: 500,
-    outline: 'none',
-    cursor: 'pointer',
-    transition: 'border-color 0.15s',
   };
 
   const pageBtnStyle = (isActive) => ({
@@ -143,17 +131,13 @@ export default function Pagination({
             <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Show</span>
-              <select
-                value={pageSize}
-                onChange={e => onPageSizeChange(Number(e.target.value))}
-                style={selectStyle}
-                onFocus={e => e.target.style.borderColor = 'var(--gold)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
-              >
-                {pageSizeOptions.map(size => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
+              <AdminSelect
+                size="sm"
+                value={String(pageSize)}
+                onChange={(v) => onPageSizeChange(Number(v))}
+                options={pageSizeOptions.map(s => String(s))}
+                ariaLabel="Rows per page"
+              />
               <span style={{ fontSize: '0.72rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>per page</span>
             </div>
           </>

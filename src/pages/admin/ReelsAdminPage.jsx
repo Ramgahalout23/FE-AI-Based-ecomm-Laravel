@@ -6,6 +6,9 @@ import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 
@@ -248,9 +251,12 @@ export default function ReelsAdminPage() {
     setShowModal(true);
   };
 
+  const validation = useAdminFormValidation({
+    title: requiredField('Title'),
+  });
+
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      toast.error('Title is required');
+    if (!validation.validateForm(form)) {
       return;
     }
     try {
@@ -737,16 +743,16 @@ export default function ReelsAdminPage() {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label>
-                    Title <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
+                <AdminFormField label="Title" required error={validation.errors.title} valid={validation.validFields.title}>
                   <input
                     value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    onChange={(e) => {
+                      setForm({ ...form, title: e.target.value });
+                      validation.handleChange('title', e.target.value);
+                    }}
                     placeholder="e.g. Summer Collection 2024"
                   />
-                </div>
+                </AdminFormField>
 
                 <div className="form-group">
                   <label>Badge / Tag (optional)</label>

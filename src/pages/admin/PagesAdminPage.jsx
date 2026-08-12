@@ -4,6 +4,11 @@ import { aiAPI } from '../../api/ai';
 import { formatDate } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 const AdvancedPageEditor = lazy(() => import('../../components/common/AdvancedPageEditor'));
@@ -16,6 +21,12 @@ export default function PagesAdminPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ title: '', slug: '', content: '', status: 'PUBLISHED' });
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    title: requiredField('Page title'),
+    slug: requiredField('URL slug'),
+  });
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,10 +122,11 @@ export default function PagesAdminPage() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isFullscreen, showModal]);
 
-  const openCreate = () => { setEditing(null); setForm({ title: '', slug: '', content: '', status: 'PUBLISHED' }); setShowModal(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ title: p.title || '', slug: p.slug || '', content: p.content || '', status: p.status || 'PUBLISHED' }); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm({ title: '', slug: '', content: '', status: 'PUBLISHED' }); validation.reset(); setShowModal(true); };
+  const openEdit = (p) => { setEditing(p); setForm({ title: p.title || '', slug: p.slug || '', content: p.content || '', status: p.status || 'PUBLISHED' }); validation.reset(); setShowModal(true); };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     try {
       if (editing) {
         await adminAPI.updatePage(editing.id, form);
@@ -124,10 +136,11 @@ export default function PagesAdminPage() {
         toast.success('Page created');
       }
       await load(currentPage);
-      setShowModal(false);
+      return true;
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || 'Failed to save page';
       toast.error(msg);
+      return false;
     }
   };
 
@@ -154,14 +167,15 @@ export default function PagesAdminPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this custom page?')) return;
     try { 
       await adminAPI.deletePage(id); 
       setPages(pages.filter(p => p.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
@@ -213,7 +227,7 @@ export default function PagesAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(p)}>Edit</button>
-                    <button className="btn-del" onClick={() => handleDelete(p.id)}>Delete</button>
+                    <ActionButton className="btn-del" confirm="Delete this custom page?" onClick={() => handleDelete(p.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -262,8 +276,12 @@ export default function PagesAdminPage() {
             </div>
             <div className="modal-body" style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-grid">
-                <div className="form-group"><label>Page Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value, slug: editing ? form.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') })} placeholder="e.g. Terms and Conditions" /></div>
-                <div className="form-group"><label>URL Slug</label><input value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder="terms-and-conditions" /></div>
+                <AdminFormField label="Page Title" required error={validation.errors.title} valid={validation.validFields.title}>
+                  <input value={form.title} onChange={e => { setForm({ ...form, title: e.target.value, slug: editing ? form.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') }); validation.handleChange('title', e.target.value); }} placeholder="e.g. Terms and Conditions" />
+                </AdminFormField>
+                <AdminFormField label="URL Slug" required error={validation.errors.slug} valid={validation.validFields.slug}>
+                  <input value={form.slug} onChange={e => { setForm({ ...form, slug: e.target.value }); validation.handleChange('slug', e.target.value); }} placeholder="terms-and-conditions" />
+                </AdminFormField>
                 <div className="form-group"><label>Visibility Status</label><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="PUBLISHED">Published</option><option value="DRAFT">Draft</option></select></div>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}>
@@ -284,7 +302,7 @@ export default function PagesAdminPage() {
                 </Suspense>
               </div>
             </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); setIsFullscreen(false); }}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update Page' : 'Publish Page'}</button></div>
+            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); setIsFullscreen(false); }}>Cancel</button><SaveButton onClick={handleSave} onSuccess={() => { setShowModal(false); setIsFullscreen(false); }} idleLabel={editing ? 'Update Page' : 'Publish Page'} /></div>
           </div>
         </div>
       )}

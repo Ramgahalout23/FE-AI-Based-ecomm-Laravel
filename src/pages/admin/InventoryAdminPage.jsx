@@ -6,6 +6,8 @@ import { downloadBlob } from '../../utils/download';
 import { PageSkeleton } from '../../components/admin/pageSkeletonConfig';
 import BarcodeScannerModal from '../../components/admin/BarcodeScannerModal';
 import Pagination from '../../components/admin/Pagination';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { stockQuantity } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 const STOCK_REASONS = [
@@ -26,6 +28,10 @@ function StockAdjustModal({ isOpen, onClose, variant, onSuccess, defaultType = '
   const [customReason, setCustomReason] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  // Shared registry rule — same positive-integer policy the bulk-adjust rows use.
+  const quantityValidation = useAdminFormValidation({
+    quantity: stockQuantity(),
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -41,16 +47,15 @@ function StockAdjustModal({ isOpen, onClose, variant, onSuccess, defaultType = '
       setReason('restock');
       setCustomReason('');
       setNotes('');
+      quantityValidation.reset();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- quantityValidation is recreated each render; including it would reset the form on every keystroke
   }, [isOpen, defaultType]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const qty = parseInt(quantity, 10);
-    if (!qty || qty <= 0) {
-      toast.error('Please enter a valid quantity');
-      return;
-    }
+    if (!quantityValidation.validateForm({ quantity })) return;
     if (type === 'reduce' && qty > (variant?.quantity || 0)) {
       toast.error(`Cannot reduce below 0. Current stock: ${variant?.quantity || 0}`);
       return;
@@ -144,13 +149,13 @@ function StockAdjustModal({ isOpen, onClose, variant, onSuccess, defaultType = '
             </div>
 
             {/* Quantity */}
-            <div className="form-group">
+            <div className={`form-group ${quantityValidation.errors.quantity ? 'has-error' : ''} ${quantityValidation.validFields.quantity ? 'is-valid' : ''}`}>
               <label>{type === 'add' ? 'Quantity to Add' : type === 'reduce' ? 'Quantity to Reduce' : 'New Stock Level'}</label>
               <input
                 type="number"
                 min="1"
                 value={quantity}
-                onChange={e => setQuantity(e.target.value)}
+                onChange={e => { setQuantity(e.target.value); quantityValidation.handleChange('quantity', e.target.value); }}
                 placeholder="Enter quantity..."
                 autoFocus
                 style={{
@@ -163,6 +168,7 @@ function StockAdjustModal({ isOpen, onClose, variant, onSuccess, defaultType = '
                   outline: 'none',
                 }}
               />
+              {quantityValidation.errors.quantity && <div className="form-error" role="alert">{quantityValidation.errors.quantity}</div>}
             </div>
 
             {/* Reason */}
@@ -229,14 +235,14 @@ function StockAdjustModal({ isOpen, onClose, variant, onSuccess, defaultType = '
             <button type="button" className="btn-ghost btn-sm" onClick={onClose}>Cancel</button>
             <button
               type="submit"
-              disabled={saving || !quantity || parseInt(quantity) <= 0}
+              disabled={saving}
               className="btn-dark btn-sm"
               style={{
                 background: type === 'add' ? '#22c55e' : type === 'reduce' ? '#ef4444' : '#3b82f6',
                 color: '#fff',
                 border: 'none',
-                opacity: saving || !quantity || parseInt(quantity) <= 0 ? 0.6 : 1,
-                cursor: saving || !quantity || parseInt(quantity) <= 0 ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.6 : 1,
+                cursor: saving ? 'not-allowed' : 'pointer',
               }}
             >
               {saving ? (
@@ -393,6 +399,11 @@ function BulkAdjustModal({ isOpen, onClose, variants, onSuccess }) {
   const [reason, setReason] = useState('restock');
   const [customReason, setCustomReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+
+  // Same shared registry rule as the single Stock Adjust modal, so the two
+  // always agree on what a valid quantity is.
+  const qtyInvalid = (a) => !!stockQuantity()(a.quantity);
 
   useEffect(() => {
     if (isOpen && variants?.length) {
@@ -406,6 +417,7 @@ function BulkAdjustModal({ isOpen, onClose, variants, onSuccess }) {
       })));
       setReason('restock');
       setCustomReason('');
+      setAttempted(false);
     }
   }, [isOpen, variants]);
 
@@ -421,7 +433,7 @@ function BulkAdjustModal({ isOpen, onClose, variants, onSuccess }) {
     });
 
     if (validAdjustments.length === 0) {
-      toast.error('No valid adjustments to make');
+      setAttempted(true);
       return;
     }
 
@@ -487,6 +499,11 @@ function BulkAdjustModal({ isOpen, onClose, variants, onSuccess }) {
               )}
             </div>
 
+            {attempted && adjustments.every(qtyInvalid) && (
+              <div className="form-error" role="alert" style={{ marginBottom: '0.6rem' }}>
+                Enter a valid quantity (greater than 0) for at least one variant
+              </div>
+            )}
             <table className="admin-table" style={{ fontSize: '0.78rem' }}>
               <thead>
                 <tr>
@@ -519,8 +536,9 @@ function BulkAdjustModal({ isOpen, onClose, variants, onSuccess }) {
                         type="number"
                         min="1"
                         value={adj.quantity}
-                        onChange={e => updateAdj(i, 'quantity', e.target.value)}
+                        onChange={e => { updateAdj(i, 'quantity', e.target.value); setAttempted(false); }}
                         placeholder="Qty"
+                        className={attempted && qtyInvalid(adj) ? 'qty-invalid' : ''}
                         style={{ width: 70, padding: '0.25rem 0.4rem', borderRadius: 4, border: '1px solid var(--border)', fontSize: '0.72rem', outline: 'none' }}
                       />
                     </td>

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { authAPI } from '../api/auth';
 import { cartAPI } from '../api/cart';
 import useCartStore from './cartStore';
+import useSessionStore from './sessionStore';
 import { showError } from '../utils/toast';
 
 // Backend envelope shape: { success, statusCode, message, data: {...} }
@@ -54,18 +55,34 @@ const useAuthStore = create((set, get) => ({
       set({ _tokenVersion: get()._tokenVersion + 1 });
     }
 
-    const token = localStorage.getItem('authToken');
+    // Admin login stores the same token in both authToken and adminToken.
+    // Prefer authToken, but fall back to adminToken so an admin page reload
+    // still restores the session if only the admin key survived.
+    const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
     if (!token) { set({ loading: false }); return; }
     try {
       const res = await authAPI.getMe();
       const payload = unwrap(res);
       const user = pickUser(payload);
+      const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+      // Keep adminToken in sync with the actual role: admins mirror authToken,
+      // non-admins must not keep a stale adminToken from an old admin session.
+      if (isAdminUser) {
+        localStorage.setItem('adminToken', token);
+      } else {
+        localStorage.removeItem('adminToken');
+      }
       set({
         user,
         isAuthenticated: !!user,
-        isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+        isAdmin: isAdminUser,
         loading: false,
       });
+
+      // Successful getMe — the session was just validated, and the response
+      // carries the current token's expiry for the countdown banner.
+      useSessionStore.getState().recordAuthCheck();
+      useSessionStore.getState().setTokenExpiry(res?.data?.token_expires_at ?? null);
 
       // If the user just authenticated via OAuth, merge any guest cart items
       if (isOAuthRedirect) {
@@ -76,8 +93,10 @@ const useAuthStore = create((set, get) => ({
       // should not log the user out automatically.
       const status = err?.response?.status;
       if (status === 401) {
+        // authToken and adminToken hold the same Laravel token — clear both.
         localStorage.removeItem('authToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('adminToken');
         set({ user: null, isAuthenticated: false, isAdmin: false, loading: false });
       } else {
         // For network/server errors, keep the existing state — the user is still
@@ -98,12 +117,23 @@ const useAuthStore = create((set, get) => ({
     localStorage.setItem('authToken', token);
     if (refresh) localStorage.setItem('refreshToken', refresh);
     const user = pickUser(payload);
+    const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+    if (isAdminUser) {
+      localStorage.setItem('adminToken', token);
+    } else {
+      localStorage.removeItem('adminToken');
+    }
     set({
       user,
       isAuthenticated: true,
-      isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+      isAdmin: isAdminUser,
       _tokenVersion: get()._tokenVersion + 1,
     });
+
+    // A fresh token was issued and the session was just validated.
+    useSessionStore.getState().recordTokenRefresh();
+    useSessionStore.getState().recordAuthCheck();
+    useSessionStore.getState().setTokenExpiry(payload?.expires_at ?? null);
 
     // Merge guest cart items into server cart after login
     await mergeGuestCart();
@@ -120,12 +150,22 @@ const useAuthStore = create((set, get) => ({
       localStorage.setItem('authToken', token);
       if (refresh) localStorage.setItem('refreshToken', refresh);
       const user = pickUser(payload);
+      const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+      if (isAdminUser) {
+        localStorage.setItem('adminToken', token);
+      } else {
+        localStorage.removeItem('adminToken');
+      }
       set({
         user,
         isAuthenticated: true,
-        isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+        isAdmin: isAdminUser,
         _tokenVersion: get()._tokenVersion + 1,
       });
+
+      useSessionStore.getState().recordTokenRefresh();
+      useSessionStore.getState().recordAuthCheck();
+      useSessionStore.getState().setTokenExpiry(payload?.expires_at ?? null);
 
       // Merge guest cart items into server cart after registration
       await mergeGuestCart();
@@ -140,14 +180,18 @@ const useAuthStore = create((set, get) => ({
     // ! XSS NOTE — adminToken in localStorage is accessible to any JS.
     // For production, migrate to httpOnly cookies via Sanctum SPA auth.
     localStorage.removeItem('adminToken');
+    useSessionStore.getState().clearSessionTimes();
     set({ user: null, isAuthenticated: false, isAdmin: false, _tokenVersion: get()._tokenVersion + 1 });
   },
 
-  setUser: (user) => set({
-    user,
-    isAuthenticated: !!user,
-    isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
-  }),
+  setUser: (user) => {
+    if (user) useSessionStore.getState().recordAuthCheck();
+    set({
+      user,
+      isAuthenticated: !!user,
+      isAdmin: user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN',
+    });
+  },
 }));
 
 /**

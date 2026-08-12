@@ -60,6 +60,9 @@ export default function CustomDesignsAdminPage() {
   const [expandedDesign, setExpandedDesign] = useState(null); // design id
   const [designNotes, setDesignNotes] = useState({}); // designId -> admin notes text
   const [savingNotes, setSavingNotes] = useState({});  // designId -> bool
+  // designId -> timestamp of last successful notes save (drives the brief
+  // green "Saved" flash on the notes row).
+  const [savedNotes, setSavedNotes] = useState({});
 
   // ── Load custom designs from the dedicated API ──
   const load = useCallback(async (page = 1) => {
@@ -118,6 +121,17 @@ export default function CustomDesignsAdminPage() {
         d.id === designId ? { ...d, admin_notes: designNotes[designId] || '' } : d
       ));
       toast.success('Notes saved');
+      // Brief inline "Saved" state so the row gives the same feedback as the
+      // shared form system (green border + check, fades after ~2.5s).
+      setSavedNotes(prev => ({ ...prev, [designId]: Date.now() }));
+      setTimeout(() => {
+        setSavedNotes(prev => {
+          if (!prev[designId]) return prev;
+          const next = { ...prev };
+          delete next[designId];
+          return next;
+        });
+      }, 2500);
     } catch (err) {
       toast.error('Failed to save notes');
     } finally {
@@ -353,11 +367,18 @@ export default function CustomDesignsAdminPage() {
                           <textarea value={designNotes[design.id] ?? design.admin_notes ?? ''}
                             onChange={e => setDesignNotes(prev => ({ ...prev, [design.id]: e.target.value }))}
                             placeholder="Add internal notes about this custom design order..."
-                            className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-xs min-h-[60px] focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none" />
-                          <button onClick={() => handleSaveNotes(design.id)} disabled={savingNotes[design.id]}
-                            className="self-end px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-bold hover:bg-gray-800 transition-all disabled:opacity-50 flex items-center gap-1">
-                            {savingNotes[design.id] ? '...' : 'Save'}
-                          </button>
+                            className={`flex-1 px-3 py-2 rounded-lg border border-gray-200 text-xs min-h-[60px] focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none transition-all ${savedNotes[design.id] ? 'field-valid' : ''}`} />
+                          <div className="flex flex-col items-end gap-1">
+                            <button onClick={() => handleSaveNotes(design.id)} disabled={savingNotes[design.id]}
+                              className="self-end px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[10px] font-bold hover:bg-gray-800 transition-all disabled:opacity-50 flex items-center gap-1">
+                              {savingNotes[design.id] ? '...' : 'Save'}
+                            </button>
+                            {savedNotes[design.id] && (
+                              <span className="field-saved-flash flex items-center gap-0.5 text-[10px] font-bold text-green-600">
+                                <CheckCircle size={12} /> Saved
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 

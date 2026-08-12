@@ -2,6 +2,7 @@ import { formatDateTime } from '../../../utils/formatters';
 import PasswordInput from '../../../components/common/PasswordInput';
 import toast from '../../../utils/toast';
 import { adminAPI } from '../../../api/admin';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 
 export default function IntegrationsTab({
   settings, setSettings, loading, handleSaveSettings,
@@ -31,8 +32,10 @@ export default function IntegrationsTab({
     });
   };
 
+  const confirm = useConfirm();
+
   const handleDeleteBackup = async (filename) => {
-    if (!window.confirm(`Are you sure you want to delete backup "${filename}"?`)) return;
+    if (!(await confirm({ title: 'Delete backup?', message: `Backup "${filename}" will be permanently removed.`, confirmLabel: 'Delete' }))) return;
     try {
       await adminAPI.deleteBackup(filename);
       toast.success('Backup deleted');

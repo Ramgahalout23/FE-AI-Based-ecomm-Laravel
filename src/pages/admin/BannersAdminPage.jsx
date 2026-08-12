@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import { settingsAPI } from '../../api/settings';
 import { aiAPI } from '../../api/ai';
 import { BANNER_TYPES } from '../../utils/constants';
@@ -9,6 +14,7 @@ import { downloadBlob } from '../../utils/download';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import { getImageUrl, getBannerImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
+import AdminSelect from '../../components/admin/AdminSelect';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { Image, FileText, Video, Save, Plus, X, Sparkles, Download, Home, Info, Edit, Upload, Crosshair } from 'lucide-react';
 
@@ -22,6 +28,11 @@ const DISPLAY_MODES = [
 const EMPTY = { title: '', imageUrl: '', videoUrl: '', type: 'HERO', link: '', description: '', displayMode: 'DEFAULT' };
 
 export default function BannersAdminPage() {
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    title: requiredField('Banner title'),
+  });
+
   // ── AI Generation ──
   const [aiLoading, setAiLoading] = useState(false);
   const [bannerRefImageUrl, setBannerRefImageUrl] = useState('');
@@ -167,7 +178,7 @@ export default function BannersAdminPage() {
     load(currentPage);
   }, [currentPage]);
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm(EMPTY); validation.reset(); setShowModal(true); };
 
   const openEdit = (b) => {
     setEditing(b);
@@ -180,10 +191,12 @@ export default function BannersAdminPage() {
       description: b.description || '',
       displayMode: b.displayMode || 'DEFAULT',
     });
+    validation.reset();
     setShowModal(true);
   };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     try {
       const payload = {
         title: form.title,
@@ -202,8 +215,8 @@ export default function BannersAdminPage() {
         toast.success('Banner created');
       }
       await load(currentPage);
-      setShowModal(false);
-    } catch { toast.error('Failed'); }
+      return true;
+    } catch { toast.error('Failed'); return false; }
   };
 
   const handleToggle = async (id) => {
@@ -211,20 +224,23 @@ export default function BannersAdminPage() {
       await adminAPI.toggleBanner(id); 
       toast.success('Status toggled'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this banner?')) return;
     try { 
       await adminAPI.deleteBanner(id); 
       setBanners(banners.filter(b => b.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
@@ -384,10 +400,15 @@ export default function BannersAdminPage() {
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search banners..." value={search} onChange={e => setSearch(e.target.value)} />
-          <select className="table-filter" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-            <option value="ALL">All Types</option>
-            {BANNER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <AdminSelect
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: 'ALL', label: 'All Types' },
+              ...BANNER_TYPES.map(t => ({ value: t, label: t })),
+            ]}
+            ariaLabel="Filter banners by type"
+          />
           <span className="table-count">{totalItems} banners</span>
         </div>
         <table className="admin-table">
@@ -415,8 +436,8 @@ export default function BannersAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(b)}>Edit</button>
-                    <button className={b.isActive ? 'btn-del' : 'btn-approve'} onClick={() => handleToggle(b.id)}>{b.isActive ? 'Disable' : 'Enable'}</button>
-                    <button className="btn-del" onClick={() => handleDelete(b.id)}>Delete</button>
+                    <ActionButton className={b.isActive ? 'btn-del' : 'btn-approve'} onClick={() => handleToggle(b.id)} idle={b.isActive ? 'Disable' : 'Enable'} />
+                    <ActionButton className="btn-del" confirm="Delete this banner?" onClick={() => handleDelete(b.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -513,7 +534,9 @@ export default function BannersAdminPage() {
                 <div className="form-group"><label>Type</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>{BANNER_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
                 <div className="form-group"><label>Link (e.g. /products)</label><input value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} placeholder="/products" /></div>
 
-                <div className="form-group"><label>Title</label><input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Summer Sale" /></div>
+                <AdminFormField label="Title" required error={validation.errors.title} valid={validation.validFields.title}>
+                  <input value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); validation.handleChange('title', e.target.value); }} placeholder="Summer Sale" />
+                </AdminFormField>
                 <div className="form-group"><label>Description</label><textarea rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
 
                 {/* Video URL — shown only when VIDEO display mode is selected */}
@@ -592,7 +615,7 @@ export default function BannersAdminPage() {
                 </div>
               </div>
             </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update' : 'Create'}</button></div>
+            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update' : 'Create'} /></div>
           </div>
         </div>
       )}

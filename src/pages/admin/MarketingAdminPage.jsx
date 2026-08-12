@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { marketingAPI } from '../../api/marketing';
 import { campaignTemplatesAPI } from '../../api/campaignTemplates';
 import toast from '../../utils/toast';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { BarChart3, Users, Send, Eye, MousePointerClick, Plus, Trash2, Edit2, Play, X, Search, AlertTriangle, Activity, Download, Copy, Upload, Layout, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -30,6 +33,7 @@ const SUBSCRIBER_STATUS_COLORS = {
 };
 
 export default function MarketingAdminPage() {
+  const confirm = useConfirm();
   const [tab, setTab] = useState('overview');
   const [, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
@@ -50,6 +54,12 @@ export default function MarketingAdminPage() {
   // Campaign form modal
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
+  // Animated inline validation for the campaign modal (name, subject, content).
+  const campaignValidation = useAdminFormValidation({
+    name: requiredField('Campaign name'),
+    subject: requiredField('Subject line'),
+    contentHtml: requiredField('Email content'),
+  });
   const [campaignForm, setCampaignForm] = useState({
     name: '',
     subject: '',
@@ -193,6 +203,7 @@ export default function MarketingAdminPage() {
     setPreviewMode(false);
     setCampaignForm({ name: '', subject: '', preheader: '', fromName: '', contentHtml: '', scheduledAt: '' });
     setShowCampaignModal(true);
+    campaignValidation.reset();
   };
 
   const openEditCampaign = (campaign) => {
@@ -207,13 +218,15 @@ export default function MarketingAdminPage() {
       scheduledAt: campaign.scheduledAt ? new Date(campaign.scheduledAt).toISOString().slice(0, 16) : '',
     });
     setShowCampaignModal(true);
+    campaignValidation.reset();
   };
 
   const handleSaveCampaign = async () => {
-    if (!campaignForm.name || !campaignForm.subject || !campaignForm.contentHtml) {
-      toast.error('Name, subject, and content are required');
-      return;
-    }
+    if (!campaignValidation.validateForm({
+      name: campaignForm.name,
+      subject: campaignForm.subject,
+      contentHtml: campaignForm.contentHtml,
+    })) return;
     setSending(true);
     try {
       const payload = {
@@ -241,7 +254,7 @@ export default function MarketingAdminPage() {
   };
 
   const handleDeleteCampaign = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this campaign?')) return;
+    if (!(await confirm({ title: 'Delete campaign?', message: 'This campaign will be permanently removed.', confirmLabel: 'Delete' }))) return;
     try {
       await marketingAPI.deleteCampaign(id);
       toast.success('Campaign deleted');
@@ -265,7 +278,7 @@ export default function MarketingAdminPage() {
   };
 
   const handleSendCampaign = async (id) => {
-    if (!window.confirm('Send this campaign to all active subscribers?')) return;
+    if (!(await confirm({ title: 'Send campaign?', message: 'This will send the campaign to all active subscribers.', confirmLabel: 'Send' }))) return;
     try {
       const r = await marketingAPI.sendCampaign(id, {});
       const data = r.data?.data || r.data;
@@ -454,7 +467,7 @@ export default function MarketingAdminPage() {
   };
 
   const handleDeleteSubscriber = async (id) => {
-    if (!window.confirm('Delete this subscriber?')) return;
+    if (!(await confirm({ title: 'Delete subscriber?', message: 'This subscriber will be removed from the list.', confirmLabel: 'Delete' }))) return;
     try {
       await marketingAPI.deleteSubscriber(id);
       toast.success('Subscriber deleted');
@@ -969,25 +982,27 @@ export default function MarketingAdminPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="form-group">
+              <div className={`form-group ${campaignValidation.errors.name ? 'has-error' : ''} ${campaignValidation.validFields.name ? 'is-valid' : ''}`}>
                 <label className="text-sm font-semibold text-text-primary block mb-1.5">Campaign Name</label>
                 <input
                   className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
                   placeholder="e.g. Summer Sale Announcement"
                   value={campaignForm.name}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
+                  onChange={(e) => { setCampaignForm({ ...campaignForm, name: e.target.value }); campaignValidation.handleChange('name', e.target.value); }}
                 />
+                {campaignValidation.errors.name && <div className="form-error" role="alert">{campaignValidation.errors.name}</div>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="form-group">
+                <div className={`form-group ${campaignValidation.errors.subject ? 'has-error' : ''} ${campaignValidation.validFields.subject ? 'is-valid' : ''}`}>
                   <label className="text-sm font-semibold text-text-primary block mb-1.5">Subject Line</label>
                   <input
                     className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
                     placeholder="Don't miss our summer sale!"
                     value={campaignForm.subject}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                    onChange={(e) => { setCampaignForm({ ...campaignForm, subject: e.target.value }); campaignValidation.handleChange('subject', e.target.value); }}
                   />
+                  {campaignValidation.errors.subject && <div className="form-error" role="alert">{campaignValidation.errors.subject}</div>}
                 </div>
                 <div className="form-group">
                   <label className="text-sm font-semibold text-text-primary block mb-1.5">Preheader (optional)</label>
@@ -1127,7 +1142,7 @@ export default function MarketingAdminPage() {
                   </p>
                 </div>
               ) : (
-                <div className="form-group">
+                <div className={`form-group ${campaignValidation.errors.contentHtml ? 'has-error' : ''} ${campaignValidation.validFields.contentHtml ? 'is-valid' : ''}`}>
                   <label className="text-sm font-semibold text-text-primary block mb-1.5">
                     Email Content (HTML)
                   </label>
@@ -1136,8 +1151,9 @@ export default function MarketingAdminPage() {
                     rows={12}
                     placeholder="<h1>Your email content here...</h1>"
                     value={campaignForm.contentHtml}
-                    onChange={(e) => setCampaignForm({ ...campaignForm, contentHtml: e.target.value })}
+                    onChange={(e) => { setCampaignForm({ ...campaignForm, contentHtml: e.target.value }); campaignValidation.handleChange('contentHtml', e.target.value); }}
                   />
+                  {campaignValidation.errors.contentHtml && <div className="form-error" role="alert">{campaignValidation.errors.contentHtml}</div>}
                 </div>
               )}
             </div>

@@ -24,6 +24,8 @@ import ScrollToTop from './components/layout/ScrollToTop';
 import ScrollToTopButton from './components/common/ScrollToTopButton';
 import PageTransition from './components/common/PageTransition';
 import SessionTimeoutModal from './components/common/SessionTimeoutModal';
+import TokenExpiryBanner from './components/admin/TokenExpiryBanner';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { initTracker, trackPageView } from './services/tracker';
 import { setDefaultCurrency, setDefaultTimezone } from './utils/formatters';
@@ -294,6 +296,7 @@ function StorefrontLayout() {
 }
 
 function AdminLayout() {
+  const location = useLocation();
   // ── Responsive Table Labels (shared hook — see useAdminTableLabels.js) ──
   useAdminTableLabels();
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
@@ -322,13 +325,22 @@ function AdminLayout() {
   }, [resetTimer]);
 
   return (
+    <ConfirmProvider>
     <div className="flex flex-col min-h-[100dvh]">
+      <TokenExpiryBanner />
       <Navbar />
       <div className="flex flex-col md:flex-row flex-1">
         <AdminSidebar />
-        <main className="flex-1 bg-cream p-4 md:p-8">
+        <main className="admin-panel-main flex-1 bg-cream p-4 md:p-8">
+          {/* Suspense sits ABOVE the animated wrapper so a lazily-loaded route's
+              chunk swaps in the RouteFallback spinner immediately instead of
+              keeping the outgoing page mounted while the chunk downloads. */}
           <Suspense fallback={<RouteFallback />}>
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </AnimatePresence>
           </Suspense>
         </main>
       </div>
@@ -337,6 +349,7 @@ function AdminLayout() {
         onStayLoggedIn={handleStayLoggedIn}
       />
     </div>
+    </ConfirmProvider>
   );
 }
 

@@ -9,6 +9,15 @@ import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import Pagination from '../../components/admin/Pagination';
 import { downloadBlob } from '../../utils/download';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminFormField from '../../components/admin/AdminFormField';
+import ModalSection from '../../components/admin/ModalSection';
+import AdminModal from '../../components/admin/AdminModal';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import AdminSelect from '../../components/admin/AdminSelect';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
+import { ShoppingBag, IndianRupee, Shirt, Truck, Image as ImageIcon, Rocket, Pencil, Plus } from 'lucide-react';
 
 const EMPTY = { name: '', price: '', oldPrice: '', cost: '', description: '', shortDescription: '', categoryId: '', sku: '', quantity: '', images: '', status: 'DRAFT', badge: '', hoverImageUrl: '', videoUrl: '', labelNumber: '', fabricWeight: '', fabric: '', fit: '', origin: '', treatment: '', care: '', shipping: '' };
 
@@ -31,6 +40,12 @@ export default function ProductsAdminPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
   const [detail, setDetail] = useState(null);
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    name: requiredField('Product name'),
+    price: requiredField('Price'),
+  });
 
   // Variants inline management
   const [productVariants, setProductVariants] = useState([]);
@@ -222,8 +237,9 @@ export default function ProductsAdminPage() {
     load(currentPage);
   }, [currentPage]);
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
+  const openCreate = () => { validation.reset(); setEditing(null); setForm(EMPTY); setShowModal(true); };
   const openEdit = async (p) => {
+    validation.reset();
     setEditing(p);
     const imgsStr = getProductImages(p).join(', ') || p.image || '';
     setForm({
@@ -268,6 +284,7 @@ export default function ProductsAdminPage() {
   };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return false;
     const payload = {
       ...form,
       price: Number(form.price),
@@ -303,19 +320,20 @@ export default function ProductsAdminPage() {
         toast.success('Product created!');
       }
       await load(currentPage);
-      setShowModal(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
+      return true; // SaveButton plays the success state, then closes via onSuccess
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); return false; }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this product permanently?')) return;
     try { 
       await adminAPI.deleteProduct(id); 
       setProducts(products.filter(p => p.id !== id)); 
       toast.success('Product deleted'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed to delete'); 
+      return false;
     }
   };
 
@@ -524,7 +542,8 @@ export default function ProductsAdminPage() {
       setProducts(products.map(p => p.id === id ? { ...p, status: 'PUBLISHED' } : p));
       toast.success('Product published');
       await load(currentPage);
-    } catch { toast.error('Failed'); }
+      return true;
+    } catch { toast.error('Failed'); return false; }
   };
 
   const handleArchive = async (id) => {
@@ -533,7 +552,8 @@ export default function ProductsAdminPage() {
       setProducts(products.map(p => p.id === id ? { ...p, status: 'ARCHIVED' } : p));
       toast.success('Product archived');
       await load(currentPage);
-    } catch { toast.error('Failed'); }
+      return true;
+    } catch { toast.error('Failed'); return false; }
   };
 
   return (
@@ -577,19 +597,19 @@ export default function ProductsAdminPage() {
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} />
-          <select className="table-filter" value={filter} onChange={e => setFilter(e.target.value)}>
-            <option value="ALL">All Products</option>
-            <optgroup label="Status">
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="ARCHIVED">Archived</option>
-            </optgroup>
-            <optgroup label="Categories">
-              {categories.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </optgroup>
-          </select>
+          <AdminSelect
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'ALL', label: 'All Products' },
+              { value: 'DRAFT', label: 'Draft', hint: 'Status' },
+              { value: 'PUBLISHED', label: 'Published', hint: 'Status' },
+              { value: 'ARCHIVED', label: 'Archived', hint: 'Status' },
+              ...categories.map(c => ({ value: c.name, label: c.name, hint: 'Category' })),
+            ]}
+            dotClass={(v) => (v === 'ALL' ? null : v === 'DRAFT' ? 'status-pending' : v === 'PUBLISHED' ? 'status-active' : v === 'ARCHIVED' ? 'status-inactive' : null)}
+            ariaLabel="Filter products by status or category"
+          />
           <span className="table-count">{totalItems} results</span>
         </div>
         <table className="admin-table">
@@ -618,9 +638,9 @@ export default function ProductsAdminPage() {
                   <div className="row-actions">
                     <button className="btn-view" onClick={() => setDetail(p)}>View</button>
                     <button className="btn-edit" onClick={() => openEdit(p)}>Edit</button>
-                    {(p.status || 'ACTIVE') !== 'PUBLISHED' && <button className="btn-approve" onClick={() => handlePublish(p.id)}>Publish</button>}
-                    {(p.status || 'ACTIVE') !== 'ARCHIVED' && <button onClick={() => handleArchive(p.id)}>Archive</button>}
-                    <button className="btn-del" onClick={() => handleDelete(p.id)}>Delete</button>
+                    {(p.status || 'ACTIVE') !== 'PUBLISHED' && <ActionButton className="btn-approve" onClick={() => handlePublish(p.id)} idle="Publish" />}
+                    {(p.status || 'ACTIVE') !== 'ARCHIVED' && <ActionButton onClick={() => handleArchive(p.id)} idle="Archive" />}
+                    <ActionButton className="btn-del" confirm="Delete this product permanently?" onClick={() => handleDelete(p.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -642,23 +662,32 @@ export default function ProductsAdminPage() {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
-            <div className="modal-header">
-              <h3>{editing ? '✏️ Edit Product' : '➕ New Product'}</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group"><label>Product Name *</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Silk Evening Gown" /></div>
+      <AdminModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Product' : 'New Product'}
+        icon={editing ? <Pencil size={18} /> : <Plus size={18} />}
+        wide
+        footer={<>
+          <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button>
+          <SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update Product' : 'Create Product'} />
+        </>}
+      >
+              <ModalSection title="Product Details" hint="Name and category — what customers see first" icon={<ShoppingBag size={16} />}>
+                <AdminFormField label="Product Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                  <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Silk Evening Gown" />
+                </AdminFormField>
                 <div className="form-group"><label>Category</label>
                   <select value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
                     <option value="">Select Category</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div className="form-group"><label>Price ($) *</label><input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="99.99" /></div>
+              </ModalSection>
+              <ModalSection title="Pricing & Inventory" hint="Prices, badges and stock levels" icon={<IndianRupee size={16} />}>
+                <AdminFormField label="Price" required error={validation.errors.price} valid={validation.validFields.price}>
+                  <input type="number" value={form.price} onChange={e => { setForm({ ...form, price: e.target.value }); validation.handleChange('price', e.target.value); }} placeholder="99.99" />
+                </AdminFormField>
                 <div className="form-group"><label>Old Price ($)</label><input type="number" value={form.oldPrice} onChange={e => setForm({ ...form, oldPrice: e.target.value })} placeholder="129.99 — marks as Sale" /></div>
                 <div className="form-group"><label>Badge</label>
                   <select value={form.badge} onChange={e => setForm({ ...form, badge: e.target.value })}>
@@ -676,8 +705,10 @@ export default function ProductsAdminPage() {
                 </div>
                 <div className="form-group"><label>Cost ($)</label><input type="number" value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} placeholder="50.00" /></div>
                 <div className="form-group"><label>SKU</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="SKU-001" /></div>
-                <div className="form-group"><label>Label Number</label><input value={form.labelNumber} onChange={e => setForm({ ...form, labelNumber: e.target.value })} placeholder="Auto-generated if blank (e.g. MT-0001)" /><small className="form-hint">Leave blank to auto-generate a per-category number (e.g. MT-0001 for Men's Tees).</small></div>
+                <div className="form-group"><label>Label Number</label><input value={form.labelNumber} onChange={e => setForm({ ...form, labelNumber: e.target.value })} placeholder="Auto-generated if blank (e.g. MT-0001)" /><small className="field-note">Leave blank to auto-generate a per-category number (e.g. MT-0001 for Men's Tees).</small></div>
                 <div className="form-group"><label>Stock Quantity</label><input type="number" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder="50" /></div>
+              </ModalSection>
+              <ModalSection title="Fabric & Care" hint="Material specs shown on the product page" icon={<Shirt size={16} />}>
                 <div className="form-group"><label>Fabric Weight (GSM)</label>
                   <input type="number" min="100" max="500" value={form.fabricWeight} onChange={e => setForm({ ...form, fabricWeight: e.target.value })} placeholder="e.g. 240" />
                   <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
@@ -707,7 +738,11 @@ export default function ProductsAdminPage() {
                 <div className="form-group"><label>Origin</label><input value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} placeholder="e.g. Made in India" /></div>
                 <div className="form-group"><label>Treatment</label><input value={form.treatment} onChange={e => setForm({ ...form, treatment: e.target.value })} placeholder="e.g. Pre-shrunk fabric" /></div>
                 <div className="form-group form-full"><label>Material &amp; Care</label><textarea rows={3} value={form.care} onChange={e => setForm({ ...form, care: e.target.value })} placeholder="e.g. 100% pre-shrunk cotton, machine wash cold, do not bleach, iron inside out" /></div>
+              </ModalSection>
+              <ModalSection title="Shipping & Returns" hint="Delivery and return policy for this product" icon={<Truck size={16} />} layout="stack">
                 <div className="form-group form-full"><label>Shipping &amp; Returns</label><textarea rows={3} value={form.shipping} onChange={e => setForm({ ...form, shipping: e.target.value })} placeholder="e.g. Free shipping above ₹499. Easy 7-day returns and exchanges" /></div>
+              </ModalSection>
+              <ModalSection title="Media" hint="Images and video used across the storefront" icon={<ImageIcon size={16} />} layout="stack">
                 <div className="form-group form-full">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <ImageUploadZone
@@ -750,6 +785,8 @@ export default function ProductsAdminPage() {
                     maxSizeMB={40}
                   />
                 </div>
+              </ModalSection>
+              <ModalSection title="Publication" hint="Status and customer-facing copy" icon={<Rocket size={16} />}>
                 <div className="form-group"><label>Status</label>
                   <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                     <option value="DRAFT">Draft</option>
@@ -801,9 +838,10 @@ export default function ProductsAdminPage() {
                   </div>
                   <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Product description..." />
                 </div>
+              </ModalSection>
 
-                {/* ── Variants Section (edit only) ── */}
-                {editing && (
+              {/* ── Variants (edit only) ── */}
+              {editing && (
                   <div className="form-group form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
                     <div
                       onClick={() => setShowVariants(!showVariants)}
@@ -1009,15 +1047,7 @@ export default function ProductsAdminPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update Product' : 'Create Product'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      </AdminModal>
 
       {/* CSV Export Modal */}
       <ExportCSVModal

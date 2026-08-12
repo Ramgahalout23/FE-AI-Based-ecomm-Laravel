@@ -1,0 +1,1162 @@
+/* ═══════════════════════════════════════════════════════════
+   THREVOLT — Admin UI Premium Polish
+   Forms, modals, buttons, tabs & tables — black brand theme
+   with smooth 200–400ms motion on every interaction.
+   Loaded LAST so it wins over components.css / admin.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Buttons ─────────────────────────────────────────────── */
+
+/* Primary black gradient button */
+.btn-dark {
+  background: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(26, 26, 26, 0.16), 0 4px 14px rgba(26, 26, 26, 0.12);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-dark:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #000000 0%, #2b2b2b 100%);
+  box-shadow: 0 6px 18px rgba(26, 26, 26, 0.28);
+}
+.btn-dark:active { transform: translateY(0) scale(0.97); }
+.btn-dark:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  background: #6b6b74;
+}
+
+/* Outlined ghost button */
+.btn-ghost {
+  background: #ffffff;
+  border: 1px solid #dcdce2;
+  color: #3a3a44;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-ghost:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  background: #fafafa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 26, 26, 0.08);
+}
+.btn-ghost:active { transform: translateY(0) scale(0.97); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Danger button */
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.22);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+  filter: brightness(1.05);
+}
+.btn-danger:active { transform: translateY(0) scale(0.97); }
+.btn-danger:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+/* Outline button */
+.btn-outline {
+  background: none;
+  border: 2px solid #e5e5ea;
+  color: #1a1a2e;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-outline:hover {
+  border-color: #1a1a1a;
+  color: #1a1a1a;
+  background: rgba(26, 26, 26, 0.03);
+  transform: translateY(-1px);
+}
+
+/* Keyboard focus ring for all admin buttons */
+.btn-dark:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible,
+.btn-outline:focus-visible {
+  outline: 2px solid rgba(26, 26, 26, 0.5);
+  outline-offset: 2px;
+}
+
+/* ── Modals ──────────────────────────────────────────────── */
+
+.modal-overlay {
+  background: rgba(26, 26, 26, 0.45);
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  padding: 24px;
+  transition: opacity 0.3s ease;
+}
+
+/* Framer-motion AdminModal: the component drives opacity/pointer-events/animation,
+   so neutralize the CSS-only entrance (and the base overlay's hidden state) here. */
+.modal-overlay.admin-modal {
+  pointer-events: auto;
+}
+.modal-overlay.admin-modal .modal {
+  animation: none !important;
+}
+.modal {
+  border-radius: 20px;
+  border: 1px solid rgba(26, 26, 26, 0.08);
+  box-shadow:
+    0 4px 16px rgba(26, 26, 26, 0.08),
+    0 24px 70px rgba(26, 26, 26, 0.25);
+  overflow: hidden;
+  animation: modalPremiumIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center;
+}
+.modal-overlay.open .modal {
+  animation: modalPremiumIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes modalPremiumIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.94);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.modal-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: linear-gradient(180deg, #fbfbfc 0%, #ffffff 100%);
+  border-bottom: 1px solid #f0f0f2;
+  padding: 1.25rem 1.5rem;
+}
+.modal-header h3 {
+  margin: 0;
+  letter-spacing: -0.01em;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+.modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.modal-header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #f4f4f6;
+  border: 1px solid #e7e7ea;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+.modal-header-desc {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: #8a8a92;
+  line-height: 1.4;
+}
+.modal-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+.modal-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, #1a1a1a, rgba(26, 26, 26, 0) 70%);
+  opacity: 0.9;
+}
+.modal-body { padding: 1.5rem; }
+.modal-footer {
+  background: #fbfbfc;
+  border-top: 1px solid #f0f0f2;
+  padding: 1rem 1.5rem;
+  gap: 0.6rem;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f4f4f6;
+  border: 1px solid #e7e7ea;
+  color: #6b6b74;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-close:hover {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+.modal-close:active { transform: rotate(90deg) scale(0.92); }
+
+/* ── Forms ───────────────────────────────────────────────── */
+
+.form-grid { gap: 1.1rem; }
+.form-group { gap: 0.45rem; }
+
+.form-group label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #5a5a64;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.7rem 0.95rem;
+  border: 1.5px solid #e3e3e8;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  background: #ffffff;
+  color: #16161d;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+.form-group input::placeholder,
+.form-group textarea::placeholder { color: #b4b4bc; }
+
+.form-group input:hover,
+.form-group select:hover,
+.form-group textarea:hover { border-color: #c9c9d1; }
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #1a1a1a;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.09), 0 2px 10px rgba(26, 26, 26, 0.05);
+}
+
+/* Custom select chevron — every admin select gets the same treatment:
+   no native appearance, a black chevron, and dark selected text. */
+.admin-panel-main select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231a1a1a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  padding-right: 2rem;
+  color: var(--charcoal, #1a1a1a);
+  color-scheme: light;
+}
+.form-group select {
+  background-position: right 0.85rem center;
+  padding-right: 2.5rem;
+}
+
+/* ── AdminSelect — styled dropdown (replaces native <select>) ── */
+.admin-select {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.admin-select__trigger {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  width: 100%;
+  border: 1px solid var(--border, #e3e3e8);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--charcoal, #1a1a1a);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.admin-select--md .admin-select__trigger {
+  padding: 0.5rem 2.1rem 0.5rem 0.9rem;
+  min-height: 38px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.admin-select--sm .admin-select__trigger {
+  padding: 0.4rem 1.7rem 0.4rem 0.7rem;
+  min-height: 32px;
+  font-size: 0.75rem;
+  border-radius: 9px;
+}
+.admin-select__trigger:hover {
+  border-color: #b9b9c2;
+}
+.admin-select.is-open .admin-select__trigger {
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.09);
+}
+.admin-select__trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.admin-select__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.admin-select__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.admin-select__chevron {
+  display: inline-flex;
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+.admin-select__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.admin-select__dot.status-pending { background: #f59e0b; }
+.admin-select__dot.status-processing { background: #3b82f6; }
+.admin-select__dot.status-in-transit { background: #8b5cf6; }
+.admin-select__dot.status-delivered { background: #22c55e; }
+.admin-select__dot.status-completed { background: #22c55e; }
+.admin-select__dot.status-active { background: #22c55e; }
+.admin-select__dot.status-cancelled { background: #ef4444; }
+.admin-select__dot.status-failed { background: #ef4444; }
+.admin-select__dot.status-archived { background: #9ca3af; }
+.admin-select__dot.status-inactive { background: #9ca3af; }
+.admin-select__dot.status-warning { background: #f59e0b; }
+.admin-select__menu {
+  position: absolute;
+  left: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e7e5e0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 60;
+}
+.admin-select__menu--down {
+  top: calc(100% + 6px);
+}
+.admin-select__menu--up {
+  bottom: calc(100% + 6px);
+}
+.admin-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--charcoal, #1a1a1a);
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.admin-select__option.is-active {
+  background: #f5f4f1;
+}
+.admin-select__option.is-selected {
+  color: #1a1a1a;
+}
+.admin-select__option-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.admin-select__hint {
+  font-size: 0.7rem;
+  color: var(--muted, #8a8a96);
+  white-space: nowrap;
+}
+.admin-select__check {
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+.admin-select__empty {
+  padding: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted, #8a8a96);
+  text-align: center;
+}
+
+/* ── Native dropdown popup (the open option list) ──
+   Chrome/Edge/Firefox render option backgrounds and hover/checked states
+   from CSS; color-scheme: light above stops the OS from opening a dark
+   popup when the app runs in dark mode. Mobile pickers stay OS-native. */
+.admin-panel-main select option {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.6rem;
+}
+.admin-panel-main select option:hover {
+  background-color: #f5f4f1;
+}
+.admin-panel-main select option:checked {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+.admin-panel-main select optgroup {
+  background-color: #f5f4f1;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.admin-panel-main select optgroup option {
+  padding-left: 1rem;
+}
+
+.form-group textarea {
+  min-height: 92px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.form-actions {
+  gap: 0.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid #ececf0;
+}
+
+/* ── Inline Form Validation ──────────────────────────────── */
+
+/* Invalid control: red border + glow + shake */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  animation: formShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes formShake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* Required-field asterisk */
+.required-mark {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+/* Error message — slide in with an alert icon */
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  animation: formErrorIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes formErrorIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.form-error::before {
+  content: '';
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Valid control: green border + check mark */
+.form-group.is-valid input:not([type="checkbox"]):not([type="file"]),
+.form-group.is-valid textarea,
+.form-group.is-saved input:not([type="checkbox"]):not([type="file"]),
+.form-group.is-saved select,
+.form-group.is-saved textarea {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+.form-group.is-valid input:not([type="checkbox"]):not([type="file"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 15px;
+  padding-right: 2.4rem;
+}
+
+/* Dropzone (product import) and inline quantity inputs — error state */
+.import-dropzone-error {
+  animation: formShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.qty-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  animation: formShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Control-level error/valid states — for fields whose wrapper isn't a
+   .form-group (template editors, notes rows, etc.). Applied directly to the
+   control, mirroring .qty-invalid / .form-group.is-valid. */
+.field-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  animation: formShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.field-valid {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+.field-saved-flash {
+  animation: check-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Saved-state label row + lingering check badge ── */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.field-saved-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* ── Modal sections (sectioned admin forms) ──────────────── */
+.modal-wide { width: 760px; }
+
+.modal-section + .modal-section {
+  border-top: 1px solid #f0f0f2;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+.modal-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.modal-section-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(26, 26, 26, 0.06);
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.modal-section-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.01em;
+}
+.modal-section-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: #8a8a9a;
+}
+.modal-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Checkboxes ──────────────────────────────────────────── */
+.form-group input[type="checkbox"],
+.admin-table input[type="checkbox"] {
+  accent-color: #1a1a1a;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ── Admin Tabs (animated underline) ─────────────────────── */
+.admin-tab {
+  position: relative;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.admin-tab::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -13px;
+  height: 2px;
+  border-radius: 2px;
+  background: #1a1a1a;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.admin-tab.active::after { transform: scaleX(1); }
+.admin-tab:hover::after { transform: scaleX(0.5); }
+.admin-tab.active {
+  color: #1a1a1a;
+  font-weight: 600;
+  background: rgba(26, 26, 26, 0.06);
+  border-color: rgba(26, 26, 26, 0.14);
+  box-shadow: 0 1px 3px rgba(26, 26, 26, 0.05);
+}
+
+/* ── Table Toolbar / Search / Filter ─────────────────────── */
+.table-toolbar {
+  padding: 0.9rem 1.25rem;
+  background: #fbfbfc;
+  border-bottom: 1px solid #f0f0f2;
+}
+.table-search {
+  border: 1.5px solid #e3e3e8;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.table-search:hover { border-color: #c9c9d1; }
+.table-search:focus {
+  border-color: #1a1a1a;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+}
+.table-filter {
+  border: 1.5px solid #e3e3e8;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.table-filter:hover { border-color: #c9c9d1; }
+.table-filter:focus {
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.08);
+}
+
+/* ── Row actions ─────────────────────────────────────────── */
+.row-actions button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.row-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(26, 26, 26, 0.1);
+}
+.row-actions button:active { transform: translateY(0) scale(0.96); }
+
+/* ── Table rows ──────────────────────────────────────────── */
+.admin-table tbody tr {
+  transition: background 0.15s ease;
+}
+.admin-table tbody tr:hover td {
+  background: rgba(26, 26, 26, 0.03);
+}
+
+/* ── Status badges ───────────────────────────────────────── */
+.status-badge {
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* ── Password strength meter ─────────────────────────────── */
+.pw-meter {
+  margin-top: 0.55rem;
+}
+.pw-meter-bar {
+  display: flex;
+  gap: 5px;
+}
+.pw-meter-seg {
+  height: 4px;
+  flex: 1;
+  border-radius: 999px;
+  background: #e7e7ea;
+  transition: background 0.25s ease;
+}
+.pw-meter-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+.pw-meter-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8a92;
+}
+.pw-meter-checks {
+  display: inline-flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.pw-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #a1a1aa;
+  transition: color 0.2s ease;
+}
+.pw-check svg {
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+.pw-check.met {
+  color: #16a34a;
+}
+.pw-check.met svg {
+  opacity: 1;
+}
+
+/* Login-page field validation — scoped so it never overrides the login
+   card's Tailwind input styling (keeps the border/shake/error feedback). */
+.field-wrap.has-error input {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+  animation: formShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.field-wrap.is-valid input {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+}
+.field-wrap .form-error {
+  margin-top: 0.45rem;
+}
+
+/* ── Save button (animated submit) ───────────────────────── */
+.save-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  overflow: hidden;
+}
+.save-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.save-btn.is-saving {
+  cursor: progress;
+  opacity: 0.85;
+}
+.save-btn.is-success {
+  background: linear-gradient(135deg, #16a34a, #15803d) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+}
+.save-spinner {
+  animation: save-spin 0.8s linear infinite;
+}
+@keyframes save-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── ActionButton (row-level delete / toggle / publish) ── */
+.action-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+.action-btn.is-saving {
+  cursor: progress;
+  opacity: 0.85;
+}
+.action-btn.is-success {
+  background: rgba(22, 163, 74, 0.12) !important;
+  border-color: rgba(22, 163, 74, 0.35) !important;
+  color: #16a34a !important;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+/* ── Export modal success check ── */
+.export-check-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(22, 163, 74, 0.12);
+}
+.export-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  animation: check-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes check-pop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ── Reduced motion ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .modal,
+  .modal-overlay.open .modal { animation: none; }
+  .modal-close:hover { transform: none; }
+  .btn-dark,
+  .btn-ghost,
+  .btn-danger,
+  .btn-outline,
+  .row-actions button { transition: none; }
+  .admin-tab::after { transition: none; }
+  .form-group.has-error input,
+  .form-group.has-error select,
+  .form-group.has-error textarea,
+  .field-wrap.has-error input { animation: none; }
+  .form-error,
+  .import-dropzone-error,
+  .qty-invalid { animation: none; }
+  .save-spinner { animation: none; }
+  .export-check { animation: none; }
+  .field-saved-check { animation: none; }
+  .token-expiry-banner { animation: none; }
+  .token-expiry-banner__spin { animation: none; }
+}
+
+/* ── Token expiry countdown banner ───────────────────────── */
+.token-expiry-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5000;
+  background: #0b0b0c;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+}
+.token-expiry-banner--expired {
+  background: #160b0d;
+  border-bottom-color: rgba(239, 68, 68, 0.45);
+}
+.token-expiry-banner__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 9px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.token-expiry-banner__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+}
+.token-expiry-banner__icon--danger {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}
+.token-expiry-banner__text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.token-expiry-banner__message {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+}
+.token-expiry-banner__countdown {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fbbf24;
+  letter-spacing: 0.02em;
+}
+.token-expiry-banner--expired .token-expiry-banner__countdown {
+  color: #f87171;
+}
+.token-expiry-banner__failed {
+  font-size: 12px;
+  color: #fca5a5;
+}
+.token-expiry-banner__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.token-expiry-banner__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff;
+  color: #0b0b0c;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.token-expiry-banner__btn:hover:not(:disabled) {
+  background: #fbbf24;
+}
+.token-expiry-banner__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.token-expiry-banner__btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.token-expiry-banner__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.token-expiry-banner__link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.token-expiry-banner__spin {
+  animation: banner-spin 0.9s linear infinite;
+}
+@keyframes banner-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── ConfirmDialog — in-app replacement for window.confirm ── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(10, 10, 12, 0.5);
+  backdrop-filter: blur(4px);
+}
+.confirm-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border, #e7e5e0);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+  padding: 28px 28px 24px;
+  text-align: center;
+}
+.confirm-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted, #8a8a9a);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.confirm-close:hover {
+  background: var(--off-white, #f5f4f1);
+  color: var(--charcoal, #1a1a1a);
+}
+.confirm-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #1a1a1a;
+  background: var(--off-white, #f5f4f1);
+}
+.confirm-icon-danger {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+.confirm-dialog h3 {
+  margin: 0 0 8px;
+  font-family: 'Jost', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--charcoal, #1a1a1a);
+  letter-spacing: 0.01em;
+}
+.confirm-message {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted, #6b6b76);
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.confirm-actions .btn-sm {
+  min-width: 100px;
+}
+.confirm-cancel {
+  border: 1px solid var(--border, #e7e5e0) !important;
+  color: var(--charcoal, #1a1a1a) !important;
+}
+.btn-danger {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #fff;
+}
+.btn-danger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* ── Responsive modals — full-width bottom sheets on phones ── */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .modal {
+    width: 100%;
+    max-width: 100vw;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+  }
+  .modal-wide {
+    width: 100%;
+  }
+  /* Sectioned two-column forms collapse to one column */
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 1rem 1.1rem;
+  }
+  .modal-header h3 {
+    font-size: 1rem;
+  }
+  .modal-header-desc {
+    font-size: 0.74rem;
+  }
+  .modal-body {
+    padding: 1.1rem;
+  }
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    padding: 0.85rem 1.1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  }
+  .modal-footer .btn-sm {
+    min-height: 42px;
+    padding: 0.5rem 1rem;
+  }
+  .modal-section + .modal-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+}

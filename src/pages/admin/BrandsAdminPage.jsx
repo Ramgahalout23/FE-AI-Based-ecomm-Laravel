@@ -5,7 +5,15 @@ import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import AdminPageShell from '../../components/admin/AdminPageShell';
-import { Edit, Plus, X, Download, Tag } from 'lucide-react';
+import AdminFormField from '../../components/admin/AdminFormField';
+import AdminModal from '../../components/admin/AdminModal';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, imageUrl } from '../../hooks/validationRules';
+import { motion } from 'framer-motion';
+import { modalBodyVariants } from '../../utils/motionPresets';
+import { Edit, Plus, Download, Tag } from 'lucide-react';
 
 export default function BrandsAdminPage() {
   const [brands, setBrands] = useState([]);
@@ -14,6 +22,13 @@ export default function BrandsAdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', logoUrl: '' });
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    name: requiredField('Brand name'),
+    logoUrl: imageUrl(),
+    description: requiredField('Description'),
+  });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -119,10 +134,11 @@ export default function BrandsAdminPage() {
     } finally { setExporting(false); }
   };
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', description: '', logoUrl: '' }); setShowModal(true); };
-  const openEdit = (b) => { setEditing(b); setForm({ name: b.name || '', description: b.description || '', logoUrl: b.logoUrl || '' }); setShowModal(true); };
+  const openCreate = () => { validation.reset(); setEditing(null); setForm({ name: '', description: '', logoUrl: '' }); setShowModal(true); };
+  const openEdit = (b) => { validation.reset(); setEditing(b); setForm({ name: b.name || '', description: b.description || '', logoUrl: b.logoUrl || '' }); setShowModal(true); };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return false;
     try {
       if (editing) {
         await adminAPI.updateBrand(editing.id, form);
@@ -132,19 +148,20 @@ export default function BrandsAdminPage() {
         toast.success('Brand created');
       }
       await load(currentPage);
-      setShowModal(false);
-    } catch { toast.error('Failed to save'); }
+      return true; // SaveButton plays the success state, then closes via onSuccess
+    } catch { toast.error('Failed to save'); return false; }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this brand?')) return;
     try { 
       await adminAPI.deleteBrand(id); 
       setBrands(brands.filter(b => b.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
@@ -192,7 +209,7 @@ export default function BrandsAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(b)}>Edit</button>
-                    <button className="btn-del" onClick={() => handleDelete(b.id)}>Delete</button>
+                    <ActionButton className="btn-del" confirm="Delete this brand?" onClick={() => handleDelete(b.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -222,21 +239,28 @@ export default function BrandsAdminPage() {
       />
       </AdminPageShell>
 
-      {showModal && (
-        <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
-            <div className="modal-header"><h3>{editing ? <><Edit size={18} /> Edit Brand</> : <><Plus size={18} /> New Brand</>}</h3><button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button></div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group"><label>Brand Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Gucci" /></div>
-                <div className="form-group"><label>Logo URL</label><input value={form.logoUrl} onChange={e => setForm({ ...form, logoUrl: e.target.value })} placeholder="https://..." /></div>
-                <div className="form-group form-full"><label>Description</label><textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-              </div>
-            </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update' : 'Create'}</button></div>
-          </div>
-        </div>
-      )}
+      <AdminModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Brand' : 'New Brand'}
+        icon={editing ? <Edit size={18} /> : <Plus size={18} />}
+        footer={<>
+          <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button>
+          <SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update' : 'Create'} />
+        </>}
+      >
+        <motion.div className="form-grid" variants={modalBodyVariants}>
+          <AdminFormField label="Brand Name" required error={validation.errors.name} valid={validation.validFields.name}>
+            <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Gucci" />
+          </AdminFormField>
+          <AdminFormField label="Logo URL" error={validation.errors.logoUrl} valid={validation.validFields.logoUrl} hint="Optional — shown in the storefront">
+            <input value={form.logoUrl} onChange={e => { setForm({ ...form, logoUrl: e.target.value }); validation.handleChange('logoUrl', e.target.value); }} placeholder="https://..." />
+          </AdminFormField>
+          <AdminFormField className="form-full" label="Description" required error={validation.errors.description} valid={validation.validFields.description}>
+            <textarea rows={3} value={form.description} onChange={e => { setForm({ ...form, description: e.target.value }); validation.handleChange('description', e.target.value); }} />
+          </AdminFormField>
+        </motion.div>
+      </AdminModal>
     </>
   );
 }

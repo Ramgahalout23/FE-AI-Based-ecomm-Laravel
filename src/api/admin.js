@@ -210,6 +210,7 @@ export const adminAPI = {
   getStaff: () => adminClient.get('/admin/staff'),
   createStaff: (data) => adminClient.post('/admin/staff', data),
   updateStaff: (id, data) => adminClient.patch(`/admin/staff/${id}`, data),
+  resetStaffPassword: (id, password) => adminClient.post(`/admin/staff/${id}/password`, { password }),
   // Uploads — long timeout for large files/videos (up to 5 min)
   uploadFile: (formData, config) => adminClient.post('/admin/upload', formData, { timeout: 300000, ...config }),
   uploadMultipleFiles: (formData, config) => adminClient.post('/admin/upload/multiple', formData, { timeout: 300000, ...config }),

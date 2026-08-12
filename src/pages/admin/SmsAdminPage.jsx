@@ -2,6 +2,8 @@ import { Settings, Send, Activity, RefreshCw, AlertTriangle } from 'lucide-react
 import { useState, useEffect } from 'react';
 import { smsAPI } from '../../api/sms';
 import toast from '../../utils/toast';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 
 ;
 
@@ -10,6 +12,11 @@ export default function SmsAdminPage() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [smsForm, setSmsForm] = useState({ to: '', message: '' });
   const [sending, setSending] = useState(false);
+  // Animated inline validation for the send-test-SMS form.
+  const smsValidation = useAdminFormValidation({
+    to: requiredField('Phone number'),
+    message: requiredField('Message'),
+  });
 
   const checkHealth = async () => {
     setHealthLoading(true);
@@ -25,8 +32,7 @@ export default function SmsAdminPage() {
   useEffect(() => { checkHealth(); }, []);
 
   const handleSend = async () => {
-    if (!smsForm.to.trim()) { toast.error('Phone number is required'); return; }
-    if (!smsForm.message.trim()) { toast.error('Message is required'); return; }
+    if (!smsValidation.validateForm({ to: smsForm.to, message: smsForm.message })) return;
     setSending(true);
     try {
       await smsAPI.send({ to: smsForm.to, message: smsForm.message });
@@ -141,23 +147,24 @@ export default function SmsAdminPage() {
             <h3>📱 Send Test SMS</h3>
           </div>
           <div className="form-grid">
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${smsValidation.errors.to ? 'has-error' : ''} ${smsValidation.validFields.to ? 'is-valid' : ''}`}>
               <label>Phone Number *</label>
               <input
                 value={smsForm.to}
-                onChange={(e) => setSmsForm({ ...smsForm, to: e.target.value })}
+                onChange={(e) => { setSmsForm({ ...smsForm, to: e.target.value }); smsValidation.handleChange('to', e.target.value); }}
                 placeholder="+1234567890"
                 type="tel"
               />
               <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem', display: 'block' }}>
                 Include country code (e.g. +1 for US, +91 for India)
               </span>
+              {smsValidation.errors.to && <div className="form-error" role="alert">{smsValidation.errors.to}</div>}
             </div>
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${smsValidation.errors.message ? 'has-error' : ''} ${smsValidation.validFields.message ? 'is-valid' : ''}`}>
               <label>Message *</label>
               <textarea
                 value={smsForm.message}
-                onChange={(e) => setSmsForm({ ...smsForm, message: e.target.value })}
+                onChange={(e) => { setSmsForm({ ...smsForm, message: e.target.value }); smsValidation.handleChange('message', e.target.value); }}
                 placeholder="Your SMS message here..."
                 rows={4}
                 maxLength={1600}
@@ -166,12 +173,13 @@ export default function SmsAdminPage() {
                 <span>{smsForm.message.length} / 1600 characters</span>
                 <span>{Math.ceil(smsForm.message.length / 160)} SMS segment(s)</span>
               </div>
+              {smsValidation.errors.message && <div className="form-error" role="alert">{smsValidation.errors.message}</div>}
             </div>
             <div className="form-group form-full" style={{ marginTop: '0.5rem' }}>
               <button
                 className="btn-dark btn-sm flex items-center gap-1.5"
                 onClick={handleSend}
-                disabled={sending || !smsForm.to.trim() || !smsForm.message.trim()}
+                disabled={sending}
                 style={{ width: '100%', justifyContent: 'center' }}
               >
                 <Send size={14} />

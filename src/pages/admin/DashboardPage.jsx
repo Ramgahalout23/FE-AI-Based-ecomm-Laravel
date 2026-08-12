@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, CartesianGrid } from 'recharts';
+import { motion, animate, useReducedMotion } from 'framer-motion';
 import { adminAPI } from '../../api/admin';
 import { analyticsAPI } from '../../api/analytics';
 import { formatDateTime, formatTime } from '../../utils/formatters';
@@ -9,10 +10,10 @@ import RefreshControls from '../../components/common/RefreshControls';
 import useDashboardCache from '../../hooks/useDashboardCache';
 import useInterval from '../../hooks/useInterval';
 import DashboardSkeleton from '../../components/dashboard/SkeletonLoader';
-import { BarChart3, Package, AlertTriangle, X } from 'lucide-react';
+import { BarChart3, Package, AlertTriangle, X, Users, TrendingUp, IndianRupee } from 'lucide-react';
 
 const PIE_COLORS = ['#1a1a1a', '#22c55e', '#888888', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6'];
-const CHART_COLORS = ['#C9A96E', '#27AE60', '#2980B9', '#E74C3C', '#8E44AD', '#F39C12', '#1ABC9C'];
+const CHART_COLORS = ['#1a1a1a', '#27AE60', '#2980B9', '#E74C3C', '#8E44AD', '#F39C12', '#1ABC9C'];
 
 // ── Stable recharts config constants (stable references prevent re-render loops) ──
 const CHART_MARGIN = { top: 10, right: 10, left: -20, bottom: 0 };
@@ -51,6 +52,59 @@ const DASHBOARD_DEFAULTS = {
   dailySales: [],
   reviewAnalytics: null,
 };
+
+// ── Premium motion presets ──
+const EASE = [0.16, 1, 0.3, 1];
+const cardContainerVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07, delayChildren: 0.05 } },
+};
+const cardItemVariants = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+};
+
+/**
+ * AnimatedNumber — counts from 0 up to `value` on mount/change with the
+ * design system's premium easing. Respects prefers-reduced-motion.
+ */
+function AnimatedNumber({ value, format = (v) => String(Math.round(v)), duration = 0.9 }) {
+  const reduceMotion = useReducedMotion();
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      setDisplay(value);
+      return undefined;
+    }
+    const controls = animate(0, value, {
+      duration,
+      ease: EASE,
+      onUpdate: (v) => setDisplay(v),
+    });
+    return () => controls.stop();
+  }, [value, duration, reduceMotion]);
+
+  return format(display);
+}
+
+/**
+ * SectionReveal — scroll-triggered reveal for dashboard sections.
+ * Animates once when the section enters the viewport.
+ */
+function SectionReveal({ children, delay = 0, className = '' }) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.55, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 /**
  * Map backend order data to the live orders format the dashboard expects.
@@ -439,7 +493,7 @@ export default function DashboardPage() {
           <button className="px-4 py-2.5 border border-border rounded-xl bg-white hover:border-brand-black hover:text-brand-black transition-colors text-sm font-medium text-text-primary shadow-soft flex items-center gap-2" onClick={() => navigate('/admin/analytics')}>
             <BarChart3 size={16} /> Analytics
           </button>
-          <button className="px-4 py-2.5 bg-brand-black text-brand-white rounded-xl hover:bg-black active:bg-brand-black-hover transition-all text-sm font-semibold shadow-lg hover:shadow-xl flex items-center gap-2" onClick={() => navigate('/admin/orders')}>
+          <button className="btn-dark px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2" onClick={() => navigate('/admin/orders')}>
             <Package size={16} /> View Orders
           </button>
         </div>
@@ -476,46 +530,56 @@ export default function DashboardPage() {
 
       {/* Hide everything else when loading skeletons are showing */}
       {!loading && (
-      <div className="dashboard-content-enter" style={{ opacity: chartsReady ? 1 : 0, transition: 'opacity 0.15s ease' }}>
+      <div>
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8"
+        variants={cardContainerVariants}
+        initial="hidden"
+        animate="show"
+      >
         {[
           (() => {
             const rev = metrics.revenueChangePercent;
             const revLabel = (rev != null && !isNaN(rev)) ? (rev >= 0 ? '\u2191 ' : '\u2193 ') + Math.abs(rev).toFixed(1) + '% vs prev' : '— vs prev';
             const revColor = (rev != null && !isNaN(rev)) ? (rev >= 0 ? 'text-success bg-success-bg' : 'text-danger bg-danger-bg') : 'text-text-muted bg-surface';
-            return { icon: '\uD83D\uDCB0', title: 'Total Revenue', value: '\u20B9' + ((metrics.totalRevenue ?? 0) / 1000).toFixed(1) + 'k', change: revLabel, changeColor: revColor, gradient: 'from-brand-orange to-secondary' };
+            return { icon: IndianRupee, title: 'Total Revenue', value: metrics.totalRevenue ?? 0, format: (v) => '\u20B9' + (v / 1000).toFixed(1) + 'k', change: revLabel, changeColor: revColor, gradient: 'from-[#1a1a1a] to-[#333333]' };
           })(),
           (() => {
             const ord = metrics.ordersChangePercent;
             const ordLabel = (ord != null && !isNaN(ord)) ? (ord >= 0 ? '\u2191 ' : '\u2193 ') + Math.abs(ord).toFixed(1) + '% vs prev' : '— vs prev';
             const ordColor = (ord != null && !isNaN(ord)) ? (ord >= 0 ? 'text-success bg-success-bg' : 'text-danger bg-danger-bg') : 'text-text-muted bg-surface';
-            return { icon: '\uD83D\uDCE6', title: 'Total Orders', value: String(metrics.totalOrders || metrics.ordersToday), change: ordLabel, changeColor: ordColor, gradient: 'from-accent-green to-accent-mint' };
+            return { icon: Package, title: 'Total Orders', value: metrics.totalOrders || metrics.ordersToday || 0, format: (v) => String(Math.round(v)), change: ordLabel, changeColor: ordColor, gradient: 'from-[#27AE60] to-[#1ABC9C]' };
           })(),
-          { icon: '\uD83D\uDC65', title: 'Active Users', value: metrics.activeUsers?.toLocaleString() || '0', change: (metrics.newUsers || '0') + ' new in period', changeColor: 'text-success bg-success-bg', gradient: 'from-info to-blue-400' },
-          { icon: '\uD83D\uDCC8', title: 'Avg Order Value', value: '\u20B9' + (metrics.avgOrderValue > 0 ? Number(metrics.avgOrderValue).toFixed(0) : '0'), change: metrics.totalOrders > 0 ? 'Across ' + metrics.totalOrders + ' orders' : 'No orders yet', changeColor: 'text-info bg-info-bg', gradient: 'from-accent-green to-accent-mint' },
-          { icon: '\uD83D\uDCC9', title: 'Low Stock Items', value: String(metrics.lowStockCount), change: metrics.lowStockCount > 0 ? String(metrics.lowStockCount) + ' need restock' : 'All stocked', changeColor: metrics.lowStockCount > 0 ? 'text-danger bg-danger-bg' : 'text-success bg-success-bg', gradient: 'from-warning to-orange-400' },
+          { icon: Users, title: 'Active Users', value: metrics.activeUsers || 0, format: (v) => Math.round(v).toLocaleString(), change: (metrics.newUsers || '0') + ' new in period', changeColor: 'text-success bg-success-bg', gradient: 'from-[#2980B9] to-[#3498DB]' },
+          { icon: TrendingUp, title: 'Avg Order Value', value: metrics.avgOrderValue > 0 ? Number(metrics.avgOrderValue) : 0, format: (v) => '\u20B9' + Math.round(v), change: metrics.totalOrders > 0 ? 'Across ' + metrics.totalOrders + ' orders' : 'No orders yet', changeColor: 'text-info bg-info-bg', gradient: 'from-[#8E44AD] to-[#9B59B6]' },
+          { icon: AlertTriangle, title: 'Low Stock Items', value: metrics.lowStockCount || 0, format: (v) => String(Math.round(v)), change: metrics.lowStockCount > 0 ? String(metrics.lowStockCount) + ' need restock' : 'All stocked', changeColor: metrics.lowStockCount > 0 ? 'text-danger bg-danger-bg' : 'text-success bg-success-bg', gradient: 'from-[#F39C12] to-[#E67E22]' },
         ].map(stat => (
-          <div
+          <motion.div
             key={stat.title}
-            className={'bg-white p-5 rounded-2xl border border-border shadow-soft hover:shadow-card transition-shadow relative overflow-hidden group' + (stat.title === 'Low Stock Items' ? ' cursor-pointer hover:border-warning' : '')}
+            variants={cardItemVariants}
+            className={'bg-white p-5 rounded-2xl border border-border shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 relative overflow-hidden group' + (stat.title === 'Low Stock Items' ? ' cursor-pointer hover:border-warning' : '')}
             onClick={stat.title === 'Low Stock Items' ? goToInventory : undefined}
             role={stat.title === 'Low Stock Items' ? 'button' : undefined}
             tabIndex={stat.title === 'Low Stock Items' ? 0 : undefined}
             onKeyDown={stat.title === 'Low Stock Items' ? (e) => { if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); goToInventory(); } } : undefined}
           >
-            <div className={'absolute top-0 left-0 w-full h-1 bg-gradient-to-r ' + stat.gradient + ' opacity-0 group-hover:opacity-100 transition-opacity'} />
-            <div className="text-2xl mb-3">{stat.icon}</div>
+            <div className={'absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r ' + stat.gradient + ' opacity-0 group-hover:opacity-100 transition-opacity duration-300'} />
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-black/10 to-black/5 text-[#1a1a1a] flex items-center justify-center mb-3">
+              <stat.icon size={20} strokeWidth={1.75} />
+            </div>
             <div className="text-xs font-semibold tracking-wider text-text-muted uppercase mb-1">{stat.title}</div>
-            <div className="text-2xl font-bold text-text-primary mb-2 font-display">{stat.value}</div>
+            <div className="text-2xl font-bold text-text-primary mb-2 font-display tabular-nums">
+              <AnimatedNumber value={stat.value} format={stat.format} />
+            </div>
             <div className={'text-[11px] font-semibold px-2 py-0.5 rounded-md w-fit ' + stat.changeColor}>{stat.change}</div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Conversion Metrics */}
       {conversionMetrics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <SectionReveal className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <div className="bg-white border border-border rounded-xl p-4 shadow-soft text-center">
             <div className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Conversion Rate</div>
             <div className="text-2xl font-bold text-text-primary font-display">{(conversionMetrics.conversionRate || 0).toFixed(1)}%</div>
@@ -536,22 +600,28 @@ export default function DashboardPage() {
             <div className="text-2xl font-bold text-text-primary font-display">{conversionMetrics.totalCarts}</div>
             <div className="text-[11px] text-text-muted mt-1">In this period</div>
           </div>
-        </div>
+        </SectionReveal>
       )}
 
       {/* Live Orders + Revenue Comparison */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6 mb-8">
+      <SectionReveal className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6 mb-8">
         <div className="bg-white border border-border rounded-2xl shadow-soft overflow-hidden flex flex-col">
           <div className="p-5 border-b border-border flex justify-between items-center">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-accent-green animate-pulse shadow-glow-green" />
               <h3 className="font-display font-bold text-text-primary">Live Orders</h3>
             </div>
-            <button className="text-xs font-semibold text-brand-orange hover:underline" onClick={() => navigate('/admin/orders')}>View All</button>
+            <button className="text-xs font-semibold text-brand-black hover:text-black hover:underline" onClick={() => navigate('/admin/orders')}>View All</button>
           </div>
           <div className="flex-1 overflow-auto max-h-[420px]">
             {liveOrders.map((order, idx) => (
-              <div key={order.id + '-' + idx} className="flex items-center gap-3 px-5 py-3.5 border-b border-border/50 last:border-0 hover:bg-surface transition-colors">
+              <motion.div
+                key={order.id + '-' + idx}
+                initial={{ opacity: 0, x: -14 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, ease: EASE, delay: Math.min(idx * 0.06, 0.4) }}
+                className="flex items-center gap-3 px-5 py-3.5 border-b border-border/50 last:border-0 hover:bg-surface transition-colors"
+              >
                 <div className="w-8 h-8 rounded-full bg-brand-orange/10 text-brand-orange flex items-center justify-center text-xs font-bold shrink-0">
                   {order.customer.split(' ').map(n => n[0]).join('')}
                 </div>
@@ -566,12 +636,17 @@ export default function DashboardPage() {
                   <div className="text-sm font-bold text-text-primary">{'\u20B9'}{order.amount}</div>
                   <div className="text-[10px] text-text-muted">{order.time}</div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
+        <motion.div
+          className="bg-white border border-border rounded-2xl p-5 shadow-soft"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
+        >
           <h3 className="font-display font-bold text-text-primary text-lg mb-1">Revenue Comparison</h3>
           <p className="text-xs text-text-muted mb-4">
             {revenueComparison ? (
@@ -580,29 +655,29 @@ export default function DashboardPage() {
           </p>
           <div className="h-[280px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={comparisonChartData} margin={CHART_MARGIN} isAnimationActive={false}>
+              <BarChart data={comparisonChartData} margin={CHART_MARGIN} animationDuration={800}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="day" tick={TICK_STYLE_SM} axisLine={false} tickLine={false} dy={8} />
                 <YAxis tick={TICK_STYLE_SM} axisLine={false} tickLine={false} tickFormatter={FORMAT_CURRENCY_K} />
                 <Tooltip formatter={FORMAT_CURRENCY_LOCALE} contentStyle={TOOLTIP_STYLE_BOLD} />
                 <Legend wrapperStyle={LEGEND_STYLE_PT8} />
                 <Bar dataKey="Current Period" fill="#1a1a1a" radius={BAR_RADIUS_4} maxBarSize={16} />
-                <Bar dataKey="Previous Period" fill="#C9A96E" radius={BAR_RADIUS_4} maxBarSize={16} opacity={0.7} />
+                <Bar dataKey="Previous Period" fill="#6b7280" radius={BAR_RADIUS_4} maxBarSize={16} opacity={0.7} />
               </BarChart>
             </ResponsiveContainer>}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </SectionReveal>
 
       {/* Order Status + Top Products */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <SectionReveal className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-4">Order Status</h3>
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="h-[180px] w-[180px] shrink-0" style={{ minWidth: '1px', minHeight: '1px' }}>
               {chartsReady && <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie isAnimationActive={false} data={orderStatus} innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={4} strokeWidth={0}>
+                  <Pie animationDuration={800} data={orderStatus} innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={4} strokeWidth={0}>
                     {orderStatusCells}
                   </Pie>
                 </PieChart>
@@ -625,7 +700,7 @@ export default function DashboardPage() {
         <div className="bg-white border border-border rounded-2xl shadow-soft overflow-hidden flex flex-col">
           <div className="p-5 border-b border-border flex justify-between items-center">
             <h3 className="font-display font-bold text-text-primary text-lg">Top Selling Products</h3>
-            <button className="text-xs font-semibold text-brand-orange hover:underline" onClick={() => navigate('/admin/products')}>View All</button>
+            <button className="text-xs font-semibold text-brand-black hover:text-black hover:underline" onClick={() => navigate('/admin/products')}>View All</button>
           </div>
           <div className="flex-1 overflow-auto">
             {topProducts.length > 0 ? topProducts.map((p, i) => (
@@ -644,15 +719,15 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-      </div>
+      </SectionReveal>
 
       {/* Customer Growth + Hourly Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <SectionReveal className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Customer Growth</h3>
           <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={growthDisplay} margin={CHART_MARGIN} isAnimationActive={false}>
+              <AreaChart data={growthDisplay} margin={CHART_MARGIN} animationDuration={800}>
                 <defs>
                   <linearGradient id="customerGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -675,7 +750,7 @@ export default function DashboardPage() {
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Hourly Sales Distribution</h3>
           <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hourlyData} margin={CHART_MARGIN} isAnimationActive={false}>
+              <BarChart data={hourlyData} margin={CHART_MARGIN} animationDuration={800}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="hour" tick={TICK_STYLE_XS} axisLine={false} tickLine={false} dy={8} />
                 <YAxis tick={TICK_STYLE_SM} axisLine={false} tickLine={false} />
@@ -686,17 +761,17 @@ export default function DashboardPage() {
             </ResponsiveContainer>}
           </div>
         </div>
-      </div>
+      </SectionReveal>
 
       {/* Payment Methods + Daily Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <SectionReveal className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
           <h3 className="font-display font-bold text-text-primary text-lg mb-4">Payment Methods</h3>
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="h-[200px] w-[200px] shrink-0" style={{ minWidth: '1px', minHeight: '1px' }}>
               {chartsReady && <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie isAnimationActive={false} data={paymentPieData}
+                  <Pie animationDuration={800} data={paymentPieData}
                     innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3} strokeWidth={0}>
                     {paymentPieCells}
                   </Pie>
@@ -722,27 +797,32 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-border rounded-2xl p-5 shadow-soft">
+        <motion.div
+          className="bg-white border border-border rounded-2xl p-5 shadow-soft"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: EASE, delay: 0.15 }}
+        >
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Daily Sales (Last 14 Days)</h3>
           <div className="h-[250px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
             {chartsReady && <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailySales} margin={CHART_MARGIN} isAnimationActive={false}>
+              <LineChart data={dailySales} margin={CHART_MARGIN} animationDuration={800}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={TICK_STYLE_XS} axisLine={false} tickLine={false} dy={8} tickFormatter={FORMAT_DATE_SLICE} />
                 <YAxis tick={TICK_STYLE_SM} axisLine={false} tickLine={false} tickFormatter={FORMAT_CURRENCY_K} />
                 <Tooltip formatter={FORMAT_TOOLTIP_CURRENCY} contentStyle={TOOLTIP_STYLE} />
                 <Line type="monotone" dataKey="revenue" stroke="#1a1a1a" strokeWidth={2} dot={DOT_BLACK} name="Revenue" />
-                <Bar dataKey="orders" fill="#C9A96E" radius={BAR_RADIUS_3} maxBarSize={8} name="Orders" opacity={0.6} />
+                <Bar dataKey="orders" fill="#6b7280" radius={BAR_RADIUS_3} maxBarSize={8} name="Orders" opacity={0.6} />
                 <Legend wrapperStyle={LEGEND_STYLE} />
               </LineChart>
             </ResponsiveContainer>}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </SectionReveal>
 
       {/* Review Analytics */}
       {reviewAnalytics && (
-        <div className="mb-8">
+        <SectionReveal className="mb-8">
           <h3 className="font-display font-bold text-text-primary text-lg mb-5">Review Analytics</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-white border border-border rounded-xl p-4 shadow-soft">
@@ -815,7 +895,7 @@ export default function DashboardPage() {
               <h4 className="font-display font-semibold text-text-primary mb-4">Average Rating Trend (12 Months)</h4>
               <div className="h-[220px]" style={{ minWidth: '1px', minHeight: '1px', width: '100%' }}>
                 {chartsReady && <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={reviewAnalytics.monthly_trend} margin={CHART_MARGIN} isAnimationActive={false}>
+                  <LineChart data={reviewAnalytics.monthly_trend} margin={CHART_MARGIN} animationDuration={800}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="month" tick={TICK_STYLE_XS} axisLine={false} tickLine={false} dy={8} />
                     <YAxis domain={[0, 5]} tick={TICK_STYLE_SM} axisLine={false} tickLine={false} />
@@ -828,11 +908,11 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-        </div>
+        </SectionReveal>
       )}
 
       {/* Activity Log */}
-      <div className="bg-white border border-border rounded-2xl shadow-soft overflow-hidden mb-8">
+      <SectionReveal className="bg-white border border-border rounded-2xl shadow-soft overflow-hidden mb-8">
         <div className="p-5 border-b border-border flex justify-between items-center">
           <h3 className="font-display font-bold text-text-primary text-lg">Recent Activity</h3>
           <span className="text-xs font-medium bg-surface text-text-muted px-2.5 py-1 rounded-lg border border-border">Last 24h</span>
@@ -857,11 +937,11 @@ export default function DashboardPage() {
             {logs.length === 0 && <div className="text-sm text-text-muted py-2">No recent activity</div>}
           </div>
         </div>
-      </div>
+      </SectionReveal>
 
       {/* System Health */}
       {health && (
-        <div className="flex flex-wrap gap-4 p-5 bg-charcoal text-white rounded-2xl shadow-lg mb-4">
+        <SectionReveal className="flex flex-wrap gap-4 p-5 bg-charcoal text-white rounded-2xl shadow-lg mb-4">
           {[
             { label: 'Database', value: health.databaseConnection ? 'Connected' : 'Disconnected', color: health.databaseConnection ? 'bg-accent-green' : 'bg-danger', status: health.databaseConnection ? 'Healthy' : 'Unhealthy' },
             { label: 'Cache', value: health.cacheConnection ? 'Connected' : 'Disconnected', color: health.cacheConnection ? 'bg-accent-green' : 'bg-warning', status: health.cacheConnection ? 'Healthy' : 'Degraded' },
@@ -876,7 +956,7 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
-        </div>
+        </SectionReveal>
       )}
       </div>
       )}

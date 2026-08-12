@@ -11,6 +11,9 @@ import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 
 const EMPTY = { sku: '', price: '', stock: '', color: '', size: '', images: '', description: '', productId: '' };
 
@@ -398,12 +401,14 @@ export default function VariantsAdminPage() {
       description: v.attributes?.description || '',
       productId: v.productId || '',
     });
+    validation.reset();
     setShowModal(true);
   };
 
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY);
+    validation.reset();
     setShowModal(true);
   };
 
@@ -497,7 +502,15 @@ export default function VariantsAdminPage() {
     }
   };
 
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    sku: requiredField('SKU'),
+    price: requiredField('Price'),
+    stock: requiredField('Stock'),
+  });
+
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     try {
       const payload = {
         sku: form.sku,
@@ -988,9 +1001,15 @@ export default function VariantsAdminPage() {
                     />
                   </div>
                 )}
-                <div className="form-group"><label>SKU</label><input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="e.g. TEE-BLK-M" /></div>
-                <div className="form-group"><label>Price</label><input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="599" /></div>
-                <div className="form-group"><label>Stock</label><input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} placeholder="50" /></div>
+                <AdminFormField label="SKU" required error={validation.errors.sku} valid={validation.validFields.sku}>
+                  <input value={form.sku} onChange={e => { setForm({ ...form, sku: e.target.value }); validation.handleChange('sku', e.target.value); }} placeholder="e.g. TEE-BLK-M" />
+                </AdminFormField>
+                <AdminFormField label="Price" required error={validation.errors.price} valid={validation.validFields.price}>
+                  <input type="number" value={form.price} onChange={e => { setForm({ ...form, price: e.target.value }); validation.handleChange('price', e.target.value); }} placeholder="599" />
+                </AdminFormField>
+                <AdminFormField label="Stock" required error={validation.errors.stock} valid={validation.validFields.stock}>
+                  <input type="number" value={form.stock} onChange={e => { setForm({ ...form, stock: e.target.value }); validation.handleChange('stock', e.target.value); }} placeholder="50" />
+                </AdminFormField>
                 <div className="form-group"><label>Color</label><input value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} placeholder="e.g. Black, Navy" /></div>
                 <div className="form-group"><label>Size</label><input value={form.size} onChange={e => setForm({ ...form, size: e.target.value })} placeholder="e.g. M, L, XL" /></div>
                 <div className="form-group form-full">

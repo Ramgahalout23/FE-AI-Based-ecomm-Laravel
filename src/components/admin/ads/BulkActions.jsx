@@ -2,10 +2,12 @@ import { CheckCheck, Copy, Play, Pause, X, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import toast from '../../../utils/toast';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 
 export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelete, onDuplicate }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const confirm = useConfirm();
 
   const toggleSelect = (id) => {
     const newSel = new Set(selectedIds);
@@ -30,7 +32,7 @@ export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelet
     setSelectAll(false);
   };
 
-  const handleAction = (action) => {
+  const handleAction = async (action) => {
     if (selectedIds.size === 0) {
       toast.error('Select campaigns first');
       return;
@@ -47,7 +49,7 @@ export default function BulkActions({ campaigns, onBulkStatusChange, onBulkDelet
         onBulkStatusChange(ids, 'DRAFT');
         break;
       case 'delete':
-        if (window.confirm(`Delete ${ids.length} campaigns? This cannot be undone.`)) {
+        if (await confirm({ title: `Delete ${ids.length} campaigns?`, message: 'This cannot be undone.', confirmLabel: 'Delete' })) {
           ids.forEach(id => onBulkDelete(id));
         }
         break;

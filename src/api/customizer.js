@@ -1,17 +1,28 @@
 import axios from 'axios';
+import { refreshSharedToken, createAuthErrorHandler } from './client';
 
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Same token convention as the storefront client: authToken is canonical,
+// adminToken mirrors it. Attach whichever exists.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// 401 handling shares the SAME single refresh promise as the storefront and
+// admin clients — a stale token recovers via one refresh instead of failing
+// or racing (and a genuinely dead session logs out to /login once).
+api.interceptors.response.use(
+  (res) => res,
+  (error) => createAuthErrorHandler(api, refreshSharedToken)(error)
+);
 
 export const customizerAPI = {
   /**

@@ -1,5 +1,6 @@
 import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, BellPlus, Grid, Languages, Terminal, ShieldCheck, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode, Percent, Menu, X } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { useSettings } from '../../store/useSettings';
@@ -7,6 +8,7 @@ import useAuthStore from '../../store/authStore';
 import { getImageUrl, getInitials, getUserFullName } from '../../utils/formatters';
 import { useSocketEvent, useSocketConnection, useOrderCreated, useReviewCreated } from '../../hooks/useSocket';
 import { notificationsAPI } from '../../api/notifications';
+import SessionIndicator from '../admin/SessionIndicator';
 
 const sections = [
   {
@@ -214,7 +216,7 @@ export default function AdminSidebar() {
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#C9A96E] to-[#A8864A] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/25 to-white/10 flex items-center justify-center border border-white/10">
                 <span className="text-white font-bold text-sm">A</span>
               </div>
               <div>
@@ -240,18 +242,25 @@ export default function AdminSidebar() {
               key={group.section}
               onClick={() => setActiveSection(group.section)}
               className={`
-                flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm w-full
+                relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm w-full
                 transition-all duration-150
                 ${isActive
-                  ? 'bg-[#C9A96E]/15 text-white font-medium'
+                  ? 'text-white font-medium'
                   : 'text-white/40 hover:text-white/70 hover:bg-white/5'
                 }
               `}
             >
-              <Icon size={17} />
-              <span className="text-sm flex-1 text-left">{group.section}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="admin-section-pill"
+                  className="absolute inset-0 rounded-lg bg-white/10"
+                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                />
+              )}
+              <Icon size={17} className="relative z-10" />
+              <span className="text-sm flex-1 text-left relative z-10">{group.section}</span>
               {tabBadge !== null && tabBadge > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#C9A96E]/20 text-[#C9A96E] leading-none">
+                <span className="relative z-10 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white/90 leading-none">
                   {tabBadge > 99 ? '99+' : tabBadge}
                 </span>
               )}
@@ -266,7 +275,7 @@ export default function AdminSidebar() {
       {/* ── Sub-links ── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-          <currentGroup.icon size={13} className="text-[#C9A96E]/60" />
+          <currentGroup.icon size={13} className="text-white/40" />
           <span className="text-[9px] font-semibold tracking-wider uppercase text-white/25">{currentGroup.section}</span>
           <span className="flex-1 h-px bg-white/5" />
         </div>
@@ -283,19 +292,26 @@ export default function AdminSidebar() {
                 to={link.to}
                 end={link.end}
                 className={`
-                  flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm
+                  relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm
                   transition-all duration-150
                   ${active
-                    ? 'bg-white/10 text-white font-medium'
+                    ? 'text-white font-medium'
                     : 'text-white/40 hover:text-white/70 hover:bg-white/5'
                   }
                 `}
               >
-                <LinkIcon size={16} />
-                <span className="text-sm flex-1">{link.label}</span>
+                {active && (
+                  <motion.div
+                    layoutId="admin-link-pill"
+                    className="absolute inset-0 rounded-lg bg-white/10"
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <LinkIcon size={16} className="relative z-10" />
+                <span className="text-sm flex-1 relative z-10">{link.label}</span>
                 {badgeVal !== null && badgeVal > 0 && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none
-                    ${link.label === 'Orders' ? 'bg-red-500/20 text-red-400' : 'bg-[#C9A96E]/20 text-[#C9A96E]'}`}>
+                  <span className={`relative z-10 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none
+                    ${link.label === 'Orders' ? 'bg-red-500/20 text-red-400' : 'bg-white/20 text-white/90'}`}>
                     {badgeVal > 99 ? '99+' : badgeVal}
                   </span>
                 )}
@@ -323,13 +339,14 @@ export default function AdminSidebar() {
             </div>
           </div>
           <button
-            onClick={() => { useAuthStore.getState().logout(); window.location.href = '/admin/login'; }}
+            onClick={async () => { await useAuthStore.getState().logout(); window.location.href = '/admin/login'; }}
             className="w-7 h-7 flex items-center justify-center rounded text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             title="Logout"
           >
             <LogOut size={14} />
           </button>
         </div>
+        <SessionIndicator />
       </div>
     </>
   );

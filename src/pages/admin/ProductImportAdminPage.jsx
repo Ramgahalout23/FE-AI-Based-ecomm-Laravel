@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 export default function ProductImportAdminPage() {
@@ -10,6 +12,12 @@ export default function ProductImportAdminPage() {
   const [result, setResult] = useState(null);
   const [showColumns, setShowColumns] = useState(false);
   const fileInputRef = useRef(null);
+
+  // A CSV file must be chosen before preview/import — animated inline error
+  // on the dropzone instead of a toast.
+  const fileValidation = useAdminFormValidation({
+    file: requiredField('CSV file'),
+  });
 
   // Preview state (from backend)
   const [previewData, setPreviewData] = useState(null);
@@ -111,29 +119,29 @@ export default function ProductImportAdminPage() {
     const dropped = e.dataTransfer.files?.[0];
     if (dropped && (dropped.type === 'text/csv' || dropped.name.endsWith('.csv'))) {
       setFile(dropped);
+      fileValidation.handleChange('file', dropped);
     } else {
       toast.error('Please drop a CSV file');
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
     if (selected) {
       setFile(selected);
+      fileValidation.handleChange('file', selected);
     }
   };
 
   const clearFile = () => {
     setFile(null);
+    fileValidation.handleChange('file', null);
     setPreviewData(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleUpload = async () => {
-    if (!file) {
-      toast.error('Select a CSV file first');
-      return;
-    }
+    if (!fileValidation.validateForm({ file })) return;
     setLoading(true);
     setResult(null);
     try {
@@ -158,10 +166,7 @@ export default function ProductImportAdminPage() {
   };
 
   const handleImportWithMapping = async () => {
-    if (!file) {
-      toast.error('Select a CSV file first');
-      return;
-    }
+    if (!fileValidation.validateForm({ file })) return;
     setLoading(true);
     setResult(null);
     try {
@@ -252,12 +257,13 @@ export default function ProductImportAdminPage() {
       {/* ── CSV Upload Zone ── */}
       <div className="table-card" style={{ marginBottom: '1rem' }}>
         <div
+          className={fileValidation.errors.file ? 'import-dropzone-error' : ''}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           style={{
-            border: `2px dashed ${dragOver ? 'var(--primary)' : file ? '#22c55e' : 'var(--border)'}`,
+            border: `2px dashed ${dragOver ? 'var(--primary)' : file ? '#22c55e' : fileValidation.errors.file ? '#ef4444' : 'var(--border)'}`,
             borderRadius: '12px',
             padding: '2.5rem',
             textAlign: 'center',
@@ -301,6 +307,11 @@ export default function ProductImportAdminPage() {
             </div>
           )}
         </div>
+        {fileValidation.errors.file && (
+          <div className="form-error" role="alert" style={{ marginTop: '0.6rem', justifyContent: 'center' }}>
+            {fileValidation.errors.file}
+          </div>
+        )}
       </div>
 
       {/* ── Server-Side Data Preview ── */}

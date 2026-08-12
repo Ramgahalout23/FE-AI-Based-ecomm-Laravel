@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
 import './EmailTemplates.css';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, emailAddress } from '../../hooks/validationRules';
 
 const TEMPLATE_ICONS = {
   orderConfirmation: '📦',
@@ -32,6 +34,15 @@ export default function EmailTemplatesAdminPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [testLoading, setTestLoading] = useState(false);
+
+  // Animated inline validation — custom HTML (when in CUSTOM mode) and the
+  // test-email recipient field.
+  const htmlValidation = useAdminFormValidation({
+    customHtml: requiredField('Custom HTML content'),
+  });
+  const testEmailValidation = useAdminFormValidation({
+    testEmail: emailAddress(),
+  });
 
   const selectedTemplate = templates.find(t => t.id === selectedId);
 
@@ -73,10 +84,14 @@ export default function EmailTemplatesAdminPage() {
   const handleSelectTemplate = (id) => {
     setSelectedId(id);
     setPreviewHtml('');
+    htmlValidation.reset();
+    testEmailValidation.reset();
   };
 
   const handleSave = async () => {
     if (!selectedId) return;
+    // In CUSTOM mode the editor must have actual content before saving.
+    if (mode === 'CUSTOM' && !htmlValidation.validateForm({ customHtml })) return;
     setSaving(true);
     try {
       await adminAPI.updateEmailTemplate(selectedId, {
@@ -122,10 +137,8 @@ export default function EmailTemplatesAdminPage() {
   };
 
   const handleSendTest = async () => {
-    if (!selectedId || !testEmail.trim()) {
-      toast.error('Please enter a recipient email');
-      return;
-    }
+    if (!selectedId) return;
+    if (!testEmailValidation.validateForm({ testEmail })) return;
     setTestLoading(true);
     try {
       await adminAPI.sendTestEmailTemplate(selectedId, { email: testEmail });
@@ -253,17 +266,18 @@ export default function EmailTemplatesAdminPage() {
               </div>
 
               {/* Custom HTML Editor */}
-              {mode === 'custom' && (
-                <div className="editor-html-area">
+              {mode === 'CUSTOM' && (
+                <div className={`editor-html-area ${htmlValidation.errors.customHtml ? 'has-error' : ''}`}>
                   <label>Custom HTML Content</label>
                   <textarea
-                    className="editor-textarea"
+                    className={`editor-textarea ${htmlValidation.errors.customHtml ? 'field-invalid' : htmlValidation.validFields.customHtml ? 'field-valid' : ''}`}
                     value={customHtml}
-                    onChange={e => setCustomHtml(e.target.value)}
+                    onChange={e => { setCustomHtml(e.target.value); htmlValidation.handleChange('customHtml', e.target.value); }}
                     placeholder={`<html>\n<body>\n  <h1>Your custom {{templateName}} template...</h1>\n</body>\n</html>`}
                     rows={16}
                     spellCheck={false}
                   />
+                  {htmlValidation.errors.customHtml && <div className="form-error" role="alert">{htmlValidation.errors.customHtml}</div>}
                 </div>
               )}
 
@@ -322,22 +336,23 @@ export default function EmailTemplatesAdminPage() {
               {/* Test Email */}
               <div className="editor-test-section">
                 <h4>Send Test Email</h4>
-                <div className="test-email-row">
+                <div className={`test-email-row ${testEmailValidation.errors.testEmail ? 'has-error' : ''}`}>
                   <input
                     type="email"
                     value={testEmail}
-                    onChange={e => setTestEmail(e.target.value)}
+                    onChange={e => { setTestEmail(e.target.value); testEmailValidation.handleChange('testEmail', e.target.value); }}
                     placeholder="Enter recipient email..."
-                    className="test-email-input"
+                    className={`test-email-input ${testEmailValidation.errors.testEmail ? 'field-invalid' : testEmailValidation.validFields.testEmail ? 'field-valid' : ''}`}
                   />
                   <button
                     className="btn-dark btn-sm"
                     onClick={handleSendTest}
-                    disabled={testLoading || !testEmail.trim()}
+                    disabled={testLoading}
                   >
                     {testLoading ? 'Sending...' : 'Send Test'}
                   </button>
                 </div>
+                {testEmailValidation.errors.testEmail && <div className="form-error" role="alert">{testEmailValidation.errors.testEmail}</div>}
               </div>
             </div>
           )}

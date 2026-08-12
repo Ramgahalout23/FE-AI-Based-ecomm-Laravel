@@ -2,6 +2,8 @@ import { Check, X, MessageSquare, Bell, Eye, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { showSuccess, showError } from '../../utils/toast';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 
 ;
 
@@ -13,6 +15,14 @@ export default function NotificationTemplatesAdminPage() {
   const [previewData, setPreviewData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [previewSample, setPreviewSample] = useState('');
+
+  // Animated inline validation for the custom content fields (channel-aware:
+  // SMS templates use `template`, in-app use `title` + `message`).
+  const editValidation = useAdminFormValidation({
+    title: requiredField('Notification title'),
+    message: requiredField('Notification message'),
+    template: requiredField('SMS template body'),
+  });
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -37,6 +47,7 @@ export default function NotificationTemplatesAdminPage() {
       if (!t) return;
       setSelectedId(id);
       setPreviewData(null);
+      editValidation.reset();
       const vars = {};
       t.variables.forEach((v) => {
         vars[v] = `{${v}}`;
@@ -64,6 +75,12 @@ export default function NotificationTemplatesAdminPage() {
 
   const handleSave = async () => {
     if (!selectedId) return;
+    // In CUSTOM mode the edited fields must be non-empty before saving.
+    const selected = templates.find((t) => t.id === selectedId);
+    const fields = selected?.channel === 'sms'
+      ? { template: editData.template }
+      : { title: editData.title, message: editData.message };
+    if (!editValidation.validateForm(fields)) return;
     setSaving(true);
     try {
       await adminAPI.updateNotificationTemplate(selectedId, editData);
@@ -111,6 +128,7 @@ export default function NotificationTemplatesAdminPage() {
     if (!selectedId) return;
     const t = templates.find((tmpl) => tmpl.id === selectedId);
     if (!t) return;
+    editValidation.reset();
     if (t.channel === 'sms') {
       setEditData((prev) => ({ ...prev, mode: 'DEFAULT', template: '' }));
     } else {
@@ -278,11 +296,12 @@ export default function NotificationTemplatesAdminPage() {
                       </label>
                       <textarea
                         value={editData.mode === 'CUSTOM' ? editData.template : selected.default_template}
-                        onChange={(e) => setEditData((prev) => ({ ...prev, template: e.target.value }))}
+                        onChange={(e) => { setEditData((prev) => ({ ...prev, template: e.target.value })); editValidation.handleChange('template', e.target.value); }}
                         disabled={editData.mode !== 'CUSTOM'}
                         rows={4}
-                        className="w-full border rounded-lg px-3 py-2 text-sm font-mono disabled:bg-gray-50 disabled:text-gray-400 resize-y"
+                        className={`w-full border rounded-lg px-3 py-2 text-sm font-mono disabled:bg-gray-50 disabled:text-gray-400 resize-y ${editValidation.errors.template ? 'field-invalid' : editValidation.validFields.template ? 'field-valid' : ''}`}
                       />
+                      {editValidation.errors.template && <div className="form-error" role="alert">{editValidation.errors.template}</div>}
                       {editData.mode === 'DEFAULT' && (
                         <div className="bg-gray-50 border rounded-lg p-3 mt-2">
                           <div className="text-xs font-semibold text-gray-500 mb-1">Default Template</div>
@@ -299,10 +318,11 @@ export default function NotificationTemplatesAdminPage() {
                         <input
                           type="text"
                           value={editData.mode === 'CUSTOM' ? editData.title : selected.default_title}
-                          onChange={(e) => setEditData((prev) => ({ ...prev, title: e.target.value }))}
+                          onChange={(e) => { setEditData((prev) => ({ ...prev, title: e.target.value })); editValidation.handleChange('title', e.target.value); }}
                           disabled={editData.mode !== 'CUSTOM'}
-                          className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+                          className={`w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 ${editValidation.errors.title ? 'field-invalid' : editValidation.validFields.title ? 'field-valid' : ''}`}
                         />
+                        {editValidation.errors.title && <div className="form-error" role="alert">{editValidation.errors.title}</div>}
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
@@ -310,11 +330,12 @@ export default function NotificationTemplatesAdminPage() {
                         </label>
                         <textarea
                           value={editData.mode === 'CUSTOM' ? editData.message : selected.default_message}
-                          onChange={(e) => setEditData((prev) => ({ ...prev, message: e.target.value }))}
+                          onChange={(e) => { setEditData((prev) => ({ ...prev, message: e.target.value })); editValidation.handleChange('message', e.target.value); }}
                           disabled={editData.mode !== 'CUSTOM'}
                           rows={3}
-                          className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 resize-y"
+                          className={`w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400 resize-y ${editValidation.errors.message ? 'field-invalid' : editValidation.validFields.message ? 'field-valid' : ''}`}
                         />
+                        {editValidation.errors.message && <div className="form-error" role="alert">{editValidation.errors.message}</div>}
                       </div>
                       {editData.mode === 'DEFAULT' && (
                         <div className="bg-gray-50 border rounded-lg p-3">

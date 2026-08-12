@@ -2,6 +2,9 @@ import { Search, Plus, RefreshCw, Trash2, CheckCircle, ExternalLink, Clock } fro
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import { PageSkeleton } from '../../components/admin/pageSkeletonConfig';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, currencyCode } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 ;
@@ -95,13 +98,14 @@ export default function CurrencyAdminPage() {
     setShowModal(true);
   };
 
+  const validation = useAdminFormValidation({
+    code: currencyCode(),
+    name: requiredField('Currency name'),
+    symbol: requiredField('Currency symbol'),
+  });
+
   const handleSave = async () => {
-    if (!form.code || !form.name || !form.symbol) {
-      toast.error('Code, name, and symbol are required');
-      return;
-    }
-    if (form.code.length !== 3) {
-      toast.error('Currency code must be exactly 3 characters (e.g. USD)');
+    if (!validation.validateForm(form)) {
       return;
     }
     setSaving(true);
@@ -476,27 +480,22 @@ export default function CurrencyAdminPage() {
             </div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group">
-                  <label>Currency Code *</label>
+                <AdminFormField label="Currency Code" required error={validation.errors.code} valid={validation.validFields.code} hint="ISO 4217 currency code (3 letters)">
                   <input
                     value={form.code}
-                    onChange={e => setForm({ ...form, code: e.target.value.toUpperCase().slice(0, 3) })}
+                    onChange={e => { const v = e.target.value.toUpperCase().slice(0, 3); setForm({ ...form, code: v }); validation.handleChange('code', v); }}
                     placeholder="e.g. USD, EUR, INR"
                     readOnly={!!editing}
                     style={editing ? { background: '#f1f5f9', cursor: 'not-allowed', textTransform: 'uppercase' } : { textTransform: 'uppercase' }}
                     maxLength={3}
                   />
-                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: 2 }}>ISO 4217 currency code (3 letters)</span>
-                </div>
-                <div className="form-group">
-                  <label>Currency Name *</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. US Dollar, Euro, Indian Rupee" />
-                </div>
-                <div className="form-group">
-                  <label>Symbol *</label>
-                  <input value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} placeholder="e.g. $, €, ₹" maxLength={10} />
-                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: 2 }}>Display symbol shown in prices</span>
-                </div>
+                </AdminFormField>
+                <AdminFormField label="Currency Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                  <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. US Dollar, Euro, Indian Rupee" />
+                </AdminFormField>
+                <AdminFormField label="Symbol" required error={validation.errors.symbol} valid={validation.validFields.symbol} hint="Display symbol shown in prices">
+                  <input value={form.symbol} onChange={e => { setForm({ ...form, symbol: e.target.value }); validation.handleChange('symbol', e.target.value); }} placeholder="e.g. $, €, ₹" maxLength={10} />
+                </AdminFormField>
                 <div className="form-group">
                   <label>Exchange Rate (vs Default)</label>
                   <input

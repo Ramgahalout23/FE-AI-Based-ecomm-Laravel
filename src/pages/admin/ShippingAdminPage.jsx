@@ -7,6 +7,9 @@ import { SHIPPING_STATUSES } from '../../utils/constants';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 const EMPTY_SHIP = { orderId: '', carrier: '', trackingNumber: '' };
@@ -25,6 +28,13 @@ export default function ShippingAdminPage() {
   const [form, setForm] = useState(EMPTY_SHIP);
   const [zoneModal, setZoneModal] = useState(false);
   const [zoneForm, setZoneForm] = useState(EMPTY_ZONE);
+  const shipValidation = useAdminFormValidation({
+    orderId: requiredField('Order ID'),
+  });
+  const zoneValidation = useAdminFormValidation({
+    name: requiredField('Zone name'),
+    regions: requiredField('Regions'),
+  });
   const [detail, setDetail] = useState(null);
 
   useEffect(() => {
@@ -142,6 +152,7 @@ export default function ShippingAdminPage() {
   }, [currentPage]);
 
   const handleCreateShipment = async () => {
+    if (!shipValidation.validateForm(form)) return;
     try { const r = await shippingAPI.create(form); setShipments([r.data || { ...form, id: Date.now().toString(), status: 'PENDING' }, ...shipments]); setShowModal(false); toast.success('Shipment created'); } catch { toast.error('Failed'); }
   };
 
@@ -150,6 +161,7 @@ export default function ShippingAdminPage() {
   };
 
   const handleCreateZone = async () => {
+    if (!zoneValidation.validateForm(zoneForm)) return;
     try { const r = await shippingAPI.createZone({ ...zoneForm, regions: zoneForm.regions.split(',').map(s => s.trim()) }); setZones([...zones, r.data || zoneForm]); setZoneModal(false); setZoneForm(EMPTY_ZONE); toast.success('Zone created'); } catch { toast.error('Failed'); }
   };
 
@@ -266,7 +278,9 @@ export default function ShippingAdminPage() {
           <div className="modal" style={{ maxWidth: 450 }}>
             <div className="modal-header"><h3>📦 Create Shipment</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
             <div className="modal-body">
-              <div className="form-group" style={{ marginBottom: '1rem' }}><label>Order ID</label><input value={form.orderId} onChange={e => setForm({ ...form, orderId: e.target.value })} placeholder="Order ID" autoComplete="off" /></div>
+              <AdminFormField label="Order ID" required error={shipValidation.errors.orderId} valid={shipValidation.validFields.orderId}>
+                <input value={form.orderId} onChange={e => { setForm({ ...form, orderId: e.target.value }); shipValidation.handleChange('orderId', e.target.value); }} placeholder="Order ID" autoComplete="off" />
+              </AdminFormField>
               <div className="form-grid">
                 <div className="form-group"><label>Carrier</label><select value={form.carrier} onChange={e => setForm({ ...form, carrier: e.target.value })}><option value="">Select...</option><option>FEDEX</option><option>DHL</option><option>UPS</option><option>USPS</option></select></div>
                 <div className="form-group"><label>Tracking #</label><input value={form.trackingNumber} onChange={e => setForm({ ...form, trackingNumber: e.target.value })} placeholder="FEDEX123456" autoComplete="off" /></div>
@@ -282,8 +296,12 @@ export default function ShippingAdminPage() {
           <div className="modal" style={{ maxWidth: 420 }}>
             <div className="modal-header"><h3>🌍 Add Shipping Zone</h3><button className="modal-close" onClick={() => setZoneModal(false)}>✕</button></div>
             <div className="modal-body">
-              <div className="form-group" style={{ marginBottom: '1rem' }}><label>Zone Name</label><input value={zoneForm.name} onChange={e => setZoneForm({ ...zoneForm, name: e.target.value })} placeholder="US Zone" /></div>
-              <div className="form-group"><label>Regions (comma-separated)</label><input value={zoneForm.regions} onChange={e => setZoneForm({ ...zoneForm, regions: e.target.value })} placeholder="US, CA, MX" /></div>
+              <AdminFormField label="Zone Name" required error={zoneValidation.errors.name} valid={zoneValidation.validFields.name}>
+                <input value={zoneForm.name} onChange={e => { setZoneForm({ ...zoneForm, name: e.target.value }); zoneValidation.handleChange('name', e.target.value); }} placeholder="US Zone" />
+              </AdminFormField>
+              <AdminFormField label="Regions (comma-separated)" required error={zoneValidation.errors.regions} valid={zoneValidation.validFields.regions}>
+                <input value={zoneForm.regions} onChange={e => { setZoneForm({ ...zoneForm, regions: e.target.value }); zoneValidation.handleChange('regions', e.target.value); }} placeholder="US, CA, MX" />
+              </AdminFormField>
             </div>
             <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setZoneModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleCreateZone}>Create Zone</button></div>
           </div>

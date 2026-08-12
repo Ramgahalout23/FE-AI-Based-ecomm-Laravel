@@ -4,7 +4,7 @@
  * Handles:
  * - Loading state (shows a skeleton)
  * - Error state (shows a dismissable error alert)
- * - Content fade-in (applies `dashboard-content-enter` animation)
+ * - Premium content entrance (fade + slide-up via framer-motion)
  * - Optional page header (title + subtitle)
  *
  * Usage (preferred — uses pageSkeletonConfig):
@@ -34,13 +34,23 @@
  * ```
  */
 
+import { motion } from 'framer-motion';
 import { PageSkeleton } from './pageSkeletonConfig';
+
+// ── Premium motion presets (share the design system's easing curve) ──
+const EASE = [0.16, 1, 0.3, 1];
 
 // ── Shared error alert ──
 function ErrorAlert({ error, onDismiss }) {
   if (!error) return null;
   return (
-    <div className="admin-alert danger mb-4" role="alert">
+    <motion.div
+      className="admin-alert danger mb-4"
+      role="alert"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: EASE }}
+    >
       <span className="admin-alert-icon">⚠️</span>
       <div className="admin-alert-body">
         <div className="admin-alert-title">Error Loading Data</div>
@@ -59,7 +69,7 @@ function ErrorAlert({ error, onDismiss }) {
           ✕
         </button>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -67,7 +77,12 @@ function ErrorAlert({ error, onDismiss }) {
 function PageHeader({ title, subtitle, actions }) {
   if (!title && !subtitle && !actions) return null;
   return (
-    <div className="admin-header admin-header-row">
+    <motion.div
+      className="admin-header admin-header-row"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE }}
+    >
       <div>
         {title && <h2>{title}</h2>}
         {subtitle && <p>{subtitle}</p>}
@@ -77,7 +92,7 @@ function PageHeader({ title, subtitle, actions }) {
           {actions}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -115,11 +130,16 @@ export default function AdminPageShell({
         </div>
       )}
 
-      {/* Content with fade-in */}
+      {/* Content with premium entrance */}
       {!loading && (
-        <div className="dashboard-content-enter">
+        <motion.div
+          className="admin-shell-content"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE, delay: 0.05 }}
+        >
           {children}
-        </div>
+        </motion.div>
       )}
     </div>
   );

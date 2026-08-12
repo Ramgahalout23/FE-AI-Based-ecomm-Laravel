@@ -9,6 +9,7 @@ import { useOrderStatusUpdates, useOrderCreated } from '../../hooks/useSocket';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import Pagination from '../../components/admin/Pagination';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminSelect from '../../components/admin/AdminSelect';
 
 export default function OrdersAdminPage() {
   const navigate = useNavigate();
@@ -32,6 +33,25 @@ export default function OrdersAdminPage() {
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState(null);
   const [exportError, setExportError] = useState(null);
+
+  // Valid order status transitions (mirrors the backend guard in AdminService).
+  // The row dropdown only offers the current status + valid next states, so a
+  // pick can never be rejected by the API.
+  const STATUS_TRANSITIONS = {
+    PENDING: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['PROCESSING', 'CANCELLED'],
+    PROCESSING: ['SHIPPED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED'],
+    DELIVERED: ['RETURNED', 'RETURN_REQUESTED'],
+    CANCELLED: [],
+    RETURNED: [],
+    RETURN_REQUESTED: [],
+  };
+
+  const statusOptionsFor = (current) => [
+    { value: current, label: ORDER_STATUSES[current]?.label || current },
+    ...(STATUS_TRANSITIONS[current] || []).map(s => ({ value: s, label: ORDER_STATUSES[s]?.label || s })),
+  ];
 
   const ORDER_COLUMNS = [
     { key: 'orderNumber', label: 'Order Number' },
@@ -213,10 +233,16 @@ export default function OrdersAdminPage() {
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search by order ID or customer..." value={search} onChange={e => setSearch(e.target.value)} />
-          <select className="table-filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="ALL">All Statuses</option>
-            {Object.keys(ORDER_STATUSES).map(s => <option key={s} value={s}>{ORDER_STATUSES[s].label}</option>)}
-          </select>
+          <AdminSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: 'ALL', label: 'All Statuses' },
+              ...Object.keys(ORDER_STATUSES).map(s => ({ value: s, label: ORDER_STATUSES[s].label })),
+            ]}
+            dotClass={(v) => (v === 'ALL' ? null : ORDER_STATUSES[v]?.class)}
+            ariaLabel="Filter orders by status"
+          />
           <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>
             📥 Export CSV
           </button>
@@ -229,7 +255,7 @@ export default function OrdersAdminPage() {
               <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">{'\uD83D\uDCCB'}</div><h3>No orders found</h3></div></td></tr>
             ) : orders.map(o => (
               <tr key={o.id}>
-                <td><strong style={{ fontFamily: 'monospace' }}>#{o.id?.slice(0, 8)}</strong></td>
+                <td><strong style={{ fontFamily: 'monospace' }}>#{o.order_number || o.orderNumber || o.id?.slice(0, 8)}</strong></td>
                 <td>{o.customerName || o.userId || '\u2014'}</td>
                 <td><strong>{formatCurrency(o.total || o.totalAmount)}</strong></td>
                 <td><span className={`status-badge ${ORDER_STATUSES[o.status]?.class || 'status-pending'}`}>{ORDER_STATUSES[o.status]?.label || o.status}</span></td>
@@ -237,9 +263,14 @@ export default function OrdersAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-view" onClick={() => navigate(`/admin/orders/${o.id}`)}>View</button>
-                    <select className="table-filter" style={{ padding: '0.25rem 0.4rem', fontSize: '0.7rem' }} value={o.status} onChange={e => handleStatus(o.id, e.target.value)}>
-                      {Object.keys(ORDER_STATUSES).map(s => <option key={s} value={s}>{ORDER_STATUSES[s].label}</option>)}
-                    </select>
+                    <AdminSelect
+                      size="sm"
+                      value={o.status}
+                      onChange={(v) => handleStatus(o.id, v)}
+                      options={statusOptionsFor(o.status)}
+                      dotClass={(v) => ORDER_STATUSES[v]?.class}
+                      ariaLabel={`Change status for order ${o.order_number || o.id}`}
+                    />
                   </div>
                 </td>
               </tr>

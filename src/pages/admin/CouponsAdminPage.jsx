@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import { couponsAPI } from '../../api/coupons';
 import { adminAPI } from '../../api/admin';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, couponCode } from '../../hooks/validationRules';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { COUPON_TYPES } from '../../utils/constants';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
+import AdminSelect from '../../components/admin/AdminSelect';
 import { BarChart3, Ticket, Edit, Plus, X, Download, Dices } from 'lucide-react';
 
 const EMPTY = { code: '', discountType: 'PERCENTAGE', discountValue: '', minPurchase: '', maxUses: '', expiresAt: '' };
@@ -22,6 +28,16 @@ export default function CouponsAdminPage() {
   const [bulkModal, setBulkModal] = useState(false);
   const [bulkForm, setBulkForm] = useState({ count: 10, prefix: 'SALE', discountValue: 10 });
   const [analytics, setAnalytics] = useState(null);
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    code: couponCode(),
+    discountValue: requiredField('Discount value'),
+  });
+  const bulkValidation = useAdminFormValidation({
+    count: requiredField('Count'),
+    discountValue: requiredField('Discount value'),
+  });
 
   // CSV Export state (async job-based)
   const [showExportModal, setShowExportModal] = useState(false);
@@ -165,7 +181,7 @@ export default function CouponsAdminPage() {
     }
   };
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm(EMPTY); validation.reset(); setShowModal(true); };
   const openEdit = (c) => { 
     setEditing(c); 
     setForm({ 
@@ -176,10 +192,12 @@ export default function CouponsAdminPage() {
       maxUses: c.maxUses !== undefined ? c.maxUses : (c.usageLimit !== null && c.usageLimit !== undefined ? c.usageLimit : ''), 
       expiresAt: (c.expiresAt || c.expiryDate)?.split('T')[0] || '' 
     }); 
+    validation.reset();
     setShowModal(true); 
   };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     const payload = { ...form, discountValue: Number(form.discountValue), minPurchase: form.minPurchase !== '' ? Number(form.minPurchase) : undefined, maxUses: form.maxUses !== '' ? Number(form.maxUses) : undefined };
     try {
       if (editing) {
@@ -190,30 +208,33 @@ export default function CouponsAdminPage() {
         toast.success('Coupon created');
       }
       await load(currentPage);
-      setShowModal(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+      return true;
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); return false; }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this coupon?')) return;
     try { 
       await couponsAPI.delete(id); 
       setCoupons(coupons.filter(c => c.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
   const handleBulkGenerate = async () => {
+    if (!bulkValidation.validateForm(bulkForm)) return;
     try { 
       await couponsAPI.bulkGenerate(bulkForm); 
-      setBulkModal(false); 
       toast.success(`${bulkForm.count} coupons generated!`); 
       await load(currentPage);
+      return true;
     } catch { 
       toast.error('Bulk generation failed'); 
+      return false;
     }
   };
 
@@ -260,11 +281,17 @@ export default function CouponsAdminPage() {
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search by code..." value={search} onChange={e => setSearch(e.target.value)} autoComplete="off" />
-          <select className="table-filter" value={activeFilter} onChange={e => setActiveFilter(e.target.value)}>
-            <option value="ALL">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
+          <AdminSelect
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={[
+              { value: 'ALL', label: 'All Status' },
+              { value: 'ACTIVE', label: 'Active' },
+              { value: 'INACTIVE', label: 'Inactive' },
+            ]}
+            dotClass={(v) => (v === 'ALL' ? null : v === 'ACTIVE' ? 'status-active' : 'status-inactive')}
+            ariaLabel="Filter coupons by status"
+          />
           <span className="table-count">{totalItems} coupons</span>
         </div>
         <table className="admin-table">
@@ -285,7 +312,7 @@ export default function CouponsAdminPage() {
                   <div className="row-actions">
                     <button className="btn-view" onClick={() => viewAnalytics(c)}><BarChart3 size={14} /></button>
                     <button className="btn-edit" onClick={() => openEdit(c)}>Edit</button>
-                    <button className="btn-del" onClick={() => handleDelete(c.id)}>Delete</button>
+                    <ActionButton className="btn-del" confirm="Delete this coupon?" onClick={() => handleDelete(c.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -312,15 +339,19 @@ export default function CouponsAdminPage() {
             <div className="modal-header"><h3>{editing ? <><Edit size={18} /> Edit Coupon</> : <><Plus size={18} /> New Coupon</>}</h3><button className="modal-close" onClick={() => setShowModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group"><label>Coupon Code</label><input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="SAVE20" /></div>
+                <AdminFormField label="Coupon Code" required error={validation.errors.code} valid={validation.validFields.code}>
+                  <input value={form.code} onChange={e => { setForm({ ...form, code: e.target.value.toUpperCase() }); validation.handleChange('code', e.target.value.toUpperCase()); }} placeholder="SAVE20" />
+                </AdminFormField>
                 <div className="form-group"><label>Discount Type</label><select value={form.discountType} onChange={e => setForm({ ...form, discountType: e.target.value })}>{COUPON_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
-                <div className="form-group"><label>Discount Value</label><input type="number" value={form.discountValue} onChange={e => setForm({ ...form, discountValue: e.target.value })} placeholder="10" /></div>
+                <AdminFormField label="Discount Value" required error={validation.errors.discountValue} valid={validation.validFields.discountValue}>
+                  <input type="number" value={form.discountValue} onChange={e => { setForm({ ...form, discountValue: e.target.value }); validation.handleChange('discountValue', e.target.value); }} placeholder="10" />
+                </AdminFormField>
                 <div className="form-group"><label>Min Purchase ($)</label><input type="number" value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} placeholder="0" /></div>
                 <div className="form-group"><label>Max Uses</label><input type="number" value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} placeholder="Unlimited" /></div>
                 <div className="form-group"><label>Expires At</label><input type="date" value={form.expiresAt} onChange={e => setForm({ ...form, expiresAt: e.target.value })} /></div>
               </div>
             </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update' : 'Create'}</button></div>
+            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update' : 'Create'} /></div>
           </div>
         </div>
       )}
@@ -332,12 +363,16 @@ export default function CouponsAdminPage() {
             <div className="modal-header"><h3><Dices size={18} /> Bulk Generate Coupons</h3><button className="modal-close" onClick={() => setBulkModal(false)}><X size={16} /></button></div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group"><label>Count</label><input type="number" value={bulkForm.count} onChange={e => setBulkForm({ ...bulkForm, count: e.target.value })} /></div>
+                <AdminFormField label="Count" required error={bulkValidation.errors.count} valid={bulkValidation.validFields.count}>
+                  <input type="number" value={bulkForm.count} onChange={e => { setBulkForm({ ...bulkForm, count: e.target.value }); bulkValidation.handleChange('count', e.target.value); }} />
+                </AdminFormField>
                 <div className="form-group"><label>Prefix</label><input value={bulkForm.prefix} onChange={e => setBulkForm({ ...bulkForm, prefix: e.target.value.toUpperCase() })} /></div>
-                <div className="form-group form-full"><label>Discount Value</label><input type="number" value={bulkForm.discountValue} onChange={e => setBulkForm({ ...bulkForm, discountValue: e.target.value })} /></div>
+                <AdminFormField className="form-full" label="Discount Value" required error={bulkValidation.errors.discountValue} valid={bulkValidation.validFields.discountValue}>
+                  <input type="number" value={bulkForm.discountValue} onChange={e => { setBulkForm({ ...bulkForm, discountValue: e.target.value }); bulkValidation.handleChange('discountValue', e.target.value); }} />
+                </AdminFormField>
               </div>
             </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setBulkModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleBulkGenerate}>Generate {bulkForm.count} Coupons</button></div>
+            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setBulkModal(false)}>Cancel</button><SaveButton onClick={handleBulkGenerate} onSuccess={() => setBulkModal(false)} idleLabel={`Generate ${bulkForm.count} Coupons`} /></div>
           </div>
         </div>
       )}

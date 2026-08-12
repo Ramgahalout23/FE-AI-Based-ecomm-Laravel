@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
 
 /**
  * Reusable CSV Export Modal with column selection and async job support.
@@ -31,20 +33,33 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
+  // At least one column must be selected — animated inline error on submit.
+  const selectionValidation = useAdminFormValidation({
+    columns: (sel) => (sel && sel.length > 0 ? '' : 'Select at least one column to export'),
+  });
+
+  const handleExport = () => {
+    if (!selectionValidation.validateForm(selected)) return;
+    onExport(selected);
+  };
+
   if (!isOpen) return null;
 
   const allSelected = selected.length === columns.length;
   const noneSelected = selected.length === 0;
 
   const toggleAll = () => {
-    if (allSelected) setSelected([]);
-    else setSelected(columns.map(c => c.key));
+    const next = allSelected ? [] : columns.map(c => c.key);
+    setSelected(next);
+    selectionValidation.handleChange('columns', next);
   };
 
   const toggle = (key) => {
-    setSelected(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
+    setSelected(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      selectionValidation.handleChange('columns', next);
+      return next;
+    });
   };
 
   const showProgress = exporting || exportStatus === 'dispatching' || exportStatus === 'processing';
@@ -60,7 +75,7 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
       <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
           <h3>
-            {showProgress ? '⏳ Exporting...' : showDone ? '✅ Export Complete' : showError ? '❌ Export Failed' : `📥 Export CSV${filename ? ` — ${filename}` : ''}`}
+            {showProgress ? '⏳ Exporting...' : showDone ? 'Export Complete' : showError ? '❌ Export Failed' : `📥 Export CSV${filename ? ` — ${filename}` : ''}`}
           </h3>
           <button className="modal-close" onClick={onClose} disabled={showProgress}>✕</button>
         </div>
@@ -87,6 +102,25 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
             </div>
           )}
 
+          {showDone && (
+            <div style={{
+              textAlign: 'center',
+              padding: '2rem 1rem',
+            }}>
+              <div className="export-check-wrap">
+                <div className="export-check">
+                  <Check size={28} strokeWidth={3} />
+                </div>
+              </div>
+              <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--charcoal)', marginTop: '0.75rem', marginBottom: '0.35rem' }}>
+                Export Complete
+              </p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                Your file has been downloaded.
+              </p>
+            </div>
+          )}
+
           {showError && (
             <div style={{
               textAlign: 'center',
@@ -101,7 +135,7 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
               </p>
               <button
                 className="btn-dark btn-sm"
-                onClick={() => onExport(selected)}
+                onClick={handleExport}
               >
                 🔄 Retry Export
               </button>
@@ -130,7 +164,10 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
           )}
 
           {!showProgress && !showDone && !showError && (
-            <>
+            <div
+              className={`form-group ${selectionValidation.errors.columns ? 'has-error' : ''}`}
+              style={{ marginBottom: 0 }}
+            >
               {/* Selection controls */}
               <div style={{
                 display: 'flex',
@@ -210,7 +247,12 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
                   </label>
                 ))}
               </div>
-            </>
+              {selectionValidation.errors.columns && (
+                <div className="form-error" role="alert" style={{ marginTop: '0.5rem' }}>
+                  {selectionValidation.errors.columns}
+                </div>
+              )}
+            </div>
           )}
         </div>
         {!showProgress && !showDone && !showError && (
@@ -224,8 +266,8 @@ export default function ExportCSVModal({ isOpen, onClose, columns, onExport, exp
               </button>
               <button
                 className="btn-dark btn-sm"
-                onClick={() => onExport(selected)}
-                disabled={exporting || noneSelected}
+                onClick={handleExport}
+                disabled={exporting}
                 style={{
                   opacity: exporting || noneSelected ? 0.6 : 1,
                   cursor: exporting || noneSelected ? 'not-allowed' : 'pointer',

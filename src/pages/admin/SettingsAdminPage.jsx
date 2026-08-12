@@ -4,10 +4,13 @@ import { adminAPI } from '../../api/admin';
 import { settingsAPI } from '../../api/settings';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { getImageUrl, formatDateTime, formatTime } from '../../utils/formatters';
 import { parseBundleTiers } from '../../utils/constants';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
 import PasswordInput from '../../components/common/PasswordInput';
+import { useAdminFormValidation, validEmail } from '../../hooks/useAdminFormValidation';
+import { requiredField, localOrRemoteUrl } from '../../hooks/validationRules';
 
 ;
 import { aiAPI } from '../../api/ai';
@@ -71,6 +74,7 @@ const AVAILABLE_TIMEZONES = [
 let _cachedAvailableProducts = null;
 
 export default function SettingsAdminPage() {
+  const confirm = useConfirm();
   const { settings: contextSettings, loading: contextLoading, updateSettings: updateContextSettings } = useSettings();
   const [tab, setTab] = useState('general');
   const [seo, setSeo] = useState({ title: '', description: '', keywords: '' });
@@ -96,6 +100,40 @@ export default function SettingsAdminPage() {
   const [whatsappHover, setWhatsappHover] = useState(false);
 
   const [initialLoad, setInitialLoad] = useState(true);
+
+  // ── Animated inline validation, one instance per settings section ──
+  const generalValidation = useAdminFormValidation({
+    storeName: requiredField('Store name'),
+    contactEmail: validEmail('Enter a valid email address'),
+    storeEmail: validEmail('Enter a valid email address'),
+  });
+  const seoValidation = useAdminFormValidation({
+    title: requiredField('Site title'),
+  });
+  const brandingValidation = useAdminFormValidation({
+    logoUrl: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    logoDarkUrl: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    faviconUrl: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    instagram: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    twitter: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    facebook: localOrRemoteUrl('Enter a valid URL (https://...)'),
+    youtube: localOrRemoteUrl('Enter a valid URL (https://...)'),
+  });
+  const scheduleValidation = useAdminFormValidation({
+    title: requiredField('Schedule title'),
+  });
+  const gatewayValidation = useAdminFormValidation({
+    id: requiredField('Gateway ID'),
+    name: requiredField('Display name'),
+    description: requiredField('Description'),
+    paymentUrl: localOrRemoteUrl('Enter a valid URL (https://...)'),
+  });
+
+  // General-tab save: validate the store config before the shared save runs.
+  const handleSaveGeneral = () => {
+    if (!generalValidation.validateForm(settings)) return;
+    handleSaveSettings();
+  };
 
   // Maintenance schedule state
   const [schedules, setSchedules] = useState([]);
@@ -274,6 +312,7 @@ export default function SettingsAdminPage() {
   }, []);
 
   const handleSaveSEO = async () => {
+    if (!seoValidation.validateForm(seo)) return;
     setLoading(true);
     try { await adminAPI.updateSEO(seo); toast.success('SEO settings saved'); }
     catch { toast.error('Failed to save'); }
@@ -281,6 +320,7 @@ export default function SettingsAdminPage() {
   };
 
   const handleSaveBranding = async () => {
+    if (!brandingValidation.validateForm(branding)) return;
     setLoading(true);
     try {
       // updateContextSettings handles both API save (POST /settings) AND store update,
@@ -519,10 +559,7 @@ export default function SettingsAdminPage() {
   };
 
   const handleCreateSchedule = async () => {
-    if (!scheduleForm.title.trim()) {
-      toast.error('Schedule title is required');
-      return;
-    }
+    if (!scheduleValidation.validateForm(scheduleForm)) return;
     setLoading(true);
     try {
       const payload = {
@@ -550,7 +587,7 @@ export default function SettingsAdminPage() {
   };
 
   const handleUpdateSchedule = async () => {
-    if (!scheduleForm.title.trim() || !editingSchedule) return;
+    if (!editingSchedule || !scheduleValidation.validateForm(scheduleForm)) return;
     setLoading(true);
     try {
       const payload = {
@@ -578,7 +615,7 @@ export default function SettingsAdminPage() {
   };
 
   const handleDeleteSchedule = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this schedule?')) return;
+    if (!(await confirm({ title: 'Delete schedule?', message: 'This schedule will be permanently removed.', confirmLabel: 'Delete' }))) return;
     try {
       await settingsAPI.deleteSchedule(id);
       toast.success('Schedule deleted');
@@ -641,6 +678,7 @@ export default function SettingsAdminPage() {
   };
 
   const resetScheduleForm = () => {
+    scheduleValidation.reset();
     setEditingSchedule(null);
     setScheduleForm({
       title: '',
@@ -963,15 +1001,15 @@ export default function SettingsAdminPage() {
 
           <div className="detail-header"><h3>Store Configuration</h3></div>
           <div className="form-grid">
-            <div className="form-group"><label>Store Name</label><input value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} /></div>
+            <div className={`form-group ${generalValidation.errors.storeName ? 'has-error' : ''} ${generalValidation.validFields.storeName ? 'is-valid' : ''}`}><label>Store Name</label><input value={settings.storeName} onChange={e => { setSettings({...settings, storeName: e.target.value}); generalValidation.handleChange('storeName', e.target.value); }} />{generalValidation.errors.storeName && <div className="form-error" role="alert">{generalValidation.errors.storeName}</div>}</div>
             <div className="form-group form-full"><label>Brand Tagline</label><textarea rows={2} value={settings.brandTagline || ''} onChange={e => setSettings({...settings, brandTagline: e.target.value})} placeholder="Your brand's tagline or short description..." /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Used in invoices, emails, and SEO descriptions.</span></div>
-            <div className="form-group"><label>Contact Email</label><input value={settings.contactEmail} onChange={e => setSettings({...settings, contactEmail: e.target.value})} /></div>
-            <div className="form-group"><label>Store Email (Invoices)</label><input value={settings.storeEmail || ''} onChange={e => setSettings({...settings, storeEmail: e.target.value})} placeholder="company@yourstore.com" /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Shown as the company email on PDF invoices.</span></div>
+            <div className={`form-group ${generalValidation.errors.contactEmail ? 'has-error' : ''} ${generalValidation.validFields.contactEmail ? 'is-valid' : ''}`}><label>Contact Email</label><input value={settings.contactEmail} onChange={e => { setSettings({...settings, contactEmail: e.target.value}); generalValidation.handleChange('contactEmail', e.target.value); }} />{generalValidation.errors.contactEmail && <div className="form-error" role="alert">{generalValidation.errors.contactEmail}</div>}</div>
+            <div className={`form-group ${generalValidation.errors.storeEmail ? 'has-error' : ''} ${generalValidation.validFields.storeEmail ? 'is-valid' : ''}`}><label>Store Email (Invoices)</label><input value={settings.storeEmail || ''} onChange={e => { setSettings({...settings, storeEmail: e.target.value}); generalValidation.handleChange('storeEmail', e.target.value); }} placeholder="company@yourstore.com" /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Shown as the company email on PDF invoices.</span>{generalValidation.errors.storeEmail && <div className="form-error" role="alert">{generalValidation.errors.storeEmail}</div>}</div>
             <div className="form-group"><label>Currency</label><select value={settings.currency} onChange={e => setSettings({...settings, currency: e.target.value})}>{AVAILABLE_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} ({c.symbol}) — {c.name}</option>)}</select></div>
             <div className="form-group"><label>Timezone</label><select value={settings.timezone} onChange={e => setSettings({...settings, timezone: e.target.value})}>{AVAILABLE_TIMEZONES.map(tz => <option key={tz.value} value={tz.value}>{tz.label}</option>)}</select></div>
             <div className="form-group form-full"><label>Store Address</label><input value={settings.storeAddress} onChange={e => setSettings({...settings, storeAddress: e.target.value})} /></div>
           </div>
-          <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button></div>
+          <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveGeneral} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button></div>
 
           {/* ── Homepage Sections Master Toggles ── */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
@@ -1957,28 +1995,31 @@ export default function SettingsAdminPage() {
         <div className="detail-panel">
           <div className="detail-header"><h3>Site Branding</h3></div>
           <div className="form-grid">
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${brandingValidation.errors.logoUrl ? 'has-error' : ''}`}>
               <ImageUploadZone 
                 label="Store Logo - Light Background (Black Logo)" 
                 value={branding.logoUrl} 
-                onChange={url => setBranding({...branding, logoUrl: url})} 
+                onChange={url => { setBranding({...branding, logoUrl: url}); brandingValidation.handleChange('logoUrl', url); }} 
               />
+              {brandingValidation.errors.logoUrl && <div className="form-error" role="alert">{brandingValidation.errors.logoUrl}</div>}
             </div>
             
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${brandingValidation.errors.logoDarkUrl ? 'has-error' : ''}`}>
               <ImageUploadZone 
                 label="Store Logo - Dark Background (White Logo)" 
                 value={branding.logoDarkUrl} 
-                onChange={url => setBranding({...branding, logoDarkUrl: url})} 
+                onChange={url => { setBranding({...branding, logoDarkUrl: url}); brandingValidation.handleChange('logoDarkUrl', url); }} 
               />
+              {brandingValidation.errors.logoDarkUrl && <div className="form-error" role="alert">{brandingValidation.errors.logoDarkUrl}</div>}
             </div>
 
-            <div className="form-group form-full">
+            <div className={`form-group form-full ${brandingValidation.errors.faviconUrl ? 'has-error' : ''}`}>
               <ImageUploadZone 
                 label="Site Favicon" 
                 value={branding.faviconUrl} 
-                onChange={url => setBranding({...branding, faviconUrl: url})} 
+                onChange={url => { setBranding({...branding, faviconUrl: url}); brandingValidation.handleChange('faviconUrl', url); }} 
               />
+              {brandingValidation.errors.faviconUrl && <div className="form-error" role="alert">{brandingValidation.errors.faviconUrl}</div>}
             </div>
             
             <div className="form-group"><label>Primary Brand Color</label>
@@ -1996,10 +2037,10 @@ export default function SettingsAdminPage() {
             </div>
 
             <div className="form-group form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}><label style={{ fontSize: '1rem', color: 'var(--charcoal)', marginBottom: '1rem' }}>Social Links</label></div>
-            <div className="form-group"><label>Instagram URL</label><input value={branding.instagram} onChange={e => setBranding({...branding, instagram: e.target.value})} placeholder="https://instagram.com/..." autoComplete="url" /></div>
-            <div className="form-group"><label>Twitter URL</label><input value={branding.twitter} onChange={e => setBranding({...branding, twitter: e.target.value})} placeholder="https://twitter.com/..." autoComplete="url" /></div>
-            <div className="form-group"><label>Facebook URL</label><input value={branding.facebook} onChange={e => setBranding({...branding, facebook: e.target.value})} placeholder="https://facebook.com/..." autoComplete="url" /></div>
-            <div className="form-group"><label>YouTube URL</label><input value={branding.youtube} onChange={e => setBranding({...branding, youtube: e.target.value})} placeholder="https://youtube.com/..." autoComplete="url" /></div>
+            <div className={`form-group ${brandingValidation.errors.instagram ? 'has-error' : ''} ${brandingValidation.validFields.instagram ? 'is-valid' : ''}`}><label>Instagram URL</label><input value={branding.instagram} onChange={e => { setBranding({...branding, instagram: e.target.value}); brandingValidation.handleChange('instagram', e.target.value); }} placeholder="https://instagram.com/..." autoComplete="url" />{brandingValidation.errors.instagram && <div className="form-error" role="alert">{brandingValidation.errors.instagram}</div>}</div>
+            <div className={`form-group ${brandingValidation.errors.twitter ? 'has-error' : ''} ${brandingValidation.validFields.twitter ? 'is-valid' : ''}`}><label>Twitter URL</label><input value={branding.twitter} onChange={e => { setBranding({...branding, twitter: e.target.value}); brandingValidation.handleChange('twitter', e.target.value); }} placeholder="https://twitter.com/..." autoComplete="url" />{brandingValidation.errors.twitter && <div className="form-error" role="alert">{brandingValidation.errors.twitter}</div>}</div>
+            <div className={`form-group ${brandingValidation.errors.facebook ? 'has-error' : ''} ${brandingValidation.validFields.facebook ? 'is-valid' : ''}`}><label>Facebook URL</label><input value={branding.facebook} onChange={e => { setBranding({...branding, facebook: e.target.value}); brandingValidation.handleChange('facebook', e.target.value); }} placeholder="https://facebook.com/..." autoComplete="url" />{brandingValidation.errors.facebook && <div className="form-error" role="alert">{brandingValidation.errors.facebook}</div>}</div>
+            <div className={`form-group ${brandingValidation.errors.youtube ? 'has-error' : ''} ${brandingValidation.validFields.youtube ? 'is-valid' : ''}`}><label>YouTube URL</label><input value={branding.youtube} onChange={e => { setBranding({...branding, youtube: e.target.value}); brandingValidation.handleChange('youtube', e.target.value); }} placeholder="https://youtube.com/..." autoComplete="url" />{brandingValidation.errors.youtube && <div className="form-error" role="alert">{brandingValidation.errors.youtube}</div>}</div>
           </div>
           <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveBranding} disabled={loading}>{loading ? 'Saving...' : 'Save Branding'}</button></div>
         </div>
@@ -2156,8 +2197,8 @@ export default function SettingsAdminPage() {
                             <button
                               className="btn-ghost btn-sm"
                               style={{ color: 'red' }}
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to delete ${gw.name}?`)) {
+                              onClick={async () => {
+                                if (await confirm({ title: 'Delete payment gateway?', message: `${gw.name} will be removed. Click Save to persist the change.`, confirmLabel: 'Delete' })) {
                                   const updated = dynamicGateways.filter((_, i) => i !== idx);
                                   setDynamicGateways(updated);
                                   toast.success(`${gw.name} deleted. Click Save to persist.`);
@@ -2555,13 +2596,14 @@ export default function SettingsAdminPage() {
             </div>
 
             <div className="form-grid" style={{ marginTop: '1rem' }}>
-              <div className="form-group form-full">
+              <div className={`form-group form-full ${scheduleValidation.errors.title ? 'has-error' : ''} ${scheduleValidation.validFields.title ? 'is-valid' : ''}`}>
                 <label>Title *</label>
                 <input
                   value={scheduleForm.title}
-                  onChange={e => setScheduleForm({ ...scheduleForm, title: e.target.value })}
+                  onChange={e => { setScheduleForm({ ...scheduleForm, title: e.target.value }); scheduleValidation.handleChange('title', e.target.value); }}
                   placeholder="e.g. Weekly Database Maintenance"
                 />
+                {scheduleValidation.errors.title && <div className="form-error" role="alert">{scheduleValidation.errors.title}</div>}
               </div>
 
               <div className="form-group form-full">
@@ -2675,7 +2717,7 @@ export default function SettingsAdminPage() {
               <button
                 className="btn-dark btn-sm"
                 onClick={editingSchedule ? handleUpdateSchedule : handleCreateSchedule}
-                disabled={loading || !scheduleForm.title.trim()}
+                disabled={loading}
               >
                 {loading ? 'Saving...' : editingSchedule ? 'Update Schedule' : 'Create Schedule'}
               </button>
@@ -2805,7 +2847,7 @@ export default function SettingsAdminPage() {
         <div className="detail-panel">
           <div className="detail-header"><h3>SEO Configuration</h3></div>
           <div className="form-grid">
-            <div className="form-group form-full"><label>Site Title</label><input value={seo.title} onChange={e => setSeo({ ...seo, title: e.target.value })} placeholder="LUXE — Premium Fashion Store" autoComplete="off" /></div>
+            <div className={`form-group form-full ${seoValidation.errors.title ? 'has-error' : ''} ${seoValidation.validFields.title ? 'is-valid' : ''}`}><label>Site Title</label><input value={seo.title} onChange={e => { setSeo({ ...seo, title: e.target.value }); seoValidation.handleChange('title', e.target.value); }} placeholder="LUXE — Premium Fashion Store" autoComplete="off" />{seoValidation.errors.title && <div className="form-error" role="alert">{seoValidation.errors.title}</div>}</div>
             <div className="form-group form-full"><label>Meta Description</label><textarea rows={3} value={seo.description} onChange={e => setSeo({ ...seo, description: e.target.value })} placeholder="Discover curated luxury fashion, accessories, and more..." /></div>
             <div className="form-group form-full"><label>Keywords</label><input value={seo.keywords} onChange={e => setSeo({ ...seo, keywords: e.target.value })} placeholder="luxury, fashion, accessories" autoComplete="off" /></div>
           </div>
@@ -3705,33 +3747,36 @@ export default function SettingsAdminPage() {
             </div>
 
             <div className="form-grid" style={{ marginTop: '1rem' }}>
-              <div className="form-group">
+              <div className={`form-group ${gatewayValidation.errors.id ? 'has-error' : ''} ${gatewayValidation.validFields.id ? 'is-valid' : ''}`}>
                 <label>Gateway ID / Code (Uppercase, no spaces) *</label>
                 <input 
                   value={gatewayForm.id} 
-                  onChange={e => setGatewayForm({ ...gatewayForm, id: e.target.value.toUpperCase().replace(/\s+/g, '') })} 
+                  onChange={e => { setGatewayForm({ ...gatewayForm, id: e.target.value.toUpperCase().replace(/\s+/g, '') }); gatewayValidation.handleChange('id', e.target.value.toUpperCase().replace(/\s+/g, '')); }} 
                   placeholder="e.g. PAYSTACK"
                   disabled={editingGateway !== null}
                 />
+                {gatewayValidation.errors.id && <div className="form-error" role="alert">{gatewayValidation.errors.id}</div>}
               </div>
 
-              <div className="form-group">
+              <div className={`form-group ${gatewayValidation.errors.name ? 'has-error' : ''} ${gatewayValidation.validFields.name ? 'is-valid' : ''}`}>
                 <label>Display Name *</label>
                 <input 
                   value={gatewayForm.name} 
-                  onChange={e => setGatewayForm({ ...gatewayForm, name: e.target.value })} 
+                  onChange={e => { setGatewayForm({ ...gatewayForm, name: e.target.value }); gatewayValidation.handleChange('name', e.target.value); }} 
                   placeholder="e.g. Paystack Card Checkout"
                 />
+                {gatewayValidation.errors.name && <div className="form-error" role="alert">{gatewayValidation.errors.name}</div>}
               </div>
 
-              <div className="form-group form-full">
+              <div className={`form-group form-full ${gatewayValidation.errors.description ? 'has-error' : ''} ${gatewayValidation.validFields.description ? 'is-valid' : ''}`}>
                 <label>Description *</label>
                 <textarea 
                   rows={2}
                   value={gatewayForm.description} 
-                  onChange={e => setGatewayForm({ ...gatewayForm, description: e.target.value })} 
+                  onChange={e => { setGatewayForm({ ...gatewayForm, description: e.target.value }); gatewayValidation.handleChange('description', e.target.value); }} 
                   placeholder="e.g. Pay securely using Visa, Mastercard, or Bank Account."
                 />
+                {gatewayValidation.errors.description && <div className="form-error" role="alert">{gatewayValidation.errors.description}</div>}
               </div>
 
               <div className="form-group form-full">
@@ -3745,16 +3790,17 @@ export default function SettingsAdminPage() {
                 </label>
               </div>
 
-              <div className="form-group form-full">
+              <div className={`form-group form-full ${gatewayValidation.errors.paymentUrl ? 'has-error' : ''} ${gatewayValidation.validFields.paymentUrl ? 'is-valid' : ''}`}>
                 <label>Payment URL (optional)</label>
                 <input 
                   value={gatewayForm.paymentUrl || ''} 
-                  onChange={e => setGatewayForm({ ...gatewayForm, paymentUrl: e.target.value })} 
+                  onChange={e => { setGatewayForm({ ...gatewayForm, paymentUrl: e.target.value }); gatewayValidation.handleChange('paymentUrl', e.target.value); }} 
                   placeholder="https://pay.example.com/checkout?order_id={orderId}&amount={amount}&callback={callbackUrl}"
                 />
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   Template URL for redirecting users to this gateway. Use {'{orderId}'}, {'{amount}'}, {'{callbackUrl}'} as placeholders. Credential keys (e.g. {'{apiKey}'}) are also replaced automatically.
                 </span>
+                {gatewayValidation.errors.paymentUrl && <div className="form-error" role="alert">{gatewayValidation.errors.paymentUrl}</div>}
               </div>
 
               {/* Dynamic Key-Value Custom Configuration Fields */}
@@ -3863,8 +3909,7 @@ export default function SettingsAdminPage() {
               <button 
                 className="btn-dark btn-sm"
                 onClick={() => {
-                  if (!gatewayForm.id || !gatewayForm.name || !gatewayForm.description) {
-                    toast.error('Please fill all required gateway details');
+                  if (!gatewayValidation.validateForm(gatewayForm)) {
                     return;
                   }
                   

@@ -4,13 +4,18 @@ import { adminAPI } from '../../api/admin';
 import { formatDate, getImageUrl, getPromotionImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, rateValue } from '../../hooks/validationRules';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { Sparkles, Package } from 'lucide-react';
 import { useSettings } from '../../store/useSettings';
 import { parseBundleTiers, isBundleOfferEnabled } from '../../utils/constants';
 
 export default function PromotionsAdminPage() {
+  const confirm = useConfirm();
   const { getSetting } = useSettings();
   const bundleOfferActive = isBundleOfferEnabled(getSetting);
   const bundleTiers = parseBundleTiers(getSetting('bundleTiers'));
@@ -20,6 +25,12 @@ export default function PromotionsAdminPage() {
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    name: requiredField('Campaign name'),
+    value: rateValue('Discount value', 'Enter a valid discount value (0 or more)'),
+  });
   const [form, setForm] = useState({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [], offerBadge: '', offerHighlight: '', offerTagline: '', offerTheme: '', autoApply: false });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -121,10 +132,11 @@ export default function PromotionsAdminPage() {
     } finally { setExporting(false); }
   };
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [], offerBadge: '', offerHighlight: '', offerTagline: '', offerTheme: '', autoApply: false }); setShowModal(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ name: p.title || '', type: 'PERCENTAGE', value: p.discount || '', imageUrl: getPromotionImage(p) || '', startDate: p.startDate?.split('T')[0] || '', endDate: p.endDate?.split('T')[0] || '', active: p.status === 'ACTIVE' || p.isActive, productIds: p.productIds || p.products?.map(pr => pr.id) || [], categoryIds: p.categoryIds || p.categories?.map(c => c.id) || [], offerBadge: p.offerBadge || '', offerHighlight: p.offerHighlight || '', offerTagline: p.offerTagline || '', offerTheme: p.offerTheme || '', autoApply: p.autoApply ?? false }); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm({ name: '', type: 'PERCENTAGE', value: '', imageUrl: '', startDate: '', endDate: '', active: true, productIds: [], categoryIds: [], offerBadge: '', offerHighlight: '', offerTagline: '', offerTheme: '', autoApply: false }); validation.reset(); setShowModal(true); };
+  const openEdit = (p) => { setEditing(p); setForm({ name: p.title || '', type: 'PERCENTAGE', value: p.discount || '', imageUrl: getPromotionImage(p) || '', startDate: p.startDate?.split('T')[0] || '', endDate: p.endDate?.split('T')[0] || '', active: p.status === 'ACTIVE' || p.isActive, productIds: p.productIds || p.products?.map(pr => pr.id) || [], categoryIds: p.categoryIds || p.categories?.map(c => c.id) || [], offerBadge: p.offerBadge || '', offerHighlight: p.offerHighlight || '', offerTagline: p.offerTagline || '', offerTheme: p.offerTheme || '', autoApply: p.autoApply ?? false }); validation.reset(); setShowModal(true); };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     // An active promotion must carry a real discount — mirrored on the backend
     // (PromotionController validation) so admins get instant feedback here.
     const discountValue = Number(form.value) || 0;
@@ -185,7 +197,7 @@ export default function PromotionsAdminPage() {
   };
 
   const handleDelete = async (p) => {
-    if (!window.confirm(`Delete promotion "${p.title || p.name || ''}"? This cannot be undone.`)) return;
+    if (!(await confirm({ title: 'Delete promotion?', message: `"${p.title || p.name || ''}" will be permanently removed. This cannot be undone.`, confirmLabel: 'Delete' }))) return;
     try {
       await adminAPI.deletePromotion(p.id);
       toast.success('Promotion deleted');
@@ -348,7 +360,9 @@ export default function PromotionsAdminPage() {
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-header"><h3>{editing ? 'Edit Promotion' : 'New Promotion'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>X</button></div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflow: 'auto' }}>
-              <div className="form-group form-full"><label>Campaign Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Winter Flash Sale" /></div>
+              <AdminFormField className="form-full" label="Campaign Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Winter Flash Sale" />
+              </AdminFormField>
               <div className="form-group form-full"><label>Banner Image URL</label><input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://example.com/banner.jpg" /></div>
               {form.imageUrl && (
                 <div className="form-group form-full" style={{ marginTop: '-0.5rem' }}>
@@ -357,7 +371,9 @@ export default function PromotionsAdminPage() {
               )}
               <div className="form-grid">
                 <div className="form-group"><label>Discount Type</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}><option value="PERCENTAGE">Percentage (%)</option></select></div>
-                <div className="form-group"><label>Value (%)</label><input type="number" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} placeholder="20" /></div>
+                <AdminFormField label="Value (%)" required error={validation.errors.value} valid={validation.validFields.value}>
+                  <input type="number" value={form.value} onChange={e => { setForm({ ...form, value: e.target.value }); validation.handleChange('value', e.target.value); }} placeholder="20" />
+                </AdminFormField>
                 <div className="form-group"><label>Start Date</label><input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} /></div>
                 <div className="form-group"><label>End Date</label><input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} /></div>
               </div>

@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import '../../styles/admin-staff.css';
 import { adminAPI } from '../../api/admin';
 import PasswordInput from '../../components/common/PasswordInput';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import PasswordStrengthMeter from '../../components/admin/PasswordStrengthMeter';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, emailAddress, passwordPolicy } from '../../hooks/validationRules';
 import { formatDate } from '../../utils/formatters';
 import toast from '../../utils/toast';
 
@@ -112,7 +118,19 @@ export default function StaffAdminPage() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'SUPPORT_AGENT', status: 'ACTIVE', permissions: [] });
   const [selectedPermissions, setSelectedPermissions] = useState([]);
-  const [selectAllByModule, setSelectAllByModule] = useState({});
+  // Only the setter is used — the per-module select-all state is derived
+  // from `selectedPermissions` at render time.
+  const [, setSelectAllByModule] = useState({});
+
+  // ── Inline form validation ──
+  // Password is optional (blank = auto-generate), but when filled it must meet
+  // the same security rules the backend enforces.
+  const validation = useAdminFormValidation({
+    firstName: requiredField('First name'),
+    lastName: requiredField('Last name'),
+    email: emailAddress(),
+    password: passwordPolicy(),
+  });
 
   const currentRoleIsManager = form.role === 'SUPPORT_AGENT' || form.role === 'FINANCE';
 
@@ -133,6 +151,7 @@ export default function StaffAdminPage() {
     setForm({ firstName: '', lastName: '', email: '', password: '', role: 'SUPPORT_AGENT', status: 'ACTIVE', permissions: [] });
     setSelectedPermissions([]);
     setSelectAllByModule({});
+    validation.reset();
     setShowModal(true);
   };
   const openEdit = (s) => {          const existingPerms = Array.isArray(s.permissions) ? s.permissions : [];
@@ -149,10 +168,12 @@ export default function StaffAdminPage() {
       moduleState[group.module] = allKeys.every((k) => existingPerms.includes(k));
     });
     setSelectAllByModule(moduleState);
+    validation.reset();
     setShowModal(true);
   };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return;
     try {
       const payload = {
         first_name: form.firstName.trim(),
@@ -170,14 +191,22 @@ export default function StaffAdminPage() {
       }
       if (editing) {
         await adminAPI.updateStaff(editing.id, payload);
-        toast.success('Staff member updated');
+        // When an admin sets a password on an existing staff member, route it
+        // through the same-policy reset endpoint (never the plain profile
+        // update) so the shared PasswordPolicy can't be bypassed.
+        if (form.password) {
+          await adminAPI.resetStaffPassword(editing.id, form.password);
+          toast.success('Staff member updated — password reset');
+        } else {
+          toast.success('Staff member updated');
+        }
       } else {
         await adminAPI.createStaff(payload);
         toast.success('Staff member added');
       }
       await load();
-      setShowModal(false);
-    } catch { toast.error('Failed to save staff member'); }
+      return true;
+    } catch { toast.error('Failed to save staff member'); return false; }
   };
 
   const togglePermission = (key) => {
@@ -198,13 +227,14 @@ export default function StaffAdminPage() {
   };
 
   const handleRevoke = async (id) => {
-    if (!confirm('Revoke access for this user? They will no longer be able to log in.')) return;
     try { 
       await adminAPI.updateStaff(id, { is_active: false }); 
       toast.success('Access revoked'); 
       await load();
+      return true;
     } catch { 
       toast.error('Failed'); 
+      return false;
     }
   };
 
@@ -237,7 +267,7 @@ export default function StaffAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(s)}>Edit</button>
-                    {s.is_active !== false && <button className="btn-del" onClick={() => handleRevoke(s.id)}>Revoke</button>}
+                    {s.is_active !== false && <ActionButton className="btn-del" confirm="Revoke access for this user? They will no longer be able to log in." onClick={() => handleRevoke(s.id)} idle="Revoke" />}
                   </div>
                 </td>
               </tr>
@@ -249,14 +279,30 @@ export default function StaffAdminPage() {
           <div className="modal" style={{ maxWidth: 600 }}>
             <div className="modal-header"><h3>{editing ? '✏️ Edit Staff Account' : '🛡️ Add Staff Account'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
             <div className="modal-body">
-              <div className="form-group"><label>First Name</label><input value={form.firstName} onChange={e => setForm({ ...form, firstName: e.target.value })} placeholder="Jane" autoComplete="given-name" /></div>
-              <div className="form-group"><label>Last Name</label><input value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} placeholder="Doe" autoComplete="family-name" /></div>
-              <div className="form-group"><label>Email Address</label><input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="jane@luxe.com" autoComplete="email" /></div>
-              {!editing && (
-                <div className="form-group">
-                  <label>Password</label>
-                  <PasswordInput value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min. 8 characters" autoComplete="new-password" minLength={8} />
-                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.25rem' }}>Leave blank to auto-generate a random password</p>
+              <AdminFormField label="First Name" required error={validation.errors.firstName} valid={validation.validFields.firstName}>
+                <input value={form.firstName} onChange={e => { setForm({ ...form, firstName: e.target.value }); validation.handleChange('firstName', e.target.value); }} placeholder="Jane" autoComplete="given-name" />
+              </AdminFormField>
+              <AdminFormField label="Last Name" required error={validation.errors.lastName} valid={validation.validFields.lastName}>
+                <input value={form.lastName} onChange={e => { setForm({ ...form, lastName: e.target.value }); validation.handleChange('lastName', e.target.value); }} placeholder="Doe" autoComplete="family-name" />
+              </AdminFormField>
+              <AdminFormField label="Email Address" required error={validation.errors.email} valid={validation.validFields.email}>
+                <input type="email" value={form.email} onChange={e => { setForm({ ...form, email: e.target.value }); validation.handleChange('email', e.target.value); }} placeholder="jane@luxe.com" autoComplete="email" />
+              </AdminFormField>
+              {!editing ? (
+                <>
+                  <AdminFormField label="Password" error={validation.errors.password} valid={validation.validFields.password}>
+                    <PasswordInput value={form.password} onChange={e => { setForm({ ...form, password: e.target.value }); validation.handleChange('password', e.target.value); }} placeholder="Min. 8 characters" autoComplete="new-password" minLength={8} />
+                  </AdminFormField>
+                  <PasswordStrengthMeter value={form.password} />
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>Leave blank to auto-generate a random password</p>
+                </>
+              ) : (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem', paddingTop: '1rem' }}>
+                  <AdminFormField label="Reset Password" error={validation.errors.password} valid={form.password && validation.validFields.password}>
+                    <PasswordInput value={form.password} onChange={e => { setForm({ ...form, password: e.target.value }); validation.handleChange('password', e.target.value); }} placeholder="Leave blank to keep current password" autoComplete="new-password" minLength={8} />
+                  </AdminFormField>
+                  {form.password && <PasswordStrengthMeter value={form.password} />}
+                  <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>Filling this enforces the same password policy and signs out all of this staff member's sessions.</p>
                 </div>
               )}
               <div className="form-group form-full">
@@ -320,7 +366,7 @@ export default function StaffAdminPage() {
                 </div>
               )}
             </div>
-            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update Access' : 'Send Invite'}</button></div>
+            <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update Access' : 'Send Invite'} /></div>
           </div>
         </div>
       )}

@@ -1,6 +1,12 @@
 import { Plus, RefreshCw, Search, Code2, Play, Pencil, Trash2, Eye, Layout, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { campaignTemplatesAPI } from '../../api/campaignTemplates';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from '../../utils/toast';
 
 ;
@@ -22,12 +28,12 @@ const CATEGORY_COLORS = {
 };
 
 export default function CampaignTemplatesAdminPage() {
+  const confirm = useConfirm();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -49,7 +55,7 @@ export default function CampaignTemplatesAdminPage() {
   useEffect(() => { load(); }, []);
 
   const handleSeedDefaults = async () => {
-    if (!window.confirm('This will create default templates if none exist. Continue?')) return;
+    if (!(await confirm({ title: 'Seed default templates?', message: 'This will create the default templates if none exist.', confirmLabel: 'Continue' }))) return;
     try {
       await campaignTemplatesAPI.seedDefaults();
       toast.success('Default templates seeded');
@@ -93,9 +99,12 @@ export default function CampaignTemplatesAdminPage() {
     setPreviewLoading(false);
   };
 
+  const validation = useAdminFormValidation({
+    name: requiredField('Template name'),
+  });
+
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Template name is required'); return; }
-    setSaving(true);
+    if (!validation.validateForm(form)) return;
     try {
       const payload = {
         ...form,
@@ -108,23 +117,23 @@ export default function CampaignTemplatesAdminPage() {
         await campaignTemplatesAPI.createTemplate(payload);
         toast.success('Template created');
       }
-      setShowModal(false);
-      resetForm();
       load();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save template');
+      return false;
     }
-    setSaving(false);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this template? This cannot be undone.')) return;
     try {
       await campaignTemplatesAPI.deleteTemplate(id);
       toast.success('Template deleted');
       load();
+      return true;
     } catch {
       toast.error('Failed to delete template');
+      return false;
     }
   };
 
@@ -277,9 +286,13 @@ export default function CampaignTemplatesAdminPage() {
                         <Eye size={14} />
                         Preview
                       </button>
-                      <button className="btn-del" onClick={() => handleDelete(tpl.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      <ActionButton
+                        className="btn-del"
+                        confirm="Delete this template? This cannot be undone."
+                        onClick={() => handleDelete(tpl.id)}
+                        title="Delete"
+                        idle={<Trash2 size={14} />}
+                      />
                     </div>
                   </div>
                 </div>
@@ -336,10 +349,9 @@ export default function CampaignTemplatesAdminPage() {
             </div>
             <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
               <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Template Name *</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Welcome Email" />
-                </div>
+                <AdminFormField label="Template Name" required error={validation.errors.name} valid={validation.validFields.name} className="form-full">
+                  <input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Welcome Email" />
+                </AdminFormField>
                 <div className="form-group form-full">
                   <label>Description</label>
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description of this template..." rows={2} />
@@ -388,9 +400,7 @@ export default function CampaignTemplatesAdminPage() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-              <button className="btn-dark btn-sm" onClick={handleSave} disabled={saving || !form.name.trim()}>
-                {saving ? 'Saving...' : editing ? 'Update Template' : 'Create Template'}
-              </button>
+              <SaveButton onClick={handleSave} onSuccess={() => { setShowModal(false); resetForm(); }} idleLabel={editing ? 'Update Template' : 'Create Template'} />
             </div>
           </div>
         </div>

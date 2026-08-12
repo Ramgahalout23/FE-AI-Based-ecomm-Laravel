@@ -1,4 +1,5 @@
 import axios from 'axios';
+import useSessionStore from '../store/sessionStore';
 
 // ── API Base URLs ──
 // Main storefront API → Laravel (port 8000 via Vite proxy in dev, same-domain in production)
@@ -15,22 +16,29 @@ const client = axios.create({
   timeout: 15000,
 });
 
-// Shared refresh promises — separate for Node.js (storefront) and Laravel (admin)
+// ── Shared token refresh ──
+// The storefront (`client`) and admin (`adminClient`) axios instances share ONE
+// Laravel Sanctum token — AdminLoginPage stores the same value in both
+// `adminToken` and `authToken`. The Laravel refresh-token endpoint REVOKES the
+// current token and issues a new one, so refreshing it from two independent
+// places races: the first refresh revokes the token, the second 401s and wipes
+// the session (the old code had separate promises AND only updated `authToken`,
+// leaving `adminToken` pointing at a revoked token — which logged admins out on
+// the next reload). A single in-flight promise, shared by both clients, means
+// concurrent 401s produce exactly ONE refresh that atomically updates both keys.
 let refreshPromise = null;
-let adminRefreshPromise = null;
 
-/**
- * Refresh storefront token via Laravel Sanctum.
- * Sends the current Bearer token to the refresh-token endpoint (under auth:sanctum
- * middleware), which revokes the old token and issues a new one.
- */
-async function refreshAuthToken() {
+export async function refreshSharedToken() {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const currentToken = localStorage.getItem('authToken');
+    // authToken is the canonical key — adminToken mirrors it. Preferring
+    // authToken avoids using a stale/revoked adminToken left behind by an
+    // older session.
+    const currentToken = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
     if (!currentToken) throw new Error('No auth token to refresh');
 
+    // Send the current Bearer token to Laravel's refresh-token endpoint
     const { data } = await axios.post(`${API_BASE}/auth/refresh-token`, {}, {
       headers: { Authorization: `Bearer ${currentToken}` },
     });
@@ -39,7 +47,16 @@ async function refreshAuthToken() {
 
     if (!newToken) throw new Error('No access token in refresh response');
 
+    // Update BOTH storage keys atomically so the storefront and admin clients
+    // never hold divergent tokens.
     localStorage.setItem('authToken', newToken);
+    localStorage.setItem('adminToken', newToken);
+
+    // Record the refresh for the sidebar session indicator, and remember the
+    // new token's expiry so the admin countdown banner can warn before it runs out.
+    useSessionStore.getState().recordTokenRefresh();
+    useSessionStore.getState().setTokenExpiry(payload?.expires_at ?? null);
+
     return newToken;
   })();
 
@@ -47,40 +64,6 @@ async function refreshAuthToken() {
     return await refreshPromise;
   } finally {
     refreshPromise = null;
-  }
-}
-
-/**
- * Refresh admin token via Laravel backend (Sanctum-based).
- * Unlike the Node.js refresh, the Laravel endpoint requires a valid Bearer token
- * (under auth:sanctum middleware), not a separate refresh token. It revokes the
- * current token and issues a new one.
- */
-async function refreshAdminToken() {
-  if (adminRefreshPromise) return adminRefreshPromise;
-
-  adminRefreshPromise = (async () => {
-    const currentToken = localStorage.getItem('adminToken') || localStorage.getItem('authToken');
-    if (!currentToken) throw new Error('No admin token to refresh');
-
-    // Send current Bearer token to Laravel's refresh-token endpoint
-    const { data } = await axios.post(`${ADMIN_API_BASE}/auth/refresh-token`, {}, {
-      headers: { Authorization: `Bearer ${currentToken}` },
-    });
-    const payload = data?.data || data || {};
-    const newToken = payload?.token || payload?.accessToken;
-
-    if (!newToken) throw new Error('No token in admin refresh response');
-
-    localStorage.setItem('adminToken', newToken);
-    localStorage.setItem('authToken', newToken);
-    return newToken;
-  })();
-
-  try {
-    return await adminRefreshPromise;
-  } finally {
-    adminRefreshPromise = null;
   }
 }
 
@@ -124,7 +107,7 @@ function shouldSkipAuthRetry(url) {
  * Accepts a custom refresh function so that storefront (JWT) and admin (Sanctum)
  * can each refresh against their own backend.
  */
-function createAuthErrorHandler(axiosInstance, refreshFn) {
+export function createAuthErrorHandler(axiosInstance, refreshFn) {
   return async (error) => {
     const original = error.config;
     if (shouldSkipAuthRetry(original?.url)) {
@@ -144,9 +127,10 @@ function createAuthErrorHandler(axiosInstance, refreshFn) {
   };
 }
 
-// Request interceptor — attach auth token
+// Request interceptor — attach auth token (fall back to adminToken so an
+// admin reload still authenticates /auth/me even if authToken was lost)
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -158,7 +142,7 @@ client.interceptors.response.use(
   (res) => res,
   async (error) => {
     logDbError(error);
-    return createAuthErrorHandler(client, refreshAuthToken)(error);
+    return createAuthErrorHandler(client, refreshSharedToken)(error);
   }
 );
 
@@ -179,17 +163,20 @@ export const adminClient = axios.create({
 });
 
 adminClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken') || localStorage.getItem('authToken');
+  // authToken is canonical (adminToken mirrors it) — prevents a stale
+  // adminToken from an older session from sending a revoked token.
+  const token = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Admin client 401 interceptor — uses Laravel-specific Sanctum token refresh + log DB errors
+// Admin client 401 interceptor — shares the SAME refresh promise as the
+// storefront client, since both clients authenticate with the same token.
 adminClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     logDbError(error);
-    return createAuthErrorHandler(adminClient, refreshAdminToken)(error);
+    return createAuthErrorHandler(adminClient, refreshSharedToken)(error);
   }
 );
 

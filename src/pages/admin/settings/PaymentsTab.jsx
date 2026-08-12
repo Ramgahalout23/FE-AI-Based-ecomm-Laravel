@@ -1,4 +1,5 @@
 import toast from '../../../utils/toast';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 
 function GatewayModal({ show, onClose, editingGateway, gatewayForm, setGatewayForm, dynamicGateways, setDynamicGateways, setShowGatewayModal }) {
   if (!show) return null;
@@ -102,6 +103,7 @@ export default function PaymentsTab({
   dynamicGateways, setDynamicGateways,
   showGatewayModal, setShowGatewayModal, editingGateway, setEditingGateway, gatewayForm, setGatewayForm
 }) {
+  const confirm = useConfirm();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Razorpay Configuration */}
@@ -243,8 +245,8 @@ export default function PaymentsTab({
                           setGatewayForm({ ...gw });
                           setShowGatewayModal(true);
                         }}>Edit</button>
-                        <button className="btn-ghost btn-sm" style={{ color: 'red' }} onClick={() => {
-                          if (window.confirm(`Are you sure you want to delete ${gw.name}?`)) {
+                        <button className="btn-ghost btn-sm" style={{ color: 'red' }} onClick={async () => {
+                          if (await confirm({ title: 'Delete payment gateway?', message: `${gw.name} will be removed. Click Save to persist the change.`, confirmLabel: 'Delete' })) {
                             setDynamicGateways(dynamicGateways.filter((_, i) => i !== idx));
                             toast.success(`${gw.name} deleted. Click Save to persist.`);
                           }

@@ -2,6 +2,9 @@ import { Search, Plus, Globe, Check, ChevronDown, ChevronRight, Save, Download, 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
+import AdminFormField from '../../components/admin/AdminFormField';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, languageCode } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 ;
@@ -154,9 +157,13 @@ function LanguagesTab() {
     setShowModal(true);
   };
 
+  const validation = useAdminFormValidation({
+    code: languageCode(),
+    name: requiredField('Language name'),
+  });
+
   const handleSave = async () => {
-    if (!form.code || !form.name) {
-      toast.error('Language code and name are required');
+    if (!validation.validateForm(form)) {
       return;
     }
     try {
@@ -292,21 +299,18 @@ function LanguagesTab() {
             </div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group">
-                  <label>Language Code *</label>
+                <AdminFormField label="Language Code" required error={validation.errors.code} valid={validation.validFields.code} hint="ISO 639-1 code (2-5 characters)">
                   <input
                     value={form.code}
-                    onChange={e => setForm({ ...form, code: e.target.value.toLowerCase().slice(0, 5) })}
+                    onChange={e => { const v = e.target.value.toLowerCase().slice(0, 5); setForm({ ...form, code: v }); validation.handleChange('code', v); }}
                     placeholder="e.g. en, fr, hi"
                     readOnly={!!editing}
                     style={editing ? { background: '#f1f5f9', cursor: 'not-allowed' } : {}}
                   />
-                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: 2 }}>ISO 639-1 code (2-5 characters)</span>
-                </div>
-                <div className="form-group">
-                  <label>Language Name *</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. English, French, Hindi" />
-                </div>
+                </AdminFormField>
+                <AdminFormField label="Language Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                  <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. English, French, Hindi" />
+                </AdminFormField>
                 <div className="form-group">
                   <label>Native Name</label>
                   <input value={form.native_name} onChange={e => setForm({ ...form, native_name: e.target.value })} placeholder="e.g. English, Français, हिन्दी" />

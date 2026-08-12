@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { webhooksAPI } from '../../api/webhooks';
+import AdminFormField from '../../components/admin/AdminFormField';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, webhookUrl } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
 
 const AVAILABLE_EVENTS = [
@@ -23,8 +28,13 @@ export default function WebhooksAdminPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(null);
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    name: requiredField('Webhook name'),
+    url: webhookUrl(),
+  });
 
   const load = async () => {
     setLoading(true);
@@ -43,7 +53,7 @@ export default function WebhooksAdminPage() {
 
   const resetForm = () => { setForm(EMPTY_FORM); setEditing(null); };
 
-  const openCreate = () => { resetForm(); setShowModal(true); };
+  const openCreate = () => { validation.reset(); resetForm(); setShowModal(true); };
 
   const openEdit = (wh) => {
     setEditing(wh);
@@ -53,6 +63,7 @@ export default function WebhooksAdminPage() {
       events: wh.events || [],
       is_active: wh.is_active,
     });
+    validation.reset();
     setShowModal(true);
   };
 
@@ -81,9 +92,7 @@ export default function WebhooksAdminPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Webhook name is required'); return; }
-    if (!form.url.trim()) { toast.error('Webhook URL is required'); return; }
-    setSaving(true);
+    if (!validation.validateForm(form)) return;
     try {
       if (editing) {
         await webhooksAPI.update(editing.id, form);
@@ -92,25 +101,24 @@ export default function WebhooksAdminPage() {
         await webhooksAPI.create(form);
         toast.success('Webhook created');
       }
-      setShowModal(false);
-      resetForm();
       load();
+      return true;
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save webhook');
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this webhook? This cannot be undone.')) return;
     try {
       await webhooksAPI.delete(id);
       toast.success('Webhook deleted');
       load();
       if (showLogs?.id === id) setShowLogs(null);
+      return true;
     } catch {
       toast.error('Failed to delete webhook');
+      return false;
     }
   };
 
@@ -201,7 +209,7 @@ export default function WebhooksAdminPage() {
                         {testing === wh.id ? 'Sending...' : 'Test'}
                       </button>
                       <button className="btn-edit" onClick={() => openEdit(wh)}>Edit</button>
-                      <button className="btn-del" onClick={() => handleDelete(wh.id)}>Delete</button>
+                      <ActionButton className="btn-del" confirm="Delete this webhook? This cannot be undone." onClick={() => handleDelete(wh.id)} idle="Delete" />
                     </div>
                   </td>
                 </tr>
@@ -269,14 +277,12 @@ export default function WebhooksAdminPage() {
             </div>
             <div className="modal-body">
               <div className="form-grid">
-                <div className="form-group form-full">
-                  <label>Webhook Name *</label>
-                  <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Order Notifier" />
-                </div>
-                <div className="form-group form-full">
-                  <label>Endpoint URL *</label>
-                  <input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://hooks.example.com/webhook" type="url" />
-                </div>
+                <AdminFormField className="form-full" label="Webhook Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                  <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Order Notifier" />
+                </AdminFormField>
+                <AdminFormField className="form-full" label="Endpoint URL" required error={validation.errors.url} valid={validation.validFields.url}>
+                  <input value={form.url} onChange={e => { setForm({ ...form, url: e.target.value }); validation.handleChange('url', e.target.value); }} placeholder="https://hooks.example.com/webhook" type="url" />
+                </AdminFormField>
                 <div className="form-group form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
                   <label>Subscribe to Events</label>
                   <span style={{ fontSize: '0.75rem', color: 'var(--muted)', display: 'block', marginBottom: '0.75rem' }}>
@@ -304,9 +310,7 @@ export default function WebhooksAdminPage() {
             </div>
             <div className="modal-footer">
               <button className="btn-ghost btn-sm" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-              <button className="btn-dark btn-sm" onClick={handleSave} disabled={saving || !form.name.trim() || !form.url.trim()}>
-                {saving ? 'Saving...' : editing ? 'Update Webhook' : 'Create Webhook'}
-              </button>
+              <SaveButton onClick={handleSave} onSuccess={() => { setShowModal(false); resetForm(); }} idleLabel={editing ? 'Update Webhook' : 'Create Webhook'} />
             </div>
           </div>
         </div>

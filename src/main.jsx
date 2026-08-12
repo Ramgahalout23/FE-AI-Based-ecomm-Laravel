@@ -6,6 +6,7 @@ import './styles/globals.css';
 import './styles/components.css';
 import './styles/admin.css';
 import './styles/admin-layout.css';
+import './styles/admin-premium.css';
 import './styles/admin-tabs.css';
 import './styles/admin-alert.css';
 import './styles/activity-timeline.css';
@@ -21,6 +22,7 @@ import './styles/settings-payments.css';
 import './styles/settings-websocket.css';
 import './styles/settings-footer.css';
 import './styles/campaign-modal.css';
+import './styles/admin-ui.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

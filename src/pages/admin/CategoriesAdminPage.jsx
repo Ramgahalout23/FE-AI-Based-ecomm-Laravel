@@ -8,6 +8,15 @@ import { getImageUrl, getCategoryImage } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import AdminPageShell from '../../components/admin/AdminPageShell';
+import AdminFormField from '../../components/admin/AdminFormField';
+import ModalSection from '../../components/admin/ModalSection';
+import AdminModal from '../../components/admin/AdminModal';
+import SaveButton from '../../components/admin/SaveButton';
+import ActionButton from '../../components/admin/ActionButton';
+import AdminSelect from '../../components/admin/AdminSelect';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField } from '../../hooks/validationRules';
+import { Tag, Image as ImageIcon, Pencil, Plus } from 'lucide-react';
 
 const EMPTY = { name: '', description: '', parentId: '', image: '' };
 
@@ -21,6 +30,12 @@ export default function CategoriesAdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY);
+
+  // ── Inline form validation ──
+  const validation = useAdminFormValidation({
+    name: requiredField('Category name'),
+    description: requiredField('Description'),
+  });
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -167,10 +182,11 @@ export default function CategoriesAdminPage() {
     } finally { setExporting(false); }
   };
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setShowModal(true); };
-  const openEdit = (c) => { setEditing(c); setForm({ name: c.name || '', description: c.description || '', parentId: c.parentId || '', image: getCategoryImage(c) || '' }); setShowModal(true); };
+  const openCreate = () => { validation.reset(); setEditing(null); setForm(EMPTY); setShowModal(true); };
+  const openEdit = (c) => { validation.reset(); setEditing(c); setForm({ name: c.name || '', description: c.description || '', parentId: c.parentId || '', image: getCategoryImage(c) || '' }); setShowModal(true); };
 
   const handleSave = async () => {
+    if (!validation.validateForm(form)) return false;
     try {
       if (editing) {
         const r = await adminAPI.updateCategory(editing.id, form);
@@ -185,8 +201,8 @@ export default function CategoriesAdminPage() {
       }
       await load(currentPage);
       await loadAllForDropdown(true);
-      setShowModal(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+      return true; // SaveButton plays the success state, then closes via onSuccess
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed'); return false; }
   };
 
   // ── AI Generation ──
@@ -235,15 +251,16 @@ export default function CategoriesAdminPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this category? Products in this category will be unassigned.')) return;
     try { 
       await adminAPI.deleteCategory(id); 
       setCategories(categories.filter(c => c.id !== id)); 
       toast.success('Deleted'); 
       await load(currentPage);
       await loadAllForDropdown(true);
+      return true;
     } catch (err) { 
       toast.error(err.response?.data?.message || 'Failed'); 
+      return false;
     }
   };
 
@@ -264,11 +281,17 @@ export default function CategoriesAdminPage() {
       <div className="table-card">
         <div className="table-toolbar">
           <input className="table-search" placeholder="Search categories..." value={search} onChange={e => setSearch(e.target.value)} autoComplete="off" />
-          <select className="table-filter" value={filter} onChange={e => setFilter(e.target.value)}>
-            <option value="ALL">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
-          </select>
+          <AdminSelect
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'ALL', label: 'All Status' },
+              { value: 'ACTIVE', label: 'Active' },
+              { value: 'INACTIVE', label: 'Inactive' },
+            ]}
+            dotClass={(v) => (v === 'ALL' ? null : v === 'ACTIVE' ? 'status-active' : 'status-inactive')}
+            ariaLabel="Filter categories by status"
+          />
           <span className="table-count">{totalItems} results</span>
         </div>
         <table className="admin-table">
@@ -286,7 +309,7 @@ export default function CategoriesAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-edit" onClick={() => openEdit(c)}>Edit</button>
-                    <button className="btn-del" onClick={() => handleDelete(c.id)}>Delete</button>
+                    <ActionButton className="btn-del" confirm="Delete this category? Products in this category will be unassigned." onClick={() => handleDelete(c.id)} idle="Delete" />
                   </div>
                 </td>
               </tr>
@@ -316,33 +339,39 @@ export default function CategoriesAdminPage() {
       />
       </AdminPageShell>
 
-      {showModal && (
-        <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal">
-            <div className="modal-header">
-              <h3>{editing ? '✏️ Edit Category' : '➕ New Category'}</h3>
-              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                <button
-                  onClick={handleAIAutoGenerate}
-                  disabled={aiLoadingAuto}
-                  className="btn-ghost btn-sm"
-                  style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem', color: '#7c3aed', border: '1px solid #7c3aed', borderRadius: 6, display: 'flex', alignItems: 'center', gap: '0.3rem', background: aiLoadingAuto ? '#f5f3ff' : '#fff', cursor: 'pointer' }}
-                  title="Auto-generate description + image with AI"
-                >
-                  {aiLoadingAuto ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '✨'} {aiLoadingAuto ? 'Generating...' : 'Auto Generate'}
-                </button>
-                <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
-              </div>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="form-group"><label>Name</label><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Fashion" autoComplete="off" /></div>
-                <div className="form-group"><label>Parent Category</label>
+      <AdminModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Category' : 'New Category'}
+        icon={editing ? <Pencil size={18} /> : <Plus size={18} />}
+        actions={
+          <button
+            onClick={handleAIAutoGenerate}
+            disabled={aiLoadingAuto}
+            className="btn-ghost btn-sm"
+            style={{ fontSize: '0.7rem', padding: '0.25rem 0.6rem', color: '#7c3aed', border: '1px solid #7c3aed', borderRadius: 6, display: 'flex', alignItems: 'center', gap: '0.3rem', background: aiLoadingAuto ? '#f5f3ff' : '#fff', cursor: 'pointer' }}
+            title="Auto-generate description + image with AI"
+          >
+            {aiLoadingAuto ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '✨'} {aiLoadingAuto ? 'Generating...' : 'Auto Generate'}
+          </button>
+        }
+        footer={<>
+          <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button>
+          <SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update' : 'Create'} />
+        </>}
+      >
+              <ModalSection title="Basics" hint="Core identity of the category" icon={<Tag size={16} />}>
+                <AdminFormField label="Name" required error={validation.errors.name} valid={validation.validFields.name}>
+                  <input value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); validation.handleChange('name', e.target.value); }} placeholder="e.g. Fashion" autoComplete="off" />
+                </AdminFormField>
+                <AdminFormField label="Parent Category" hint="Optional — nest under an existing category">
                   <select value={form.parentId} onChange={e => setForm({ ...form, parentId: e.target.value })}>
                     <option value="">None (Top Level)</option>
                     {allCategories.filter(c => c.id !== editing?.id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
-                </div>
+                </AdminFormField>
+              </ModalSection>
+              <ModalSection title="Details" hint="An image and description shown to customers on the category page" icon={<ImageIcon size={16} />}>
                 <div className="form-group form-full">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -355,21 +384,11 @@ export default function CategoriesAdminPage() {
                     </div>
                   </div>
                 </div>
-                <div className="form-group form-full">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label>Description</label>
-                  </div>
-                  <textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Category description..." />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn-dark btn-sm" onClick={handleSave}>{editing ? 'Update' : 'Create'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+                <AdminFormField className="form-full" label="Description" required error={validation.errors.description} valid={validation.validFields.description}>
+                  <textarea rows={3} value={form.description} onChange={e => { setForm({ ...form, description: e.target.value }); validation.handleChange('description', e.target.value); }} placeholder="Category description..." />
+                </AdminFormField>
+              </ModalSection>
+      </AdminModal>
     </div>
   );
 }

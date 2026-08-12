@@ -1,0 +1,97 @@
+/* ═══════════════════════════════════════════════════════════
+   THREVOLT — Admin Panel Premium Finish & Motion
+   Black-accented micro-interactions, soft hovers, animated
+   title accents and a cleaner canvas for the admin area.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Premium canvas: clean cream with a faint neutral wash ── */
+.admin-panel-main {
+  background:
+    radial-gradient(1100px 480px at 90% -8%, rgba(26, 26, 26, 0.03), transparent 60%),
+    radial-gradient(900px 420px at -12% -4%, rgba(26, 26, 26, 0.02), transparent 55%),
+    var(--cream, #f5f5f5);
+  transition: background 0.4s ease;
+}
+
+/* ── Thin black scrollbar for the admin canvas ── */
+.admin-panel-main::-webkit-scrollbar { width: 6px; height: 6px; }
+.admin-panel-main::-webkit-scrollbar-track { background: transparent; }
+.admin-panel-main::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1a1a1a, #333333);
+  border-radius: 3px;
+}
+.admin-panel-main::-webkit-scrollbar-thumb:hover { background: #000000; }
+
+/* ── Page title: black underline that grows in on mount ── */
+.admin-header h2 {
+  position: relative;
+  display: inline-block;
+}
+.admin-header h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -7px;
+  height: 3px;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1a1a1a, #333333 55%, transparent);
+  transform-origin: left center;
+  animation: adminTitleGrow 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+@keyframes adminTitleGrow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ── Table cards: premium hover lift + black ring ── */
+.table-card {
+  transition:
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.3s ease;
+}
+@media (hover: hover) {
+  .table-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(26, 26, 26, 0.1);
+    border-color: rgba(26, 26, 26, 0.45);
+  }
+}
+
+/* ── Widget cards: soft lift on hover ── */
+.widget-card {
+  transition:
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (hover: hover) {
+  .widget-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(26, 26, 26, 0.09);
+  }
+}
+
+/* ── Detail panels: gentle reveal on mount ── */
+.detail-panel {
+  transition: box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Status badge pop-in ── */
+.status-badge {
+  animation: badgePopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes badgePopIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── Reduced motion: keep the premium look without movement ── */
+@media (prefers-reduced-motion: reduce) {
+  .admin-header h2::after,
+  .status-badge { animation: none; }
+  .admin-header h2::after { opacity: 1; transform: scaleX(1); }
+  .table-card,
+  .widget-card,
+  .detail-panel { transition: none; }
+}

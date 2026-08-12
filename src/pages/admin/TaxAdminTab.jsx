@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { taxAPI } from '../../api/tax';
 import { useSettings } from '../../store/useSettings';
+import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
+import { requiredField, rateValue } from '../../hooks/validationRules';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import toast from '../../utils/toast';
 
 const COUNTRIES = [
@@ -46,12 +49,19 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
   });
   const [selectedCountry, setSelectedCountry] = useState('');
 
+  const taxValidation = useAdminFormValidation({
+    name: requiredField('Tax rate name'),
+    rate: rateValue('Tax rate', 'Valid tax rate is required'),
+  });
+
   const loadTaxRates = async () => {
     setTaxRatesLoading(true);
     try {
       const res = await taxAPI.getAll();
-      const data = res.data?.data || [];
-      setTaxRates(data);
+      // Backend returns a Laravel paginator ({ data: [...] }) — unwrap both layers.
+      const body = res.data?.data || {};
+      const data = body?.data || (Array.isArray(body) ? body : []);
+      setTaxRates(Array.isArray(data) ? data : []);
     } catch (err) {
       console.warn('Failed to load tax rates:', err);
     } finally {
@@ -64,6 +74,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
   }, []);
 
   const resetTaxForm = () => {
+    taxValidation.reset();
     setEditingTaxRate(null);
     setSelectedCountry('');
     setTaxForm({
@@ -95,14 +106,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
   };
 
   const handleCreateTaxRate = async () => {
-    if (!taxForm.name.trim()) {
-      toast.error('Tax rate name is required');
-      return;
-    }
-    if (!taxForm.rate || parseFloat(taxForm.rate) < 0) {
-      toast.error('Valid tax rate is required');
-      return;
-    }
+    if (!taxValidation.validateForm(taxForm)) return;
     setLoading(true);
     try {
       const payload = {
@@ -128,7 +132,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
   };
 
   const handleUpdateTaxRate = async () => {
-    if (!taxForm.name.trim() || !editingTaxRate) return;
+    if (!editingTaxRate || !taxValidation.validateForm(taxForm)) return;
     setLoading(true);
     try {
       const payload = {
@@ -153,8 +157,10 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
     }
   };
 
+  const confirm = useConfirm();
+
   const handleDeleteTaxRate = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this tax rate?')) return;
+    if (!(await confirm({ title: 'Delete tax rate?', message: 'This tax rate will be permanently removed.', confirmLabel: 'Delete' }))) return;
     try {
       await taxAPI.delete(id);
       toast.success('Tax rate deleted');
@@ -391,16 +397,17 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
             </div>
 
             <div className="form-grid" style={{ marginTop: '1rem' }}>
-              <div className="form-group form-full">
+              <div className={`form-group form-full ${taxValidation.errors.name ? 'has-error' : ''} ${taxValidation.validFields.name ? 'is-valid' : ''}`}>
                 <label>Tax Rate Name *</label>
                 <input
                   value={taxForm.name}
-                  onChange={e => setTaxForm({ ...taxForm, name: e.target.value })}
+                  onChange={e => { setTaxForm({ ...taxForm, name: e.target.value }); taxValidation.handleChange('name', e.target.value); }}
                   placeholder="e.g. India GST 18%"
                 />
+                {taxValidation.errors.name && <div className="form-error" role="alert">{taxValidation.errors.name}</div>}
               </div>
 
-              <div className="form-group">
+              <div className={`form-group ${taxValidation.errors.rate ? 'has-error' : ''} ${taxValidation.validFields.rate ? 'is-valid' : ''}`}>
                 <label>Rate *</label>
                 <input
                   type="number"
@@ -408,12 +415,13 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
                   min="0"
                   max="100"
                   value={taxForm.rate}
-                  onChange={e => setTaxForm({ ...taxForm, rate: e.target.value })}
+                  onChange={e => { setTaxForm({ ...taxForm, rate: e.target.value }); taxValidation.handleChange('rate', e.target.value); }}
                   placeholder={taxForm.type === 'PERCENTAGE' ? 'e.g. 18.0' : 'e.g. 5.00'}
                 />
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                   {taxForm.type === 'PERCENTAGE' ? 'Percentage value (e.g., 18 for 18%)' : 'Flat amount in default currency'}
                 </span>
+                {taxValidation.errors.rate && <div className="form-error" role="alert">{taxValidation.errors.rate}</div>}
               </div>
 
               <div className="form-group">
@@ -535,7 +543,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
               <button
                 className="btn-dark btn-sm"
                 onClick={editingTaxRate ? handleUpdateTaxRate : handleCreateTaxRate}
-                disabled={loading || !taxForm.name.trim() || !taxForm.rate}
+                disabled={loading}
               >
                 {loading ? 'Saving...' : editingTaxRate ? 'Update Tax Rate' : 'Create Tax Rate'}
               </button>
