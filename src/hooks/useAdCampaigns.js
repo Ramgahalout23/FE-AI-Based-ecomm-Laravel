@@ -20,6 +20,20 @@ export default function useAdCampaigns(search) {
     startDate: '', endDate: '', creativeUrl: '', creativeType: 'IMAGE',
     landingUrl: '', notes: '', creativeFileName: '', creativeFileSize: 0,
     carouselUrls: [],
+    // ── Advanced targeting ──
+    ageMin: '', ageMax: '', gender: 'ALL', locations: [], interests: [],
+    keywords: [], devices: [], placements: [],
+    // ── Budget & bidding ──
+    budgetType: 'TOTAL', dailyBudget: '', budgetPacing: 'STANDARD',
+    bidStrategy: 'LOWEST_COST', bidAmount: '',
+    // ── Scheduling & frequency ──
+    scheduleDays: [], scheduleHours: [], frequencyCap: '', frequencyCapPeriod: 'DAY',
+    // ── Creative text ──
+    headline: '', primaryText: '', callToAction: 'SHOP_NOW',
+    // ── Tracking & UTM ──
+    isTrackingEnabled: true, utmSource: '', utmMedium: '', utmCampaign: '', utmContent: '',
+    // ── KPI targets ──
+    targetCtr: '', targetCpc: '', targetRoas: '',
   });
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -77,7 +91,19 @@ export default function useAdCampaigns(search) {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ name: '', platform: 'INSTAGRAM', objective: '', budget: '', startDate: '', endDate: '', creativeUrl: '', creativeType: 'IMAGE', landingUrl: '', notes: '', creativeFileName: '', creativeFileSize: 0, carouselUrls: [] });
+    setForm({
+      name: '', platform: 'INSTAGRAM', objective: '', budget: '',
+      startDate: '', endDate: '', creativeUrl: '', creativeType: 'IMAGE',
+      landingUrl: '', notes: '', creativeFileName: '', creativeFileSize: 0,
+      carouselUrls: [], ageMin: '', ageMax: '', gender: 'ALL', locations: [], interests: [],
+      keywords: [], devices: [], placements: [],
+      budgetType: 'TOTAL', dailyBudget: '', budgetPacing: 'STANDARD',
+      bidStrategy: 'LOWEST_COST', bidAmount: '',
+      scheduleDays: [], scheduleHours: [], frequencyCap: '', frequencyCapPeriod: 'DAY',
+      headline: '', primaryText: '', callToAction: 'SHOP_NOW',
+      isTrackingEnabled: true, utmSource: '', utmMedium: '', utmCampaign: '', utmContent: '',
+      targetCtr: '', targetCpc: '', targetRoas: '',
+    });
     setShowModal(true);
   };
 
@@ -101,6 +127,25 @@ export default function useAdCampaigns(search) {
       creativeFileName: c.creativeFileName || '',
       creativeFileSize: c.creativeFileSize || 0,
       carouselUrls,
+      // ── Advanced targeting ──
+      ageMin: c.ageMin ?? '', ageMax: c.ageMax ?? '', gender: c.gender || 'ALL',
+      locations: c.locations || [], interests: c.interests || [],
+      keywords: c.keywords || [], devices: c.devices || [], placements: c.placements || [],
+      // ── Budget & bidding ──
+      budgetType: c.budgetType || 'TOTAL', dailyBudget: c.dailyBudget ?? '',
+      budgetPacing: c.budgetPacing || 'STANDARD', bidStrategy: c.bidStrategy || 'LOWEST_COST',
+      bidAmount: c.bidAmount ?? '',
+      // ── Scheduling & frequency ──
+      scheduleDays: c.scheduleDays || [], scheduleHours: c.scheduleHours || [],
+      frequencyCap: c.frequencyCap ?? '', frequencyCapPeriod: c.frequencyCapPeriod || 'DAY',
+      // ── Creative text ──
+      headline: c.headline || '', primaryText: c.primaryText || '', callToAction: c.callToAction || 'SHOP_NOW',
+      // ── Tracking & UTM ──
+      isTrackingEnabled: c.isTrackingEnabled ?? true,
+      utmSource: c.utmSource || '', utmMedium: c.utmMedium || '',
+      utmCampaign: c.utmCampaign || '', utmContent: c.utmContent || '',
+      // ── KPI targets ──
+      targetCtr: c.targetCtr ?? '', targetCpc: c.targetCpc ?? '', targetRoas: c.targetRoas ?? '',
     });
     setShowModal(true);
   };
@@ -120,6 +165,16 @@ export default function useAdCampaigns(search) {
           : form.creativeUrl,
         // Don't send carouselUrls as-is to the backend
         carouselUrls: undefined,
+        // Normalize advanced fields for the backend
+        ageMin: form.ageMin ? Number(form.ageMin) : null,
+        ageMax: form.ageMax ? Number(form.ageMax) : null,
+        dailyBudget: form.dailyBudget ? Number(form.dailyBudget) : null,
+        bidAmount: form.bidAmount ? Number(form.bidAmount) : null,
+        frequencyCap: form.frequencyCap ? Number(form.frequencyCap) : null,
+        targetCtr: form.targetCtr ? Number(form.targetCtr) : null,
+        targetCpc: form.targetCpc ? Number(form.targetCpc) : null,
+        targetRoas: form.targetRoas ? Number(form.targetRoas) : null,
+        isTrackingEnabled: !!form.isTrackingEnabled,
       };
       if (editing) {
         await adsAPI.updateCampaign(editing.id, payload);

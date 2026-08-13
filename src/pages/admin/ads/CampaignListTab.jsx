@@ -53,7 +53,7 @@ function timeAgo(dateStr) {
 }
 
 export default function CampaignListTab({
-  campaigns, loading, stats, search, setSearch,
+  campaigns, loading, search, setSearch,
   platformFilter, setPlatformFilter, pagination,
   staleCampaigns, syncingAll, setSyncingAll,
   openNew, openEdit, handleDelete, openDetail,
@@ -68,7 +68,9 @@ export default function CampaignListTab({
     setPushingCampaigns(prev => ({ ...prev, [campaign.id]: true }));
     try {
       if (campaign.platform === 'GOOGLE') {
-        await adsAPI.pushToGoogleAds(campaign.id);
+        await adsAPI.pushToGoogle(campaign.id);
+      } else if (campaign.platform === 'WHATSAPP') {
+        await adsAPI.pushToWhatsApp(campaign.id);
       } else {
         await adsAPI.pushToMeta(campaign.id);
       }
@@ -86,6 +88,8 @@ export default function CampaignListTab({
     try {
       if (campaign.platform === 'GOOGLE') {
         await adsAPI.syncGoogleStats(campaign.id);
+      } else if (campaign.platform === 'WHATSAPP') {
+        await adsAPI.syncWhatsAppStats(campaign.id);
       } else {
         await adsAPI.syncMetaStats(campaign.id);
       }
@@ -156,6 +160,7 @@ export default function CampaignListTab({
               for (const c of staleCampaigns) {
                 try {
                   if (c.platform === 'GOOGLE') await adsAPI.syncGoogleStats(c.id);
+                  else if (c.platform === 'WHATSAPP') await adsAPI.syncWhatsAppStats(c.id);
                   else await adsAPI.syncMetaStats(c.id);
                   synced++;
                 } catch { failed++; }

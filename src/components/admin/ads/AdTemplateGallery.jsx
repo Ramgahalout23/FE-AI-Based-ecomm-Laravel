@@ -4,6 +4,23 @@ import { useState, useMemo, useEffect } from 'react';
 import toast from '../../../utils/toast';
 import { adsAPI } from '../../../api/ads';
 
+// The backend returns the icon as a *name string* (e.g. "Zap"); map it to the
+// actual lucide component so React doesn't warn about unknown lowercase tags.
+const ICON_MAP = {
+  Zap, Sparkles, Crown, Tag, Megaphone, MessageCircle, Target, Play,
+};
+
+// Normalize API templates: resolve icon strings to components and expose
+// camelCase aliases for the snake_case fields the API returns.
+const normalizeTemplate = (t) => ({
+  ...t,
+  icon: typeof t.icon === 'string' ? (ICON_MAP[t.icon] || Sparkles) : (t.icon || Sparkles),
+  headlineSample: t.headlineSample || t.headline_sample || '',
+  copySample: t.copySample || t.copy_sample || '',
+  ctaSample: t.ctaSample || t.cta_sample || '',
+  bestFor: t.bestFor || t.best_for || '',
+});
+
 const DEFAULT_TEMPLATES = [
   {
     name: '🔥 Flash Sale',
@@ -124,7 +141,7 @@ export default function AdTemplateGallery({ onApplyTemplate }) {
     return () => { mounted = false; };
   }, []);
 
-  const templates = apiTemplates || DEFAULT_TEMPLATES;
+  const templates = (apiTemplates || DEFAULT_TEMPLATES).map(normalizeTemplate);
 
   const filtered = useMemo(() => {
     return templates.filter(t => {

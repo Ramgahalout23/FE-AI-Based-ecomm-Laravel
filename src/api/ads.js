@@ -46,4 +46,52 @@ export const adsAPI = {
   pushToGoogle: (id) => adminClient.post(`/admin/ads/${id}/push-google`),
   syncGoogleStats: (id) => adminClient.post(`/admin/ads/${id}/sync-google-stats`),
   pushToWhatsApp: (id, data) => adminClient.post(`/admin/ads/${id}/push-whatsapp`, data),
+  syncWhatsAppStats: (id) => adminClient.post(`/admin/ads/${id}/sync-whatsapp-stats`),
+
+  // ── High-Level Tracking & Attribution ──
+  getTrackingDashboard: (params) => adminClient.get('/admin/ads/tracking/dashboard', { params }),
+  getTrackingEvents: (params) => adminClient.get('/admin/ads/tracking/events', { params }),
+  getTrackingAttribution: (params) => adminClient.get('/admin/ads/tracking/attribution', { params }),
+  getCampaignDailyStats: (id, params) => adminClient.get(`/admin/ads/${id}/tracking/daily`, { params }),
+  getCampaignTrackingUrls: (id) => adminClient.get(`/admin/ads/${id}/tracking/urls`),
+
+  // ── Automation Rules ──
+  getAutomationRules: () => adminClient.get('/admin/ads/automation/rules'),
+  createAutomationRule: (data) => adminClient.post('/admin/ads/automation/rules', data),
+  updateAutomationRule: (id, data) => adminClient.put(`/admin/ads/automation/rules/${id}`, data),
+  deleteAutomationRule: (id) => adminClient.delete(`/admin/ads/automation/rules/${id}`),
+  runAutomationRules: () => adminClient.post('/admin/ads/automation/run'),
+
+  // ── Audience Manager ──
+  getAudienceDashboard: () => adminClient.get('/admin/ads/audiences/dashboard'),
+  getAudiences: (params) => adminClient.get('/admin/ads/audiences', { params }),
+  createAudience: (data) => adminClient.post('/admin/ads/audiences', data),
+  updateAudience: (id, data) => adminClient.put(`/admin/ads/audiences/${id}`, data),
+  deleteAudience: (id) => adminClient.delete(`/admin/ads/audiences/${id}`),
+  refreshAudienceCount: (id) => adminClient.post(`/admin/ads/audiences/${id}/refresh`),
+  refreshAllAudienceCounts: () => adminClient.post('/admin/ads/audiences/refresh-all'),
+
+  // ── Creative Library ──
+  getCreativeDashboard: () => adminClient.get('/admin/ads/creatives/dashboard'),
+  getCreatives: (params) => adminClient.get('/admin/ads/creatives', { params }),
+  createCreative: (data) => adminClient.post('/admin/ads/creatives', data),
+  updateCreative: (id, data) => adminClient.put(`/admin/ads/creatives/${id}`, data),
+  deleteCreative: (id) => adminClient.delete(`/admin/ads/creatives/${id}`),
+  applyCreativeToCampaign: (creativeId, campaignId) => adminClient.post(`/admin/ads/creatives/${creativeId}/apply/${campaignId}`),
+
+  // ── A/B Experiments ──
+  getExperiments: () => adminClient.get('/admin/ads/experiments'),
+  createExperiment: (data) => adminClient.post('/admin/ads/experiments', data),
+  startExperiment: (id) => adminClient.post(`/admin/ads/experiments/${id}/start`),
+  declareExperimentWinner: (id) => adminClient.post(`/admin/ads/experiments/${id}/declare-winner`),
+  deleteExperiment: (id) => adminClient.delete(`/admin/ads/experiments/${id}`),
+
+  // ── Scheduled Reports & Exports ──
+  getScheduledReports: () => adminClient.get('/admin/ads/reports/scheduled'),
+  createScheduledReport: (data) => adminClient.post('/admin/ads/reports/scheduled', data),
+  updateScheduledReport: (id, data) => adminClient.put(`/admin/ads/reports/scheduled/${id}`, data),
+  deleteScheduledReport: (id) => adminClient.delete(`/admin/ads/reports/scheduled/${id}`),
+  sendReportNow: (id) => adminClient.post(`/admin/ads/reports/scheduled/${id}/send-now`),
+  exportCsv: (kind, params) => adminClient.get(`/admin/ads/export/${kind}`, { params, responseType: 'blob' }),
+
 };

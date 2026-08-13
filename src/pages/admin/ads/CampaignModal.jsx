@@ -1,4 +1,4 @@
-import { X, Upload, Check, Image, Video } from 'lucide-react';
+import { X, Upload, Check, Image, Video, Target, Wallet, CalendarDays, PenLine, MousePointerClick, Gauge } from 'lucide-react';
 import { useState, useRef } from 'react';
 
 ;
@@ -263,7 +263,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
     setForm({ ...form, carouselUrls: urls });
   };
 
-  const isImage = form.creativeType === 'IMAGE' || form.creativeType === 'CAROUSEL';
+
   const isVideo = form.creativeType === 'VIDEO';
 
   return (
@@ -548,6 +548,221 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
           <div className="form-group form-full">
             <label>Landing URL</label>
             <input value={form.landingUrl} onChange={e => setForm({ ...form, landingUrl: e.target.value })} placeholder="https://example.com/landing-page" />
+          </div>
+
+          {/* ── Audience Targeting ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><Target size={13} /> Audience Targeting</h4>
+          </div>
+
+          <div className="form-group">
+            <label>Min Age</label>
+            <input type="number" min="13" max="100" value={form.ageMin} onChange={e => setForm({ ...form, ageMin: e.target.value })} placeholder="e.g. 18" />
+          </div>
+
+          <div className="form-group">
+            <label>Max Age</label>
+            <input type="number" min="13" max="100" value={form.ageMax} onChange={e => setForm({ ...form, ageMax: e.target.value })} placeholder="e.g. 45" />
+          </div>
+
+          <div className="form-group">
+            <label>Gender</label>
+            <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+              <option value="ALL">All</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Locations</label>
+            <input value={(form.locations || []).join(', ')} onChange={e => setForm({ ...form, locations: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="India, Maharashtra, Mumbai" />
+          </div>
+
+          <div className="form-group">
+            <label>Interests</label>
+            <input value={(form.interests || []).join(', ')} onChange={e => setForm({ ...form, interests: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="Fashion, Streetwear, Gym" />
+          </div>
+
+          <div className="form-group">
+            <label>Keywords</label>
+            <input value={(form.keywords || []).join(', ')} onChange={e => setForm({ ...form, keywords: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="oversized tee, cotton" />
+          </div>
+
+          <div className="form-group">
+            <label>Devices</label>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {['desktop', 'mobile', 'tablet'].map(d => (
+                <button key={d} type="button"
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${(form.devices || []).includes(d) ? 'bg-brand-black text-white border-brand-black' : 'border-border text-text-muted hover:border-brand-black/40'}`}
+                  onClick={() => setForm({ ...form, devices: (form.devices || []).includes(d) ? (form.devices || []).filter(x => x !== d) : [...(form.devices || []), d] })}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Placements</label>
+            <input value={(form.placements || []).join(', ')} onChange={e => setForm({ ...form, placements: e.target.value.split(',').map(x => x.trim()).filter(Boolean) })} placeholder="Feed, Stories, Reels" />
+          </div>
+
+          {/* ── Budget & Bidding ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><Wallet size={13} /> Budget & Bidding</h4>
+          </div>
+
+          <div className="form-group">
+            <label>Budget Type</label>
+            <select value={form.budgetType} onChange={e => setForm({ ...form, budgetType: e.target.value })}>
+              <option value="TOTAL">Total budget</option>
+              <option value="DAILY">Daily budget</option>
+              <option value="LIFETIME">Lifetime budget</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Daily Budget (₹)</label>
+            <input type="number" value={form.dailyBudget} onChange={e => setForm({ ...form, dailyBudget: e.target.value })} placeholder="500" />
+          </div>
+
+          <div className="form-group">
+            <label>Budget Pacing</label>
+            <select value={form.budgetPacing} onChange={e => setForm({ ...form, budgetPacing: e.target.value })}>
+              <option value="STANDARD">Standard (evenly throughout day)</option>
+              <option value="ACCELERATED">Accelerated (spend as fast as possible)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Bid Strategy</label>
+            <select value={form.bidStrategy} onChange={e => setForm({ ...form, bidStrategy: e.target.value })}>
+              <option value="LOWEST_COST">Lowest cost</option>
+              <option value="MAXIMUM_RESULT">Maximum result</option>
+              <option value="TARGET_COST">Target cost</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Bid Amount (₹)</label>
+            <input type="number" value={form.bidAmount} onChange={e => setForm({ ...form, bidAmount: e.target.value })} placeholder="50" />
+          </div>
+
+          {/* ── Scheduling & Frequency ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><CalendarDays size={13} /> Scheduling & Frequency</h4>
+          </div>
+
+          <div className="form-group form-full">
+            <label>Days of Week</label>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map(d => (
+                <button key={d} type="button"
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all ${(form.scheduleDays || []).includes(d) ? 'bg-brand-black text-white border-brand-black' : 'border-border text-text-muted hover:border-brand-black/40'}`}
+                  onClick={() => setForm({ ...form, scheduleDays: (form.scheduleDays || []).includes(d) ? (form.scheduleDays || []).filter(x => x !== d) : [...(form.scheduleDays || []), d] })}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Hours (0-23, comma separated)</label>
+            <input value={(form.scheduleHours || []).join(', ')} onChange={e => setForm({ ...form, scheduleHours: e.target.value.split(',').map(x => parseInt(x.trim(), 10)).filter(n => !isNaN(n) && n >= 0 && n <= 23) })} placeholder="9, 10, 11, 18, 19, 20" />
+          </div>
+
+          <div className="form-group">
+            <label>Frequency Cap</label>
+            <input type="number" value={form.frequencyCap} onChange={e => setForm({ ...form, frequencyCap: e.target.value })} placeholder="e.g. 3" />
+          </div>
+
+          <div className="form-group">
+            <label>Frequency Period</label>
+            <select value={form.frequencyCapPeriod} onChange={e => setForm({ ...form, frequencyCapPeriod: e.target.value })}>
+              <option value="DAY">Per day</option>
+              <option value="WEEK">Per week</option>
+              <option value="MONTH">Per month</option>
+            </select>
+          </div>
+
+          {/* ── Creative Text ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><PenLine size={13} /> Creative Text</h4>
+          </div>
+
+          <div className="form-group">
+            <label>Headline</label>
+            <input value={form.headline} onChange={e => setForm({ ...form, headline: e.target.value })} placeholder="Up to 40% off Summer Collection" />
+          </div>
+
+          <div className="form-group">
+            <label>Call To Action</label>
+            <select value={form.callToAction} onChange={e => setForm({ ...form, callToAction: e.target.value })}>
+              <option value="SHOP_NOW">Shop Now</option>
+              <option value="LEARN_MORE">Learn More</option>
+              <option value="SIGN_UP">Sign Up</option>
+              <option value="BUY_NOW">Buy Now</option>
+              <option value="SUBSCRIBE">Subscribe</option>
+            </select>
+          </div>
+
+          <div className="form-group form-full">
+            <label>Primary Text</label>
+            <textarea rows={2} value={form.primaryText} onChange={e => setForm({ ...form, primaryText: e.target.value })} placeholder="Premium quality tees. Free shipping over ₹999." />
+          </div>
+
+          {/* ── Tracking & UTM ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><MousePointerClick size={13} /> Tracking & UTM Parameters</h4>
+          </div>
+
+          <div className="form-group form-full">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" checked={!!form.isTrackingEnabled} onChange={e => setForm({ ...form, isTrackingEnabled: e.target.checked })} className="accent-brand-black" />
+              Enable click / impression / conversion tracking
+            </label>
+          </div>
+
+          <div className="form-group">
+            <label>UTM Source</label>
+            <input value={form.utmSource} onChange={e => setForm({ ...form, utmSource: e.target.value })} placeholder="instagram" />
+          </div>
+
+          <div className="form-group">
+            <label>UTM Medium</label>
+            <input value={form.utmMedium} onChange={e => setForm({ ...form, utmMedium: e.target.value })} placeholder="cpc" />
+          </div>
+
+          <div className="form-group">
+            <label>UTM Campaign</label>
+            <input value={form.utmCampaign} onChange={e => setForm({ ...form, utmCampaign: e.target.value })} placeholder="summer_sale" />
+          </div>
+
+          <div className="form-group">
+            <label>UTM Content</label>
+            <input value={form.utmContent} onChange={e => setForm({ ...form, utmContent: e.target.value })} placeholder="banner_a" />
+          </div>
+
+          {/* ── KPI Targets ── */}
+          <div className="form-full ad-section-divider">
+            <h4 className="ad-section-title"><Gauge size={13} /> KPI Targets</h4>
+          </div>
+
+          <div className="form-group">
+            <label>Target CTR (%)</label>
+            <input type="number" step="0.01" value={form.targetCtr} onChange={e => setForm({ ...form, targetCtr: e.target.value })} placeholder="e.g. 2.5" />
+          </div>
+
+          <div className="form-group">
+            <label>Target CPC (₹)</label>
+            <input type="number" step="0.01" value={form.targetCpc} onChange={e => setForm({ ...form, targetCpc: e.target.value })} placeholder="e.g. 8" />
+          </div>
+
+          <div className="form-group">
+            <label>Target ROAS (x)</label>
+            <input type="number" step="0.1" value={form.targetRoas} onChange={e => setForm({ ...form, targetRoas: e.target.value })} placeholder="e.g. 3" />
           </div>
 
           {/* Notes */}

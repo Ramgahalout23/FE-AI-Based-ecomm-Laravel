@@ -111,3 +111,23 @@
   border-top: 1px solid var(--border);
   padding-top: 1rem;
 }
+
+/* ── Advanced Campaign Builder Sections ── */
+.ad-section-divider {
+  border-top: 1px dashed var(--border, #e5e7eb);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+.ad-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--text-primary, #111);
+}
+.ad-section-title svg {
+  opacity: 0.6;
+}

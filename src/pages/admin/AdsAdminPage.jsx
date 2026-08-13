@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
-  LayoutDashboard, BarChart3, Building2, Sparkles, PieChart, GitCompare,
-  AlertCircle, Plus, RefreshCw, CheckSquare
+  LayoutDashboard, BarChart3, Building2, Sparkles, PieChart, GitCompare, Activity,
+  AlertCircle, Plus, RefreshCw, CheckSquare, Users, Images, GitBranch, FileSpreadsheet, Zap
 } from 'lucide-react';
 import { adsAPI } from '../../api/ads';
 import { adminAPI } from '../../api/admin';
@@ -16,6 +16,13 @@ import BrandTab from './ads/BrandTab';
 import AiToolsTab from './ads/AiToolsTab';
 import AnalyticsTab from './ads/AnalyticsTab';
 import CompareTab from './ads/CompareTab';
+import TrackingTab from './ads/TrackingTab';
+import AutomationTab from './ads/AutomationTab';
+import AudienceTab from './ads/AudienceTab';
+import CreativeLibraryTab from './ads/CreativeLibraryTab';
+import ExperimentsTab from './ads/ExperimentsTab';
+import ReportsTab from './ads/ReportsTab';
+import CampaignDetailPanel from './ads/CampaignDetailPanel';
 const CampaignModal = lazy(() => import('./ads/CampaignModal'));
 
 // New Feature Components
@@ -32,6 +39,12 @@ const TABS = [
   { id: 'ai-tools', label: 'AI Tools', icon: Sparkles },
   { id: 'analytics', label: 'Analytics', icon: PieChart },
   { id: 'compare', label: 'Compare', icon: GitCompare },
+  { id: 'tracking', label: 'Tracking', icon: Activity },
+  { id: 'automation', label: 'Automation', icon: Zap },
+  { id: 'audiences', label: 'Audiences', icon: Users },
+  { id: 'creatives', label: 'Creative Library', icon: Images },
+  { id: 'experiments', label: 'Experiments', icon: GitBranch },
+  { id: 'reports', label: 'Reports', icon: FileSpreadsheet },
 ];
 
 export default function AdsAdminPage() {
@@ -45,6 +58,7 @@ export default function AdsAdminPage() {
     showModal, setShowModal, editing, form, setForm, modalLoading,
     loadCampaigns, loadStats, openNew, openEdit, handleSave, handleDelete,
     openDetail, handleBulkStatusChange, handleDuplicate,
+    campaignDetail, detailLoading, closeDetail,
   } = useAdCampaigns(search);
 
   // Lazy modal — mount only after first open so its chunk loads on demand
@@ -234,6 +248,12 @@ export default function AdsAdminPage() {
             'ai-tools': 'bg-purple-600 text-white shadow-lg',
             analytics: 'bg-blue-600 text-white shadow-lg',
             compare: 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg',
+            tracking: 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg',
+            automation: 'bg-amber-600 text-white shadow-lg',
+            audiences: 'bg-indigo-600 text-white shadow-lg',
+            creatives: 'bg-purple-600 text-white shadow-lg',
+            experiments: 'bg-green-600 text-white shadow-lg',
+            reports: 'bg-blue-600 text-white shadow-lg',
           };
           return (
             <button key={t.id}
@@ -303,6 +323,24 @@ export default function AdsAdminPage() {
       {tab === 'analytics' && <AnalyticsTab stats={stats} adsAPI={adsAPI} />}
 
       {tab === 'compare' && <CompareTab campaigns={campaigns} adsAPI={adsAPI} />}
+      {tab === 'tracking' && <TrackingTab campaigns={campaigns} adsAPI={adsAPI} />}
+
+      {tab === 'automation' && <AutomationTab adsAPI={adsAPI} campaigns={campaigns} />}
+      {tab === 'audiences' && <AudienceTab adsAPI={adsAPI} />}
+      {tab === 'creatives' && <CreativeLibraryTab adsAPI={adsAPI} campaigns={campaigns} />}
+      {tab === 'experiments' && <ExperimentsTab adsAPI={adsAPI} campaigns={campaigns} />}
+      {tab === 'reports' && <ReportsTab adsAPI={adsAPI} />}
+
+      {/* Campaign Detail Panel */}
+      {campaignDetail && (
+        <CampaignDetailPanel
+          campaign={campaignDetail}
+          loading={detailLoading}
+          onClose={closeDetail}
+          onEdit={openEdit}
+          adsAPI={adsAPI}
+        />
+      )}
 
       {/* Campaign Modal */}
       {campaignEverOpened && (

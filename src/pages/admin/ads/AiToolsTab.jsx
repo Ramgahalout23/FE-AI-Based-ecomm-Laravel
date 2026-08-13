@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Brain, Play, Search, MessageCircle, Sparkles, GitCompare, Award, Users,
   Target, Image, X, BookOpen, Building2, Diamond, Palette,
   Type, MessageSquareText, FileText, Zap, Lightbulb, Plus, Copy,
-  DollarSign, ChevronDown, Activity, Link2
+  DollarSign
 } from 'lucide-react';
+import { adminAPI } from '../../../api/admin';
 import toast from '../../../utils/toast';
 
 const PLATFORMS = [
@@ -47,11 +48,27 @@ export default function AiToolsTab({
   const [aiStrategyLoading, setAiStrategyLoading] = useState(false);
   const [aiAudience, setAiAudience] = useState(null);
   const [aiAudienceLoading, setAiAudienceLoading] = useState(false);
+  const [aiBanner, setAiBanner] = useState(null);
+  const [aiBannerLoading, setAiBannerLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [productSearch, setProductSearch] = useState('');
   const [showDemo, setShowDemo] = useState(false);
   const [aiResultTab, setAiResultTabLocal] = useState('copy');
+
+  // Debounced product search for AI tools
+  useEffect(() => {
+    if (!productSearch) return;
+    const timer = setTimeout(async () => {
+      try {
+        const r = await adminAPI.getProducts({ search: productSearch, page: 1, limit: 20 });
+        const responseData = r.data?.data || r.data || {};
+        const prod = responseData.products || responseData.data || [];
+        setProducts(Array.isArray(prod) ? prod : []);
+      } catch { setProducts([]); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [productSearch]);
 
   const updateResultTab = (tab) => {
     setAiResultTabLocal(tab);
@@ -178,6 +195,23 @@ export default function AiToolsTab({
     setAiAudienceLoading(false);
   };
 
+  const generateBanner = async () => {
+    setShowDemo(false);
+    setAiBannerLoading(true);
+    try {
+      const r = await adsAPI.aiGenerateBannerDesign({
+        platform: aiPlatform, brandVoice: aiBrandVoice,
+        productName: selectedProduct?.name, productDescription: selectedProduct?.description,
+        headline: aiGeneratedCopy?.headline,
+      });
+      setAiBanner(r.data?.data || r.data);
+      updateResultTab('banner');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to generate banner design');
+    }
+    setAiBannerLoading(false);
+  };
+
   const applyAICopyToForm = (copy) => {
     setForm(prev => ({
       ...prev, platform: aiPlatform,
@@ -187,6 +221,39 @@ export default function AiToolsTab({
       notes: `AI Generated: ${copy.primaryText || ''}\n${copy.suggestions?.join('\n') || ''}`.trim(),
     }));
     toast.success('AI copy applied to form!');
+    setShowModal(true);
+  };
+
+  const applyBannerToForm = (banner) => {
+    const ctaTextToCode = {
+      'Shop Now': 'SHOP_NOW',
+      'Learn More': 'LEARN_MORE',
+      'Sign Up': 'SIGN_UP',
+      'Buy Now': 'BUY_NOW',
+      'Subscribe': 'SUBSCRIBE',
+    };
+    const colorLine = Object.entries(banner.colorScheme || {})
+      .filter(([, v]) => typeof v === 'string' && /^#/.test(v))
+      .map(([k, v]) => `${k} ${v}`)
+      .join(', ');
+    setForm(prev => ({
+      ...prev,
+      platform: aiPlatform,
+      name: banner.primaryTextOverlay || prev.name,
+      headline: banner.primaryTextOverlay || prev.headline,
+      primaryText: banner.secondaryTextOverlay || prev.primaryText,
+      callToAction: ctaTextToCode[banner.ctaButton?.text] || prev.callToAction || 'SHOP_NOW',
+      creativeUrl: prev.creativeUrl || selectedProduct?.images?.[0]?.url || '',
+      landingUrl: prev.landingUrl || (selectedProduct ? `/products/${selectedProduct.slug}` : ''),
+      notes: [
+        'AI Banner Design:',
+        `Layout: ${banner.layoutType || '—'} (${banner.imagePlacement || '—'})`,
+        `CTA: ${banner.ctaButton?.text || '—'} (${banner.ctaButton?.style || '—'})`,
+        colorLine ? `Colors: ${colorLine}` : '',
+        (banner.imageRecommendations?.length > 0 ? `Image tips:\n${banner.imageRecommendations.map(r => `• ${r}`).join('\n')}` : ''),
+      ].filter(Boolean).join('\n'),
+    }));
+    toast.success('Banner design applied to form!');
     setShowModal(true);
   };
 
@@ -265,7 +332,7 @@ export default function AiToolsTab({
       </div>
 
       {/* Platform & Tone Selectors */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border border-border shadow-soft p-5">
           <label className="text-sm font-bold text-text-primary block mb-3">Platform</label>
           <div className="grid grid-cols-2 gap-2">
@@ -283,7 +350,7 @@ export default function AiToolsTab({
         </div>
         <div className="bg-white rounded-2xl border border-border shadow-soft p-5">
           <label className="text-sm font-bold text-text-primary block mb-3">Tone</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {TONE_OPTIONS.map((t) => (
               <button key={t.id} className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${aiTone === t.id ? 'bg-brand-black text-white shadow-lg' : 'bg-surface text-text-muted border border-border hover:border-purple-300'}`}
                 onClick={() => setAiTone(t.id)}>
@@ -312,9 +379,9 @@ export default function AiToolsTab({
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <button className="flex flex-col items-center gap-2 p-5 bg-white rounded-2xl border border-border shadow-soft hover:border-purple-400 hover:shadow-md transition-all"
-          onClick={generateAdCopy} disabled={aiLoading}>
+          onClick={() => generateAdCopy()} disabled={aiLoading}>
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${aiLoading ? 'bg-purple-100' : 'bg-purple-50'}`}>
             {aiLoading ? <div className="spinner w-5 h-5 border-2 border-purple-400/30 border-t-purple-500 rounded-full" /> : <Sparkles size={22} className="text-purple-600" />}
           </div>
@@ -341,6 +408,13 @@ export default function AiToolsTab({
           </div>
           <span className="text-xs font-semibold text-text-primary">Audience</span>
         </button>
+        <button className="flex flex-col items-center gap-2 p-5 bg-white rounded-2xl border border-border shadow-soft hover:border-rose-400 hover:shadow-md transition-all"
+          onClick={generateBanner} disabled={aiBannerLoading}>
+          <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center">
+            {aiBannerLoading ? <div className="spinner w-5 h-5 border-2 border-rose-400/30 border-t-rose-500 rounded-full" /> : <Image size={22} className="text-rose-600" />}
+          </div>
+          <span className="text-xs font-semibold text-text-primary">Banner Design</span>
+        </button>
       </div>
 
       {/* AI Results - Copy */}
@@ -350,6 +424,7 @@ export default function AiToolsTab({
             <div className="flex items-center gap-3">
               <h4 className="font-bold text-text-primary flex items-center gap-2"><Sparkles size={18} className="text-purple-600" /> Generated Ad Copy</h4>
               {aiGeneratedCopy._demo && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 cursor-help">🧪 Demo</span>}
+              {aiGeneratedCopy._mock && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 cursor-help" title="No AI API key configured — showing sample output">🧪 Mock</span>}
               {aiGeneratedCopy._platform && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">{aiGeneratedCopy._platform}</span>}
             </div>
             {!aiGeneratedCopy._demo ? (
@@ -425,7 +500,7 @@ export default function AiToolsTab({
       {aiResultTab === 'strategy' && aiStrategy && (
         <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden">
           <div className="p-5 border-b border-border bg-gradient-to-r from-green-50 to-emerald-50">
-            <h4 className="font-bold text-text-primary flex items-center gap-2"><Award size={18} className="text-green-600" /> Full Campaign Strategy</h4>
+            <h4 className="font-bold text-text-primary flex items-center gap-2"><Award size={18} className="text-green-600" /> Full Campaign Strategy {aiStrategy._mock && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 cursor-help" title="No AI API key configured — showing sample output">🧪 Mock</span>}</h4>
             <p className="text-sm text-text-muted mt-1">{aiStrategy.campaignName}</p>
           </div>
           <div className="p-5 space-y-4">
@@ -456,7 +531,7 @@ export default function AiToolsTab({
       {aiResultTab === 'audience' && aiAudience && (
         <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden">
           <div className="p-5 border-b border-border bg-gradient-to-r from-amber-50 to-orange-50">
-            <h4 className="font-bold text-text-primary flex items-center gap-2"><Users size={18} className="text-amber-600" /> Audience Targeting Suggestions</h4>
+            <h4 className="font-bold text-text-primary flex items-center gap-2"><Users size={18} className="text-amber-600" /> Audience Targeting Suggestions {aiAudience._mock && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 cursor-help" title="No AI API key configured — showing sample output">🧪 Mock</span>}</h4>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
@@ -482,6 +557,84 @@ export default function AiToolsTab({
             {aiAudience.locations?.length > 0 && (
               <div><span className="text-xs font-bold text-text-muted uppercase tracking-wider block mb-2">Target Locations</span><div className="flex flex-wrap gap-1.5">{aiAudience.locations.map((loc, i) => <span key={i} className="px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{loc}</span>)}</div></div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Results - Banner Design */}
+      {aiResultTab === 'banner' && aiBanner && (
+        <div className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden">
+          <div className="p-5 border-b border-border bg-gradient-to-r from-rose-50 to-pink-50 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="font-bold text-text-primary flex items-center gap-2"><Image size={18} className="text-rose-600" /> Banner Design {aiBanner._mock && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 cursor-help" title="No AI API key configured — showing sample output">🧪 Mock</span>}</h4>
+              <p className="text-sm text-text-muted mt-1">{aiBanner.bannerPreviewDescription}</p>
+            </div>
+            <button className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-colors flex items-center gap-1.5 flex-shrink-0"
+              onClick={() => applyBannerToForm(aiBanner)}>
+              <Plus size={13} /> Create Campaign
+            </button>
+          </div>
+          <div className="p-5 space-y-5">
+            {/* Visual banner preview */}
+            <div
+              className="rounded-2xl overflow-hidden border border-border relative flex items-end"
+              style={{ background: aiBanner.colorScheme?.background || '#ffffff' }}
+            >
+              <div className="w-full h-40 sm:h-48 bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col justify-end p-5">
+                <span className="inline-block px-2 py-0.5 bg-white/15 text-white text-[9px] font-bold uppercase tracking-wider rounded-full mb-2" style={{ alignSelf: 'flex-start' }}>{aiBanner.layoutType || 'Ad Banner'}</span>
+                <div className="text-white font-bold text-xl sm:text-2xl font-display leading-tight" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{aiBanner.primaryTextOverlay}</div>
+                <div className="text-white/80 text-xs sm:text-sm mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{aiBanner.secondaryTextOverlay}</div>
+                <div className="mt-3 inline-flex items-center gap-2 self-start" style={{ background: aiBanner.colorScheme?.accent || '#e94560', color: '#fff' }}>
+                  <span className="px-4 py-2 rounded-lg text-xs font-bold">{aiBanner.ctaButton?.text || 'Shop Now'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Layout specs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-gray-50 border border-border">
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Layout Type</span>
+                <p className="text-sm font-bold text-text-primary mt-1 capitalize">{aiBanner.layoutType || '—'}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gray-50 border border-border">
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Image Placement</span>
+                <p className="text-sm font-bold text-text-primary mt-1">{aiBanner.imagePlacement || '—'}</p>
+              </div>
+            </div>
+
+            {/* Color scheme */}
+            {aiBanner.colorScheme && (
+              <div>
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider block mb-2"><Palette size={12} className="inline mr-1" /> Color Scheme</span>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(aiBanner.colorScheme).filter(([, v]) => typeof v === 'string' && /^#/.test(v)).map(([name, hex]) => (
+                    <div key={name} className="flex items-center gap-1.5 bg-gray-50 border border-border rounded-lg px-2 py-1.5">
+                      <span className="w-5 h-5 rounded-md border border-border" style={{ background: hex }} />
+                      <span className="text-[10px] font-bold text-text-muted capitalize">{name}</span>
+                      <span className="text-[10px] text-text-muted">{hex}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CTA + image recommendations */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">CTA Button</span>
+                <p className="text-sm font-bold text-rose-800 mt-1">{aiBanner.ctaButton?.text || '—'} <span className="text-[10px] font-semibold text-rose-500 normal-case">({aiBanner.ctaButton?.style || 'filled'})</span></p>
+              </div>
+              {aiBanner.imageRecommendations?.length > 0 && (
+                <div className="p-3 rounded-xl bg-gray-50 border border-border">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block mb-1.5">Image Recommendations</span>
+                  <ul className="space-y-1">
+                    {aiBanner.imageRecommendations.map((rec, i) => (
+                      <li key={i} className="text-xs text-text-primary flex items-start gap-1.5"><span className="text-rose-500 mt-0.5">•</span>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

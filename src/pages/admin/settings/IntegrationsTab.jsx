@@ -1,8 +1,49 @@
+import { useState } from 'react';
 import { formatDateTime } from '../../../utils/formatters';
 import PasswordInput from '../../../components/common/PasswordInput';
 import toast from '../../../utils/toast';
 import { adminAPI } from '../../../api/admin';
+import { adsAPI } from '../../../api/ads';
 import { useConfirm } from '../../../contexts/ConfirmContext';
+
+function ConnectionTestButton({ testing, status, onClick, label }) {
+  return (
+    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <button
+        className="btn-ghost btn-sm"
+        onClick={onClick}
+        disabled={testing}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+      >
+        {testing ? 'Testing…' : label}
+      </button>
+      {status && (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: status.connected ? '#16a34a' : '#dc2626',
+            background: status.connected ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)',
+            border: `1px solid ${status.connected ? '#16a34a' : '#dc2626'}33`,
+            borderRadius: '999px',
+            padding: '0.25rem 0.65rem',
+            maxWidth: '100%',
+          }}
+          title={status.message}
+        >
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: status.connected ? '#16a34a' : '#dc2626', flexShrink: 0 }} />
+          {status.connected ? 'Connected' : 'Not connected'}
+          <span style={{ fontWeight: 400, opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}>
+            {status.message}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function IntegrationsTab({
   settings, setSettings, loading, handleSaveSettings,
@@ -34,13 +75,47 @@ export default function IntegrationsTab({
 
   const confirm = useConfirm();
 
+  // ── Ad platform connection tests ──
+  const [testingMeta, setTestingMeta] = useState(false);
+  const [testingGoogle, setTestingGoogle] = useState(false);
+  const [metaStatus, setMetaStatus] = useState(null);
+  const [googleStatus, setGoogleStatus] = useState(null);
+
+  const runConnectionTest = async (which) => {
+    if (which === 'meta') setTestingMeta(true);
+    else setTestingGoogle(true);
+    try {
+      const r = which === 'meta'
+        ? await adsAPI.testMetaConnection()
+        : await adsAPI.testGoogleAdsConnection();
+      const data = r.data?.data || r.data || {};
+      const status = {
+        connected: !!data.connected,
+        message: data.message || (data.connected ? 'Connected' : 'Not connected'),
+      };
+      if (which === 'meta') setMetaStatus(status);
+      else setGoogleStatus(status);
+      toast.success(status.connected ? 'Connection OK' : 'Not configured');
+    } catch (err) {
+      const status = {
+        connected: false,
+        message: err?.response?.data?.message || 'Connection test failed',
+      };
+      if (which === 'meta') setMetaStatus(status);
+      else setGoogleStatus(status);
+      toast.error(status.message);
+    }
+    if (which === 'meta') setTestingMeta(false);
+    else setTestingGoogle(false);
+  };
+
   const handleDeleteBackup = async (filename) => {
     if (!(await confirm({ title: 'Delete backup?', message: `Backup "${filename}" will be permanently removed.`, confirmLabel: 'Delete' }))) return;
     try {
       await adminAPI.deleteBackup(filename);
       toast.success('Backup deleted');
       if (loadBackups) loadBackups();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete backup');
     }
   };
@@ -56,7 +131,7 @@ export default function IntegrationsTab({
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       toast.error('Failed to download backup');
     }
   };
@@ -265,6 +340,12 @@ export default function IntegrationsTab({
               />
             </div>
           </div>
+          <ConnectionTestButton
+            testing={testingMeta}
+            status={metaStatus}
+            onClick={() => runConnectionTest('meta')}
+            label="Test Meta Connection"
+          />
         </div>
 
         <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
@@ -349,6 +430,12 @@ export default function IntegrationsTab({
               />
             </div>
           </div>
+          <ConnectionTestButton
+            testing={testingGoogle}
+            status={googleStatus}
+            onClick={() => runConnectionTest('google')}
+            label="Test Google Ads Connection"
+          />
         </div>
 
         <div className="form-actions" style={{ marginTop: '1rem' }}>
