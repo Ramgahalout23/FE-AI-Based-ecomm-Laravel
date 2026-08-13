@@ -31,6 +31,9 @@ export default memo(function SearchProductCard({ product }) {
   const [showHighlights, setShowHighlights] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const highlightsTimeoutRef = useRef(null);
+  // Style Highlights is hover-only — never trigger on touch devices, where
+  // the emulated mouseenter makes the overlay appear stuck/broken on mobile.
+  const canHover = useMemo(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [qty, setQty] = useState(1);
@@ -179,7 +182,7 @@ export default memo(function SearchProductCard({ product }) {
 
   const handleImageMouseEnter = () => {
     setIsHovered(true);
-    if (!showQuickAdd) {
+    if (!showQuickAdd && canHover) {
       highlightsTimeoutRef.current = setTimeout(() => setShowHighlights(true), 150);
     }
   };
@@ -439,7 +442,7 @@ export default memo(function SearchProductCard({ product }) {
 
         {/* Highlights Overlay */}
         <AnimatePresence>
-          {!showQuickAdd && showHighlights && highlights.length > 0 && (
+          {!showQuickAdd && showHighlights && highlights.length > 0 && canHover && (
             <motion.div
               key="highlights-overlay"
               initial={{ opacity: 0, y: 6 }}

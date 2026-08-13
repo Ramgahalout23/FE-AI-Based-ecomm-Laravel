@@ -1,4 +1,4 @@
-import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle, Code2, Facebook, Languages, FolderTree } from 'lucide-react';
+import { Search, RefreshCw, Globe, AlertTriangle, Share2, BarChart3, Settings, Trophy, Link, Zap, FileText, Pencil, Trash2, ExternalLink, CheckCircle, Code2, Facebook, Languages, FolderTree, Sparkles } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
@@ -10,6 +10,16 @@ import { formatDate, formatDateTime } from '../../utils/formatters';
 ;
 
 const truncate = (str, len) => (str || '').length > len ? str.slice(0, len) + '…' : str;
+
+const RANK_STATUS = {
+  top: { icon: '🥇', color: '#15803d', bg: '#dcfce7', border: '1px solid #86efac' },
+  page1: { icon: '✅', color: '#1d4ed8', bg: '#dbeafe', border: '1px solid #93c5fd' },
+  rising: { icon: '📈', color: '#0f766e', bg: '#ccfbf1', border: '1px solid #5eead4' },
+  'near-page1': { icon: '🎯', color: '#b45309', bg: '#fef3c7', border: '1px solid #fcd34d' },
+  falling: { icon: '📉', color: '#b91c1c', bg: '#fee2e2', border: '1px solid #fca5a5' },
+  deep: { icon: '🔍', color: '#6b7280', bg: '#f3f4f6', border: '1px solid #d1d5db' },
+  untracked: { icon: '❔', color: '#7c3aed', bg: '#f3e8ff', border: '1px dashed #c4b5fd' },
+};
 
 function SEOPreview({ title, description, url }) {
   const displayUrl = url || 'https://yourstore.com';
@@ -119,6 +129,17 @@ export default function SEOAdminPage() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [bulkAuditResults, setBulkAuditResults] = useState(null);
   const [bulkAuditLoading, setBulkAuditLoading] = useState(false);
+  // AI meta generation
+  const [aiSeoLoading, setAiSeoLoading] = useState(false);
+  const [aiSeoData, setAiSeoData] = useState(null);
+  const [aiBulkLoading, setAiBulkLoading] = useState(false);
+  const [aiBulkData, setAiBulkData] = useState(null);
+  // AI keyword rank check
+  const [aiRankSource, setAiRankSource] = useState('manual');
+  const [aiRankType, setAiRankType] = useState('product');
+  const [aiRankKeywords, setAiRankKeywords] = useState('');
+  const [aiRankLoading, setAiRankLoading] = useState(false);
+  const [aiRankData, setAiRankData] = useState(null);
   const [advSettings, setAdvSettings] = useState(null);
   const [advSettingsLoading, setAdvSettingsLoading] = useState(false);
 
@@ -164,12 +185,13 @@ export default function SEOAdminPage() {
       let res;
       if (entityType === 'product') res = await adminAPI.getProducts(params);
       else if (entityType === 'category') res = await adminAPI.getCategories(params);
+      else if (entityType === 'brand') res = await adminAPI.getBrands(params);
       else if (entityType === 'page') {
         res = await adminAPI.getPages();
         if (search) { const items = res.data?.data || []; items.data = (items.data || items).filter(p => (p.title || '').toLowerCase().includes(search.toLowerCase())); res = { data: { data: items.data || items, total: items.data?.length || items.length } }; }
       }
       const payload = res.data?.data || res.data || {};
-      const items = payload.products || payload.categories || payload.pages || payload.data || payload || [];
+      const items = payload.products || payload.categories || payload.brands || payload.pages || payload.data || payload || [];
       const total = payload.total || payload.count || (Array.isArray(items) ? items.length : 0);
       setEntityList(Array.isArray(items) ? items : []); setEntityTotal(total); setEntityPage(page);
     } catch (e) { console.warn('Failed to load entities:', e); setEntityList([]); }
@@ -314,6 +336,62 @@ export default function SEOAdminPage() {
     finally { setBulkAuditLoading(false); }
   };
 
+  const handleAiGenerateSeo = async () => {
+    if (!selectedEntity) { toast.error('Select an entity first'); return; }
+    setAiSeoLoading(true); setAiSeoData(null);
+    try {
+      const res = await adminAPI.aiGenerateSeoMeta(entityType, selectedEntity.id);
+      setAiSeoData(res.data?.data || null);
+    } catch { toast.error('Failed to generate SEO meta'); }
+    finally { setAiSeoLoading(false); }
+  };
+
+  const applyAiSeo = () => {
+    if (!aiSeoData) return;
+    setSeoForm(prev => ({
+      ...prev,
+      metaTitle: aiSeoData.meta_title || aiSeoData.metaTitle || '',
+      metaDescription: aiSeoData.meta_description || aiSeoData.metaDescription || '',
+      metaKeywords: aiSeoData.meta_keywords || aiSeoData.metaKeywords || '',
+      ogTitle: aiSeoData.og_title || aiSeoData.ogTitle || prev.ogTitle,
+      ogDescription: aiSeoData.og_description || aiSeoData.ogDescription || prev.ogDescription,
+    }));
+    toast.success('AI meta applied to the form');
+  };
+
+  const handleAiGenerateBulk = async (save = false) => {
+    setAiBulkLoading(true); setAiBulkData(null);
+    try {
+      const res = await adminAPI.aiGenerateBulkSeoMeta(entityType, save);
+      setAiBulkData(res.data?.data || null);
+      if (save) toast.success(res.data?.message || 'SEO generated and saved');
+    } catch { toast.error('Failed to generate bulk SEO'); }
+    finally { setAiBulkLoading(false); }
+  };
+
+  const parseKeywordLines = (text) => {
+    return text.split(/\n/).map(line => line.trim()).filter(Boolean).map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      const kw = { keyword: parts[0] };
+      if (parts[1] && !isNaN(Number(parts[1]))) kw.rank = Number(parts[1]);
+      if (parts[2] && !isNaN(Number(parts[2]))) kw.previousRank = Number(parts[2]);
+      return kw;
+    });
+  };
+
+  const handleAiRankCheck = async () => {
+    setAiRankLoading(true); setAiRankData(null);
+    try {
+      const payload = aiRankSource === 'auto'
+        ? { entityType: aiRankType }
+        : { keywords: parseKeywordLines(aiRankKeywords) };
+      if (payload.keywords && payload.keywords.length === 0) { toast.error('Enter at least one keyword'); setAiRankLoading(false); return; }
+      const res = await adminAPI.aiKeywordAnalysis(payload);
+      setAiRankData(res.data?.data || null);
+    } catch { toast.error('Failed to run keyword analysis'); }
+    finally { setAiRankLoading(false); }
+  };
+
   const handleSaveAdvancedSettings = async () => {
     if (!advSettings) return;
     setLoading(true);
@@ -379,7 +457,7 @@ export default function SEOAdminPage() {
       {tab === 'entity' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="detail-panel">
-            <div className="detail-header"><h3>Entity SEO Editor</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Edit SEO metadata for products, categories, and pages</span></div>
+            <div className="detail-header"><h3>Entity SEO Editor</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Edit SEO metadata for products, categories, pages, and brands</span></div>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '1rem' }}>
               <div className="form-group" style={{ minWidth: '160px', margin: 0 }}>
                 <label>Entity Type</label>
@@ -387,6 +465,7 @@ export default function SEOAdminPage() {
                   <option value="product">Products</option>
                   <option value="category">Categories</option>
                   <option value="page">Pages</option>
+                  <option value="brand">Brands</option>
                 </select>
               </div>
               <div className="form-group" style={{ flex: 1, minWidth: '200px', margin: 0 }}>
@@ -461,12 +540,56 @@ export default function SEOAdminPage() {
                 <option value="product">Products</option>
                 <option value="category">Categories</option>
                 <option value="page">Pages</option>
+                <option value="brand">Brands</option>
               </select>
             </div>
             <button className="btn-dark btn-sm" onClick={handleBulkAudit} disabled={bulkAuditLoading}>
               {bulkAuditLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Trophy size={14} />} Run Bulk Audit
             </button>
+            <button className="btn-dark btn-sm" onClick={() => handleAiGenerateBulk(false)} disabled={aiBulkLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#4f46e5' }}>
+              {aiBulkLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={14} />} AI Generate Missing
+            </button>
           </div>
+          {aiBulkData && (
+            <div style={{
+              padding: '1rem 1.25rem', borderRadius: '12px', marginBottom: '1.5rem',
+              background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4f46e5', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Sparkles size={13} /> AI Bulk Preview — {aiBulkData.generatedCount || 0} {entityType}(s)
+                  {aiBulkData.skippedCount > 0 && <span style={{ fontSize: '0.68rem', fontWeight: 500, color: 'var(--muted)' }}>({aiBulkData.skippedCount} skipped — already have SEO)</span>}
+                  {aiBulkData._mock && (
+                    <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                  )}
+                </span>
+                <button
+                  className="btn-dark btn-sm"
+                  onClick={() => handleAiGenerateBulk(true)}
+                  disabled={aiBulkLoading || (aiBulkData.generatedCount || 0) === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}
+                >
+                  <CheckCircle size={12} /> {aiBulkLoading ? 'Saving...' : 'Save all to SEO'}
+                </button>
+              </div>
+              {aiBulkData.generatedCount > 0 ? (
+                <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                  <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}><th style={{ padding: '0.4rem', fontSize: '0.7rem' }}>Entity</th><th style={{ padding: '0.4rem', fontSize: '0.7rem' }}>Meta Title</th><th style={{ padding: '0.4rem', fontSize: '0.7rem' }}>Description</th></tr></thead>
+                    <tbody>{(aiBulkData.generated || []).map((g, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.4rem', fontSize: '0.76rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{g.name || g.entityId?.slice(0, 8)}</td>
+                        <td style={{ padding: '0.4rem', fontSize: '0.72rem', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.meta_title || g.metaTitle}</td>
+                        <td style={{ padding: '0.4rem', fontSize: '0.72rem', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.meta_description || g.metaDescription}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>All {entityType}s already have SEO metadata — nothing to generate.</p>
+              )}
+            </div>
+          )}
           {bulkAuditResults ? (
             <>
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -524,7 +647,93 @@ export default function SEOAdminPage() {
       {/* 7. ADVANCED SETTINGS TAB */}
       {tab === 'advanced' && (
         <div className="detail-panel">
-          <div className="detail-header"><h3>Advanced SEO Settings</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Organization info, analytics IDs, hreflang, IndexNow</span></div>
+          {/* AI Keyword Rank Check */}
+          <div className="detail-header"><h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Sparkles size={16} /> AI Keyword Rank Check</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Analyze your current keyword positions with AI</span></div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            <div className="form-group" style={{ minWidth: '150px', margin: 0 }}>
+              <label>Source</label>
+              <select value={aiRankSource} onChange={e => setAiRankSource(e.target.value)}>
+                <option value="manual">Manual keywords</option>
+                <option value="auto">Use current SEO keywords</option>
+              </select>
+            </div>
+            {aiRankSource === 'auto' && (
+              <div className="form-group" style={{ minWidth: '150px', margin: 0 }}>
+                <label>Entity Type</label>
+                <select value={aiRankType} onChange={e => setAiRankType(e.target.value)}>
+                  <option value="product">Products</option>
+                  <option value="category">Categories</option>
+                  <option value="page">Pages</option>
+                  <option value="brand">Brands</option>
+                </select>
+              </div>
+            )}
+            <button className="btn-dark btn-sm" onClick={handleAiRankCheck} disabled={aiRankLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#4f46e5' }}>
+              {aiRankLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={14} />} {aiRankLoading ? 'Analyzing...' : 'Check Ranks'}
+            </button>
+          </div>
+          {aiRankSource === 'manual' && (
+            <div className="form-group form-full" style={{ marginBottom: '0.75rem' }}>
+              <label>Keywords — one per line, optionally with rank: <code style={{ fontSize: '0.72rem' }}>keyword,rank,previousRank</code></label>
+              <textarea rows={4} value={aiRankKeywords} onChange={e => setAiRankKeywords(e.target.value)}
+                placeholder={"oversized t-shirt,5\nstreetwear hoodie,14,9\ncustom printed tee,42"}
+                style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem' }} />
+            </div>
+          )}
+          {aiRankLoading && <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} /><p>Analyzing keyword positions...</p></div>}
+          {aiRankData && !aiRankLoading && (
+            <div style={{
+              marginTop: '0.5rem', marginBottom: '1.5rem', padding: '1rem 1.25rem', borderRadius: '12px',
+              background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4f46e5', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Sparkles size={13} /> AI Rank Report
+                  {aiRankData._mock && (
+                    <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                  )}
+                </span>
+                <button className="btn-ghost btn-sm" onClick={handleAiRankCheck} disabled={aiRankLoading} style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem' }}><RefreshCw size={11} className={aiRankLoading ? 'spin' : ''} /> Re-run</button>
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#333', lineHeight: 1.6, marginBottom: '0.75rem' }}>{aiRankData.summary}</div>
+              {(aiRankData.keywords || []).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                  {(aiRankData.keywords || []).map((k, i) => {
+                    const s = RANK_STATUS[k.status] || RANK_STATUS.untracked;
+                    return (
+                      <span key={i} title={`rank #${k.rank ?? '—'}${k.previousRank ? ' (prev #' + k.previousRank + ')' : ''}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.55rem', borderRadius: 999, fontSize: '0.72rem', fontWeight: 600, background: s.bg, color: s.color, border: s.border }}>
+                        {s.icon} {k.keyword}
+                        {k.rank ? <span style={{ opacity: 0.7 }}>· #{k.rank}</span> : null}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
+                {aiRankData.opportunities?.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #dcfce7', padding: '0.75rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>🚀 Opportunities</div>
+                    {(aiRankData.opportunities || []).map((o, i) => <div key={i} style={{ fontSize: '0.75rem', color: '#374151', lineHeight: 1.5, marginBottom: '0.3rem' }}>• {o}</div>)}
+                  </div>
+                )}
+                {aiRankData.risks?.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #fecaca', padding: '0.75rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>⚠️ Risks</div>
+                    {(aiRankData.risks || []).map((o, i) => <div key={i} style={{ fontSize: '0.75rem', color: '#374151', lineHeight: 1.5, marginBottom: '0.3rem' }}>• {o}</div>)}
+                  </div>
+                )}
+                {aiRankData.recommendations?.length > 0 && (
+                  <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #c7d2fe', padding: '0.75rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.35rem' }}>💡 Recommendations</div>
+                    {(aiRankData.recommendations || []).map((o, i) => <div key={i} style={{ fontSize: '0.75rem', color: '#374151', lineHeight: 1.5, marginBottom: '0.3rem' }}>• {o}</div>)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="detail-header" style={{ borderTop: '1px solid var(--border)', marginTop: '0.5rem' }}><h3>Advanced SEO Settings</h3><span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 400 }}>Organization info, analytics IDs, hreflang, IndexNow</span></div>
           {advSettingsLoading ? (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} /><p>Loading...</p></div>
           ) : advSettings ? (
@@ -703,10 +912,41 @@ export default function SEOAdminPage() {
             </div>
             <div className="form-actions" style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button className="btn-dark btn-sm" onClick={handleSaveEntitySEO} disabled={loading || seoFormLoading}>{loading ? 'Saving...' : 'Save Entity SEO'}</button>
+              <button className="btn-dark btn-sm" onClick={handleAiGenerateSeo} disabled={aiSeoLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: '#4f46e5' }}>
+                {aiSeoLoading ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={14} />} {aiSeoLoading ? 'Generating...' : 'AI Generate'}
+              </button>
               <button className="btn-ghost btn-sm" onClick={handleAutoGenerateEntitySchemas} disabled={loading}><Zap size={14} /> Generate JSON-LD</button>
               <button className="btn-ghost btn-sm" onClick={handleRunAudit} disabled={auditLoading}><Trophy size={14} /> Run SEO Audit</button>
               <button className="btn-ghost btn-sm" onClick={handleDeleteEntitySEO} disabled={loading} style={{ color: '#ef4444' }}><Trash2 size={14} /> Delete</button>
             </div>
+            {aiSeoData && (
+              <div style={{
+                marginTop: '1rem', padding: '1rem 1.25rem', borderRadius: '12px',
+                background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#4f46e5', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Sparkles size={13} /> AI Suggested Meta
+                    {aiSeoData._mock && (
+                      <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                    )}
+                  </span>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button className="btn-dark btn-sm" onClick={applyAiSeo} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.55rem', fontSize: '0.72rem' }}>
+                      <CheckCircle size={11} /> Apply to form
+                    </button>
+                    <button className="btn-ghost btn-sm" onClick={handleAiGenerateSeo} disabled={aiSeoLoading} style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem' }}>
+                      <RefreshCw size={11} className={aiSeoLoading ? 'spin' : ''} /> Regenerate
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#333', lineHeight: 1.6 }}>
+                  <div><strong>Title:</strong> {aiSeoData.meta_title || aiSeoData.metaTitle} <CharCounter current={(aiSeoData.meta_title || '').length} max={60} /></div>
+                  <div style={{ marginTop: '0.3rem' }}><strong>Description:</strong> {aiSeoData.meta_description || aiSeoData.metaDescription}</div>
+                  <div style={{ marginTop: '0.3rem' }}><strong>Keywords:</strong> {aiSeoData.meta_keywords || aiSeoData.metaKeywords}</div>
+                </div>
+              </div>
+            )}
             {auditData && (
               <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)' }}>
                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '1rem' }}>

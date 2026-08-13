@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Sparkles, RefreshCw, PenLine } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from '../../utils/toast';
 import './EmailTemplates.css';
@@ -34,6 +35,10 @@ export default function EmailTemplatesAdminPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [testLoading, setTestLoading] = useState(false);
+  // AI Draft
+  const [aiDraft, setAiDraft] = useState(null);
+  const [aiDraftLoading, setAiDraftLoading] = useState(false);
+  const [aiTone, setAiTone] = useState('friendly');
 
   // Animated inline validation — custom HTML (when in CUSTOM mode) and the
   // test-email recipient field.
@@ -134,6 +139,34 @@ export default function EmailTemplatesAdminPage() {
     } catch {
       toast.error('Failed to toggle template');
     }
+  };
+
+  const handleAiDraft = async () => {
+    if (!selectedId) return;
+    setAiDraftLoading(true);
+    setAiDraft(null);
+    try {
+      const r = await adminAPI.aiDraftEmailTemplate({
+        type: selectedId,
+        name: selectedTemplate?.name || TEMPLATE_NAMES[selectedId] || selectedId,
+        description: selectedTemplate?.description || '',
+        tone: aiTone,
+        variables: selectedTemplate?.variables || [],
+      });
+      setAiDraft(r.data?.data || null);
+    } catch {
+      toast.error('Failed to generate AI draft');
+    } finally {
+      setAiDraftLoading(false);
+    }
+  };
+
+  const useAiDraft = () => {
+    if (!aiDraft?.html) return;
+    setMode('CUSTOM');
+    setCustomHtml(aiDraft.html);
+    setPreviewHtml('');
+    toast.success('AI draft loaded into the editor — review and save');
   };
 
   const handleSendTest = async () => {
@@ -299,7 +332,67 @@ export default function EmailTemplatesAdminPage() {
                     {previewLoading ? 'Loading...' : 'Refresh Preview'}
                   </button>
                 </div>
+                <div className="editor-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <select
+                    value={aiTone}
+                    onChange={e => setAiTone(e.target.value)}
+                    title="Tone for the AI draft"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'white' }}
+                  >
+                    <option value="friendly">Friendly</option>
+                    <option value="professional">Professional</option>
+                    <option value="casual">Casual</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="luxury">Luxury</option>
+                  </select>
+                  <button
+                    className="btn-dark btn-sm"
+                    onClick={handleAiDraft}
+                    disabled={aiDraftLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    {aiDraftLoading ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                    {aiDraftLoading ? 'Drafting...' : (aiDraft ? 'Regenerate Draft' : 'AI Draft' )}
+                  </button>
+                </div>
               </div>
+
+              {/* AI Draft Panel */}
+              {aiDraft && (
+                <div className="editor-ai-draft" style={{
+                  marginTop: '1rem', padding: '1rem 1.25rem', borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)',
+                  border: '1px solid #e0e7ff',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.85rem' }}>
+                      <Sparkles size={15} style={{ color: 'var(--primary, #6366f1)' }} /> AI Draft
+                      {aiDraft._mock && (
+                        <span style={{
+                          fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.45rem',
+                          borderRadius: '999px', background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff',
+                        }}>🧪 Mock</span>
+                      )}
+                    </div>
+                    <button className="btn-dark btn-sm" onClick={useAiDraft} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <PenLine size={13} /> Use Draft
+                    </button>
+                  </div>
+                  {aiDraft.subject && (
+                    <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: '#444' }}>
+                      <strong>Subject:</strong> {aiDraft.subject}
+                    </div>
+                  )}
+                  {aiDraft.tone && (
+                    <div style={{ marginTop: '0.3rem', fontSize: '0.78rem', color: '#666' }}>
+                      <strong>Tone:</strong> {aiDraft.tone}
+                    </div>
+                  )}
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.78rem', color: '#666' }}>
+                    The draft is a complete HTML template using your available variables. Click <strong>Use Draft</strong> to load it into the Custom HTML editor, then review and save.
+                  </div>
+                </div>
+              )}
 
               {/* Preview Panel */}
               <div className="editor-preview-section">

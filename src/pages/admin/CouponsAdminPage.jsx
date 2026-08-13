@@ -14,7 +14,7 @@ import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import AdminSelect from '../../components/admin/AdminSelect';
-import { BarChart3, Ticket, Edit, Plus, X, Download, Dices } from 'lucide-react';
+import { BarChart3, Ticket, Edit, Plus, X, Download, Dices, Sparkles, RefreshCw } from 'lucide-react';
 
 const EMPTY = { code: '', discountType: 'PERCENTAGE', discountValue: '', minPurchase: '', maxUses: '', expiresAt: '' };
 
@@ -28,6 +28,10 @@ export default function CouponsAdminPage() {
   const [bulkModal, setBulkModal] = useState(false);
   const [bulkForm, setBulkForm] = useState({ count: 10, prefix: 'SALE', discountValue: 10 });
   const [analytics, setAnalytics] = useState(null);
+  // AI suggestion
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
+  const [aiTheme, setAiTheme] = useState('Summer Sale');
 
   // ── Inline form validation ──
   const validation = useAdminFormValidation({
@@ -225,6 +229,42 @@ export default function CouponsAdminPage() {
     }
   };
 
+  const handleAiSuggest = async () => {
+    if (!aiTheme.trim()) { toast.info('Enter a theme first'); return; }
+    setAiSuggestionLoading(true);
+    setAiSuggestion(null);
+    try {
+      const r = await couponsAPI.aiSuggest({
+        theme: aiTheme,
+        discountType: form.discountType || 'PERCENTAGE',
+        avgOrderValue: undefined,
+        tone: 'friendly',
+      });
+      setAiSuggestion(r.data?.data || null);
+    } catch {
+      toast.error('Failed to generate AI suggestions');
+    } finally {
+      setAiSuggestionLoading(false);
+    }
+  };
+
+  const applyAiCode = (code) => {
+    setForm(prev => ({ ...prev, code }));
+    validation.handleChange('code', code);
+    toast.success(`Code "${code}" applied`);
+  };
+
+  const applyAiDiscount = (d) => {
+    if (!d) return;
+    setForm(prev => ({
+      ...prev,
+      discountValue: String(d.discountValue ?? ''),
+      minPurchase: d.minPurchase != null ? String(d.minPurchase) : prev.minPurchase,
+    }));
+    validation.handleChange('discountValue', String(d.discountValue ?? ''));
+    toast.success(`Discount of ${d.discountValue}${form.discountType === 'PERCENTAGE' ? '%' : ' ₹'} applied`);
+  };
+
   const handleBulkGenerate = async () => {
     if (!bulkValidation.validateForm(bulkForm)) return;
     try { 
@@ -349,6 +389,108 @@ export default function CouponsAdminPage() {
                 <div className="form-group"><label>Min Purchase ($)</label><input type="number" value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} placeholder="0" /></div>
                 <div className="form-group"><label>Max Uses</label><input type="number" value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} placeholder="Unlimited" /></div>
                 <div className="form-group"><label>Expires At</label><input type="date" value={form.expiresAt} onChange={e => setForm({ ...form, expiresAt: e.target.value })} /></div>
+              </div>
+
+              {/* AI Suggestion Panel */}
+              <div className="ai-suggestion-panel" style={{
+                marginTop: '1rem', padding: '1rem 1.25rem', borderRadius: '10px',
+                background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.85rem' }}>
+                    <Sparkles size={15} style={{ color: 'var(--primary, #6366f1)' }} /> AI Suggestions
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <input
+                      value={aiTheme}
+                      onChange={e => setAiTheme(e.target.value)}
+                      placeholder="Campaign theme (e.g. Summer Sale)"
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.78rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', width: 180 }}
+                    />
+                    <button
+                      className="btn-dark btn-sm"
+                      onClick={handleAiSuggest}
+                      disabled={aiSuggestionLoading}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                    >
+                      {aiSuggestionLoading ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+                      {aiSuggestionLoading ? 'Thinking...' : 'Suggest'}
+                    </button>
+                  </div>
+                </div>
+
+                {aiSuggestion && (
+                  <div style={{ marginTop: '0.75rem', fontSize: '0.8rem' }}>
+                    {/* Coupon codes */}
+                    <div style={{ marginBottom: '0.6rem' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        Coupon Codes
+                        {aiSuggestion.codes?._mock && (
+                          <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {(aiSuggestion.codes?.codes || []).map(code => (
+                          <button key={code} onClick={() => applyAiCode(code)} title="Click to apply code" style={{
+                            fontFamily: 'monospace', fontSize: '0.78rem', fontWeight: 700, padding: '0.3rem 0.6rem',
+                            borderRadius: '6px', cursor: 'pointer', background: 'white', color: '#4f46e5',
+                            border: '1px solid #c7d2fe',
+                          }}>
+                            {code}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Discount suggestion */}
+                    {aiSuggestion.discount && (
+                      <div style={{ marginBottom: '0.6rem' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          Discount
+                          {aiSuggestion.discount._mock && (
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => applyAiDiscount(aiSuggestion.discount)} style={{
+                            fontSize: '0.78rem', fontWeight: 700, padding: '0.3rem 0.6rem', borderRadius: '6px',
+                            cursor: 'pointer', background: '#4f46e5', color: 'white', border: 'none',
+                          }}>
+                            {form.discountType === 'PERCENTAGE'
+                              ? `${aiSuggestion.discount.discountValue}% off`
+                              : `₹${aiSuggestion.discount.discountValue} off`}
+                            {aiSuggestion.discount.minPurchase ? ` · min ₹${aiSuggestion.discount.minPurchase}` : ''}
+                          </button>
+                          <span style={{ fontSize: '0.72rem', color: '#666' }}>{aiSuggestion.discount.reasoning}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Promo copy */}
+                    {aiSuggestion.copy && (
+                      <div>
+                        <div style={{ fontWeight: 600, marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          Promo Copy
+                          {aiSuggestion.copy._mock && (
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                          )}
+                        </div>
+                        <div style={{ background: 'white', border: '1px solid #c7d2fe', borderRadius: '8px', padding: '0.6rem 0.8rem', fontSize: '0.78rem', color: '#374151', lineHeight: 1.5 }}>
+                          <strong>{aiSuggestion.copy.headline}</strong>
+                          <div>{aiSuggestion.copy.description}</div>
+                          {aiSuggestion.copy.callToAction && <div style={{ marginTop: '0.2rem', color: '#4f46e5', fontWeight: 600 }}>CTA: {aiSuggestion.copy.callToAction}</div>}
+                          {aiSuggestion.copy.hashtags?.length > 0 && (
+                            <div style={{ marginTop: '0.3rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                              {aiSuggestion.copy.hashtags.map((h, i) => (
+                                <span key={i} style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: 999, background: '#eef2ff', color: '#4f46e5' }}>{h}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer"><button className="btn-ghost btn-sm" onClick={() => setShowModal(false)}>Cancel</button><SaveButton onClick={handleSave} onSuccess={() => setShowModal(false)} idleLabel={editing ? 'Update' : 'Create'} /></div>

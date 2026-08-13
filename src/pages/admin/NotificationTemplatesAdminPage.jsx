@@ -1,5 +1,6 @@
-import { Check, X, MessageSquare, Bell, Eye, RotateCcw } from 'lucide-react';
+import { Check, X, MessageSquare, Bell, Eye, RotateCcw, Sparkles, RefreshCw, PenLine } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { smsAPI } from '../../api/sms';
 import { adminAPI } from '../../api/admin';
 import { showSuccess, showError } from '../../utils/toast';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
@@ -15,6 +16,10 @@ export default function NotificationTemplatesAdminPage() {
   const [previewData, setPreviewData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [previewSample, setPreviewSample] = useState('');
+  // AI SMS draft
+  const [aiSms, setAiSms] = useState(null);
+  const [aiSmsLoading, setAiSmsLoading] = useState(false);
+  const [aiSmsTone, setAiSmsTone] = useState('friendly');
 
   // Animated inline validation for the custom content fields (channel-aware:
   // SMS templates use `template`, in-app use `title` + `message`).
@@ -134,6 +139,33 @@ export default function NotificationTemplatesAdminPage() {
     } else {
       setEditData((prev) => ({ ...prev, mode: 'DEFAULT', title: '', message: '' }));
     }
+  };
+
+  const handleAiSmsDraft = async () => {
+    if (!selectedId || !selected || selected.channel !== 'sms') return;
+    setAiSmsLoading(true);
+    setAiSms(null);
+    try {
+      const r = await smsAPI.aiDraft({
+        type: selected.id,
+        name: selected.name,
+        description: selected.description,
+        tone: aiSmsTone,
+        variables: selected.variables || [],
+      });
+      setAiSms(r.data?.data || null);
+    } catch {
+      showError('Failed to generate AI SMS draft');
+    } finally {
+      setAiSmsLoading(false);
+    }
+  };
+
+  const useAiSmsDraft = () => {
+    if (!aiSms?.body) return;
+    setEditData((prev) => ({ ...prev, mode: 'CUSTOM', template: aiSms.body }));
+    setAiSms(null);
+    showSuccess('AI draft loaded into the editor — review and save');
   };
 
   const channels = ['sms', 'in_app'];
@@ -306,6 +338,55 @@ export default function NotificationTemplatesAdminPage() {
                         <div className="bg-gray-50 border rounded-lg p-3 mt-2">
                           <div className="text-xs font-semibold text-gray-500 mb-1">Default Template</div>
                           <div className="text-sm text-gray-700 font-mono whitespace-pre-wrap">{selected.default_template}</div>
+                        </div>
+                      )}
+
+                      {/* AI SMS Draft */}
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <select
+                          value={aiSmsTone}
+                          onChange={(e) => setAiSmsTone(e.target.value)}
+                          title="Tone for the AI draft"
+                          className="border rounded-lg px-2 py-1.5 text-xs bg-white"
+                        >
+                          <option value="friendly">Friendly</option>
+                          <option value="professional">Professional</option>
+                          <option value="casual">Casual</option>
+                          <option value="urgent">Urgent</option>
+                          <option value="luxury">Luxury</option>
+                        </select>
+                        <button
+                          onClick={handleAiSmsDraft}
+                          disabled={aiSmsLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gold text-white rounded-lg text-xs font-medium hover:bg-gold-dark transition-all disabled:opacity-50"
+                        >
+                          {aiSmsLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                          {aiSmsLoading ? 'Drafting...' : (aiSms ? 'Regenerate' : 'AI Draft')}
+                        </button>
+                      </div>
+
+                      {aiSms && (
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mt-2">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1.5">
+                            <div className="text-xs font-semibold text-indigo-700 flex items-center gap-1.5">
+                              <Sparkles size={12} /> AI Draft
+                              {aiSms._mock && (
+                                <span className="text-[0.6rem] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">🧪 Mock</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={useAiSmsDraft}
+                              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-all"
+                            >
+                              <PenLine size={11} /> Use Draft
+                            </button>
+                          </div>
+                          <div className="text-sm text-gray-700 font-mono whitespace-pre-wrap bg-white rounded-md border border-indigo-100 p-2">
+                            {aiSms.body}
+                          </div>
+                          <div className="text-[0.68rem] text-gray-500 mt-1.5">
+                            {aiSms.characterCount} characters · {aiSms.segments} SMS segment{aiSms.segments > 1 ? 's' : ''}
+                          </div>
                         </div>
                       )}
                     </div>

@@ -12,6 +12,7 @@ export const couponsAPI = {
   getAutoApply: () => client.get('/coupons/auto-apply/list'),
   // Admin CRUD — all prefixed with /admin
   getAll: (params) => adminClient.get('/admin/coupons', { params }),
+  aiSuggest: (data) => adminClient.post('/admin/coupons/ai-suggest', data),
   create: (data) => adminClient.post('/admin/coupons', data),
   getById: (id) => adminClient.get(`/admin/coupons/${id}`),
   update: (id, data) => adminClient.patch(`/admin/coupons/${id}`, data),

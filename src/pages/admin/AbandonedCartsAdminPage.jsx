@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
-import { formatCurrency, formatDateTime } from '../../utils/formatters';
+import { formatCurrency, formatDateTime, getUserFullName } from '../../utils/formatters';
 import { PageSkeleton } from '../../components/admin/pageSkeletonConfig';
 import Pagination from '../../components/admin/Pagination';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
+import { Sparkles, RefreshCw, X } from 'lucide-react';
 
 const ABANDONED_CART_COLUMNS = [
   { key: 'customerName', label: 'Customer' },
@@ -27,6 +28,12 @@ export default function AbandonedCartsAdminPage() {
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState(null);
   const [exportError, setExportError] = useState(null);
+
+  // AI recovery suggestion
+  const [aiPanelCart, setAiPanelCart] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiData, setAiData] = useState(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,6 +81,39 @@ export default function AbandonedCartsAdminPage() {
     catch { toast.error('Failed to send reminder'); }
   };
 
+  const generateAiSuggestion = async (id) => {
+    setAiPanelCart(id);
+    setAiLoading(true);
+    setAiError(null);
+    setAiData(null);
+    try {
+      const r = await adminAPI.aiCartSuggestion(id);
+      setAiData(r.data?.data || r.data || {});
+    } catch (e) {
+      setAiError('Failed to generate AI suggestion');
+      console.warn('AI cart suggestion failed:', e);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const copyText = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast.success(`${label} copied`); }
+      catch { toast.error('Copy failed — select the text manually'); }
+      document.body.removeChild(ta);
+    }
+  };
+
   return (
     <div>
       <div className="admin-header admin-header-row">
@@ -99,7 +139,7 @@ export default function AbandonedCartsAdminPage() {
             ) : carts.map(c => (
               <tr key={c.id}>
                 <td>
-                  <strong>{c.user?.name || 'Guest'}</strong>
+                  <strong>{getUserFullName(c.user) || 'Guest'}</strong>
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{c.user?.email || c.email || '—'}</div>
                 </td>
                 <td>{c.items?.length || 0} items</td>
@@ -109,6 +149,7 @@ export default function AbandonedCartsAdminPage() {
                 <td>
                   <div className="row-actions">
                     <button className="btn-approve" onClick={() => sendReminder(c.id)} disabled={c.recovered}>Send Reminder</button>
+                    <button className="btn-approve" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }} onClick={() => generateAiSuggestion(c.id)} disabled={c.recovered}>✨ AI Recover</button>
                   </div>
                 </td>
               </tr>
@@ -180,6 +221,68 @@ export default function AbandonedCartsAdminPage() {
         exportStatus={exportStatus}
         exportError={exportError}
       />
+
+      {/* AI Recovery Suggestion Modal */}
+      {aiPanelCart && (
+        <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setAiPanelCart(null)}>
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><Sparkles size={18} /> AI Recovery Suggestion</h3>
+              <button className="modal-close" onClick={() => setAiPanelCart(null)}><X size={16} /></button>
+            </div>
+            <div className="modal-body">
+              {aiLoading && <div style={{ padding: '1.5rem 0', textAlign: 'center', color: 'var(--muted)' }}><RefreshCw size={18} className="spin" style={{ marginRight: 6 }} /> Generating personalized recovery copy…</div>}
+              {aiError && <div className="admin-alert danger mb-3"><div className="admin-alert-body"><div>{aiError}</div></div></div>}
+              {!aiLoading && !aiError && aiData && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {aiData._mock && (
+                    <div style={{ fontSize: '0.75rem', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '0.4rem 0.7rem' }}>
+                      ✨ Sample output — no AI API key configured. Add one in Settings → AI Provider for real generations.
+                    </div>
+                  )}
+
+                  {/* Subject line */}
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.35rem' }}>Personalized Subject</div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <div style={{ flex: 1, padding: '0.6rem 0.8rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', fontSize: '0.85rem' }}>{aiData.subject}</div>
+                      <button className="btn-dark btn-sm" onClick={() => copyText(aiData.subject, 'Subject')}>Copy</button>
+                    </div>
+                  </div>
+
+                  {/* Incentive */}
+                  {aiData.incentive && (
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.35rem' }}>Suggested Incentive</div>
+                      <div style={{ padding: '0.7rem 0.9rem', borderRadius: 10, background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{aiData.incentive.label}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                          {aiData.incentive.deadlineHours ? `Valid for ${aiData.incentive.deadlineHours} hours` : ''}
+                          {aiData.incentive.minPurchase > 0 ? ` · min order ${formatCurrency(aiData.incentive.minPurchase)}` : ''}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>{aiData.incentive.reason}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message */}
+                  {aiData.message && (
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: '0.35rem' }}>Draft Message</div>
+                      <pre style={{ whiteSpace: 'pre-wrap', margin: 0, padding: '0.7rem 0.9rem', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', fontSize: '0.82rem', lineHeight: 1.5, fontFamily: 'inherit' }}>{aiData.message}</pre>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <button className="btn-dark btn-sm" onClick={() => copyText(aiData.message || '', 'Message')}>Copy Message</button>
+                    <button className="btn-dark btn-sm" onClick={() => sendReminder(aiPanelCart)}>Send Reminder</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

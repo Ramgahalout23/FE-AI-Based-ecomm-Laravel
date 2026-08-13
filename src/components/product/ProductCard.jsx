@@ -36,6 +36,9 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
   const [isHovered, setIsHovered] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
   const highlightsTimeoutRef = useRef(null);
+  // Style Highlights is hover-only — never trigger on touch devices, where
+  // the emulated mouseenter makes the overlay appear stuck/broken on mobile.
+  const canHover = useMemo(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
 
 
   /* ── Variants ── */
@@ -144,7 +147,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
   const handleImageMouseEnter = () => {
     setIsHovered(true);
-    if (!showQuickAdd) {
+    if (!showQuickAdd && canHover) {
       highlightsTimeoutRef.current = setTimeout(() => setShowHighlights(true), 150);
     }
   };
@@ -321,8 +324,6 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
   // Attributes — always show the 5 key attributes (real data if available, mock defaults otherwise)
   const attrs = useMemo(() => getAttributes(product), [product]);
-  const fabricLabel = attrs['fabric'] || '100% Cotton';
-  const fitLabel = attrs['fit'] || 'Oversized Fit';
 
   const highlights = useMemo(() => [
     { label: 'Composition', value: attrs['fabric'] || '100% Cotton' },
@@ -435,16 +436,10 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
             </div>
           )}
 
-          {/* Fabric tag — bottom left on image */}
-          {fabricLabel && (
-            <span className="absolute bottom-3 left-3 max-sm:bottom-2.5 max-sm:left-2.5 z-[8] inline-flex items-center px-2 py-1 rounded-[4px] bg-white/90 backdrop-blur-sm text-black text-[7px] max-sm:text-[6px] font-bold uppercase tracking-[0.1em] shadow-sm">
-              {fabricLabel}
-            </span>
-          )}
 
           {/* Style Highlights Overlay — premium editorial style */}
           <AnimatePresence>
-            {!showQuickAdd && showHighlights && (
+            {!showQuickAdd && showHighlights && canHover && (
               <motion.div
                 key="highlights-overlay"
                 initial={{ opacity: 0 }}

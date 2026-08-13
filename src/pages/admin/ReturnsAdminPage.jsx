@@ -193,7 +193,7 @@ export default function ReturnsAdminPage() {
       const r = await adminAPI.getReturnRequestDetail(item.id);
       const data = r.data?.data || r.data;
       setDetailModal({ open: true, loading: false, data });
-    } catch (err) {
+    } catch {
       toast.error('Failed to load return request details');
       setDetailModal({ open: false, loading: false, data: null });
     }
@@ -291,7 +291,7 @@ export default function ReturnsAdminPage() {
                   {r.user ? (
                     <div>
                       <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>
-                        {getUserFullName(r.user) || r.user.name || r.user.email || '—'}
+                        {getUserFullName(r.user) || r.user.email || '—'}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
                         {r.user.email || ''}

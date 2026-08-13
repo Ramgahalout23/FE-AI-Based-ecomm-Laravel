@@ -1,7 +1,9 @@
 import {
   ArrowLeft, Star, CheckCircle, XCircle, AlertCircle,
-  Trash2, User, Mail, Package, Store, Calendar, Shield
+  Trash2, User, Mail, Package, Store, Calendar, Shield,
+  Sparkles, Copy, Check, RefreshCw
 } from 'lucide-react';
+import { reviewsAPI } from '../../api/reviews';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
@@ -16,6 +18,9 @@ export default function ReviewDetailAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [aiReply, setAiReply] = useState(null);
+  const [aiReplyLoading, setAiReplyLoading] = useState(false);
+  const [aiReplyCopied, setAiReplyCopied] = useState(false);
 
   const loadReview = useCallback(async () => {
     setLoading(true);
@@ -64,6 +69,48 @@ export default function ReviewDetailAdminPage() {
       toast.error('Failed to reject review');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleAiReply = async () => {
+    setAiReplyLoading(true);
+    setAiReply(null);
+    try {
+      const r = await reviewsAPI.aiGenerateReply(id);
+      setAiReply(r.data?.data || null);
+    } catch {
+      toast.error('Failed to generate AI reply');
+    } finally {
+      setAiReplyLoading(false);
+    }
+  };
+
+  const copyAiReply = () => {
+    if (!aiReply?.reply) return;
+    const done = () => {
+      setAiReplyCopied(true);
+      toast.success('Reply copied to clipboard');
+      setTimeout(() => setAiReplyCopied(false), 2000);
+    };
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = aiReply.reply;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        done();
+      } catch {
+        toast.error('Could not copy — select the text manually');
+      }
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(aiReply.reply).then(done).catch(fallback);
+    } else {
+      fallback();
     }
   };
 
@@ -420,6 +467,82 @@ export default function ReviewDetailAdminPage() {
                             />
                           </a>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Reply Suggestion */}
+              <div className="detail-card" style={{
+                background: 'white', borderRadius: '10px',
+                border: '1px solid var(--border)', overflow: 'hidden',
+              }}>
+                <div className="detail-card-header" style={{
+                  padding: '0.85rem 1.25rem', borderBottom: '1px solid var(--border)',
+                  fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  justifyContent: 'space-between',
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sparkles size={15} style={{ color: 'var(--primary, #6366f1)' }} /> AI Reply Suggestion
+                  </span>
+                  <button
+                    className="btn-ghost btn-sm"
+                    onClick={handleAiReply}
+                    disabled={aiReplyLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    {aiReplyLoading ? (
+                      <RefreshCw size={13} className="spin" />
+                    ) : (
+                      <Sparkles size={13} />
+                    )}
+                    {aiReplyLoading ? 'Generating...' : (aiReply ? 'Regenerate' : 'Generate Reply')}
+                  </button>
+                </div>
+                <div className="detail-card-body" style={{ padding: '1.25rem' }}>
+                  {!aiReply ? (
+                    <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                      Draft a professional public reply to this customer review with one click.
+                      {!aiReplyLoading && review && (
+                        <span> Works offline too — a sample reply is generated when no AI API key is set.</span>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      {aiReply._mock && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                          fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.6rem',
+                          padding: '0.15rem 0.5rem', borderRadius: '999px',
+                          background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff',
+                        }}>
+                          🧪 Mock
+                        </span>
+                      )}
+                      <div style={{
+                        background: 'var(--bg-muted, #f9fafb)', borderRadius: '8px',
+                        padding: '1rem', fontSize: '0.88rem', lineHeight: 1.6,
+                        color: '#333', whiteSpace: 'pre-wrap',
+                      }}>
+                        {aiReply.reply}
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                        <button
+                          className="btn-dark btn-sm"
+                          onClick={copyAiReply}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        >
+                          {aiReplyCopied ? <Check size={13} /> : <Copy size={13} />}
+                          {aiReplyCopied ? 'Copied!' : 'Copy Reply'}
+                        </button>
+                        <button
+                          className="btn-ghost btn-sm"
+                          onClick={handleAiReply}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        >
+                          <RefreshCw size={13} /> Regenerate
+                        </button>
                       </div>
                     </div>
                   )}

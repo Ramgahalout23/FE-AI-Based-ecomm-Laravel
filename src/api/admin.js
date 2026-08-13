@@ -109,6 +109,9 @@ export const adminAPI = {
   getRobotsTxt: () => adminClient.get('/seo/robots'),
   updateRobotsTxt: (content) => adminClient.put('/admin/seo/robots', { content }),
   listSEO: (entityType, params) => adminClient.get(`/admin/seo/list/${entityType}`, { params }),
+  aiGenerateSeoMeta: (entityType, entityId) => adminClient.post('/admin/seo/ai/generate', { entityType, entityId }),
+  aiGenerateBulkSeoMeta: (entityType, save) => adminClient.post('/admin/seo/ai/generate-bulk', { entityType, save: !!save }),
+  aiKeywordAnalysis: (data) => adminClient.post('/admin/seo/ai/keyword-analysis', data),
   deleteSEO: (id) => adminClient.delete(`/admin/seo/${id}`),
   // ── SEO Dashboard ──
   getSEODashboard: () => adminClient.get('/admin/seo/dashboard'),
@@ -178,6 +181,7 @@ export const adminAPI = {
   getAbandonedCarts: (params) => adminClient.get('/admin/abandoned-carts', { params }),
   getAbandonedCartStats: () => adminClient.get('/admin/abandoned-carts/stats'),
   sendCartReminder: (id) => adminClient.post(`/admin/abandoned-carts/${id}/remind`),
+  aiCartSuggestion: (id) => adminClient.post(`/admin/abandoned-carts/${id}/ai-suggest`),
   deleteAbandonedCart: (id) => adminClient.delete(`/admin/abandoned-carts/${id}`),
   // Support Tickets
   getSupportTickets: (params) => adminClient.get('/admin/tickets', { params }),
@@ -185,6 +189,10 @@ export const adminAPI = {
   updateSupportTicket: (id, data) => adminClient.put(`/admin/tickets/${id}`, data),
   updateSupportTicketStatus: (id, data) => adminClient.patch(`/admin/tickets/${id}/status`, data),
   deleteSupportTicket: (id) => adminClient.delete(`/admin/tickets/${id}`),
+  // ── Tickets AI (reply suggestion, summary, priority) ──
+  aiTicketReply: (id) => adminClient.post(`/admin/tickets/${id}/ai-reply`),
+  aiTicketSummarize: (id) => adminClient.post(`/admin/tickets/${id}/ai-summarize`),
+  aiTicketPriority: (id) => adminClient.post(`/admin/tickets/${id}/ai-priority`),
   // ── Live Chat (Admin) ──
   getAdminChatMessages: (ticketId) => adminClient.get(`/admin/chat/${ticketId}/messages`),
   sendAdminChatMessage: (ticketId, content) => adminClient.post(`/admin/chat/${ticketId}/messages`, { content }),
@@ -233,6 +241,7 @@ export const adminAPI = {
   toggleEmailTemplate: (id) => adminClient.patch(`/admin/email-templates/${id}/toggle`),
   previewEmailTemplate: (id) => adminClient.get(`/admin/email-templates/${id}/preview`),
   sendTestEmailTemplate: (id, data) => adminClient.post(`/admin/email-templates/${id}/test`, data),
+  aiDraftEmailTemplate: (data) => adminClient.post('/admin/email-templates/ai-draft', data),
 
   // Notification Templates
   getNotificationTemplates: () => adminClient.get('/admin/notification-templates'),

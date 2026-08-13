@@ -1,4 +1,4 @@
-import { Star, Search, CheckCircle, XCircle, AlertCircle, Trash2, Store } from 'lucide-react';
+import { Star, Search, CheckCircle, XCircle, AlertCircle, Trash2, Store, Sparkles, RefreshCw, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { reviewsAPI } from '../../api/reviews';
 import { adminAPI } from '../../api/admin';
@@ -35,6 +35,13 @@ export default function ReviewsAdminPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  // AI Features
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSentimentMap, setAiSentimentMap] = useState({});
+  const [aiSentimentLoading, setAiSentimentLoading] = useState(false);
+  const [negativeIds, setNegativeIds] = useState([]);
+
   // CSV Export
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -227,6 +234,60 @@ export default function ReviewsAdminPage() {
     toast.success(`${pending.length} reviews approved`);
   };
 
+  const handleAiSummarize = async () => {
+    const batch = reviews.map(r => ({
+      id: r.id, rating: r.rating,
+      title: r.title || '', comment: r.comment || '',
+    }));
+    if (batch.length === 0) {
+      toast.info('No reviews on this page to summarize');
+      return;
+    }
+    setAiSummaryLoading(true);
+    setAiSummary(null);
+    try {
+      const r = await reviewsAPI.aiSummarize(batch);
+      setAiSummary(r.data?.data || null);
+    } catch {
+      toast.error('Failed to summarize reviews');
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  const handleAiSentiment = async () => {
+    const batch = reviews.map(r => ({
+      id: r.id, rating: r.rating,
+      title: r.title || '', comment: r.comment || '',
+    }));
+    if (batch.length === 0) {
+      toast.info('No reviews on this page to analyze');
+      return;
+    }
+    setAiSentimentLoading(true);
+    try {
+      const r = await reviewsAPI.aiSentiment(batch);
+      const results = r.data?.data?.results || [];
+      const map = {};
+      const negs = [];
+      results.forEach(s => {
+        map[s.id] = s;
+        if (s.sentiment === 'negative') negs.push(s.id);
+      });
+      setAiSentimentMap(map);
+      setNegativeIds(negs);
+      if (negs.length === 0) {
+        toast.success('No negative sentiment detected on this page');
+      } else {
+        toast.warning(`${negs.length} negative review${negs.length > 1 ? 's' : ''} flagged`);
+      }
+    } catch {
+      toast.error('Failed to analyze sentiment');
+    } finally {
+      setAiSentimentLoading(false);
+    }
+  };
+
   const pendingCount = reviews.filter(r => !r.is_moderated && !r.is_flagged).length;
 
   return (
@@ -244,6 +305,16 @@ export default function ReviewsAdminPage() {
                 <CheckCircle size={14} /> Approve All ({pendingCount})
               </button>
             )}
+            <button className="btn-ghost btn-sm" onClick={handleAiSentiment} disabled={aiSentimentLoading}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {aiSentimentLoading ? <RefreshCw size={13} className="spin" /> : <AlertTriangle size={13} />}
+              {aiSentimentLoading ? 'Analyzing...' : 'AI Sentiment'}
+            </button>
+            <button className="btn-ghost btn-sm" onClick={handleAiSummarize} disabled={aiSummaryLoading}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {aiSummaryLoading ? <RefreshCw size={13} className="spin" /> : <Sparkles size={13} />}
+              {aiSummaryLoading ? 'Summarizing...' : 'AI Summarize'}
+            </button>
             <button className="btn-ghost btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
           </>
         }
@@ -308,6 +379,61 @@ export default function ReviewsAdminPage() {
         })}
       </div>
 
+      {/* AI Summary Panel */}
+      {aiSummary && (
+        <div style={{
+          background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)',
+          border: '1px solid #e0e7ff', borderRadius: '10px',
+          padding: '1rem 1.25rem', marginBottom: '1rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.85rem' }}>
+              <TrendingUp size={15} style={{ color: 'var(--primary, #6366f1)' }} /> AI Summary
+              {aiSummary._mock && (
+                <span style={{
+                  fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.45rem',
+                  borderRadius: '999px', background: '#f3e8ff', color: '#7c3aed',
+                  border: '1px solid #e9d5ff',
+                }}>🧪 Mock</span>
+              )}
+              {aiSummary.stats && (
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#666' }}>
+                  {aiSummary.stats.total} reviews · avg {aiSummary.stats.average_rating}/5
+                </span>
+              )}
+            </div>
+            <button onClick={handleAiSummarize} disabled={aiSummaryLoading} style={{
+              fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+              background: 'transparent', border: 'none', color: 'var(--primary, #6366f1)',
+              display: 'flex', alignItems: 'center', gap: '0.3rem',
+            }}>
+              <RefreshCw size={12} /> Regenerate
+            </button>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: '#444', lineHeight: 1.5, marginTop: '0.5rem' }}>
+            {aiSummary.summary}
+          </p>
+          {aiSummary.themes?.length > 0 && (
+            <div style={{ marginTop: '0.6rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+              {aiSummary.themes.map((t, i) => (
+                <span key={i} style={{
+                  fontSize: '0.72rem', fontWeight: 600, padding: '0.2rem 0.55rem',
+                  borderRadius: '999px', background: 'white', color: '#4f46e5',
+                  border: '1px solid #e0e7ff',
+                }}>{t}</span>
+              ))}
+            </div>
+          )}
+          {aiSummary.actionableInsights?.length > 0 && (
+            <ul style={{ marginTop: '0.6rem', fontSize: '0.78rem', color: '#555', paddingLeft: '1.2rem' }}>
+              {aiSummary.actionableInsights.map((ins, i) => (
+                <li key={i} style={{ marginBottom: '0.2rem' }}>💡 {ins}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="table-card">
         <div className="table-toolbar">
           <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
@@ -353,8 +479,14 @@ export default function ReviewsAdminPage() {
                     </div>
                   </td>
                 </tr>
-              ) : reviews.map(r => (
-                <tr key={r.id}>
+              ) : reviews.map(r => {
+                const sentiment = aiSentimentMap[r.id];
+                const isNegative = negativeIds.includes(r.id);
+                return (
+                <tr key={r.id} style={{
+                  background: isNegative ? 'rgba(239,68,68,0.05)' : undefined,
+                  borderLeft: isNegative ? '3px solid #ef4444' : undefined,
+                }}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {r.type !== 'store' && r.user?.avatar ? (
@@ -394,11 +526,22 @@ export default function ReviewsAdminPage() {
                     )}
                   </td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                       <span style={{ color: 'var(--warning, #f59e0b)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
                         {getStars(r.rating)}
                       </span>
                       <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#666' }}>{r.rating}/5</span>
+                      {sentiment && (
+                        <span title={sentiment.reason} style={{
+                          fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.4rem',
+                          borderRadius: '999px', cursor: 'help',
+                          background: sentiment.sentiment === 'negative' ? '#fee2e2' : sentiment.sentiment === 'positive' ? '#dcfce7' : '#f3f4f6',
+                          color: sentiment.sentiment === 'negative' ? '#dc2626' : sentiment.sentiment === 'positive' ? '#16a34a' : '#6b7280',
+                        }}>
+                          {sentiment.sentiment === 'negative' ? '🔴' : sentiment.sentiment === 'positive' ? '🟢' : '⚪'}{' '}
+                          {sentiment.sentiment}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td style={{ maxWidth: 280, fontSize: '0.85rem', lineHeight: 1.4, color: '#444' }}>
@@ -437,7 +580,8 @@ export default function ReviewsAdminPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

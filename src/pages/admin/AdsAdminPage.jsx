@@ -27,6 +27,7 @@ const CampaignModal = lazy(() => import('./ads/CampaignModal'));
 
 // New Feature Components
 import CampaignCalendar from '../../components/admin/ads/CampaignCalendar';
+import AiWeeklySummaryCard from '../../components/admin/ads/AiWeeklySummaryCard';
 import BudgetOptimizer from '../../components/admin/ads/BudgetOptimizer';
 import AdTemplateGallery from '../../components/admin/ads/AdTemplateGallery';
 import PerformanceAlerts from '../../components/admin/ads/PerformanceAlerts';
@@ -165,6 +166,9 @@ export default function AdsAdminPage() {
           ))}
         </div>
       )}
+
+      {/* AI Weekly Performance Summary */}
+      <AiWeeklySummaryCard adsAPI={adsAPI} />
 
       {/* Stale Sync Banner */}
       {staleCampaigns.length > 0 && (

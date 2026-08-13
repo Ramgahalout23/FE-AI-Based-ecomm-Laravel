@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,6 @@ import { productsAPI } from '../../api/products';
 import usePullToRefresh from '../../hooks/usePullToRefresh';
 
 import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
-import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 
 // Tier 2 — below-fold / on-demand sections are code-split so they don't ride
 // along with the HomePage route chunk. ReelsSection additionally only mounts
@@ -1721,76 +1720,6 @@ function PullToRefreshIndicator({ pullDistance, isRefreshing, threshold }) {
   );
 }
 
-/* ─────────────── FLASH SALE BANNER — bold black band ─────────────── */
-function FlashSaleSection({ promotions }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const active = promotions.filter(p => {
-    const now = new Date();
-    const start = p.startDate ? new Date(p.startDate) : null;
-    const end = p.endDate ? new Date(p.endDate) : null;
-    if (start && now < start) return false;
-    if (end && now > end) return false;
-    return p.status === 'ACTIVE' || p.isActive;
-  });
-
-  if (active.length === 0) return null;
-
-  // Show the highest priority one
-  const promo = active[0];
-
-  return (
-    <section className="relative overflow-hidden bg-black text-white">
-      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-9">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          {/* Left: Info */}
-          <div className="flex items-start gap-3.5 md:gap-4 min-w-0">
-            <div className="hidden md:flex w-12 h-12 rounded-full border border-white/25 items-center justify-center text-white shrink-0">
-              <Zap size={20} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5 mb-1">
-                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">
-                  {t('home.flash_sale')}
-                </span>
-                <span className="w-px h-3 bg-white/20" />
-                <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                  {t('product.percent_off', { percent: promo.discount })}
-                </span>
-              </div>
-              <h3 className="font-display font-extrabold text-lg md:text-2xl tracking-tight leading-tight">
-                {promo.title}
-              </h3>
-              {promo.description && (
-                <p className="text-white/55 text-xs md:text-sm mt-1 line-clamp-1">{promo.description}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Countdown + CTA */}
-          <div className="flex flex-wrap items-center gap-4 md:gap-6">
-            {promo.endDate && (
-              <FlashSaleCountdown
-                endDate={promo.endDate}
-                label={t('flash_sale.sale_ends_in')}
-                compact
-                className="text-white"
-              />
-            )}
-            <button
-              onClick={() => navigate('/products')}
-              className="shrink-0 inline-flex items-center gap-2 bg-white text-black text-xs md:text-sm font-bold px-6 md:px-8 py-3 rounded-full transition-all duration-300 hover:bg-gray-200 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              {t('home.shop_sale')}
-              <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ─────────────── MAIN HOMEPAGE ─────────────── */
 export default function HomePage() {
   const contentRef = useRef(null);
@@ -1814,7 +1743,6 @@ export default function HomePage() {
   const banners = homepageData?.banners || [];
   const categories = homepageData?.categories || [];
   const curatedLooks = homepageData?.curatedLooks || [];
-  const flashSales = homepageData?.promotions || [];
   const seoData = homepageData?.seo || { title: '', description: '' };
   const settings = homepageData?.settings || {};
 
@@ -1886,7 +1814,7 @@ export default function HomePage() {
         // Invalid stored order — fall through to the default
       }
     }
-    return ['hero_banner','flash_sales','new_arrival_week','new_arrivals','curated_looks','tshirt_customizer','categories','best_sellers','reviews','reels'];
+    return ['hero_banner','new_arrival_week','new_arrivals','curated_looks','tshirt_customizer','categories','best_sellers','reviews','reels'];
   })();
 
   // ── Section renderer map — maps section keys to JSX ──
@@ -1896,12 +1824,6 @@ export default function HomePage() {
         return banners.length > 0 && (
           <AnimatedSection key="hero_banner" delay={0} margin="-40px">
             <HeroBanner banners={banners} />
-          </AnimatedSection>
-        );
-      case 'flash_sales':
-        return flashSales.length > 0 && (
-          <AnimatedSection key="flash_sales" delay={0.05}>
-            <FlashSaleSection promotions={flashSales} />
           </AnimatedSection>
         );
       case 'new_arrival_week':

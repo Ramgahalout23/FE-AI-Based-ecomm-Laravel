@@ -1,6 +1,6 @@
-import { Settings, Send, Activity, RefreshCw, AlertTriangle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Settings, Send, Activity, RefreshCw, AlertTriangle, Sparkles, PenLine } from 'lucide-react';
 import { smsAPI } from '../../api/sms';
+import { useState, useEffect } from 'react';
 import toast from '../../utils/toast';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
 import { requiredField } from '../../hooks/validationRules';
@@ -12,6 +12,10 @@ export default function SmsAdminPage() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [smsForm, setSmsForm] = useState({ to: '', message: '' });
   const [sending, setSending] = useState(false);
+  // AI draft
+  const [aiDraft, setAiDraft] = useState(null);
+  const [aiDraftLoading, setAiDraftLoading] = useState(false);
+  const [aiDraftType, setAiDraftType] = useState('sms_order_confirmation');
   // Animated inline validation for the send-test-SMS form.
   const smsValidation = useAdminFormValidation({
     to: requiredField('Phone number'),
@@ -42,6 +46,41 @@ export default function SmsAdminPage() {
       toast.error(err.response?.data?.message || 'Failed to send SMS');
     }
     setSending(false);
+  };
+
+  const SMS_TYPES = [
+    { id: 'sms_order_confirmation', label: 'Order Confirmation' },
+    { id: 'sms_order_shipped', label: 'Order Shipped' },
+    { id: 'sms_order_delivered', label: 'Order Delivered' },
+    { id: 'sms_order_cancelled', label: 'Order Cancelled' },
+    { id: 'sms_order_status_update', label: 'Order Status Update' },
+    { id: 'sms_otp', label: 'OTP Verification' },
+  ];
+
+  const handleAiDraft = async () => {
+    setAiDraftLoading(true);
+    setAiDraft(null);
+    try {
+      const typeDef = SMS_TYPES.find(t => t.id === aiDraftType);
+      const r = await smsAPI.aiDraft({
+        type: aiDraftType,
+        name: typeDef?.label || 'SMS',
+        description: '',
+        tone: 'friendly',
+      });
+      setAiDraft(r.data?.data || null);
+    } catch {
+      toast.error('Failed to generate AI draft');
+    } finally {
+      setAiDraftLoading(false);
+    }
+  };
+
+  const useAiDraft = () => {
+    if (!aiDraft?.body) return;
+    setSmsForm(prev => ({ ...prev, message: aiDraft.body }));
+    setAiDraft(null);
+    toast.success('AI draft loaded into the message editor');
   };
 
   const getStatusIcon = () => {
@@ -161,7 +200,29 @@ export default function SmsAdminPage() {
               {smsValidation.errors.to && <div className="form-error" role="alert">{smsValidation.errors.to}</div>}
             </div>
             <div className={`form-group form-full ${smsValidation.errors.message ? 'has-error' : ''} ${smsValidation.validFields.message ? 'is-valid' : ''}`}>
-              <label>Message *</label>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span>Message *</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <select
+                    value={aiDraftType}
+                    onChange={(e) => setAiDraftType(e.target.value)}
+                    style={{ padding: '0.25rem 0.4rem', fontSize: '0.72rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'white' }}
+                    title="Message type for the AI draft"
+                  >
+                    {SMS_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                  <button
+                    className="btn-ghost btn-sm"
+                    onClick={handleAiDraft}
+                    disabled={aiDraftLoading}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}
+                    title="Generate an AI draft message"
+                  >
+                    {aiDraftLoading ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {aiDraftLoading ? 'Drafting...' : 'AI Draft'}
+                  </button>
+                </span>
+              </label>
               <textarea
                 value={smsForm.message}
                 onChange={(e) => { setSmsForm({ ...smsForm, message: e.target.value }); smsValidation.handleChange('message', e.target.value); }}
@@ -169,7 +230,33 @@ export default function SmsAdminPage() {
                 rows={4}
                 maxLength={1600}
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
+              {aiDraft && (
+                <div style={{
+                  marginTop: '0.6rem', padding: '0.7rem 0.85rem', borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#4f46e5', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                      <Sparkles size={12} /> AI Draft
+                      {aiDraft._mock && (
+                        <span style={{ fontSize: '0.62rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>
+                      )}
+                    </span>
+                    <button
+                      className="btn-dark btn-sm"
+                      onClick={useAiDraft}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.25rem 0.55rem', fontSize: '0.72rem' }}
+                    >
+                      <PenLine size={11} /> Use Draft
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#333', lineHeight: 1.5 }}>{aiDraft.body}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#888', marginTop: '0.3rem' }}>
+                    {aiDraft.characterCount} characters · {aiDraft.segments} segment{aiDraft.segments > 1 ? 's' : ''}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.25rem 0.75rem', flexWrap: 'wrap', fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem' }}>
                 <span>{smsForm.message.length} / 1600 characters</span>
                 <span>{Math.ceil(smsForm.message.length / 160)} SMS segment(s)</span>
               </div>

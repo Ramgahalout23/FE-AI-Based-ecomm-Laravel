@@ -1,3 +1,4 @@
+import { Sparkles, RefreshCw, PenLine } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import { chatAPI } from '../../api/tickets';
@@ -29,6 +30,12 @@ export default function SupportAdminPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  // AI assistance
+  const [aiReply, setAiReply] = useState(null);
+  const [aiReplyLoading, setAiReplyLoading] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiPriority, setAiPriority] = useState({}); // ticketId -> suggestion
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,6 +272,67 @@ export default function SupportAdminPage() {
     } catch { toast.error('Failed to resolve ticket'); }
   };
 
+  // ── AI Assistance ──
+
+  const handleAiReply = async () => {
+    if (!chatTicket) return;
+    setAiReplyLoading(true);
+    setAiReply(null);
+    try {
+      const r = await adminAPI.aiTicketReply(chatTicket.id);
+      setAiReply(r.data?.data || null);
+    } catch {
+      toast.error('Failed to generate AI reply');
+    } finally {
+      setAiReplyLoading(false);
+    }
+  };
+
+  const useAiReply = () => {
+    if (!aiReply?.reply) return;
+    setChatInput(aiReply.reply);
+    setAiReply(null);
+    toast.success('AI reply loaded into the editor — review and send');
+  };
+
+  const handleAiSummary = async () => {
+    if (!chatTicket) return;
+    setAiSummaryLoading(true);
+    setAiSummary(null);
+    try {
+      const r = await adminAPI.aiTicketSummarize(chatTicket.id);
+      setAiSummary(r.data?.data || null);
+    } catch {
+      toast.error('Failed to summarize ticket');
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
+  const handleAiPriority = async (ticket) => {
+    setAiPriority(prev => ({ ...prev, [ticket.id]: { loading: true } }));
+    try {
+      const r = await adminAPI.aiTicketPriority(ticket.id);
+      const suggestion = r.data?.data || null;
+      setAiPriority(prev => ({ ...prev, [ticket.id]: suggestion }));
+    } catch {
+      setAiPriority(prev => ({ ...prev, [ticket.id]: null }));
+      toast.error('Failed to suggest priority');
+    }
+  };
+
+  const applyAiPriority = async (ticket, suggestion) => {
+    try {
+      await adminAPI.updateSupportTicket(ticket.id, { priority: suggestion.priority });
+      setTickets(tickets.map(t => t.id === ticket.id ? { ...t, priority: suggestion.priority } : t));
+      setChatTicket(prev => prev && prev.id === ticket.id ? { ...prev, priority: suggestion.priority } : prev);
+      setAiPriority(prev => ({ ...prev, [ticket.id]: null }));
+      toast.success(`Priority set to ${suggestion.priority}`);
+    } catch {
+      toast.error('Failed to apply priority');
+    }
+  };
+
   return (
     <div>
       <div className="admin-header">
@@ -305,7 +373,41 @@ export default function SupportAdminPage() {
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{t.user?.email || t.email || '—'}</div>
                 </td>
                 <td style={{ maxWidth: 300 }}><strong>{t.subject}</strong><div style={{ fontSize: '0.8rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.message}</div></td>
-                <td><span className="status-badge">{ticketPriorityLabel(t.priority)}</span></td>
+                <td>
+                  <span className="status-badge">{ticketPriorityLabel(t.priority)}</span>
+                  {aiPriority[t.id]?.loading ? (
+                    <div className="spinner" style={{ width: 14, height: 14, marginLeft: 6, display: 'inline-block', verticalAlign: 'middle' }} />
+                  ) : aiPriority[t.id] ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6, verticalAlign: 'middle' }}>
+                      <span title={aiPriority[t.id].reason} style={{ cursor: 'help', fontSize: '0.72rem', fontWeight: 700, color: aiPriority[t.id].priority === 'URGENT' ? '#dc2626' : aiPriority[t.id].priority === 'HIGH' ? '#ea580c' : aiPriority[t.id].priority === 'MEDIUM' ? '#ca8a04' : '#16a34a' }}>
+                        → {aiPriority[t.id].priority}
+                      </span>
+                      <button
+                        title={aiPriority[t.id].reason}
+                        onClick={() => applyAiPriority(t, aiPriority[t.id])}
+                        style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', color: '#111' }}
+                      >
+                        Apply
+                      </button>
+                      <button
+                        onClick={() => setAiPriority(prev => ({ ...prev, [t.id]: null }))}
+                        style={{ fontSize: '0.68rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#999' }}
+                        title="Dismiss"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() => handleAiPriority(t)}
+                      style={{ marginLeft: 6, padding: '0.15rem 0.4rem', fontSize: '0.7rem', verticalAlign: 'middle' }}
+                      title="AI priority suggestion"
+                    >
+                      ✨ AI
+                    </button>
+                  )}
+                </td>
                 <td><span className={`status-badge ${ticketStatusClass(t.status)}`}>{ticketStatusLabel(t.status) || 'Open'}</span></td>
                 <td style={{ fontSize: '0.82rem' }}>{formatDate(t.createdAt)}</td>
                 <td>
@@ -349,12 +451,73 @@ export default function SupportAdminPage() {
               <button className="modal-close" onClick={closeChat}>✕</button>
             </div>
             <div className="modal-body">
-              <div style={{ marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: 'var(--off-white)', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <strong>{chatTicket.subject}</strong>
-                <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.78rem' }}>#{chatTicket.ticketNumber || chatTicket.ticket_number || chatTicket.id?.slice(0, 8)}</span>
-                <span className="status-badge">{ticketPriorityLabel(chatTicket.priority)}</span>
-                <span className={`status-badge ${ticketStatusClass(chatTicket.status)}`}>{ticketStatusLabel(chatTicket.status) || 'Open'}</span>
+              <div style={{ marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: 'var(--off-white)', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <strong>{chatTicket.subject}</strong>
+                  <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.78rem' }}>#{chatTicket.ticketNumber || chatTicket.ticket_number || chatTicket.id?.slice(0, 8)}</span>
+                  <span className="status-badge">{ticketPriorityLabel(chatTicket.priority)}</span>
+                  <span className={`status-badge ${ticketStatusClass(chatTicket.status)}`}>{ticketStatusLabel(chatTicket.status) || 'Open'}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  <button className="btn-ghost btn-sm" onClick={handleAiSummary} disabled={aiSummaryLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem' }}>
+                    {aiSummaryLoading ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
+                    {aiSummaryLoading ? 'Summarizing...' : 'AI Summarize'}
+                  </button>
+                  <button className="btn-ghost btn-sm" onClick={handleAiReply} disabled={aiReplyLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem' }}>
+                    {aiReplyLoading ? <RefreshCw size={12} className="spin" /> : <Sparkles size={12} />}
+                    {aiReplyLoading ? 'Drafting...' : (aiReply ? 'Regenerate Reply' : 'AI Reply')}
+                  </button>
+                </div>
               </div>
+
+              {/* AI Summary Panel */}
+              {aiSummary && (
+                <div style={{ marginBottom: '0.75rem', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)', background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', border: '1px solid #e0e7ff', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                    <Sparkles size={13} style={{ color: 'var(--primary, #6366f1)' }} /> AI Summary
+                    {aiSummary._mock && <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>}
+                  </div>
+                  <p style={{ color: '#444', lineHeight: 1.5, margin: 0 }}>{aiSummary.summary}</p>
+                  {aiSummary.customerNeeds && (
+                    <p style={{ margin: '0.4rem 0 0', color: '#555' }}>
+                      <strong>Customer needs:</strong> {aiSummary.customerNeeds}
+                    </p>
+                  )}
+                  {aiSummary.nextStep && (
+                    <p style={{ margin: '0.3rem 0 0', color: '#555' }}>
+                      <strong>Next step:</strong> {aiSummary.nextStep}
+                    </p>
+                  )}
+                  {aiSummary.keywords?.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.5rem' }}>
+                      {aiSummary.keywords.map((k, i) => (
+                        <span key={i} style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.45rem', borderRadius: 999, background: 'white', color: '#4f46e5', border: '1px solid #e0e7ff' }}>{k}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AI Reply Panel */}
+              {aiReply && (
+                <div style={{ marginBottom: '0.75rem', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-md)', background: 'var(--off-white)', border: '1px solid var(--border)', fontSize: '0.88rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                    <Sparkles size={13} style={{ color: 'var(--primary, #6366f1)' }} /> Suggested Reply
+                    {aiReply._mock && <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '0.1rem 0.4rem', borderRadius: 999, background: '#f3e8ff', color: '#7c3aed', border: '1px solid #e9d5ff' }}>🧪 Mock</span>}
+                  </div>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5, color: '#333' }}>{aiReply.reply}</div>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                    <button className="btn-dark btn-sm" onClick={useAiReply} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <PenLine size={12} /> Use Reply
+                    </button>
+                    <button className="btn-ghost btn-sm" onClick={handleAiReply} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <RefreshCw size={12} /> Regenerate
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div ref={threadRef} style={{ maxHeight: 380, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '0.25rem 0.1rem 0.5rem' }}>
                 {chatLoading ? (

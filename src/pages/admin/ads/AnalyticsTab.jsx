@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   PieChart, BarChart3, Activity, ChevronDown, Globe,
-  Award, Lightbulb, DollarSign, Eye, Target, MessageCircle, Play
+  Award, Lightbulb, Target, MessageCircle, Play
 } from 'lucide-react';
 import toast from '../../../utils/toast';
+import AiWeeklySummaryCard from '../../../components/admin/ads/AiWeeklySummaryCard';
 
 const PLATFORMS = [
   { id: 'INSTAGRAM', label: 'Instagram', icon: Target, color: 'bg-gradient-to-br from-pink-500 to-purple-600' },
@@ -22,6 +23,9 @@ export default function AnalyticsTab({ stats, adsAPI }) {
         <h3 className="text-xl font-bold font-display flex items-center gap-3"><PieChart size={24} /> Ad Performance Analytics</h3>
         <p className="text-blue-200 text-sm mt-1">Cross-platform comparison, trend analysis, and ROI tracking</p>
       </div>
+
+      {/* AI Weekly Summary */}
+      <AiWeeklySummaryCard adsAPI={adsAPI} />
 
       {/* Summary Cards */}
       {stats && (

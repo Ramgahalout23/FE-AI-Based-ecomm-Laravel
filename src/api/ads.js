@@ -20,6 +20,7 @@ export const adsAPI = {
   aiGenerateStrategy: (data) => adminClient.post('/admin/ads/ai/generate-strategy', data),
   aiSuggestAudience: (data) => adminClient.post('/admin/ads/ai/suggest-audience', data),
   aiGenerateBannerDesign: (data) => adminClient.post('/admin/ads/ai/generate-banner', data),
+  aiWeeklySummary: (data) => adminClient.post('/admin/ads/ai/weekly-summary', data),
 
   // Product Linking
   getCampaignProducts: (id) => adminClient.get(`/admin/ads/${id}/products`),

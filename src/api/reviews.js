@@ -34,4 +34,9 @@ export const reviewsAPI = {
   reject: (id) => adminClient.post(`/admin/reviews/${id}/reject`),
   getPending: (params) => adminClient.get('/admin/reviews/pending', { params }),
   adminDelete: (id) => adminClient.delete(`/admin/reviews/${id}`),
+
+  // ── AI (reply suggestion, summary, sentiment) ──
+  aiGenerateReply: (id) => adminClient.post(`/admin/reviews/${id}/ai-reply`),
+  aiSummarize: (reviews) => adminClient.post('/admin/reviews/ai-summarize', { reviews }),
+  aiSentiment: (reviews) => adminClient.post('/admin/reviews/ai-sentiment', { reviews }),
 };
