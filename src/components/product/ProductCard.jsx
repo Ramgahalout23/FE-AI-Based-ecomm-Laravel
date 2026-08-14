@@ -385,21 +385,21 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           <div className="qa-reveal absolute top-2.5 right-2.5 z-[20] flex flex-col gap-2">
             <button
               onClick={handleWishlist}
-              className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+              className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
                 inWishlist
                   ? 'bg-white text-red-500 shadow-md'
                   : 'bg-white/95 backdrop-blur-sm text-gray-700 hover:text-black shadow-md'
               }`}
               aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
             >
-              <Heart size={17} fill={inWishlist ? 'currentColor' : 'none'} />
+              <Heart size={13} fill={inWishlist ? 'currentColor' : 'none'} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }}
-              className="w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center bg-white/95 backdrop-blur-sm text-gray-700 hover:text-black shadow-md transition-all duration-200"
+              className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center bg-white/95 backdrop-blur-sm text-gray-700 hover:text-black shadow-md transition-all duration-200"
               aria-label="View product"
             >
-              <Eye size={17} />
+              <Eye size={13} />
             </button>
           </div>
 
@@ -458,7 +458,11 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute inset-0 z-[15] flex flex-col justify-end"
-                onClick={(e) => e.stopPropagation()}
+                /* The overlay is informational only (no interactive elements) —
+                   it must NOT swallow clicks, or clicking the card image while
+                   the overlay is visible does nothing (only the eye button
+                   navigates). Let clicks bubble to the card so the image click
+                   opens the product detail page. */
               >
                 {/* Cinematic gradient — dark bottom, transparent top */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />

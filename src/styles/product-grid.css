@@ -92,6 +92,35 @@
   font-size:9px;
 }
 
+/* ── Search Modal: quick-add usable on mobile ── */
+@media (max-width: 767px) {
+  /* The global (hover: hover) rule hides .qa-reveal (opacity 0, pointer-events
+     none) until the card is hovered. On mobile-width screens users tap, not
+     hover, so a tap on QUICK ADD passes through to the card and navigates to
+     the product page instead of opening the quick-add sheet. Force the QUICK
+     ADD bar + action buttons always visible and clickable in the modal. */
+  .search-product-grid .product-card .qa-reveal {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* Action buttons column (wishlist/eye) — compact on the small modal cards */
+  .search-product-grid .product-card div.qa-reveal {
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+  .search-product-grid .product-card div.qa-reveal button {
+    width: 28px;
+    height: 28px;
+  }
+  .search-product-grid .product-card div.qa-reveal button svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
 /* ── Editorial Spotlight: story-style progress fill (New Arrivals showcase) ── */
 @keyframes showcase-fill {
   from { transform: scaleX(0); }
