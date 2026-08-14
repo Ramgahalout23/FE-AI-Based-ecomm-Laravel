@@ -18,25 +18,14 @@
 /* ── Product Card Title: clamp lines properly ── */
 /* .card-title sets display:block, which silently breaks Tailwind's line-clamp
    (it needs display:-webkit-box), so long names wrap fully and create uneven
-   gaps above the price. Re-apply the clamp with higher specificity: 1 line on
-   mobile (no long wrapped titles), 2 lines on desktop. */
-@media (max-width: 767px) {
-  .product-card .card-title {
-    display: -webkit-box !important;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
-@media (min-width: 768px) {
-  .product-card .card-title {
-    display: -webkit-box !important;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+   gaps above the price. Re-apply the clamp with higher specificity: 2 lines
+   on both mobile and desktop for consistent layout like the reference design. */
+.product-card .card-title {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Product Card Price ────────── */
@@ -46,6 +35,15 @@
   letter-spacing: var(--product-price-letter-spacing);
   font-weight: var(--product-price-font-weight);
   line-height: var(--product-price-line-height);
+}
+
+/* Old price styling */
+.price-old {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
+  text-decoration: line-through;
+  margin-right: 4px;
 }
 
 /* ── Product Grid ────────────── */
@@ -98,8 +96,9 @@
 
 /* ── Mobile: scale down card title/price so they fit the narrow 2-col grid ── */
 @media(max-width:480px){
-  .card-title{font-size:11px;line-height:1.4;margin-bottom:6px}
-  .price-item{font-size:12px;line-height:1.3}
+  .card-title{font-size:11px;line-height:1.35;margin-bottom:4px}
+  .price-item{font-size:12px;line-height:1.3;font-weight:700}
+  .price-old{font-size:10px;margin-right:3px}
   .product-card .price .original{font-size:10px}
 }
 

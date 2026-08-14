@@ -112,20 +112,20 @@
   /* ── Product Card Title ────────────────────────── */
   --product-title-font: 'Jost', sans-serif;
   --product-title-font-size: 13px;
-  --product-title-font-weight: 500;
-  --product-title-line-height: 20px;
-  --product-title-letter-spacing: 0.01em;
+  --product-title-font-weight: 600;
+  --product-title-line-height: 1.4;
+  --product-title-letter-spacing: 0;
   --product-title-line-text: 2;
-  --product-title-text-transform: capitalize;
+  --product-title-text-transform: none;
   --product-title-color: #111827;
   --product-title-margin-bottom: 6px;
 
   /* ── Product Card Price ────────────────────────── */
   --product-price-font: 'Jost', sans-serif;
   --product-price-font-size: 14px;
-  --product-price-font-weight: 600;
+  --product-price-font-weight: 700;
   --product-price-line-height: 20px;
-  --product-price-letter-spacing: 0.01em;
+  --product-price-letter-spacing: 0;
   --product-price-margin-top: 0px;
   --product-price-margin-bottom: 13px;
 

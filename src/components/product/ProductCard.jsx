@@ -730,23 +730,22 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
         {/* Details — typography-led editorial design (SSENSE / MR PORTER style) */}
         <div className={`max-sm:p-3 p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          {/* Title — refined, tight tracking; single line on mobile so long names
-              don't wrap and create uneven gaps above the price */}
-          <h3 className="card-title line-clamp-2 max-md:line-clamp-1">
+          {/* Title — centered, tight tracking; 2 lines on both mobile and desktop */}
+          <h3 className="card-title line-clamp-2 text-center">
             {product.name}
           </h3>
 
-          {/* Price — current in black, old in red struck-through (reference style).
+          {/* Price — current in black, old in grey struck-through.
               Desktop: anchored to the card bottom (mt-auto) for aligned rows.
               Mobile: sits right under the title — no big gap between title & price. */}
-          <div className="mt-auto pt-3.5 max-md:mt-0 max-md:pt-2">
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="price-item tabular-nums text-gray-900">
+          <div className="mt-auto pt-3 max-md:mt-0 max-md:pt-1.5">
+            <div className="flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+              {product.oldPrice && (
+                <span className="price-old">{formatCurrency(product.oldPrice)}</span>
+              )}
+              <span className="price-item tabular-nums text-red-600">
                 {formatCurrency(product.price)}
               </span>
-              {product.oldPrice && (
-                <span className="text-[10px] md:text-[11px] text-red-500 line-through font-medium">{formatCurrency(product.oldPrice)}</span>
-              )}
             </div>
             {!isOutOfStock && isLowStock && (
               <p className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-gray-400">
