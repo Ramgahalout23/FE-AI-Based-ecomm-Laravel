@@ -1,4 +1,4 @@
-import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, ChevronUp, ChevronDown, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag, Crown } from 'lucide-react';
+import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag, Crown } from 'lucide-react';
 import ReelCard from './ReelCard';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -714,7 +714,6 @@ function ReelPlayer({
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [showProductCard, setShowProductCard] = useState(true);
-  const [showSwipeHint, setShowSwipeHint] = useState(true);
   const [isSwiping, setIsSwiping] = useState(false);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
@@ -748,7 +747,6 @@ function ReelPlayer({
 
   useEffect(() => {
     setShowProductCard(true);
-    setShowSwipeHint(true);
     setSelectedColor('');
     setSelectedSize('');
     setShowVariantModal(false);
@@ -762,8 +760,6 @@ function ReelPlayer({
       contentRef.current.style.transition = 'none';
       contentRef.current.style.transform = 'translateY(0px)';
     }
-    const timer = setTimeout(() => setShowSwipeHint(false), 2500);
-    return () => clearTimeout(timer);
   }, [reelIndex]);
 
   /* ── Video ── */
@@ -874,14 +870,14 @@ function ReelPlayer({
 
   const handlePointerMove = useCallback((e) => {
     if (!isDragging.current) return;
-    e.preventDefault();
 
+    // Track the gesture only (tap-vs-swipe detection); never translate the
+    // reel content. Grabbing the item and dragging up/down must not make it
+    // follow the finger — it would just wobble inside the player and snap
+    // back (the swipe-nav handler was never wired up), which users reported
+    // as broken behavior.
     const dy = e.clientY - swipeStart.current.y;
     swipeOffsetRef.current = dy;
-
-    if (contentRef.current) {
-      contentRef.current.style.transform = `translateY(${dy}px)`;
-    }
   }, []);
 
   const handlePointerUp = useCallback((e) => {
@@ -1101,21 +1097,6 @@ function ReelPlayer({
             {/* Gradients */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent via-50% to-transparent pointer-events-none z-[2]" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50 pointer-events-none z-[2]" />
-
-            {/* Swipe hint */}
-            <motion.div initial={{ opacity: 1 }}
-              animate={{ opacity: showSwipeHint ? 1 : 0 }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5 pointer-events-none">
-              <ChevronUp size={14} />
-              <span className="text-white/30 text-[7px] font-bold uppercase tracking-wider">
-                {shouldCloseOnSwipeDown ? t('reels.swipe') : t('reels.swipe')}
-              </span>
-              <ChevronDown size={14} />
-              {shouldCloseOnSwipeDown && (
-                <span className="text-white/20 text-[6px] font-bold uppercase tracking-wider -mt-1">{t('reels.down_to_close') || 'drag to close'}</span>
-              )}
-            </motion.div>
 
             {/* Progress bar — hide when video errored or unsupported */}
             {!videoError && !isUnsupportedVideoUrl(reel?.videoUrl) && (
