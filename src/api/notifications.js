@@ -9,6 +9,7 @@ export const notificationsAPI = {
   markAsRead: (id) => client.put(`/notifications/${id}/read`),
   markAllRead: () => client.put('/notifications/read-all'),
   delete: (id) => client.delete(`/notifications/${id}`),
+  clearAll: () => client.delete('/notifications'),
   // Admin
   create: (data) => adminClient.post('/admin/notifications/system', data),
   sendBulk: (data) => adminClient.post('/admin/notifications/bulk', data),

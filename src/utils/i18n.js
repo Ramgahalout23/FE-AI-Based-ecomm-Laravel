@@ -749,6 +749,14 @@ const DEFAULT_EN_TRANSLATIONS = {
   'notifications.no_notifications': 'No notifications',
   'notifications.all_caught_up': "You're all caught up!",
   'notifications.mark_all_read': 'Mark All Read',
+  'notifications.clear_all': 'Clear All',
+  'notifications.deleted': 'Notification deleted',
+  'notifications.delete_notification': 'Delete notification',
+  'notifications.failed_delete': 'Failed to delete notification',
+  'notifications.cleared': 'All notifications cleared',
+  'notifications.failed_clear': 'Failed to clear notifications',
+  'notifications.delete_confirm': 'Clear all notifications? This cannot be undone.',
+  'notifications.bell.clear_all': 'Clear all',
 
   // ── Not Found ──
   'not_found.title': 'Page Not Found',
@@ -981,6 +989,19 @@ const DEFAULT_EN_TRANSLATIONS = {
   'privacy.cta_button': 'Contact Us',
   'return_policy.page_not_available': 'Page Not Available',
   'return_policy.go_home': 'Go to Home',
+  'return_policy.eyebrow': 'Return & Exchange Policy',
+  'return_policy.watermark': 'RETURNS',
+  'return_policy.hero_desc': 'Easy, hassle-free returns and exchanges on every order.',
+  'return_policy.last_updated': 'Last updated: {{date}}',
+  'return_policy.no_content': 'No return policy content available.',
+  'return_policy.trust_days': 'Easy 7-Day Returns',
+  'return_policy.trust_pickup': 'Free Pickup',
+  'return_policy.trust_refund': 'Full Refunds',
+  'return_policy.marquee_1': 'Easy 7-Day Returns',
+  'return_policy.marquee_2': 'Free Pickup Across India',
+  'return_policy.marquee_3': 'Full Refund on Eligible Items',
+  'return_policy.cta_title': 'Still Have Questions?',
+  'return_policy.cta_desc': 'Our support team is here to help with returns, exchanges, and refunds — we usually reply within 24 hours.',
 
   // ── Unsubscribe ──
   'unsubscribe.title': 'Unsubscribe',
@@ -1012,6 +1033,13 @@ const DEFAULT_EN_TRANSLATIONS = {
 
   // ── Custom Page ──
   'page_view.last_updated': 'Last updated: {{date}}',
+  'page_view.eyebrow': 'Our Policies & Info',
+  'page_view.hero_desc': 'Everything you need to know, in one place.',
+  'page_view.marquee_1': 'Read Carefully',
+  'page_view.marquee_2': 'Stay Informed',
+  'page_view.marquee_3': "We're Here to Help",
+  'page_view.cta_title': 'Questions About This Page?',
+  'page_view.cta_desc': 'Reach out to our team — we usually reply within 24 hours.',
 
 
   // ── Reviews ──

@@ -1,4 +1,4 @@
-import { Bell } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notificationsAPI } from '../../api/notifications';
 import { useSocketEvent } from '../../hooks/useSocket';
 import { formatDateTime } from '../../utils/formatters';
+import { notificationIsRead, getNotificationRoute } from '../../utils/notificationUtils';
 import useAuthStore from '../../store/authStore';
+import toast from '../../utils/toast';
 
 export default function NotificationBell() {
   const { t } = useTranslation();
@@ -52,7 +54,7 @@ export default function NotificationBell() {
   } else if (typeof unreadPayload === 'number') {
     unreadCount = unreadPayload;
   } else if (Array.isArray(list)) {
-    unreadCount = list.filter(n => !n.isRead).length;
+    unreadCount = list.filter((n) => !notificationIsRead(n)).length;
   }
 
   // Real-time socket listener — invalidates query cache on new notification
@@ -91,11 +93,57 @@ export default function NotificationBell() {
     }
   };
 
+  const handleDelete = async (e, n) => {
+    e.stopPropagation();
+    // Optimistically drop the item from the cached list so it disappears
+    // instantly; invalidate() then reconciles with the server.
+    queryClient.setQueryData(['notificationBell', 'all'], (old) => {
+      if (!old) return old;
+      const payload = old?.data?.data;
+      const list = Array.isArray(payload)
+        ? payload
+        : payload?.notifications || payload?.items || [];
+      if (!Array.isArray(list)) return old;
+      const filtered = list.filter((x) => x.id !== n.id);
+      let nextPayload = filtered;
+      if (payload && !Array.isArray(payload)) {
+        nextPayload = { ...payload };
+        if (Array.isArray(payload.notifications)) nextPayload.notifications = filtered;
+        if (Array.isArray(payload.items)) nextPayload.items = filtered;
+      }
+      return { ...old, data: { ...old.data, data: nextPayload } };
+    });
+    try {
+      await notificationsAPI.delete(n.id);
+    } catch {
+      toast.error(t('notifications.failed_delete'));
+    } finally {
+      invalidateNotifications();
+    }
+  };
+
+  const handleClearAll = async (e) => {
+    e.stopPropagation();
+    try {
+      await notificationsAPI.clearAll();
+      invalidateNotifications();
+    } catch {
+      toast.error(t('notifications.failed_clear'));
+    }
+  };
+
   const handleBellClick = () => {
-    setShow(prev => !prev);
+    setShow((prev) => !prev);
     if (!show) {
       invalidateNotifications(); // Refresh when opening
     }
+  };
+
+  const handleOpen = (n) => {
+    if (!notificationIsRead(n)) handleMarkAsRead(n.id);
+    setShow(false);
+    const route = getNotificationRoute(n, isAdmin);
+    if (route) navigate(route);
   };
 
   return (
@@ -131,6 +179,15 @@ export default function NotificationBell() {
                 )}
               </span>
               <div className="flex items-center gap-2">
+                {recent.length > 0 && (
+                  <button
+                    onClick={handleClearAll}
+                    className="text-xs text-muted hover:text-danger transition-colors font-medium"
+                    title={t('notifications.clear_all')}
+                  >
+                    {t('notifications.bell.clear_all')}
+                  </button>
+                )}
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
@@ -163,56 +220,20 @@ export default function NotificationBell() {
                 recent.map((n) => (
                   <div
                     key={n.id}
-                    onClick={() => {
-                      if (!n.isRead) handleMarkAsRead(n.id);
-                      setShow(false);
-                      // Navigate to the relevant page based on notification data & user role
-                      const refData = n.data || {};
-                      const notifType = n.type || '';
-
-                      if (isAdmin) {
-                        // ─── Admin routes ───
-                        if (refData.orderId) {
-                          navigate(`/admin/orders/${refData.orderId}`);
-                        } else if (refData.userId) {
-                          navigate(`/admin/users/${refData.userId}`);
-                        } else if (refData.productId) {
-                          navigate(`/admin/products/${refData.productId}`);
-                        } else if (refData.reviewId) {
-                          navigate(`/admin/reviews/${refData.reviewId}`);
-                        } else if (refData.productSlug) {
-                          navigate(`/admin/products`);
-                        } else if (notifType === 'PROMOTION') {
-                          navigate('/admin/promotions');
-                        } else {
-                          navigate('/admin/notifications');
-                        }
-                      } else {
-                        // ─── Storefront routes (regular user) ───
-                        if (refData.orderId) {
-                          navigate(`/orders/${refData.orderId}`);
-                        } else if (refData.productSlug) {
-                          navigate(`/products/${refData.productSlug}`);
-                        } else if (notifType === 'PROMOTION') {
-                          navigate('/sales');
-                        } else {
-                          navigate('/notifications');
-                        }
-                      }
-                    }}
-                    className={`px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors ${
-                      n.isRead
+                    onClick={() => handleOpen(n)}
+                    className={`group px-4 py-3 border-b border-border last:border-b-0 cursor-pointer transition-colors ${
+                      notificationIsRead(n)
                         ? 'hover:bg-off-white'
                         : 'bg-off-white hover:bg-off-white/80'
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                        n.isRead ? 'bg-transparent' : 'bg-primary'
+                        notificationIsRead(n) ? 'bg-transparent' : 'bg-primary'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className={`text-sm truncate ${n.isRead ? 'text-text-secondary' : 'text-text-primary font-medium'}`}>
+                          <span className={`text-sm truncate ${notificationIsRead(n) ? 'text-text-secondary' : 'text-text-primary font-medium'}`}>
                             {n.title}
                           </span>
                           {n.createdAt && (
@@ -221,10 +242,18 @@ export default function NotificationBell() {
                             </span>
                           )}
                         </div>
-                        <p className={`text-xs mt-0.5 line-clamp-2 ${n.isRead ? 'text-muted' : 'text-text-secondary'}`}>
+                        <p className={`text-xs mt-0.5 line-clamp-2 ${notificationIsRead(n) ? 'text-muted' : 'text-text-secondary'}`}>
                           {n.message}
                         </p>
                       </div>
+                      <button
+                        onClick={(e) => handleDelete(e, n)}
+                        className="p-1.5 -m-1 rounded-md text-muted/70 hover:text-danger hover:bg-danger/10 flex-shrink-0 transition-colors"
+                        aria-label={t('notifications.delete_notification', 'Delete notification')}
+                        title={t('notifications.delete_notification', 'Delete notification')}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   </div>
                 ))

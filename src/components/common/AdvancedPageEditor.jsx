@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import './AdvancedPageEditor.css';
 import RichTextEditor from './RichTextEditor';
 import ImageUploadZone from './ImageUploadZone';
+import ContentBlocks from '../storefront/ContentBlocks';
 
 /* ── SECTION CATEGORIES ── */
 const SECTION_CATEGORIES = [
@@ -163,6 +164,15 @@ const SECTION_TYPES = {
 
 /* ── DEFAULT STYLES ── */
 const DEFAULT_STYLES = { bgColor: '', padding: 'medium', fullWidth: false };
+
+/* ── Unsaved-changes prompt helper ── */
+function useUnsavedGuard(isDirty) {
+  useEffect(() => {
+    const handler = (e) => { if (isDirty) e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+}
 
 /* ── UNDO/REDO HOOK ── */
 function useUndoRedo(initialState) {
@@ -467,60 +477,6 @@ function FieldRenderer({ field, value, onChange, onOpenMedia }) {
   }
 }
 
-/* ── INLINE EDIT FIELD ── */
-function InlineEditField({ value, onChange, className, style, placeholder, tag: Tag = 'span' }) {
-  const ref = useRef(null);
-  const [editing, setEditing] = useState(false);
-  const prevValueRef = useRef(value);
-
-  useEffect(() => {
-    if (ref.current && !editing) {
-      ref.current.innerText = value || '';
-    }
-    prevValueRef.current = value;
-  }, [value, editing]);
-
-  const handleBlur = () => {
-    setEditing(false);
-    const newVal = ref.current?.innerText || '';
-    if (newVal !== prevValueRef.current) {
-      onChange(newVal);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      ref.current?.blur();
-    }
-    if (e.key === 'Escape') {
-      ref.current.innerText = prevValueRef.current || '';
-      ref.current?.blur();
-    }
-  };
-
-  return (
-    <Tag
-      ref={ref}
-      contentEditable
-      suppressContentEditableWarning
-      className={className}
-      style={{
-        ...style,
-        cursor: 'text',
-        outline: editing ? '2px dashed #6366f1' : 'none',
-        outlineOffset: '2px',
-        borderRadius: '2px',
-        transition: 'outline 0.2s ease',
-      }}
-      onDoubleClick={() => setEditing(true)}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-    />
-  );
-}
-
 /* ── HTML GENERATORS ── */
 function generateHeroHTML(section) {
   const bgStyle = section.image ? `background-image: url('${section.image}'); background-size: cover; background-position: center;` : '';
@@ -581,9 +537,12 @@ function generateFeaturesHTML(section) {
   `;
 }
 
+function parseJsonArray(value) {
+  try { return JSON.parse(value || '[]'); } catch { return []; }
+}
+
 function generateStatsHTML(section) {
-  let stats = [];
-  try { stats = JSON.parse(section.stats || '[]'); } catch { stats = []; }
+  const stats = parseJsonArray(section.stats);
   const bg = section._styles?.bgColor || 'linear-gradient(135deg, #1a1a1a 0%, #333 100%)';
   const extraStyle = section._styles?.bgColor ? `background-color: ${section._styles.bgColor};` : '';
   return `
@@ -604,8 +563,7 @@ function generateStatsHTML(section) {
 }
 
 function generateTeamHTML(section) {
-  let members = [];
-  try { members = JSON.parse(section.members || '[]'); } catch { members = []; }
+  const members = parseJsonArray(section.members);
   const extraStyle = section._styles?.bgColor ? `background-color: ${section._styles.bgColor};` : '';
   return `
     <section class="team-section" style="${extraStyle} padding: ${section._styles?.padding === 'small' ? '60px 20px' : section._styles?.padding === 'large' ? '100px 40px' : '80px 40px'}; max-width: 1200px; margin: 0 auto;">
@@ -647,8 +605,7 @@ function generateGalleryHTML(section) {
 }
 
 function generateTestimonialsHTML(section) {
-  let testimonials = [];
-  try { testimonials = JSON.parse(section.testimonials || '[]'); } catch { testimonials = []; }
+  const testimonials = parseJsonArray(section.testimonials);
   const bg = section._styles?.bgColor || 'linear-gradient(135deg, #f0f0f5 0%, #fafafa 100%)';
   const extraStyle = section._styles?.bgColor ? `background-color: ${section._styles.bgColor};` : '';
   return `
@@ -709,8 +666,7 @@ function generateNewsletterHTML(section) {
 }
 
 function generatePricingHTML(section) {
-  let plans = [];
-  try { plans = JSON.parse(section.plans || '[]'); } catch { plans = []; }
+  const plans = parseJsonArray(section.plans);
   const bg = section._styles?.bgColor || '#fafafa';
   const extraStyle = section._styles?.bgColor ? `background-color: ${section._styles.bgColor};` : '';
   return `
@@ -749,8 +705,7 @@ function generateCTAHTML(section) {
 }
 
 function generateFAQHTML(section) {
-  let faqs = [];
-  try { faqs = JSON.parse(section.faqs || '[]'); } catch { faqs = []; }
+  const faqs = parseJsonArray(section.faqs);
   const extraStyle = section._styles?.bgColor ? `background-color: ${section._styles.bgColor};` : '';
   return `
     <section class="faq-section" style="${extraStyle} padding: ${section._styles?.padding === 'small' ? '60px 20px' : section._styles?.padding === 'large' ? '100px 40px' : '80px 40px'}; max-width: 800px; margin: 0 auto;">
@@ -768,7 +723,7 @@ function generateFAQHTML(section) {
 }
 
 /* ── MAIN COMPONENT ── */
-export default function AdvancedPageEditor({ value, onChange }) {
+export default function AdvancedPageEditor({ value, onChange, previewUrl }) {
   const parsed = parseSections(value);
   const {
     current: sections,
@@ -777,10 +732,13 @@ export default function AdvancedPageEditor({ value, onChange }) {
     redo,
     canUndo,
     canRedo,
-    reset: resetHistory,
   } = useUndoRedo(parsed);
 
   const [activeTab, setActiveTab] = useState('builder');
+  const [splitMode, setSplitMode] = useState(true);
+  const [openStyling, setOpenStyling] = useState({});
+  const isDirty = JSON.stringify(sections) !== JSON.stringify(parsed);
+  useUnsavedGuard(isDirty);
   const [editingIndex, setEditingIndex] = useState(null);
   const [showAddSection, setShowAddSection] = useState(false);
   const [sectionSearch, setSectionSearch] = useState('');
@@ -799,9 +757,18 @@ export default function AdvancedPageEditor({ value, onChange }) {
   });
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // useUndoRedo re-parses `current` on every render, so the `sections` value
+  // has a NEW reference each render. Comparing by content (JSON string) instead
+  // of reference ensures we only push to the parent when the user actually
+  // changes a section — and never on mount (which would wipe plain-text pages
+  // whose parsed sections are []).
+  const sectionsKeyRef = useRef(JSON.stringify(parsed));
 
-  // Sync to parent whenever sections change
+  // Sync to parent whenever the user changes sections
   useEffect(() => {
+    const key = JSON.stringify(sections);
+    if (key === sectionsKeyRef.current) return;
+    sectionsKeyRef.current = key;
     onChangeRef.current?.(generateHTML(sections));
   }, [sections]);
 
@@ -826,7 +793,7 @@ export default function AdvancedPageEditor({ value, onChange }) {
     try {
       const match = html.match(/<div class="page-sections">([\s\S]*?)<\/div>/);
       if (!match) return [];
-      return JSON.parse(atob(match[1]));
+      return JSON.parse(decodeURIComponent(escape(atob(match[1]))));
     } catch { return []; }
   }
 
@@ -853,7 +820,9 @@ export default function AdvancedPageEditor({ value, onChange }) {
       }
     }).join('');
 
-    const encodedSections = btoa(JSON.stringify(secs));
+    // btoa only handles Latin1 — sections can contain ₹, ✨, emoji, etc., so
+    // percent-encode first (encodeURIComponent) and restore on decode.
+    const encodedSections = btoa(unescape(encodeURIComponent(JSON.stringify(secs))));
     return `<div class="page-sections">${encodedSections}</div>\n${html}`;
   }
 
@@ -973,20 +942,6 @@ export default function AdvancedPageEditor({ value, onChange }) {
     }
   };
 
-  // ── Inline Editing in Preview ──
-  const handlePreviewClick = (index, fieldName) => {
-    setActiveTab('builder');
-    setEditingIndex(index);
-    setTimeout(() => {
-      const el = document.querySelector(`.section-card[data-index="${index}"]`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
-  };
-
-  const handleInlineEdit = (index, fieldName, newValue) => {
-    updateSection(index, { [fieldName]: newValue });
-  };
-
   // ── Filter section types based on search ──
   const sectionSearchLower = sectionSearch.toLowerCase().trim();
   const filteredEntries = Object.entries(SECTION_TYPES).filter(([key, type]) => {
@@ -1040,14 +995,17 @@ export default function AdvancedPageEditor({ value, onChange }) {
         <div className="editor-toolbar-left">
           <button className="editor-toolbar-btn" onClick={doUndo} disabled={!canUndo} title="Undo (Ctrl+Z)">↩ Undo</button>
           <button className="editor-toolbar-btn" onClick={doRedo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">↪ Redo</button>
+          {isDirty && <span className="unsaved-dot" title="Unsaved changes" />}
           <div className="editor-toolbar-sep" />
           <button className={`editor-toolbar-btn ${showTemplates ? 'active' : ''}`} onClick={() => setShowTemplates(!showTemplates)} title="Templates">📋 Templates</button>
           <button className="editor-toolbar-btn" onClick={saveAsTemplate} title="Save current as template">💾 Save Template</button>
+          <div className="editor-toolbar-sep" />
+          <button className={`editor-toolbar-btn ${splitMode ? 'active' : ''}`} onClick={() => setSplitMode(!splitMode)} title="Toggle live preview alongside builder">{splitMode ? '🔲 Split View' : '📐 Builder Only'}</button>
         </div>
         <div className="editor-toolbar-right">
           <span style={{ fontSize: 10, color: '#8a8a9a', fontWeight: 600 }}>Preview:</span>
           <button className={`preview-device-btn ${previewDevice === 'desktop' ? 'active' : ''}`} onClick={() => setPreviewDevice('desktop')}>🖥 Desktop</button>
-          <button className={`preview-device-btn ${previewDevice === 'tablet' ? 'active' : ''}`} onClick={() => setPreviewDevice('tablet')}>📱 Tablet</button>
+          <button className={`preview-device-btn ${previewDevice === 'tablet' ? 'active' : ''}`} onClick={() => setPreviewDevice('tablet')}>💻 Tablet</button>
           <button className={`preview-device-btn ${previewDevice === 'mobile' ? 'active' : ''}`} onClick={() => setPreviewDevice('mobile')}>📱 Mobile</button>
         </div>
       </div>
@@ -1081,111 +1039,140 @@ export default function AdvancedPageEditor({ value, onChange }) {
 
       {/* ── BUILDER ── */}
       {activeTab === 'builder' && (
-        <div className="builder-panel">
-          <div className="sections-list">
-            {sections.length === 0 ? (
-              <div className="empty-sections">
-                <div className="empty-icon">📄</div>
-                <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Start Building Your Page</h3>
-                <p style={{ margin: '0 0 20px', fontSize: 14 }}>Click the button below and choose a section type!</p>
-                <button className="btn-add-section" onClick={() => setShowAddSection(true)} style={{ display: 'inline-block', margin: 0 }}>+ Add Your First Section</button>
-              </div>
-            ) : (
-              sections.map((section, idx) => (
-                <div
-                  key={section.id}
-                  className={`section-card ${draggedIndex === idx ? 'dragging' : ''} ${dragOverIndex === idx ? 'drag-over' : ''}`}
-                  data-index={idx}
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={() => handleDrop(idx)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <div className="section-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-                      <span className="drag-handle" title="Drag to reorder">⠿</span>
-                      <span className="section-type">{SECTION_TYPES[section.type]?.icon}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ fontSize: 13, color: '#1a1a2e' }}>{SECTION_TYPES[section.type]?.name}</strong>
-                        <span style={{ fontSize: 10, color: '#8a8a9a', marginLeft: 8 }}>{getSectionPreview(section)}</span>
-                      </div>
-                    </div>
-                    <div className="section-actions">
-                      <button className="action-btn duplicate" onClick={() => duplicateSection(idx)} title="Duplicate section">📋</button>
-                      <button className={`action-btn ${editingIndex === idx ? 'active' : ''}`} onClick={() => setEditingIndex(editingIndex === idx ? null : idx)} title="Edit section">✏️</button>
-                      <button className="action-btn delete" onClick={() => deleteSection(idx)} title="Delete section">🗑️</button>
-                    </div>
-                  </div>
-
-                  {editingIndex === idx && (
-                    <div className="section-form">
-                      {SECTION_TYPES[section.type]?.fields.map(field => (
-                        <div key={field.name} className="form-group">
-                          <label>{field.label}</label>
-                          <FieldRenderer
-                            field={field}
-                            value={section[field.name]}
-                            onChange={(val) => updateSection(idx, { [field.name]: val })}
-                            onOpenMedia={field.type === 'media' || field.type === 'gallery_media' ? openMediaBrowser : undefined}
-                          />
-                        </div>
-                      ))}
+        <div className={splitMode ? 'split-pane-wrapper' : 'builder-panel'}>
+          <div className={splitMode ? 'split-pane-builder' : ''}>
+            <div className="sections-list">
+              {sections.length === 0 ? (
+                <div className="empty-sections">
+                  <div className="empty-icon">📄</div>
+                  <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Start Building Your Page</h3>
+                  <p style={{ margin: '0 0 20px', fontSize: 14 }}>Click the button below and choose a section type!</p>
+                  {value && value.trim().length > 0 && !value.includes('page-sections') && (
+                    <div
+                      style={{
+                        margin: '0 0 18px',
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        background: '#f5f3ff',
+                        border: '1px solid #ddd6fe',
+                        fontSize: 12.5,
+                        color: '#5b21b6',
+                        lineHeight: 1.6,
+                        textAlign: 'left',
+                        maxWidth: 480,
+                      }}
+                    >
+                      💡 This page uses <strong>plain HTML content</strong>. Add builder sections below to upgrade the
+                      design, or switch to the <strong>&lt;/&gt; HTML</strong> tab to edit the raw content.
                     </div>
                   )}
-
-                  {/* ── Section Styling Options ── */}
-                  <div className="styling-options">
-                    <div className="styling-group">
-                      <span className="styling-label">BG</span>
-                      <div className="color-picker-wrapper">
-                        <input
-                          type="color"
-                          value={section._styles?.bgColor || '#ffffff'}
-                          onChange={(e) => updateSection(idx, { _styles: { ...section._styles, bgColor: e.target.value } })}
-                        />
-                        <input
-                          type="text"
-                          value={section._styles?.bgColor || ''}
-                          onChange={(e) => updateSection(idx, { _styles: { ...section._styles, bgColor: e.target.value } })}
-                          placeholder="None"
-                        />
+                  <button className="btn-add-section" onClick={() => setShowAddSection(true)} style={{ display: 'inline-block', margin: 0 }}>+ Add Your First Section</button>
+                </div>
+              ) : (
+                sections.map((section, idx) => (
+                  <div
+                    key={section.id}
+                    className={`section-card ${draggedIndex === idx ? 'dragging' : ''} ${dragOverIndex === idx ? 'drag-over' : ''}`}
+                    data-index={idx}
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <div className="section-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+                        <span className="drag-handle" title="Drag to reorder">⠿</span>
+                        <span className="section-type">{SECTION_TYPES[section.type]?.icon}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <strong style={{ fontSize: 13, color: '#1a1a2e' }}>{SECTION_TYPES[section.type]?.name}</strong>
+                          <span style={{ fontSize: 10, color: '#8a8a9a', marginLeft: 8 }}>{getSectionPreview(section)}</span>
+                        </div>
+                      </div>
+                      <div className="section-actions">
+                        <button className="action-btn duplicate" onClick={() => duplicateSection(idx)} title="Duplicate section">📋</button>
+                        <button className={`action-btn ${editingIndex === idx ? 'active' : ''}`} onClick={() => setEditingIndex(editingIndex === idx ? null : idx)} title="Edit section">✏️</button>
+                        <button className="action-btn delete" onClick={() => deleteSection(idx)} title="Delete section">🗑️</button>
                       </div>
                     </div>
-                    <div className="styling-group">
-                      <span className="styling-label">Padding</span>
-                      <select
-                        className="style-select"
-                        value={section._styles?.padding || 'medium'}
-                        onChange={(e) => updateSection(idx, { _styles: { ...section._styles, padding: e.target.value } })}
-                      >
-                        <option value="small">Small</option>
-                        <option value="medium">Medium</option>
-                        <option value="large">Large</option>
-                      </select>
-                    </div>
-                    {section._styles?.bgColor && (
-                      <div className="styling-group">
-                        <span style={{
-                          width: 16, height: 16, borderRadius: 4,
-                          background: section._styles.bgColor,
-                          border: '1px solid #e5e5ea',
-                          display: 'inline-block',
-                        }} />
+
+                    {editingIndex === idx && (
+                      <div className="section-form">
+                        {SECTION_TYPES[section.type]?.fields.map(field => (
+                          <div key={field.name} className="form-group">
+                            <label>{field.label}</label>
+                            <FieldRenderer
+                              field={field}
+                              value={section[field.name]}
+                              onChange={(val) => updateSection(idx, { [field.name]: val })}
+                              onOpenMedia={field.type === 'media' || field.type === 'gallery_media' ? openMediaBrowser : undefined}
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
 
-          {sections.length > 0 && (
-            <button className="btn-add-section" onClick={() => setShowAddSection(!showAddSection)}>
-              {showAddSection ? '− Close Section Picker' : '+ Add Section'}
-            </button>
-          )}
+                    {/* ── Section Styling (collapsible) ── */}
+                    <div style={{ borderTop: '1px solid #e5e5ea' }}>
+                      <button
+                        className={`styling-toggle ${openStyling[idx] ? 'open' : ''}`}
+                        onClick={() => setOpenStyling(prev => ({ ...prev, [idx]: !prev[idx] }))}
+                        style={{ margin: 0, width: '100%', textAlign: 'left', padding: '5px 14px', borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
+                      >
+                        🎨 Style {openStyling[idx] ? '▾' : '▸'}
+                      </button>
+                      <div className={`styling-options ${openStyling[idx] ? 'open' : ''}`}>
+                        <div className="styling-group">
+                          <span className="styling-label">BG</span>
+                          <div className="color-picker-wrapper">
+                            <input
+                              type="color"
+                              value={section._styles?.bgColor || '#ffffff'}
+                              onChange={(e) => updateSection(idx, { _styles: { ...section._styles, bgColor: e.target.value } })}
+                            />
+                            <input
+                              type="text"
+                              value={section._styles?.bgColor || ''}
+                              onChange={(e) => updateSection(idx, { _styles: { ...section._styles, bgColor: e.target.value } })}
+                              placeholder="None"
+                            />
+                          </div>
+                        </div>
+                        <div className="styling-group">
+                          <span className="styling-label">Padding</span>
+                          <select
+                            className="style-select"
+                            value={section._styles?.padding || 'medium'}
+                            onChange={(e) => updateSection(idx, { _styles: { ...section._styles, padding: e.target.value } })}
+                          >
+                            <option value="small">Small</option>
+                            <option value="medium">Medium</option>
+                            <option value="large">Large</option>
+                          </select>
+                        </div>
+                        {section._styles?.bgColor && (
+                          <div className="styling-group">
+                            <span style={{
+                              width: 16, height: 16, borderRadius: 4,
+                              background: section._styles.bgColor,
+                              border: '1px solid #e5e5ea',
+                              display: 'inline-block',
+                            }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {sections.length > 0 && (
+              <button className="btn-add-section" onClick={() => setShowAddSection(!showAddSection)}>
+                {showAddSection ? '− Close Section Picker' : '+ Add Section'}
+              </button>
+            )}
 
           {showAddSection && (
             <div className="section-selector">
@@ -1273,71 +1260,36 @@ export default function AdvancedPageEditor({ value, onChange }) {
             </div>
           )}
         </div>
+      </div>
       )}
 
-      {/* ── PREVIEW ── */}
+      {/* ── PREVIEW (renders with the exact storefront renderer — WYSIWYG) ── */}
       {activeTab === 'preview' && (
         <div className="preview-panel">
-          <div className={`preview-frame device-${previewDevice}`}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 5, width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 16px', background: 'rgba(240,240,245,0.95)', backdropFilter: 'blur(6px)', borderBottom: '1px solid #e5e5ea', boxSizing: 'border-box' }}>
+            <span style={{ fontSize: 11, color: '#8a8a9a', fontWeight: 600 }}>✓ This is exactly what customers see on the storefront</span>
+            {previewUrl && (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="editor-toolbar-btn"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                title="Open this page on the live storefront"
+              >
+                ↗ Open on Storefront
+              </a>
+            )}
+            <button className="editor-toolbar-btn" onClick={() => setActiveTab('builder')}>✏️ Back to Builder</button>
+          </div>
+          <div className={`preview-frame device-${previewDevice}`} style={{ background: '#ffffff' }}>
             {sections.length === 0 ? (
               <div className="empty-sections" style={{ padding: 60 }}>
                 <div className="empty-icon">📄</div>
                 <p>Add sections to see a preview</p>
               </div>
             ) : (
-              <div className="preview-content">
-                {sections.map((section, idx) => (
-                  <div key={section.id} className="preview-section">
-                    <span className="inline-edit-hint" onClick={() => handlePreviewClick(idx)}>✏️ Edit in builder</span>
-                    {section.type === 'hero' && (
-                      <section className="hero-section" style={{
-                        background: section._styles?.bgColor ? section._styles.bgColor : section.image ? `url(${section.image}) center/cover` : 'linear-gradient(135deg, #1a1a1a 0%, #333 100%)',
-                        color: 'white',
-                        padding: section._styles?.padding === 'small' ? '60px 20px' : section._styles?.padding === 'large' ? '140px 20px' : '100px 20px',
-                        textAlign: 'center',
-                      }}>
-                        <div style={{ background: 'rgba(0,0,0,0.6)', padding: '60px 40px', borderRadius: 12, maxWidth: 800, margin: '0 auto' }}>
-                          <InlineEditField tag="h1" value={section.title} onChange={(v) => handleInlineEdit(idx, 'title', v)}
-                            className="inline-edit-title" placeholder="Hero Title"
-                            style={{ fontSize: 48, fontWeight: 800, margin: '0 0 20px 0', color: 'white' }} />
-                          <InlineEditField tag="p" value={section.subtitle} onChange={(v) => handleInlineEdit(idx, 'subtitle', v)}
-                            className="inline-edit-subtitle" placeholder="Hero subtitle"
-                            style={{ fontSize: 20, margin: '0 0 40px 0', opacity: 0.95 }} />
-                          {section.cta_text && (
-                            <InlineEditField tag="span" value={section.cta_text} onChange={(v) => handleInlineEdit(idx, 'cta_text', v)}
-                              className="inline-edit-cta" placeholder="CTA"
-                              style={{ display: 'inline-block', background: 'white', color: '#1a1a1a', padding: '14px 40px', borderRadius: 8, fontWeight: 700, fontSize: 16 }} />
-                          )}
-                        </div>
-                      </section>
-                    )}
-                    {section.type === 'content' && (
-                      <section className="content-section" style={{
-                        ...section._styles?.bgColor && { backgroundColor: section._styles.bgColor },
-                        padding: section._styles?.padding === 'small' ? '40px 20px' : section._styles?.padding === 'large' ? '80px 40px' : '60px 40px',
-                        maxWidth: 900, margin: '0 auto',
-                      }}>
-                        {section.title && (
-                          <InlineEditField tag="h2" value={section.title} onChange={(v) => handleInlineEdit(idx, 'title', v)}
-                            placeholder="Section title"
-                            style={{ fontSize: 42, fontWeight: 700, margin: '0 0 30px 0', color: '#1a1a2e' }} />
-                        )}
-                      </section>
-                    )}
-                    {section.type === 'twoColumn' && <div dangerouslySetInnerHTML={{ __html: generateTwoColumnHTML(section) }} />}
-                    {section.type === 'features' && <div dangerouslySetInnerHTML={{ __html: generateFeaturesHTML(section) }} />}
-                    {section.type === 'stats' && <div dangerouslySetInnerHTML={{ __html: generateStatsHTML(section) }} />}
-                    {section.type === 'team' && <div dangerouslySetInnerHTML={{ __html: generateTeamHTML(section) }} />}
-                    {section.type === 'gallery' && <div dangerouslySetInnerHTML={{ __html: generateGalleryHTML(section) }} />}
-                    {section.type === 'testimonials' && <div dangerouslySetInnerHTML={{ __html: generateTestimonialsHTML(section) }} />}
-                    {section.type === 'video' && <div dangerouslySetInnerHTML={{ __html: generateVideoHTML(section) }} />}
-                    {section.type === 'newsletter' && <div dangerouslySetInnerHTML={{ __html: generateNewsletterHTML(section) }} />}
-                    {section.type === 'pricing' && <div dangerouslySetInnerHTML={{ __html: generatePricingHTML(section) }} />}
-                    {section.type === 'cta' && <div dangerouslySetInnerHTML={{ __html: generateCTAHTML(section) }} />}
-                    {section.type === 'faq' && <div dangerouslySetInnerHTML={{ __html: generateFAQHTML(section) }} />}
-                  </div>
-                ))}
-              </div>
+              <ContentBlocks blocks={sections} />
             )}
           </div>
         </div>

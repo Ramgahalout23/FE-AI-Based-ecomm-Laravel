@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, FileText, Lock, ShieldCheck } from 'lucide-react';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import ContentProse from '../../components/storefront/ContentProse';
 import { useSettings } from '../../store/useSettings';
 import { pagesAPI } from '../../api/pages';
 import PageContentSkeleton from '../../components/ui/PageContentSkeleton';
@@ -84,27 +85,6 @@ export default function PrivacyPage() {
       <style>{`
         .privacy-hero-mark { animation: privacy-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
         @keyframes privacy-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        .privacy-prose { font-size: 15.5px; line-height: 1.85; color: ${THREAD}; }
-        .privacy-prose h1, .privacy-prose h2, .privacy-prose h3, .privacy-prose h4 {
-          font-family: var(--font-display);
-          color: ${INK};
-          letter-spacing: -0.02em;
-          line-height: 1.25;
-        }
-        .privacy-prose h2 { font-size: 1.5rem; font-weight: 700; margin: 2.4rem 0 0.9rem; padding-bottom: 0.55rem; border-bottom: 1px solid rgba(26,26,26,0.08); }
-        .privacy-prose h3 { font-size: 1.15rem; font-weight: 700; margin: 1.7rem 0 0.6rem; }
-        .privacy-prose h4 { font-size: 1rem; font-weight: 700; margin: 1.3rem 0 0.5rem; }
-        .privacy-prose p { margin: 0 0 1rem; }
-        .privacy-prose a { color: ${INK}; text-decoration: underline; text-underline-offset: 3px; }
-        .privacy-prose strong { color: ${INK}; font-weight: 700; }
-        .privacy-prose ul, .privacy-prose ol { margin: 0 0 1.2rem 1.15rem; }
-        .privacy-prose li { margin-bottom: 0.45rem; line-height: 1.75; }
-        .privacy-prose li::marker { color: ${INK}; }
-        .privacy-prose blockquote { border-left: 3px solid ${INK}; padding-left: 1rem; margin: 1.2rem 0; font-style: italic; color: ${THREAD}; }
-        .privacy-prose table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: 14px; }
-        .privacy-prose th, .privacy-prose td { border: 1px solid rgba(26,26,26,0.1); padding: 10px 14px; text-align: left; }
-        .privacy-prose th { background: #fafafa; color: ${INK}; font-weight: 700; }
-        .privacy-prose img { max-width: 100%; border-radius: 12px; }
         @media (max-width: 560px) {
           .privacy-trust { gap: 10px !important; }
         }
@@ -165,7 +145,7 @@ export default function PrivacyPage() {
       {/* ── CONTENT ── */}
       <section style={{ maxWidth: 860, margin: '0 auto', padding: '84px 24px 64px' }}>
         {content.content ? (
-          <div className="privacy-prose" dangerouslySetInnerHTML={{ __html: content.content }} />
+          <ContentProse html={content.content} />
         ) : (
           <p style={{ fontSize: 15.5, lineHeight: 1.85, color: THREAD, margin: 0 }}>
             {t('privacy.no_content')}
