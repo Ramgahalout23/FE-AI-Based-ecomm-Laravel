@@ -140,7 +140,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-2xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] flex flex-col"
+            className="relative w-full max-w-4xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[75vh] md:max-h-[85vh] flex flex-col"
           >
             {/* Search Input */}
             <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
@@ -255,7 +255,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                     ) : popularProducts.length > 0 ? (
                       <div className="search-product-grid grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {popularProducts.map((product) => (
-                          <ProductCard key={product.id} product={product} imageAspect="aspect-[4/5] max-sm:aspect-[5/6]" />
+                          <ProductCard key={product.id} product={product} imageAspect="aspect-[4/5] max-sm:aspect-[5/6]" compactOverlay />
                         ))}
                       </div>
                     ) : (

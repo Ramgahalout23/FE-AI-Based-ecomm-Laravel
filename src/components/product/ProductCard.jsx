@@ -18,7 +18,7 @@ import { getAttributes } from '../../utils/productHelpers.jsx';
 import toast, { addedToCart } from '../../utils/toast';
 
 /* ── Main ProductCard ── */
-function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-sm:aspect-[4/5]' }) {
+function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-sm:aspect-[4/5]', compactOverlay = false }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
@@ -39,6 +39,11 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
   // Style Highlights is hover-only — never trigger on touch devices, where
   // the emulated mouseenter makes the overlay appear stuck/broken on mobile.
   const canHover = useMemo(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches, []);
+
+  /* ── Style Highlights sizing — full editorial on large cards, compact on small ones ── */
+  // compactOverlay (used in the search modal) pins the overlay to the compact variant
+  // regardless of viewport, so small cards never get the desktop-sized overlay.
+  const shMd = (base, mdCls) => (compactOverlay ? base : `${base} ${mdCls}`);
 
 
   /* ── Variants ── */
@@ -461,33 +466,33 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
 
                 {/* Content — positioned at bottom, clears the quick-add bar */}
-                <div className="relative z-10 p-3 pb-10 md:p-5 md:pb-12">
+                <div className={`relative z-10 ${shMd('p-3 pb-10', 'md:p-5 md:pb-12')}`}>
                   {/* Title — editorial, staggered entrance */}
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <h4 className="text-white font-display font-bold text-[13px] leading-[1.15] mb-1.5 md:text-base md:mb-3">
+                    <h4 className={`text-white font-display font-bold ${shMd('text-[13px] leading-[1.15] mb-1.5', 'md:text-base md:mb-3')}`}>
                       Style Highlights
                     </h4>
-                    <div className="w-6 h-px bg-white/30 mb-2 md:mb-3" />
+                    <div className={`w-6 h-px bg-white/30 ${shMd('mb-2', 'md:mb-3')}`} />
                   </motion.div>
 
                   {/* Attribute list — staggered slide-up per row; 3 rows on small cards, all 5 on desktop */}
-                  <div className="flex flex-col gap-1.5 md:gap-2">
+                  <div className={`flex flex-col ${shMd('gap-1.5', 'md:gap-2')}`}>
                     {highlights.map((h, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                        className={`${i >= 3 ? 'hidden md:flex' : 'flex'} items-baseline justify-between gap-2`}
+                        className={`${compactOverlay ? (i < 3 ? 'flex' : 'hidden') : (i >= 3 ? 'hidden md:flex' : 'flex')} items-baseline justify-between gap-2`}
                       >
-                        <span className="text-white/50 text-[7px] md:text-[9px] font-semibold uppercase tracking-[0.18em]">
+                        <span className={`text-white/50 ${shMd('text-[7px]', 'md:text-[9px]')} font-semibold uppercase tracking-[0.18em]`}>
                           {h.label}
                         </span>
-                        <span className="text-white text-[9px] md:text-[12px] font-medium min-w-0 truncate">
+                        <span className={`text-white ${shMd('text-[9px]', 'md:text-[12px]')} font-medium min-w-0 truncate`}>
                           {h.value}
                         </span>
                       </motion.div>
