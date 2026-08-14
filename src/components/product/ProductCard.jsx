@@ -730,13 +730,16 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
         {/* Details — typography-led editorial design (SSENSE / MR PORTER style) */}
         <div className={`max-sm:p-3 p-4 flex flex-col flex-1 transition-all duration-300 ${isOutOfStock ? 'opacity-50' : ''}`}>
-          {/* Title — refined, tight tracking */}
-          <h3 className="card-title line-clamp-2">
+          {/* Title — refined, tight tracking; single line on mobile so long names
+              don't wrap and create uneven gaps above the price */}
+          <h3 className="card-title line-clamp-2 max-md:line-clamp-1">
             {product.name}
           </h3>
 
-          {/* Price — current in black, old in red struck-through (reference style) */}
-          <div className="mt-auto pt-3.5">
+          {/* Price — current in black, old in red struck-through (reference style).
+              Desktop: anchored to the card bottom (mt-auto) for aligned rows.
+              Mobile: sits right under the title — no big gap between title & price. */}
+          <div className="mt-auto pt-3.5 max-md:mt-0 max-md:pt-2">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="price-item tabular-nums text-gray-900">
                 {formatCurrency(product.price)}

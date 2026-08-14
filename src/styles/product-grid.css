@@ -15,6 +15,30 @@
   margin: 0 0 var(--product-title-margin-bottom) 0;
 }
 
+/* ── Product Card Title: clamp lines properly ── */
+/* .card-title sets display:block, which silently breaks Tailwind's line-clamp
+   (it needs display:-webkit-box), so long names wrap fully and create uneven
+   gaps above the price. Re-apply the clamp with higher specificity: 1 line on
+   mobile (no long wrapped titles), 2 lines on desktop. */
+@media (max-width: 767px) {
+  .product-card .card-title {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+@media (min-width: 768px) {
+  .product-card .card-title {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 /* ── Product Card Price ────────── */
 .price-item {
   display: inline-flex;
