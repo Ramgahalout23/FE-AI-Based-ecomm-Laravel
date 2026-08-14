@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
-import ContentPageHero from '../../components/storefront/ContentPageHero';
+import ContentPageHero, { buildHeroCtas } from '../../components/storefront/ContentPageHero';
 import ContentMarquee from '../../components/storefront/ContentMarquee';
 import ContentProse from '../../components/storefront/ContentProse';
 import ContentCtaCard from '../../components/storefront/ContentCtaCard';
@@ -112,7 +112,7 @@ export default function CustomPageView() {
         canonicalUrl={pageSeo?.canonicalUrl || `${window.location.origin}/pages/${page.slug}`}
       />
 
-      {/* ── HERO ── */}
+      {/* ── HERO (About / Contact style: watermark + eyebrow + dual CTAs) ── */}
       <ContentPageHero
         watermark={watermark}
         eyebrow={t('page_view.eyebrow', { defaultValue: 'Our Policies & Info' })}
@@ -129,6 +129,10 @@ export default function CustomPageView() {
             </span>
           ) : null
         }
+        ctas={buildHeroCtas(page.settings?.hero, {
+          primary: { label: t('page_view.hero_cta_primary', { defaultValue: 'Explore Collection' }) },
+          secondary: { label: t('page_view.hero_cta_secondary', { defaultValue: 'Contact Us' }) },
+        })}
       />
 
       {/* ── MARQUEE (plain prose pages only — block pages carry their own sections) ── */}

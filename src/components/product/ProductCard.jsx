@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
-import { formatCurrency, slugify, getImageUrl, getProductImage, getProductImages, getProductHoverImage } from '../../utils/formatters';
+import { formatCurrency, slugify, getImageUrl, getResponsiveSrcSet, getProductImage, getProductImages, getProductHoverImage } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
@@ -405,16 +405,22 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 {/* Always render the primary image */}
                 <img
                   src={getImageUrl(productImages[0])}
+                  srcSet={getResponsiveSrcSet(productImages[0])}
+                  sizes="(max-width: 640px) 45vw, 302px"
                   alt={product.name}
                   loading="lazy"
+                  decoding="async"
                   onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                   className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${!isHovered || !hasHoverImage ? 'active' : ''}`}
                 />
                 {/* Hover image — uses dedicated hoverImageUrl if set, otherwise second product image */}
                 <img
                   src={getImageUrl(hoverImageUrl || productImages[1] || '')}
+                  srcSet={getResponsiveSrcSet(hoverImageUrl || productImages[1] || '')}
+                  sizes="(max-width: 640px) 45vw, 302px"
                   alt={`${product.name} - hover view`}
                   loading="lazy"
+                  decoding="async"
                   onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }}
                   className={`product-img-layer w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-60' : ''} ${isHovered && hasHoverImage ? 'active' : ''}`}
                 />

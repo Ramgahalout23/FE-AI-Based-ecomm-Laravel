@@ -15,8 +15,15 @@ const GRID_CSS = `
   @media (min-width: 640px) { .cb-grid-2 { grid-template-columns: repeat(2, 1fr); } }
   @media (min-width: 768px) { .cb-grid-3 { grid-template-columns: repeat(3, 1fr); } .cb-grid-4 { grid-template-columns: repeat(4, 1fr); } }
   .cb-two-col { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: center; }
-  @media (min-width: 768px) { .cb-two-col { grid-template-columns: 1fr 1fr; gap: 56px; } }
-  .cb-card { background: ${PAPER}; border-radius: 16px; box-shadow: 0 2px 14px rgba(0,0,0,0.06); border: 1px solid rgba(26,26,26,0.06); }
+  @media (min-width: 768px) { .cb-two-col { grid-template-columns: 1.15fr 0.85fr; gap: 56px; } }
+  .cb-card, .cb-value-card { background: ${PAPER}; border: 1px solid rgba(26,26,26,0.07); box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+  .cb-card:hover, .cb-value-card:hover { transform: translateY(-4px); box-shadow: 0 14px 36px rgba(0,0,0,0.1); border-color: ${INK} !important; }
+  .cb-value-card { border-radius: 18px; padding: 30px 24px; }
+  /* About-style stats band */
+  .cb-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  @media (max-width: 900px) { .cb-stats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .cb-stats { grid-template-columns: 1fr; } }
+  .cb-stat { text-align: center; padding: 10px 12px; }
 `;
 
 /* ── Helpers ── */
@@ -55,8 +62,8 @@ function SectionHeading({ title, dark, align = 'center' }) {
   return (
     <h2
       style={{
-        fontSize: 'clamp(26px, 4vw, 40px)',
-        lineHeight: 1.15,
+        fontSize: 'clamp(28px, 4vw, 40px)',
+        lineHeight: 1.1,
         letterSpacing: '-0.02em',
         margin: '0 0 12px',
         color: dark ? PAPER : INK,
@@ -66,6 +73,26 @@ function SectionHeading({ title, dark, align = 'center' }) {
     >
       {title}
     </h2>
+  );
+}
+
+/** About/Contact-style section label: small tracked uppercase eyebrow. */
+function SectionEyebrow({ children, dark, align = 'center' }) {
+  if (!children) return null;
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        letterSpacing: '0.3em',
+        textTransform: 'uppercase',
+        fontWeight: 700,
+        marginBottom: 14,
+        color: dark ? 'rgba(255,255,255,0.5)' : STONE,
+        textAlign: align,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -189,7 +216,15 @@ function TwoColumnBlock({ block }) {
   ) : null;
   return (
     <SectionShell block={block} dark={false}>
-      <SectionHeading title={block.title} />
+      {block.subtitle && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <span style={{ width: 34, height: 2, background: INK }} />
+          <span style={{ fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: STONE, fontWeight: 700 }}>
+            {block.subtitle}
+          </span>
+        </div>
+      )}
+      <SectionHeading title={block.title} align="left" />
       {right ? (
         <div className="cb-two-col">
           <div><ContentProse html={block.leftContent || ''} /></div>
@@ -208,22 +243,16 @@ function FeaturesBlock({ block }) {
   const features = (block.features || '').split('\n').map((f) => f.trim()).filter(Boolean);
   if (!block.title && features.length === 0) return null;
   return (
-    <SectionShell block={block} dark={false}>
+    <SectionShell block={block} dark={false} extra={{ background: block._styles?.bgColor || '#fafafa' }}>
+      <SectionEyebrow>{block.subtitle}</SectionEyebrow>
       <SectionHeading title={block.title} />
-      {block.subtitle && (
-        <p style={{ fontSize: 16, lineHeight: 1.7, color: STONE, textAlign: 'center', maxWidth: 520, margin: '0 auto 40px' }}>
-          {block.subtitle}
-        </p>
-      )}
-      <div className="cb-grid cb-grid-2 cb-grid-3">
+      <div className="cb-grid cb-grid-2 cb-grid-4" style={{ gap: 20 }}>
         {features.map((f, i) => (
-          <div
-            key={i}
-            className="cb-card"
-            style={{ padding: '30px 26px', borderTop: `3px solid ${ACCENT}` }}
-          >
-            <div style={{ fontSize: 26, marginBottom: 14 }}>✨</div>
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: INK, letterSpacing: '-0.01em' }}>{f}</h3>
+          <div key={i} className="cb-value-card">
+            <div style={{ width: 46, height: 46, borderRadius: 13, background: INK, color: PAPER, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, fontSize: 20 }}>
+              ✨
+            </div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: INK, margin: 0, letterSpacing: '-0.01em' }}>{f}</h3>
           </div>
         ))}
       </div>
@@ -236,14 +265,19 @@ function StatsBlock({ block }) {
   if (!block.title && stats.length === 0) return null;
   return (
     <SectionShell block={block} dark>
+      <SectionEyebrow dark>{block.subtitle}</SectionEyebrow>
       <SectionHeading title={block.title} dark />
-      <div className="cb-grid cb-grid-2 cb-grid-4" style={{ gap: 36 }}>
+      <div className="cb-stats" style={{ marginTop: 8 }}>
         {stats.map((s, i) => (
-          <div key={i} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 'clamp(34px, 5vw, 52px)', lineHeight: 1.1, margin: '0 0 8px', color: ACCENT, ...displayFont }}>
+          <div
+            key={i}
+            className="cb-stat"
+            style={{ borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.1)' : 'none' }}
+          >
+            <div style={{ fontSize: 40, lineHeight: 1, fontWeight: 800, color: PAPER, marginBottom: 10, ...displayFont }}>
               {s.number || '0'}
             </div>
-            <div style={{ fontSize: 13.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.66)', fontWeight: 600 }}>
+            <div style={{ fontSize: 10.5, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
               {s.label || ''}
             </div>
           </div>
@@ -467,11 +501,12 @@ function PricingBlock({ block }) {
 function CtaBlock({ block }) {
   if (!block.title && !block.description && !block.button_text) return null;
   return (
-    <SectionShell block={block} dark>
+    <SectionShell block={block} dark={false}>
       <div style={{ maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
-        <SectionHeading title={block.title} dark />
+        <SectionEyebrow>{block.subtitle}</SectionEyebrow>
+        <SectionHeading title={block.title} />
         {block.description && (
-          <p style={{ fontSize: 16.5, lineHeight: 1.7, color: 'rgba(255,255,255,0.72)', margin: '0 0 32px' }}>
+          <p style={{ fontSize: 15.5, color: THREAD, margin: '0 auto 36px', maxWidth: 480, lineHeight: 1.7 }}>
             {block.description}
           </p>
         )}
@@ -479,20 +514,25 @@ function CtaBlock({ block }) {
           <a
             href={block.button_link || '#'}
             style={{
-              display: 'inline-block',
-              background: ACCENT,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: INK,
               color: PAPER,
               textDecoration: 'none',
-              padding: '15px 44px',
+              padding: '15px 36px',
               borderRadius: 999,
               fontWeight: 700,
               fontSize: 12,
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
-              boxShadow: '0 10px 28px rgba(255,107,53,0.35)',
+              boxShadow: '0 10px 28px rgba(26,26,26,0.25)',
+              transition: 'all 0.2s',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#000'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = INK; e.currentTarget.style.transform = 'none'; }}
           >
-            {block.button_text}
+            {block.button_text} →
           </a>
         )}
       </div>

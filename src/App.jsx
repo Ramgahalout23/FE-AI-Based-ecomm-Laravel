@@ -12,7 +12,6 @@ import useCartStore from './store/cartStore';
 import { wishlistAPI } from './api/wishlist';
 import { SettingsProvider } from './store/settingsStore';
 import { useSettings } from './store/useSettings';
-import { connectSocket, disconnectSocket } from './services/socketService';
 
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -385,17 +384,33 @@ function AppContent() {
     }
   }, [appSettings, setDefaultCurrency, setDefaultTimezone]);
 
-  // Connect/disconnect WebSocket based on auth state and token version
-  // The tokenVersion dependency ensures the socket reconnects with a fresh
-  // JWT when the token is silently refreshed (e.g. OAuth redirect, refresh flow).
+  // Connect/disconnect WebSocket based on auth state and token version.
+  // socket.io-client is imported lazily so it stays OUT of the initial bundle
+  // for anonymous storefront visitors — the socket is only needed for
+  // authenticated users (realtime notifications, chat). The tokenVersion dep
+  // ensures the socket reconnects with a fresh JWT when the token is silently
+  // refreshed (e.g. OAuth redirect, refresh flow).
   useEffect(() => {
-    if (isAuthenticated || localStorage.getItem('authToken')) {
-      connectSocket();
-    }
-    return () => {
-      disconnectSocket();
+    let cancelled = false;
+    let disconnectFn = null;
+
+    const connect = async () => {
+      if (cancelled) return;
+      const mod = await import('./services/socketService');
+      if (cancelled) return;
+      mod.connectSocket();
+      disconnectFn = mod.disconnectSocket;
     };
-  }, [isAuthenticated, tokenVersion, connectSocket, disconnectSocket]);
+
+    if (isAuthenticated || localStorage.getItem('authToken')) {
+      connect();
+    }
+
+    return () => {
+      cancelled = true;
+      if (disconnectFn) disconnectFn();
+    };
+  }, [isAuthenticated, tokenVersion]);
 
   // ── Sync wishlist from server on auth state change ──
   useEffect(() => {

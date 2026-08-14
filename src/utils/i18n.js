@@ -1040,6 +1040,8 @@ const DEFAULT_EN_TRANSLATIONS = {
   'page_view.marquee_3': "We're Here to Help",
   'page_view.cta_title': 'Questions About This Page?',
   'page_view.cta_desc': 'Reach out to our team — we usually reply within 24 hours.',
+  'page_view.hero_cta_primary': 'Explore Collection',
+  'page_view.hero_cta_secondary': 'Contact Us',
 
 
   // ── Reviews ──

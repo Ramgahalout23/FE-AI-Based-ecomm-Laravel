@@ -283,6 +283,40 @@ export const getVideoUrl = (url) => {
 };
 
 /**
+ * Build a responsive `srcset` string for a remote (Unsplash) image.
+ *
+ * The storefront's seeded/catalog images come from Unsplash with width params
+ * (e.g. `?w=600&h=800&fit=crop&q=80`). Browsers otherwise download one large
+ * image and scale it down on small screens. This generates candidates at the
+ * requested widths — scaling `h` proportionally when present so `fit=crop`
+ * keeps the same aspect ratio — and returns null for anything it can't
+ * resize (local uploads, data URIs, Cloudinary-proxied URLs, …).
+ *
+ * Usage: <img src={url} srcSet={getResponsiveSrcSet(url)} sizes="300px" />
+ */
+export const getResponsiveSrcSet = (url, widths = [320, 480, 640, 800]) => {
+  const src = getImageUrl(url);
+  if (!src || !src.startsWith('https://images.unsplash.com/')) return null;
+  try {
+    const base = new URL(src);
+    const w = parseInt(base.searchParams.get('w'), 10);
+    const h = parseInt(base.searchParams.get('h'), 10);
+    // Keep the same aspect ratio so fit=crop crops identically at every size
+    const ratio = w && h ? h / w : null;
+    const candidates = widths.map((wd) => {
+      const p = new URL(src);
+      p.searchParams.set('w', String(wd));
+      p.searchParams.set('q', '80');
+      if (ratio) p.searchParams.set('h', String(Math.round(wd * ratio)));
+      return `${p.toString()} ${wd}w`;
+    });
+    return candidates.join(', ');
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Get the first product image URL from any format the backend returns.
  * Handles Prisma `productimage` relation, legacy `images` array, and direct `imageUrl`/`image` fields.
  */

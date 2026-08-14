@@ -165,39 +165,42 @@ export default defineConfig(({ mode }) => {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
-          // ★ Split vendor libs into separate chunks for better caching
-          manualChunks(id) {
-            // node_modules chunking
-            if (id.includes('node_modules')) {
+          // ★ Split vendor libs into separate chunks for better caching.
+          // Rolldown (Vite 8) ignores `manualChunks` — use `advancedChunks`
+          // groups instead. Groups capture a module AND its dependencies
+          // recursively, so `priority` matters: React's shared internals
+          // (e.g. __CLIENT_INTERNALS) must be claimed by the react group
+          // BEFORE the charts group can sweep them into the recharts chunk.
+          // Otherwise the ~350 kB charts chunk gets pulled into the
+          // storefront's INITIAL bundle (verified in the network waterfall).
+          advancedChunks: {
+            groups: [
               // React ecosystem — changes rarely, great for long-term caching
-              if (id.includes('react') && !id.includes('react-dom') && !id.includes('react-router') && !id.includes('react-helmet')) {
-                return 'vendor-react';
-              }
-              if (id.includes('react-dom') || id.includes('scheduler')) {
-                return 'vendor-dom';
-              }
-              if (id.includes('react-router')) {
-                return 'vendor-router';
-              }
-              if (id.includes('react-helmet')) {
-                return 'vendor-helmet';
-              }
-              if (id.includes('@tanstack/react-query')) {
-                return 'vendor-query';
-              }
+              { name: 'vendor-react', test: /node_modules\/react(\/|$)/, priority: 100 },
+              { name: 'vendor-dom', test: /node_modules\/(react-dom|scheduler)(\/|$)/, priority: 100 },
+              { name: 'vendor-router', test: /node_modules\/react-router(\/|$)/, priority: 100 },
+              { name: 'vendor-helmet', test: /node_modules\/react-helmet(\/|$)/, priority: 100 },
+              { name: 'vendor-query', test: /node_modules\/@tanstack\/react-query(\/|$)/, priority: 100 },
               // Large UI libraries — split individually
-              if (id.includes('framer-motion')) {
-                return 'vendor-framer';
-              }
-              if (id.includes('recharts') || id.includes('d3-')) {
-                return 'vendor-charts';
-              }
-              if (id.includes('@zxing')) {
-                return 'vendor-barcode';
-              }
-              // Everything else in vendor bundle
-              return 'vendor';
-            }
+              { name: 'vendor-framer', test: /node_modules\/(framer-motion|motion|motion-dom|motion-utils)(\/|$)/, priority: 100 },
+              // recharts' deps that OTHER code (zustand, react-query, router…)
+              // also uses — claim them BEFORE the charts group can sweep them
+              // into the charts chunk (which pulls the whole chunk into the
+              // storefront initial bundle). Keep each in its own small chunk so
+              // it only loads with whichever feature needs it.
+              { name: 'vendor-usest', test: /node_modules\/use-sync-external-store(\/|$)/, priority: 95 },
+              { name: 'vendor-es-toolkit', test: /node_modules\/es-toolkit(\/|$)/, priority: 95 },
+              { name: 'vendor-chart-deps', test: /node_modules\/(clsx|eventemitter3|tiny-invariant|decimal\.js-light|immer|reselect|react-redux|@reduxjs\/toolkit)(\/|$)/, priority: 95 },
+              // Chart library only — low priority so shared modules stay out
+              { name: 'vendor-charts', test: /node_modules\/(recharts|victory-vendor)(\/|$)/, priority: 50 },
+              // Socket.io + engine.io — only needed for authenticated users
+              // (realtime notifications/chat), imported lazily by App.jsx. Keep
+              // out of the initial bundle for anonymous storefront visitors.
+              { name: 'vendor-socketio', test: /node_modules\/(socket\.io-client|engine\.io-client|@socket\.io)(\/|$)/, priority: 100 },
+              { name: 'vendor-barcode', test: /node_modules\/@zxing(\/|$)/, priority: 100 },
+              // Everything else in one vendor bundle
+              { name: 'vendor', test: /node_modules\//, priority: 10 },
+            ],
           },
         },
       },

@@ -13,6 +13,7 @@ import { downloadBlob } from '../../utils/download';
 import toast from '../../utils/toast';
 import ContentBlocks from '../../components/storefront/ContentBlocks';
 import ContentProse from '../../components/storefront/ContentProse';
+import ContentPageHero, { buildHeroCtas } from '../../components/storefront/ContentPageHero';
 const AdvancedPageEditor = lazy(() => import('../../components/common/AdvancedPageEditor'));
 
 /**
@@ -35,6 +36,23 @@ function parseBlocks(content) {
 
 const isPublished = (p) => p.status === 'PUBLISHED' || p.isPublished === true;
 
+/** Fresh form state for create — hero CTAs start visible with empty
+ *  label/href so the storefront falls back to its defaults. */
+function emptyForm() {
+  return {
+    title: '',
+    slug: '',
+    content: '',
+    status: 'PUBLISHED',
+    settings: {
+      hero: {
+        primary: { label: '', href: '', enabled: true },
+        secondary: { label: '', href: '', enabled: true },
+      },
+    },
+  };
+}
+
 export default function PagesAdminPage() {
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +60,10 @@ export default function PagesAdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ title: '', slug: '', content: '', status: 'PUBLISHED' });
+  const [form, setForm] = useState(() => emptyForm());
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [selected, setSelected] = useState(() => new Set());
 
   // ── Row-level page preview modal (see how the page looks on the storefront) ──
   const [previewPage, setPreviewPage] = useState(null);
@@ -116,8 +136,84 @@ export default function PagesAdminPage() {
     } finally { setExporting(false); }
   };
 
+  // ── Row selection + bulk actions ──
+  const toggleSelect = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSelectAll = () => setSelected(prev =>
+    prev.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id))
+  );
+  const clearSelection = () => setSelected(new Set());
+
+  const bulkSetStatus = async (status) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    try {
+      await Promise.all(ids.map(id => adminAPI.updatePage(id, { status })));
+      toast.success(`${ids.length} page${ids.length === 1 ? '' : 's'} ${status === 'PUBLISHED' ? 'published' : 'unpublished'}`);
+      clearSelection();
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to update selection');
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} selected page${ids.length === 1 ? '' : 's'}?`)) return;
+    try {
+      await Promise.all(ids.map(id => adminAPI.deletePage(id)));
+      toast.success(`${ids.length} page${ids.length === 1 ? '' : 's'} deleted`);
+      clearSelection();
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to delete selection');
+    }
+  };
+
+  // Quick publish/draft toggle straight from the row (no modal needed)
+  const toggleStatus = async (p) => {
+    const next = isPublished(p) ? 'DRAFT' : 'PUBLISHED';
+    try {
+      await adminAPI.updatePage(p.id, { status: next });
+      toast.success(next === 'PUBLISHED' ? `"${p.title}" published` : `"${p.title}" moved to drafts`);
+      await load(currentPage);
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const copyLink = (slug) => {
+    const url = `${window.location.origin}/pages/${slug}`;
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) toast.success('Link copied');
+        else toast.error('Could not copy link');
+      } catch {
+        toast.error('Could not copy link');
+      }
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => toast.success('Link copied'), fallback);
+    } else {
+      fallback();
+    }
+  };
+
   const load = async (page = 1, size = pageSize) => {
     setLoading(true);
+    setSelected(new Set());
     try {
       const r = await adminAPI.getPages({ page, limit: size });
       const data = r.data?.data || r.data;
@@ -151,8 +247,33 @@ export default function PagesAdminPage() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isFullscreen, showModal, previewPage]);
 
-  const openCreate = () => { setEditing(null); setForm({ title: '', slug: '', content: '', status: 'PUBLISHED' }); validation.reset(); setShowModal(true); };
-  const openEdit = (p) => { setEditing(p); setForm({ title: p.title || '', slug: p.slug || '', content: p.content || '', status: p.status || 'PUBLISHED' }); validation.reset(); setShowModal(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyForm()); validation.reset(); setShowModal(true); };
+  const openEdit = (p) => {
+    setEditing(p);
+    const hero = p.settings?.hero || {};
+    const normalizeCta = (key) => {
+      const c = hero[key] || {};
+      return { label: c.label || '', href: c.href || '', enabled: c.enabled !== false };
+    };
+    setForm({
+      title: p.title || '',
+      slug: p.slug || '',
+      content: p.content || '',
+      status: p.status || 'PUBLISHED',
+      settings: { hero: { primary: normalizeCta('primary'), secondary: normalizeCta('secondary') } },
+    });
+    validation.reset();
+    setShowModal(true);
+  };
+
+  const updateHeroCta = (key, field, value) =>
+    setForm(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        hero: { ...prev.settings.hero, [key]: { ...prev.settings.hero[key], [field]: value } },
+      },
+    }));
 
   const handleSave = async () => {
     if (!validation.validateForm(form)) return;
@@ -195,11 +316,17 @@ export default function PagesAdminPage() {
     }
   };
 
-  const filtered = useMemo(() => pages.filter(p =>
-    !search.trim() ||
-    (p.title || '').toLowerCase().includes(search.trim().toLowerCase()) ||
-    (p.slug || '').toLowerCase().includes(search.trim().toLowerCase())
-  ), [pages, search]);
+  const filtered = useMemo(() => pages.filter(p => {
+    const q = search.trim().toLowerCase();
+    const matchesQuery = !q ||
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.slug || '').toLowerCase().includes(q);
+    if (!matchesQuery) return false;
+    if (filter === 'published') return isPublished(p);
+    if (filter === 'draft') return !isPublished(p);
+    if (filter === 'builder') return parseBlocks(p.content).length > 0;
+    return true;
+  }), [pages, search, filter]);
 
   const stats = useMemo(() => {
     const published = pages.filter(isPublished).length;
@@ -265,37 +392,64 @@ export default function PagesAdminPage() {
       {error && <div className="admin-alert danger mb-4"><span className="admin-alert-icon">⚠️</span><div className="admin-alert-body"><div className="admin-alert-title">Error Loading Data</div><div>{error}</div></div></div>}
       <div className="table-card">
         <div className="table-head">
-          <h3>All Pages ({filtered.length} shown / {totalItems} total)</h3>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="🔍 Search pages…"
-            style={{
-              padding: '8px 14px',
-              border: '1px solid #e5e5ea',
-              borderRadius: 8,
-              fontSize: 13,
-              width: 240,
-              maxWidth: '45%',
-              outline: 'none',
-              transition: 'border-color 0.2s ease',
-            }}
-            onFocus={e => { e.target.style.borderColor = '#1a1a1a'; }}
-            onBlur={e => { e.target.style.borderColor = '#e5e5ea'; }}
-          />
+          <h3>Pages ({filtered.length} shown / {totalItems} total)</h3>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select value={filter} onChange={e => setFilter(e.target.value)} className="table-filter" aria-label="Filter pages">
+              <option value="all">All pages</option>
+              <option value="published">Published</option>
+              <option value="draft">Drafts</option>
+              <option value="builder">Builder pages</option>
+            </select>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="🔍 Search pages…"
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e5e5ea',
+                borderRadius: 8,
+                fontSize: 13,
+                width: 220,
+                maxWidth: '45%',
+                outline: 'none',
+                transition: 'border-color 0.2s ease',
+              }}
+              onFocus={e => { e.target.style.borderColor = '#1a1a1a'; }}
+              onBlur={e => { e.target.style.borderColor = '#e5e5ea'; }}
+            />
+          </div>
         </div>
+
+        {selected.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.65rem 1.5rem', background: 'rgba(37,99,235,0.05)', borderBottom: '1px solid #dbe4f5', flexWrap: 'wrap' }}>
+            <strong style={{ fontSize: '0.82rem', color: '#1e3a8a' }}>{selected.size} selected</strong>
+            <button className="btn-sm" style={{ border: '1px solid #d5dbe8', background: '#fff', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }} onClick={() => bulkSetStatus('PUBLISHED')}>✓ Publish</button>
+            <button className="btn-sm" style={{ border: '1px solid #d5dbe8', background: '#fff', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }} onClick={() => bulkSetStatus('DRAFT')}>⏸ Unpublish</button>
+            <button className="btn-sm" style={{ border: '1px solid rgba(220,38,38,0.35)', color: '#dc2626', background: '#fff', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer' }} onClick={bulkDelete}>🗑 Delete</button>
+            <button className="btn-ghost btn-sm" onClick={clearSelection}>Clear</button>
+          </div>
+        )}
+
         <table className="admin-table">
-          <thead><tr><th>Title</th><th>Slug (URL)</th><th>Status</th><th>Last Modified</th><th>Actions</th></tr></thead>
+          <thead><tr><th style={{ width: 34 }}><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} title="Select all shown pages" aria-label="Select all shown pages" /></th><th>Title</th><th>Slug (URL)</th><th>Status</th><th>Last Modified</th><th>Actions</th></tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
+              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon">📄</div><h3>{search ? `No pages match "${search}"` : 'No custom pages'}</h3><p style={{ marginTop: 8 }}>{search ? 'Try a different search.' : 'Create your first page to get started.'}</p></div></td></tr>
+              <tr><td colSpan={6}><div className="empty-state">
+                <div className="empty-state-icon">📄</div>
+                <h3>{search || filter !== 'all' ? 'No pages match your filters' : 'No custom pages'}</h3>
+                <p style={{ marginTop: 8 }}>{search || filter !== 'all' ? 'Try a different search or filter.' : 'Create your first page to get started.'}</p>
+                {!search && filter === 'all' && (
+                  <button className="btn-dark btn-sm" style={{ marginTop: 14 }} onClick={openCreate}>+ Create your first page</button>
+                )}
+              </div></td></tr>
             ) : filtered.map(p => {
               const sectionCount = parseBlocks(p.content).length;
               return (
-                <tr key={p.id}>
+                <tr key={p.id} style={selected.has(p.id) ? { background: 'rgba(37,99,235,0.05)' } : undefined}>
+                  <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={`Select ${p.title}`} /></td>
                   <td>
                     <strong>{p.title}</strong>
                     <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -316,20 +470,35 @@ export default function PagesAdminPage() {
                     </div>
                   </td>
                   <td>
-                    <a
-                      href={`/pages/${p.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', borderBottom: '1px dashed #c7d4f0' }}
-                      title="Open on storefront"
-                    >
-                      /{p.slug}
-                    </a>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <a
+                        href={`/pages/${p.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', borderBottom: '1px dashed #c7d4f0' }}
+                        title="Open on storefront"
+                      >
+                        /{p.slug}
+                      </a>
+                      <button
+                        onClick={() => copyLink(p.slug)}
+                        title="Copy storefront link"
+                        aria-label={`Copy link for ${p.title}`}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--muted)', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}
+                      >
+                        🔗
+                      </button>
+                    </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${isPublished(p) ? 'status-active' : 'status-pending'}`}>
+                    <button
+                      onClick={() => toggleStatus(p)}
+                      className={`status-badge ${isPublished(p) ? 'status-active' : 'status-pending'}`}
+                      style={{ cursor: 'pointer', border: 'none', font: 'inherit', letterSpacing: 'inherit' }}
+                      title={isPublished(p) ? 'Click to unpublish' : 'Click to publish'}
+                    >
                       {isPublished(p) ? 'PUBLISHED' : 'DRAFT'}
-                    </span>
+                    </button>
                   </td>
                   <td style={{ fontSize: '0.82rem' }}>{formatDate(p.updatedAt || p.createdAt)}</td>
                   <td>
@@ -378,6 +547,14 @@ export default function PagesAdminPage() {
               </div>
             </div>
             <div className="modal-body" style={{ flex: 1, overflow: 'auto', background: '#ffffff', padding: 0 }}>
+              <ContentPageHero
+                watermark={(previewPage.title || '').split(/\s+/)[0]?.toUpperCase() || 'INFO'}
+                eyebrow="Our Policies & Info"
+                title={previewPage.title}
+                description={previewPage.subtitle || ''}
+                breadcrumb={[{ label: 'Home', href: '/' }, { label: previewPage.title }]}
+                ctas={buildHeroCtas(previewPage.settings?.hero)}
+              />
               {parseBlocks(previewPage.content).length > 0 ? (
                 <ContentBlocks blocks={parseBlocks(previewPage.content)} storeName={storeName} />
               ) : (
@@ -434,6 +611,46 @@ export default function PagesAdminPage() {
                 </AdminFormField>
                 <div className="form-group"><label>Visibility Status</label><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}><option value="PUBLISHED">Published</option><option value="DRAFT">Draft</option></select></div>
               </div>
+
+              {/* ── Hero Buttons (per-page CTA config) ── */}
+              <div style={{ border: '1px solid #e5e5ea', borderRadius: 10, padding: '14px 16px', background: '#fafbfc' }}>
+                <label style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ⚡ Hero Buttons
+                  <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11.5 }}>— the two action buttons shown in the dark page hero</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12, marginTop: 10 }}>
+                  {['primary', 'secondary'].map(key => (
+                    <div key={key} style={{ background: '#fff', border: '1px solid #e5e5ea', borderRadius: 8, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: key === 'primary' ? '#1a1a1a' : 'var(--muted)' }}>
+                          {key === 'primary' ? 'Primary button' : 'Secondary button'}
+                        </span>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={form.settings.hero[key].enabled}
+                            onChange={e => updateHeroCta(key, 'enabled', e.target.checked)}
+                          />
+                          Show
+                        </label>
+                      </div>
+                      <input
+                        value={form.settings.hero[key].label}
+                        onChange={e => updateHeroCta(key, 'label', e.target.value)}
+                        placeholder={key === 'primary' ? 'Button text (e.g. Shop Now)' : 'Button text (e.g. Contact Us)'}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid #e5e5ea', borderRadius: 6, fontSize: 12.5, outline: 'none' }}
+                      />
+                      <input
+                        value={form.settings.hero[key].href}
+                        onChange={e => updateHeroCta(key, 'href', e.target.value)}
+                        placeholder="Link (e.g. /products)"
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid #e5e5ea', borderRadius: 6, fontSize: 12.5, outline: 'none', marginTop: 6 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: isFullscreen ? 'calc(100vh - 200px)' : '600px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label style={{ fontSize: '13px', fontWeight: '600', display: 'block' }}>Page Content (Advanced Builder)</label>

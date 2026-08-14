@@ -12,7 +12,7 @@ import { homepageAPI } from '../../api/homepage';
 import { productsAPI } from '../../api/products';
 import usePullToRefresh from '../../hooks/usePullToRefresh';
 
-import { formatDate, getImageUrl, getBannerImage, getCategoryImage } from '../../utils/formatters';
+import { formatDate, getImageUrl, getResponsiveSrcSet, getBannerImage, getCategoryImage } from '../../utils/formatters';
 
 // Tier 2 — below-fold / on-demand sections are code-split so they don't ride
 // along with the HomePage route chunk. ReelsSection additionally only mounts
@@ -304,9 +304,13 @@ function HeroBanner({ banners }) {
           >
             <img
               src={imgSrc}
+              srcSet={getResponsiveSrcSet(imgSrc, [640, 1024, 1600, 2000])}
+              sizes="100vw"
               alt=""
               className="w-full h-auto"
               loading="eager"
+              fetchPriority="high"
+              decoding="async"
             />
           </motion.div>
         </AnimatePresence>
@@ -329,7 +333,11 @@ function HeroBanner({ banners }) {
         >
           <img
             src={getImageUrl(getBannerImage(slide))}
+            srcSet={getResponsiveSrcSet(getBannerImage(slide), [640, 1024, 1600, 2000])}
+            sizes="100vw"
             alt="Hero Banner"
+            fetchPriority="high"
+            decoding="async"
             className="w-full h-full object-cover"
           />
           {/* Readability overlay */}
@@ -413,7 +421,10 @@ function CategorySection({ categories }) {
                 <div className="relative overflow-hidden rounded-lg md:rounded-xl bg-gray-100 aspect-[3/4]">
                   <img
                     loading="lazy"
+                    decoding="async"
                     src={getImageUrl(getCategoryImage(cat))}
+                    srcSet={getResponsiveSrcSet(getCategoryImage(cat), [160, 260, 400, 560])}
+                    sizes="(max-width: 640px) 30vw, (max-width: 1024px) 200px, 280px"
                     alt={cat.name}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                   />
@@ -1020,8 +1031,11 @@ function LookCard({ item, idx }) {
       <div className="aspect-[300/392] max-sm:aspect-[4/5] relative overflow-hidden">
         <img
           src={item.image_url || item.imageUrl || item.image}
+          srcSet={getResponsiveSrcSet(item.image_url || item.imageUrl || item.image)}
+          sizes="(max-width: 640px) 45vw, 360px"
           alt={item.name}
           loading="lazy"
+          decoding="async"
           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
         />
         {/* Gradient overlay for label readability */}
