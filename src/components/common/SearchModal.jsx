@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 ;
 import { motion, AnimatePresence } from 'framer-motion';
 import { productsAPI } from '../../api/products';
-import SearchProductCard from '../../components/product/SearchProductCard';
+import ProductCard from '../product/ProductCard';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 
 const TRENDING_SEARCHES = [
@@ -243,7 +243,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                     </div>
 
                     {isLoadingProducts ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="search-product-grid grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {Array.from({ length: 4 }).map((_, i) => (
                           <div key={i} className="animate-pulse">
                             <div className="aspect-[4/5] max-sm:aspect-[5/6] bg-gray-100 rounded-xl mb-2" />
@@ -253,9 +253,9 @@ export default memo(function SearchModal({ isOpen, onClose }) {
                         ))}
                       </div>
                     ) : popularProducts.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="search-product-grid grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {popularProducts.map((product) => (
-                          <SearchProductCard key={product.id} product={product} />
+                          <ProductCard key={product.id} product={product} imageAspect="aspect-[4/5] max-sm:aspect-[5/6]" />
                         ))}
                       </div>
                     ) : (

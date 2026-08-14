@@ -79,6 +79,19 @@
   .product-card .price .original{font-size:10px}
 }
 
+/* ── Search Modal: compact cards — smaller title/price so the 4-col grid breathes ── */
+.search-product-grid .card-title{
+  font-size:11px;
+  line-height:1.35;
+  margin-bottom:4px;
+}
+.search-product-grid .price-item{
+  font-size:11px;
+}
+.search-product-grid .product-card .line-through{
+  font-size:9px;
+}
+
 /* ── Editorial Spotlight: story-style progress fill (New Arrivals showcase) ── */
 @keyframes showcase-fill {
   from { transform: scaleX(0); }

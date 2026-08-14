@@ -129,7 +129,7 @@ const useCartStore = create(
 
         // ── Auto-open cart drawer after adding item ──
         // This ensures the right-side cart drawer slides open whenever
-        // any component adds an item to the cart (ProductCard, SearchProductCard,
+        // any component adds an item to the cart (ProductCard,
         // ReelsSection, NewArrivalOfTheWeek, etc.) without requiring each
         // component to manually call openCart().
         get().openCart();

@@ -443,7 +443,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           )}
 
 
-          {/* Style Highlights Overlay — premium editorial style */}
+          {/* Style Highlights Overlay — premium editorial style, responsive to card size */}
           <AnimatePresence>
             {!showQuickAdd && showHighlights && canHover && (
               <motion.div
@@ -460,34 +460,34 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 {/* Subtle side vignette */}
                 <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
 
-                {/* Content — positioned at bottom */}
-                <div className="relative z-10 p-4 md:p-5">
+                {/* Content — positioned at bottom, clears the quick-add bar */}
+                <div className="relative z-10 p-3 pb-10 md:p-5 md:pb-12">
                   {/* Title — editorial, staggered entrance */}
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <h4 className="text-white font-display font-bold text-base md:text-lg leading-[1.1] mb-3">
-                      Style<br />Highlights
+                    <h4 className="text-white font-display font-bold text-[13px] leading-[1.15] mb-1.5 md:text-base md:mb-3">
+                      Style Highlights
                     </h4>
-                    <div className="w-6 h-px bg-white/30 mb-3" />
+                    <div className="w-6 h-px bg-white/30 mb-2 md:mb-3" />
                   </motion.div>
 
-                  {/* Attribute list — staggered slide-up per row */}
-                  <div className="flex flex-col gap-2">
+                  {/* Attribute list — staggered slide-up per row; 3 rows on small cards, all 5 on desktop */}
+                  <div className="flex flex-col gap-1.5 md:gap-2">
                     {highlights.map((h, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.1 + i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                        className="flex items-baseline justify-between"
+                        className={`${i >= 3 ? 'hidden md:flex' : 'flex'} items-baseline justify-between gap-2`}
                       >
-                        <span className="text-white/50 text-[8px] md:text-[9px] font-semibold uppercase tracking-[0.18em]">
+                        <span className="text-white/50 text-[7px] md:text-[9px] font-semibold uppercase tracking-[0.18em]">
                           {h.label}
                         </span>
-                        <span className="text-white text-[11px] md:text-[12px] font-medium">
+                        <span className="text-white text-[9px] md:text-[12px] font-medium min-w-0 truncate">
                           {h.value}
                         </span>
                       </motion.div>
