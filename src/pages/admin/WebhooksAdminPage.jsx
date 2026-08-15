@@ -42,7 +42,7 @@ export default function WebhooksAdminPage() {
       const res = await webhooksAPI.getAll();
       const data = res.data?.data || [];
       setWebhooks(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load webhooks');
     } finally {
       setLoading(false);

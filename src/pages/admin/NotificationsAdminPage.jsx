@@ -82,10 +82,12 @@ export default function NotificationsAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, pageSize]);
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   // Resolve target audience -> array of userIds for the bulk endpoint.

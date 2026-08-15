@@ -166,11 +166,13 @@ export default function OrdersAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   // Load when currentPage changes
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   // Real-time order updates via WebSocket
@@ -183,6 +185,7 @@ export default function OrdersAdminPage() {
         { icon: '\u{1F504}', duration: 4000 }
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [currentPage]);
 
   useOrderStatusUpdates(handleOrderUpdate, [currentPage]);
@@ -195,6 +198,7 @@ export default function OrdersAdminPage() {
       `\u{1F195} New order ${data.orderNumber ? `#${data.orderNumber}` : ''} \u2014 ${formatCurrency(data.summary?.total ?? data.total ?? 0)}`,
       { duration: 6000 }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [currentPage]);
 
   useOrderCreated(handleOrderCreated, [currentPage]);

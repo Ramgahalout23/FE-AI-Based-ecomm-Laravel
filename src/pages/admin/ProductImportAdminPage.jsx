@@ -140,31 +140,6 @@ export default function ProductImportAdminPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleUpload = async () => {
-    if (!fileValidation.validateForm({ file })) return;
-    setLoading(true);
-    setResult(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await adminAPI.importProducts(formData);
-      const data = res.data?.data || res.data || {};
-      setResult(data);
-      if (data.imported > 0) {
-        toast.success(`✅ ${data.imported} products imported!`);
-      }
-      if (data.errors > 0 || data.skipped > 0) {
-        toast.error(`⚠️ ${data.skipped} skipped, ${data.errors} errors`);
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Import failed';
-      toast.error(msg);
-      setResult({ imported: 0, skipped: 0, errors: 1, errorDetails: [{ row: 0, message: msg }], importedProducts: [] });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleImportWithMapping = async () => {
     if (!fileValidation.validateForm({ file })) return;
     setLoading(true);

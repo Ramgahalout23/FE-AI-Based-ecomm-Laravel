@@ -1,4 +1,4 @@
-import { Crown, Play, ShoppingCart, Heart, Check, X, ShoppingBag, Minus, Plus } from 'lucide-react';
+import { Crown, Play, ShoppingCart, Heart, Check, X, ShoppingBag } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';

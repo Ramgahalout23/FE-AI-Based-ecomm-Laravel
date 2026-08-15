@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight, FileText, Lock, ShieldCheck } from 'lucide-react';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import ContentProse from '../../components/storefront/ContentProse';
 import { useSettings } from '../../store/useSettings';
@@ -91,7 +92,7 @@ export default function PrivacyPage() {
       `}</style>
 
       <SEOHead
-        title={content?.title ? `${content.title} | ${storeName}` : `Privacy Policy | ${storeName}`}
+        title={withStoreName(content?.title ? content.title : 'Privacy Policy', storeName)}
         description={content?.metaDescription || `Learn how ${storeName} collects, uses, and protects your personal information. Our privacy policy outlines our commitment to your data security.`}
       />
 

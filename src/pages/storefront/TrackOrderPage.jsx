@@ -1,25 +1,14 @@
-import { Search, Package, Truck, CheckCircle, Clock } from 'lucide-react';
+import { Search, Package } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import { ordersAPI } from '../../api/orders';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { ORDER_STATUSES } from '../../utils/constants';
-
-const STATUS_ICONS = {
-  PENDING: ClockIcon,
-  CONFIRMED: ClockIcon,
-  PROCESSING: CubeIcon,
-  SHIPPED: TruckIcon,
-  DELIVERED: CheckCircleIcon,
-  CANCELLED: ClockIcon,
-  RETURNED: CubeIcon,
-  RETURN_REQUESTED: CubeIcon,
-};
 
 const TIMELINE_STEPS = [
   { status: 'ORDER_PLACED', label: 'Order Placed', icon: '📋' },
@@ -59,12 +48,10 @@ export default function TrackOrderPage() {
     }
   };
 
-  const lastTimelineStatus = tracking?.timeline?.[tracking.timeline.length - 1]?.status || '';
-
   return (
     <div className="section">
       <SEOHead
-        title={`Track Your Order | ${storeName}`}
+        title={withStoreName('Track Your Order', storeName)}
         description={`Track your ${storeName} order in real-time. Enter your order number to see shipping status, delivery timeline, and package location.`}
         noIndex={true}
       />
@@ -153,9 +140,6 @@ export default function TrackOrderPage() {
                 <div className="flex items-start justify-between">
                   {TIMELINE_STEPS.map((step, i) => {
                     const isReached = tracking.timeline?.some(t => t.status === step.status);
-                    const isCurrent = tracking.status === 'DELIVERED'
-                      ? step.status === 'DELIVERED'
-                      : (tracking.timeline?.length || 0) > 0 && i === (tracking.timeline?.length || 1) - 1;
 
                     return (
                       <div key={step.status} className="flex flex-col items-center flex-1 relative">

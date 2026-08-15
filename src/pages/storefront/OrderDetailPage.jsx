@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { ordersAPI } from '../../api/orders';
 import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters';
@@ -86,7 +87,7 @@ export default function OrderDetailPage() {
       // Log the full error for debugging
       console.warn('[OrderDetailPage] Failed to fetch order:', { id, status, message: serverMsg || err.message });
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -102,7 +103,7 @@ export default function OrderDetailPage() {
 
   const handleReviewSubmitted = useCallback(() => {
     toast.success(t('orders.detail.review_submitted'));
-  }, []);
+  }, [t]);
 
   const isDelivered = order?.status === 'DELIVERED' || order?.status === 'COMPLETED';
 
@@ -152,7 +153,7 @@ export default function OrderDetailPage() {
   return (
     <div className="section">
       <SEOHead
-        title={`Order #${id?.slice(0, 8) || id} | ${storeName}`}
+        title={withStoreName(`Order #${id?.slice(0, 8) || id}`, storeName)}
         description={`View order details and track shipping status for order at ${storeName}.`}
         noIndex={true}
       />

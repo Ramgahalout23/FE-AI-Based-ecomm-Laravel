@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { buildSeoTitle } from '../../utils/seo';
 import SEOHead from '../../components/seo/SEOHead';
 import ContentPageHero, { buildHeroCtas } from '../../components/storefront/ContentPageHero';
 import ContentMarquee from '../../components/storefront/ContentMarquee';
@@ -105,7 +106,7 @@ export default function CustomPageView() {
     <div className="page-content bg-white flex-1">
       {/* SEO meta tags for custom page */}
       <SEOHead
-        title={pageSeo?.metaTitle || `${page.title} | ${storeName}`}
+        title={buildSeoTitle({ metaTitle: pageSeo?.metaTitle, name: page.title, storeName, separator: ' | ' })}
         description={pageSeo?.metaDescription || page.metaDescription || ''}
         keywords={pageSeo?.metaKeywords || ''}
         image={pageSeo?.ogImage || ''}

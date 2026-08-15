@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 ;
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import { useSettings } from '../../store/useSettings';
 
 export default function NotFoundPage() {
@@ -13,7 +14,7 @@ export default function NotFoundPage() {
   return (
     <div className="flex-1 flex items-center justify-center min-h-[70vh] bg-surface px-4 py-12">
       <SEOHead
-        title={`Page Not Found | ${storeName}`}
+        title={withStoreName('Page Not Found', storeName)}
         description={`The page you're looking for doesn't exist or has been moved. Browse our collection of premium products at ${storeName}.`}
         noIndex={true}
       />

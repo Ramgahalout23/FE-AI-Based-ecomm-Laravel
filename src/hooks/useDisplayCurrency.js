@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useAppInit } from '../contexts/AppInitContext';
 import { useDisplayCurrencyStore } from '../store/displayCurrencyStore';
 import { setDefaultCurrency } from '../utils/formatters';
@@ -15,7 +15,7 @@ import { setDefaultCurrency } from '../utils/formatters';
 export function useDisplayCurrency() {
   // Read currencies from app-init (already fetched, no separate API call needed)
   const { data: appInitData, loading: appInitLoading } = useAppInit();
-  const currencies = appInitData?.currencies || [];
+  const currencies = useMemo(() => appInitData?.currencies || [], [appInitData]);
   const loading = appInitLoading;
 
   // Subscribe to the Zustand store for re-render-driven currency updates
@@ -29,10 +29,10 @@ export function useDisplayCurrency() {
     setDefaultCurrency(code);
   }, [setCode]);
 
-  // Initialize formatter on mount
+  // Initialize formatter on mount (and keep in sync when the currency changes)
   useEffect(() => {
     setDefaultCurrency(displayCurrency);
-  }, []);
+  }, [displayCurrency]);
 
   // Validate stored currency against API response
   useEffect(() => {

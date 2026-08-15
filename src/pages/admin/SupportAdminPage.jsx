@@ -137,10 +137,12 @@ export default function SupportAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   /**

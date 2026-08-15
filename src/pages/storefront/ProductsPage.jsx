@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 ;
 import { trackSearch } from '../../services/tracker';
+import { withStoreName } from '../../utils/seo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -570,7 +571,7 @@ export default function ProductsPage() {
       }
     };
     fetchProducts();
-  }, [page, searchParams, priceRange]);
+  }, [page, searchParams, priceRange, selectedSizes, t]);
 
   const resetAndFetch = () => {
     setPage(1);
@@ -673,10 +674,10 @@ export default function ProductsPage() {
   // Page-level SEO title/description
   const seoTitle = selectedCategorySeo?.metaTitle || (
     selectedCategory
-      ? `${pageTitle} — Shop Premium Collection | ${storeName}`
+      ? withStoreName(`${pageTitle} — Shop Premium Collection`, storeName)
       : isSearching
-        ? `Search Results for "${searchParams.get('q')}" | ${storeName}`
-        : `All Products — Premium Streetwear | ${storeName}`
+        ? withStoreName(`Search Results for "${searchParams.get('q')}"`, storeName)
+        : withStoreName('All Products — Premium Streetwear', storeName)
   );
   const seoDescription = selectedCategorySeo?.metaDescription || (
     selectedCategory && currentCategory

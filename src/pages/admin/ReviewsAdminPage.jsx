@@ -145,7 +145,7 @@ export default function ReviewsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, reviewType, debouncedSearch]);
+  }, [activeTab, reviewType, debouncedSearch, pageSize]);
 
   // Load reviews on mount and when dependencies change
   useEffect(() => {

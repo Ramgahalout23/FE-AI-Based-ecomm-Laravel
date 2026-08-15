@@ -1,9 +1,7 @@
 import { Info, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 
 export default function CookieConsent({ enabled = true }) {
-  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 

@@ -9,7 +9,7 @@ import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 import { useSettings } from '../../store/useSettings';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
-import { calcBundleDiscount, calcBundleDiscountDetails, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer } from '../../utils/constants';
+import { calcBundleDiscount, calcBundleDiscountDetails, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer, roundINR } from '../../utils/constants';
 import BundleTierProgress from '../cart/BundleTierProgress';
 import { cartAPI } from '../../api/cart';
 import { promotionsAPI } from '../../api/promotions';
@@ -101,7 +101,7 @@ export default memo(function CartDrawer() {
   // ── Free shipping meter (like selektt.com) ──
   const currency = getSetting('currency', 'INR');
   const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
-  const freeShippingRemaining = Math.max(0, Math.round((freeShippingThreshold - adjustedSubtotal) * 100) / 100);
+  const freeShippingRemaining = Math.max(0, roundINR(freeShippingThreshold - adjustedSubtotal));
   const freeShippingPercent = freeShippingThreshold > 0
     ? Math.min(100, Math.round((adjustedSubtotal / freeShippingThreshold) * 100))
     : 0;
@@ -184,7 +184,9 @@ export default memo(function CartDrawer() {
     navigate('/products');
   }, [closeCart, navigate]);
 
-  const totalAmount = Math.max(0, adjustedSubtotal - autoDiscount - bundleDiscount + tax);
+  // Whole-rupee total — discounts/tax are rounded to whole rupees at the source,
+  // so this equals the sum of the displayed line items exactly.
+  const totalAmount = Math.max(0, roundINR(adjustedSubtotal - autoDiscount - bundleDiscount + tax));
 
   return (
     <>

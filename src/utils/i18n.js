@@ -857,12 +857,6 @@ const DEFAULT_EN_TRANSLATIONS = {
 
 
   // ── Returns ──
-  'returns.my_requests': 'My Requests',
-  'returns.new_request': 'New Request',
-  'returns.no_requests': 'No requests yet',
-  'returns.no_requests_desc': 'You haven\'t submitted any return requests',
-  'returns.submitting': 'Submitting...',
-  'returns.support': 'Support',
   'returns.order': 'Order',
   'returns.reason': 'Reason',
   'returns.what_would_you_like': 'What would you like?',
@@ -1012,11 +1006,6 @@ const DEFAULT_EN_TRANSLATIONS = {
   'unsubscribe.already_title': 'Already Unsubscribed',
   'unsubscribe.error_title': 'Something Went Wrong',
 
-  // ── Reviews (minimal) ──
-  'reviews.write_title': 'Write a Review',
-  'reviews.submit_review': 'Submit Review',
-  'reviews.submitted_success': 'Review submitted! It will appear after moderation.',
-
   // ── Size Guide (minimal) ──
   'size_guide.title': 'Size Guide',
   'size_guide.measurements': 'Measurements',
@@ -1046,6 +1035,8 @@ const DEFAULT_EN_TRANSLATIONS = {
 
   // ── Reviews ──
   'reviews.write_title': 'Write a Review',
+  'reviews.submit_review': 'Submit Review',
+  'reviews.submitted_success': 'Review submitted! It will appear after moderation.',
   'reviews.your_rating': 'Your Rating',
   'reviews.your_review': 'Your Review',
   'reviews.review_title': 'Review Title',
@@ -1062,7 +1053,6 @@ const DEFAULT_EN_TRANSLATIONS = {
   'reviews.drag_drop_or_click': 'Drag & drop photos or click to browse',
   'reviews.drop_images_here': 'Drop images here',
   'reviews.photo_formats': 'JPEG, PNG, WebP · Max 10MB each',
-  'reviews.submitted_success': 'Review submitted! It will appear after moderation.',
   'reviews.submit_failed': 'Failed to submit review. Please try again.',
   'reviews.optional': '(optional)',
   'reviews.poor': 'Poor',

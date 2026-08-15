@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ShieldCheck, Truck, RefreshCw, Lock, ArrowRight, User, ExternalLink, UserPlus, ExternalLink as ExternalLinkIcon, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, Truck, RefreshCw, Lock, ArrowRight, User, UserPlus, ExternalLink as ExternalLinkIcon, AlertTriangle } from 'lucide-react';
 import { trackCheckoutStart, trackCheckoutComplete } from '../../services/tracker';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -14,7 +14,7 @@ import { checkoutAPI } from '../../api/checkout';
 import { couponsAPI } from '../../api/coupons';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, getImageUrl } from '../../utils/formatters';
-import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer } from '../../utils/constants';
+import { calcBundleDiscount, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer, roundINR } from '../../utils/constants';
 import { showError, showSuccess, couponApplied, couponRemoved, fillRequiredFields, invalidCoupon, orderPlaced, paymentSuccessful, accountCreated } from '../../utils/toast';
 import { paymentsAPI } from '../../api/payments';
 import { ordersAPI } from '../../api/orders';
@@ -29,7 +29,7 @@ const DEFAULT_PAYMENT_METHODS = [
 ];
 
 export default function CheckoutPage() {
-  const { items, subtotal, clearCart, setItems } = useCartStore();
+  const { items, clearCart, setItems } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const { getSetting } = useSettings();
   const navigate = useNavigate();
@@ -243,7 +243,10 @@ export default function CheckoutPage() {
   const shippingFlatRate = Number(getSetting('shippingFlatRate', '50'));
   const shippingCost = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
   const totalDiscount = discount + autoDiscount + bundleDiscount;
-  const total = availableSubtotal - totalDiscount + tax + shippingCost;
+  // Whole-rupee total — discounts/tax are rounded to whole rupees at the source,
+  // so this equals the sum of the displayed line items (and is what the payment
+  // gateway charges, keeping display and charge in sync).
+  const total = roundINR(availableSubtotal - totalDiscount + tax + shippingCost);
 
   const handleApplyCoupon = async (code) => {
     const codeToApply = code || coupon.trim();
@@ -255,7 +258,8 @@ export default function CheckoutPage() {
     try {
       const res = await checkoutAPI.applyCoupon({ code: codeToApply, subtotal: availableSubtotal });
       const payload = res.data?.data || res.data || {};
-      const discountAmount = payload.discountAmount || payload.discount || 0;
+      // Round to whole rupees so the displayed coupon line matches the value used in the total
+      const discountAmount = roundINR(payload.discountAmount || payload.discount || 0);
       if (discountAmount > 0) {
         setDiscount(discountAmount);
         setAppliedCoupon(codeToApply);
@@ -519,7 +523,7 @@ export default function CheckoutPage() {
             trackCheckoutComplete(orderId, total);
             paymentSuccessful(orderId);
             navigate(`/order/thank-you/${orderId}`);
-          } catch (verifyErr) {
+          } catch {
             showError('Payment received but verification failed. Contact support.');
             navigate(`/order/thank-you/${orderId}`);
           }
@@ -579,7 +583,7 @@ export default function CheckoutPage() {
     }
     setPollingStatus('waiting');
     return false;
-  }, [gatewayRedirect, navigate, queryClient]);
+  }, [gatewayRedirect, navigate, queryClient, total]);
 
   // Auto-poll every 5 seconds while on this page
   useEffect(() => {

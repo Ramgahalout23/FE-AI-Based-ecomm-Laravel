@@ -263,7 +263,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
 
     setShowQuickAdd(true);
     setShowHighlights(false);
-  }, [hasVariants, hasAllSelections, hasSelectableOptions, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, isAuthenticated, colors, sizes]);
+  }, [hasVariants, hasAllSelections, hasSelectableOptions, matchedVariant, firstAvailVariant, product, qty, selectedColor, selectedSize, addToCart, isAdding, isAuthenticated, colors, sizes, closePanel]);
 
   /* ── Add from panel (after selections made) ── */
   const handlePanelAdd = useCallback(async () => {

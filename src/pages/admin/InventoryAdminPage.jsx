@@ -700,9 +700,13 @@ export default function InventoryAdminPage() {
   useEffect(() => {
     if (currentPage !== 1) { setCurrentPage(1); }
     else { loadData(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/loadData intentionally excluded: loadData is recreated each render
   }, [debouncedSearch, filter, pageSize]);
 
-  useEffect(() => { loadData(); }, [currentPage]);
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData is recreated each render; page changes are the only intended trigger
+  }, [currentPage]);
 
   const toggleVariantSelection = (variantId) => {
     setSelectedVariantIds(prev => {
@@ -781,7 +785,7 @@ export default function InventoryAdminPage() {
       downloadBlob(downloadRes, `barcode-variants-${variant_count}-${new Date().toISOString().split('T')[0]}.pdf`);
       toast.success(`Downloaded barcodes for ${variant_count} variant(s)`);
       setSelectedVariantIds(new Set());
-    } catch (err) {
+    } catch {
       toast.error('Failed to download batch barcodes');
     } finally {
       setBatchBarcoding(false);
@@ -1255,7 +1259,7 @@ export default function InventoryAdminPage() {
                                               const res = await inventoryAPI.getVariantBarcodeLabel(v.id);
                                               downloadBlob(res, `barcode-${v.sku || v.id}.pdf`);
                                               toast.success('Barcode label downloaded');
-                                            } catch (err) {
+                                            } catch {
                                               toast.error('Failed to download barcode');
                                             }
                                           }}
@@ -1466,7 +1470,7 @@ export default function InventoryAdminPage() {
                       break;
                     }
                     if (status === 'failed') { toast.error('Generation failed'); break; }
-                  } catch {}
+                  } catch { /* polling errors are non-fatal — keep retrying */ }
                 }
                 setBarcodeProgress({ attempts: 0, maxAttempts: 30 });
               } catch { toast.error('Failed'); }

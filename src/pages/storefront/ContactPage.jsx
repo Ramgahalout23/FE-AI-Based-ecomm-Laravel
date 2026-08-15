@@ -2,6 +2,7 @@ import { ArrowRight, Clock, Mail, MapPin, MessageCircle, Phone, Send } from 'luc
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
@@ -85,7 +86,7 @@ export default function ContactPage() {
       `}</style>
 
       <SEOHead
-        title={'Contact Us | ' + storeName}
+        title={withStoreName('Contact Us', storeName)}
         description={'Get in touch with ' + storeName + '. Contact our support team for orders, returns, product inquiries, or general questions. We\'re here to help.'}
         keywords="contact us, customer support, luxury streetwear help, order support"
       />

@@ -1,8 +1,9 @@
 import { CheckCircle, XCircle, Mail, ArrowLeft } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import { useSettings } from '../../store/useSettings';
 import { marketingAPI } from '../../api/marketing';
 ;
@@ -42,7 +43,7 @@ export default function UnsubscribePage() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
       <SEOHead
-        title={`Unsubscribe | ${storeName}`}
+        title={withStoreName('Unsubscribe', storeName)}
         description={`Unsubscribe from ${storeName} marketing emails. Manage your email preferences.`}
         noIndex={true}
       />

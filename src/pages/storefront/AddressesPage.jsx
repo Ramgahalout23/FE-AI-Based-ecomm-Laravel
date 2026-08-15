@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { userProfileAPI } from '../../api/userProfile';
+import { withStoreName } from '../../utils/seo';
 import AddressSkeleton from '../../components/ui/AddressSkeleton';
 import { useSettings } from '../../store/useSettings';
 import toast from '../../utils/toast';
@@ -23,7 +24,7 @@ export default function AddressesPage() {
   useEffect(() => {
     const fetch = async () => { try { setLoading(true); const res = await userProfileAPI.getAddresses(); setAddresses(res.data?.data?.addresses || res.data?.data || []);      } catch (e) { setError(t('addresses.failed_to_load')); console.warn('Failed to load addresses:', e); } finally { setLoading(false); } };
     fetch();
-  }, []);
+  }, [t]);
 
   const handleSave = async () => {
     try { const res = await userProfileAPI.createAddress(form); setAddresses([...addresses, res.data?.data || res.data?.data]); setShowForm(false); toast.success(t('addresses.added')); } catch { toast.error(t('addresses.failed_add')); }
@@ -34,7 +35,7 @@ export default function AddressesPage() {
   };
 
   const handleSetDefault = async (id) => {
-    try { await userProfileAPI.setDefaultAddress(id); setAddresses(addresses.map((a) => ({ ...a, isDefault: a.id === id }))); toast.success(t('addresses.default_updated')); } catch (e) { toast.error(t('addresses.failed_default')); }
+    try { await userProfileAPI.setDefaultAddress(id); setAddresses(addresses.map((a) => ({ ...a, isDefault: a.id === id }))); toast.success(t('addresses.default_updated')); } catch { toast.error(t('addresses.failed_default')); }
   };
 
   if (loading) {
@@ -44,7 +45,7 @@ export default function AddressesPage() {
   return (
     <div className="section">
       <SEOHead
-        title={`My Addresses | ${storeName}`}
+        title={withStoreName('My Addresses', storeName)}
         description={`Manage your saved shipping addresses at ${storeName} for faster checkout.`}
         noIndex={true}
       />

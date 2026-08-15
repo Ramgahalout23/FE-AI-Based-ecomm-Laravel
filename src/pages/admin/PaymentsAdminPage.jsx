@@ -16,9 +16,9 @@ export default function PaymentsAdminPage() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [, setTotalPages] = useState(1);
+  const [, setTotalItems] = useState(0);
+  const [, setPaymentLoading] = useState(false);
   const limit = 10;
 
   useEffect(() => {

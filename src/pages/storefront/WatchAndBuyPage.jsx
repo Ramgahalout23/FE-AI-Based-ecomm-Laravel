@@ -31,11 +31,6 @@ function isVimeoUrl(url) {
   return /vimeo\.com\//i.test(url);
 }
 
-function isUnsupportedVideoUrl(url) {
-  if (!url) return false;
-  return isYouTubeUrl(url) || isVimeoUrl(url) || /dailymotion\.com\//i.test(url);
-}
-
 /** Extract YouTube video ID for iframe embedding */
 function getYouTubeEmbedUrl(url) {
   if (!url) return null;

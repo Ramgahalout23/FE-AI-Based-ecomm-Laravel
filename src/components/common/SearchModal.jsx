@@ -91,6 +91,7 @@ export default memo(function SearchModal({ isOpen, onClose }) {
       onClose();
     }
     prevPathRef.current = location.pathname;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close-on-navigate is keyed to pathname only
   }, [location.pathname]);
 
   // Escape key

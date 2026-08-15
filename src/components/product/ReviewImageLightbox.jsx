@@ -161,7 +161,7 @@ export default function ReviewImageLightbox({
   }, [goNext, goPrev]);
 
   /* ── Guarded close: prevent click-after-drag ── */
-  const handleBackdropClick = useCallback((e) => {
+  const handleBackdropClick = useCallback(() => {
     if (suppressClick.current) {
       suppressClick.current = false;
       return;

@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BadgePercent, Zap, Gift, Wallet, Sparkles, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { roundINR } from '../../utils/constants';
 
 function formatPromoCard(promo) {
   const title = promo.title || 'Special Offer';
@@ -18,13 +19,13 @@ function formatPromoCard(promo) {
   }
 
   const highlight = promo.description || (promo.minPurchase
-    ? `On orders above \u20B9${Math.round(promo.minPurchase)}`
+    ? `On orders above \u20B9${roundINR(promo.minPurchase)}`
     : 'On all orders');
 
   const tagline = promo.couponCode
     ? `Use code: ${promo.couponCode}`
     : promo.maxDiscount
-      ? `Up to \u20B9${Math.round(promo.maxDiscount)} off`
+      ? `Up to \u20B9${roundINR(promo.maxDiscount)} off`
       : 'Auto-applied at checkout';
 
   return { id: promo.id, title, badge: null, highlight, tagline, theme };

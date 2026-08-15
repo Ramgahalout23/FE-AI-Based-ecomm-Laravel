@@ -1,6 +1,6 @@
 import toast from '../../../utils/toast';
 
-function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setScheduleForm, loading, handleCreateSchedule, handleUpdateSchedule, resetScheduleForm }) {
+function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setScheduleForm, loading, handleCreateSchedule, handleUpdateSchedule }) {
   if (!show) return null;
 
   return (
@@ -69,7 +69,7 @@ function ScheduleModal({ show, onClose, editingSchedule, scheduleForm, setSchedu
 export default function MaintenanceTab({
   settings, setSettings, loading, handleSaveSettings, handleQuickToggleMaintenance,
   schedules, schedulesLoading, showScheduleModal, setShowScheduleModal,
-  editingSchedule, setEditingSchedule, scheduleForm, setScheduleForm,
+  editingSchedule, scheduleForm, setScheduleForm,
   handleCreateSchedule, handleUpdateSchedule, handleDeleteSchedule,
   handleToggleSchedule, openEditSchedule, resetScheduleForm, formatScheduleDate, settingsAPI
 }) {

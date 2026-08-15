@@ -103,7 +103,7 @@ export default function CustomDesignsAdminPage() {
 
       await adminAPI.updateCustomDesignStatus(designId, { status: newStatus });
       toast.success(`Design status updated to ${DESIGN_STATUSES[newStatus]?.label}`);
-    } catch (err) {
+    } catch {
       toast.error('Failed to update status');
       load(currentPage);
     }
@@ -132,7 +132,7 @@ export default function CustomDesignsAdminPage() {
           return next;
         });
       }, 2500);
-    } catch (err) {
+    } catch {
       toast.error('Failed to save notes');
     } finally {
       setSavingNotes(prev => ({ ...prev, [designId]: false }));

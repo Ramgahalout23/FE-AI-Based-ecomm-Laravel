@@ -1,6 +1,6 @@
-import { Check, MapPin, ChevronRight, ShoppingBag, Share2, Copy, RefreshCw, Info, Smartphone, Package, Truck, Calendar, CheckCircle, Clock, Heart, ArrowLeft, ExternalLink, Mail, Printer, ShieldCheck, Tag, Phone, Bell, Paintbrush } from 'lucide-react';
+import { Check, MapPin, ChevronRight, ShoppingBag, Copy, RefreshCw, Info, Smartphone, Package, Truck, Calendar, CheckCircle, Clock, Heart, ArrowLeft, ExternalLink, Mail, ShieldCheck, Tag, Bell, Paintbrush } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import useCartStore from '../../store/cartStore';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Skeleton from '../../components/ui/Skeleton';
 import { getPaymentIcon } from '../../utils/paymentIcons';
 import { ordersAPI } from '../../api/orders';
@@ -959,7 +960,6 @@ function OrderUpdateSubscription({ orderId, order }) {
 export default function OrderThankYouPage() {
   const { t } = useTranslation();
   const { id } = useParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
@@ -1014,7 +1014,7 @@ export default function OrderThankYouPage() {
       }
     };
     fetchOrder();
-  }, [id]);
+  }, [id, queryClient, t]);
 
   // Animate page elements sequentially
   useEffect(() => {
@@ -1251,7 +1251,7 @@ export default function OrderThankYouPage() {
 
       <div ref={pageRef} className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
         <SEOHead
-          title={order ? `${statusInfo.label} #${orderIdShort} | ${storeName}` : `Order | ${storeName}`}
+          title={withStoreName(order ? `${statusInfo.label} #${orderIdShort}` : 'Order', storeName)}
           description={order ? (isReturned || isReturnRequested
             ? `Return ${statusInfo.label.toLowerCase()} for order #${orderIdShort}. View return details and refund status.`
             : `Your order #${orderIdShort} has been placed successfully. Track your order and view details.`

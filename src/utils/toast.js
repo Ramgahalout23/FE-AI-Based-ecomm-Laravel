@@ -7,24 +7,14 @@ import OrderConfirmedToast from './OrderConfirmedToast';
 // Instead of `import toast from 'react-hot-toast'`, use `import toast from '../../utils/toast'`.
 
 // ── Detect if we're on a storefront route (not admin) ──
-// On storefront, toasts are suppressed for a cleaner UX.
+// Decorative success/info toasts are suppressed on the storefront for a
+// cleaner UX (the cart drawer and inline UI give their own feedback).
+// Error toasts are NEVER suppressed — checkout validation, coupon errors and
+// payment failures rely on them being visible.
 const isStorefront = () => {
   if (typeof window === 'undefined') return false;
   const path = window.location.pathname;
   return !path.startsWith('/admin');
-};
-
-// Silent no-ops for storefront
-const noop = () => {};
-const silentToast = {
-  success: noop,
-  error: noop,
-  info: noop,
-  custom: noop,
-  loading: () => '',
-  dismiss: noop,
-  promise: (promise) => promise,
-  remove: noop,
 };
 
 const toast = {
@@ -33,7 +23,6 @@ const toast = {
     hotToast.success(message, { duration: 3000, ...opts });
   },
   error: (message, opts = {}) => {
-    if (isStorefront()) return;
     hotToast.error(message, { duration: 4000, ...opts });
   },
   info: (message, opts = {}) => {
@@ -118,7 +107,6 @@ export const removedFromWishlist = () => {
 };
 
 export const wishlistError = () => {
-  if (isStorefront()) return;
   showError('Could not update wishlist');
 };
 
@@ -302,12 +290,10 @@ export const cacheCleared = () => {
 /* ── Validation shorthands ──────────────────────── */
 
 export const fillRequiredFields = () => {
-  if (isStorefront()) return;
   showError('Please fill all required fields');
 };
 
 export const invalidCoupon = () => {
-  if (isStorefront()) return;
   showError('Coupon is not applicable to your cart');
 };
 

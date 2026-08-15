@@ -1,25 +1,24 @@
-import { Zap, ChevronDown, X, Filter, Tag, Clock, ArrowRight, Package } from 'lucide-react';
+import { Zap, X, Filter, Tag, ArrowRight, Package } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 
-;
 import { useQuery } from '@tanstack/react-query';
 import ProductCard from '../../components/product/ProductCard';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 import FlashSaleCountdown from '../../components/storefront/FlashSaleCountdown';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { promotionsAPI } from '../../api/promotions';
 import { categoriesAPI } from '../../api/categories';
 import { useSettings } from '../../store/useSettings';
-import { formatCurrency, getImageUrl } from '../../utils/formatters';
+import { getImageUrl } from '../../utils/formatters';
 
 /* ═══════════ PROMOTION HERO BANNER ═══════════ */
 function PromotionHero({ promo }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   if (!promo) return null;
 
   const imgUrl = promo.imageUrl || promo.image_url || promo.image;
@@ -91,7 +90,7 @@ function PromotionHero({ promo }) {
 }
 
 /* ═══════════ PROMOTION SECTION CARD ═══════════ */
-function PromotionSection({ promo, isActive }) {
+function PromotionSection({ promo }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const products = (promo.products || []).filter(p => p.slug !== CUSTOM_TEE_SLUG);
@@ -199,6 +198,7 @@ function PromotionSection({ promo, isActive }) {
 
 /* ═══════════ CATEGORY FILTER CHIPS ═══════════ */
 function CategoryFilterChips({ categories, selected, onChange }) {
+  const { t } = useTranslation();
   if (categories.length === 0) return null;
 
   return (
@@ -283,7 +283,7 @@ export default function SalesPage() {
   });
 
   // ── Fetch categories for filter chips ──
-  const { data: allCategories = [] } = useQuery({
+  useQuery({
     queryKey: ['categories'],
     queryFn: () => categoriesAPI.getAll()
       .then(res => res.data?.data?.categories || res.data?.data || []),
@@ -346,7 +346,7 @@ export default function SalesPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`Sales & Promotions — Deals & Discounts | ${storeName}`}
+        title={withStoreName('Sales & Promotions — Deals & Discounts', storeName)}
         description={`Shop the best deals and flash sales at ${storeName}. Limited-time discounts on premium streetwear, oversized tees, hoodies and more.`}
         keywords="sales, promotions, flash sale, discounts, streetwear deals, limited time offers"
       />

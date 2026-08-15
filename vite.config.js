@@ -117,11 +117,11 @@ export default defineConfig(({ mode }) => {
           secure: false,
           // Return JSON error instead of HTML so CORB doesn't block the response
           configure: (proxy) => {
-            proxy.on('proxyReq', (proxyReq, req) => {
+            proxy.on('proxyReq', (proxyReq) => {
               // Ensure the proxied request has JSON accept header
               proxyReq.setHeader('Accept', 'application/json');
             });
-            proxy.on('proxyRes', (proxyRes, req) => {
+            proxy.on('proxyRes', (proxyRes) => {
               // Ensure the response has proper JSON Content-Type even for errors
               if (proxyRes.statusCode >= 400) {
                 if (!proxyRes.headers['content-type']) {

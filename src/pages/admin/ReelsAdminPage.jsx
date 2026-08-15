@@ -124,6 +124,7 @@ export default function ReelsAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   // ── CSV Export State ──
@@ -134,6 +135,7 @@ export default function ReelsAdminPage() {
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   // ── Load reelsEnabled setting ──
@@ -207,11 +209,13 @@ export default function ReelsAdminPage() {
     } finally {
       setSavingOrder(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [reels, currentPage]);
 
   const handleResetOrder = useCallback(async () => {
     await load(currentPage);
     setOrderChanged(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [currentPage]);
 
   const openCreate = () => {

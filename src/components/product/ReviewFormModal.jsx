@@ -10,16 +10,6 @@ import toast from '../../utils/toast';
 const MAX_IMAGES = 5;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-/* ═══════════════════════════════════════════════════
-   Brand Tokens
-   ═══════════════════════════════════════════════════ */
-const INK = '#1a1a1a';
-const PAPER = '#ffffff';
-const THREAD = '#4a4a5a';
-const STONE = '#8a8a9a';
-const PANEL = '#f5f5f5';
-const GOLD = '#1a1a1a';
-
 /* ── Premium star labels with emoji accents ── */
 const starLabels = ['', 'Poor 😕', 'Fair 😐', 'Good 🙂', 'Very Good 😊', 'Excellent 🔥'];
 

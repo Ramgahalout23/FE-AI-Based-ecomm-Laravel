@@ -29,6 +29,7 @@ export default function LanguageSwitcher({ variant = 'navbar' }) {
     if (storedLang && storedLang !== i18n.language) {
       switchLanguage(storedLang).catch(() => {});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: applying the stored language once
   }, []);
 
   // Listen for storage events from other tabs to keep the switcher in sync

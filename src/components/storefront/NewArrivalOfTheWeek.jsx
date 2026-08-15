@@ -25,17 +25,15 @@ export default function NewArrivalOfTheWeek({ product }) {
   const [isAdding, setIsAdding] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  if (!product) return null;
-
-  // ── Derive product data ──
+  // ── Derive product data (null-safe — a missing product renders nothing at the end) ──
   const imgUrl = getImageUrl(getProductImage(product));
-  const categoryName = typeof product.category === 'object'
-    ? product.category?.name || product.categoryName || ''
-    : product.category || product.categoryName || '';
-  const slug = product.slug || slugify(product.name) || '';
+  const categoryName = typeof product?.category === 'object'
+    ? product?.category?.name || product?.categoryName || ''
+    : product?.category || product?.categoryName || '';
+  const slug = product?.slug || slugify(product?.name) || '';
 
-  // ── Variant data ──
-  const variants = product.variants || product.productvariant || [];
+  // ── Variant data (memoized so the array reference is stable for later useMemos) ──
+  const variants = useMemo(() => product?.variants || product?.productvariant || [], [product]);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
 
   const { colors, sizes } = useMemo(() => {
@@ -49,10 +47,10 @@ export default function NewArrivalOfTheWeek({ product }) {
         }
       });
     }
-    const colorArr = cSet.size > 0 ? [...cSet] : (Array.isArray(product.colors) ? product.colors : []);
-    const sizeArr = sSet.size > 0 ? [...sSet] : (Array.isArray(product.sizes) ? product.sizes : []);
+    const colorArr = cSet.size > 0 ? [...cSet] : (Array.isArray(product?.colors) ? product?.colors : []);
+    const sizeArr = sSet.size > 0 ? [...sSet] : (Array.isArray(product?.sizes) ? product?.sizes : []);
     return { colors: colorArr, sizes: sizeArr };
-  }, [hasVariants, variants, product.colors, product.sizes]);
+  }, [hasVariants, variants, product?.colors, product?.sizes]);
 
   const hasColorOptions = colors.length > 0;
   const hasSizeOptions = sizes.length > 0;
@@ -91,11 +89,11 @@ export default function NewArrivalOfTheWeek({ product }) {
 
   // ── Stock & pricing ──
   const hasAllSelections = (!hasColorOptions || selectedColor) && (!hasSizeOptions || selectedSize);
-  const displayPrice = matchedVariant?.price ?? product.price;
-  const displayOldPrice = product.oldPrice && product.oldPrice > displayPrice ? product.oldPrice : null;
+  const displayPrice = matchedVariant?.price ?? product?.price;
+  const displayOldPrice = product?.oldPrice && product?.oldPrice > displayPrice ? product?.oldPrice : null;
   const discount = displayOldPrice ? Math.round(((displayOldPrice - displayPrice) / displayOldPrice) * 100) : null;
 
-  const availableStock = matchedVariant?.quantity ?? product.quantity ?? 0;
+  const availableStock = matchedVariant?.quantity ?? product?.quantity ?? 0;
   const isOutOfStock = hasVariants
     ? matchedVariant && availableStock <= 0
     : availableStock <= 0;
@@ -138,6 +136,8 @@ export default function NewArrivalOfTheWeek({ product }) {
       setIsAdding(false);
     }
   }, [isAdding, canAddToCart, flyToCart, product, qty, selectedSize, selectedColor, matchedVariant, displayPrice, isAuthenticated, addToCart]);
+
+  if (!product) return null;
 
   return (
     <section className="relative bg-white overflow-hidden">
@@ -553,7 +553,7 @@ export default function NewArrivalOfTheWeek({ product }) {
                 className="grid grid-cols-3 gap-2 pt-5 border-t border-gray-100 mt-4"
               >
                 {[
-                  { icon: Truck, label: t('product.free_shipping') || 'Free Shipping', sub: `${t('product.above_amount', { amount: formatCurrency(499) }) || 'Above Rs. 499.00'}` },
+                  { icon: Truck, label: t('product.free_shipping') || 'Free Shipping', sub: `${t('product.above_amount', { amount: formatCurrency(499) }) || 'Above ₹499'}` },
                   { icon: RefreshCw, label: t('product.easy_returns') || 'Easy Returns', sub: (t('product.days', { count: 7 }) || '7 Days') },
                   { icon: ShieldCheck, label: t('product.secure') || 'Secure', sub: t('product.checkout') || 'Checkout' },
                 ].map((item, i) => {

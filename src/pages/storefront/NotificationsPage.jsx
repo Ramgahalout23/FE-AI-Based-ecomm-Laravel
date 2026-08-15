@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { notificationsAPI } from '../../api/notifications';
 import NotificationsSkeleton from '../../components/ui/NotificationsSkeleton';
@@ -112,7 +113,7 @@ export default function NotificationsPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`Notifications | ${storeName}`}
+        title={withStoreName('Notifications', storeName)}
         description={`View your notifications and order updates from ${storeName}.`}
         noIndex={true}
       />

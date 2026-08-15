@@ -1,6 +1,6 @@
 import toast from '../../../utils/toast';
 
-export default function SystemTab({ loading, settings, handleBackup, handleClearCache, setSettings, handleSaveSettings, handleQuickToggleMaintenance, settingsAPI }) {
+export default function SystemTab({ handleBackup, handleClearCache }) {
   return (
     <div>
       <div className="detail-panel">

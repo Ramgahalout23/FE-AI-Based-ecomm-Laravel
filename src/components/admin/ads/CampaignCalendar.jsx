@@ -256,7 +256,6 @@ export default function CampaignCalendar({ campaigns, openNew, openEdit, onUpdat
                   )}
                   {!isDragOver && dayCampaigns.slice(0, 3).map((c, idx) => {
                     const Icon = PLATFORM_ICONS[c.platform] || Target;
-                    const colorClass = PLATFORM_COLORS[c.platform] || 'bg-gray-500';
                     const isDragging = draggedCampaign?.id === c.id;
                     return (
                       <div key={`${c.id}-${idx}`}
@@ -321,7 +320,7 @@ export default function CampaignCalendar({ campaigns, openNew, openEdit, onUpdat
                     className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-grab active:cursor-grabbing
                       ${isDragging ? 'opacity-40 scale-95 bg-gray-200' : 'bg-gray-50 border-border hover:bg-gray-100/50 hover:shadow-sm'}
                       ${!isDragging && draggedCampaign ? 'border-dashed border-green-300 bg-green-50/50' : ''}`}
-                    onClick={(e) => { if (!draggedCampaign) openEdit(c); }}>
+                    onClick={() => { if (!draggedCampaign) openEdit(c); }}>
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[9px] ${colorClass}`}>
                         <Icon size={14} />

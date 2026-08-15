@@ -2,7 +2,7 @@ import { Check, ChevronDown, Flame, PartyPopper, TrendingUp, ArrowRight } from '
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
-import { BUNDLE_TIERS } from '../../utils/constants';
+import { BUNDLE_TIERS, roundINR } from '../../utils/constants';
 
 /**
  * Human label for a tier: shows the quantity window when a maxQty cap is set
@@ -99,7 +99,7 @@ export default function BundleOffer({
   // counts once the user has actually reached the tier's min quantity.
   const tierReached = currentTier && selectedQty >= currentTier.minQty;
   const currentSavings = tierReached && currentTier?.discount > 0
-    ? Math.round(basePrice * (currentTier.discount / 100) * effQtyFor(currentTier))
+    ? roundINR(basePrice * (currentTier.discount / 100) * effQtyFor(currentTier))
     : 0;
 
   // Filled / active / future state per tier segment
@@ -290,7 +290,7 @@ export default function BundleOffer({
                 Unlock {nextTier.discount}% off with {nextTier.minQty} items
               </span>
               <span className="block text-[10px] mt-[2px]" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                {formatCurrency(tierPrices.find(t => t.minQty === nextTier.minQty)?.unitPrice || 0)}/item · you save {formatCurrency(Math.round(basePrice * (nextTier.discount / 100) * nextTier.minQty))}
+                {formatCurrency(tierPrices.find(t => t.minQty === nextTier.minQty)?.unitPrice || 0)}/item · you save {formatCurrency(roundINR(basePrice * (nextTier.discount / 100) * nextTier.minQty))}
               </span>
             </span>
             <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 group-hover/cta:translate-x-0.5" style={{ background: 'rgba(255,255,255,0.14)' }}>
@@ -338,8 +338,8 @@ export default function BundleOffer({
 
               {/* Tier Cards — 2×2 on mobile, 4 across on ≥640px */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-                {tierPrices.map((tier, idx) => {
-                  const { reached, isActive } = segmentState(tier);
+                {tierPrices.map((tier) => {
+                  const { reached } = segmentState(tier);
                   const isSelected = tier.minQty === currentTier.minQty;
                   const isRecommended = tier.minQty === bestTier?.minQty && bestTier?.minQty > 1 && !isSelected;
                   const isDark = isSelected || reached;

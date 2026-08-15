@@ -1,5 +1,5 @@
 const CURRENCY_SYMBOLS = {
-  INR: 'Rs.',
+  INR: '₹',
   USD: '$',
   EUR: '€',
   GBP: '£',
@@ -100,9 +100,18 @@ export const setDefaultTimezone = (tz) => {
 export const formatCurrency = (amount, currency) => {
   const cur = currency || _defaultCurrency || 'INR';
   const num = Number(amount);
-  if (isNaN(num)) return `${CURRENCY_SYMBOLS[cur] || 'Rs.'} 0.00`;
+  const isINR = cur === 'INR';
+  if (isNaN(num)) {
+    const symbol = CURRENCY_SYMBOLS[cur] || '₹';
+    // INR is always whole rupees; other currencies keep the decimal fallback
+    return isINR ? `${symbol}0` : `${symbol} 0.00`;
+  }
   const locale = CURRENCY_LOCALES[cur] || 'en-IN';
-  const symbol = CURRENCY_SYMBOLS[cur] || 'Rs.';
+  const symbol = CURRENCY_SYMBOLS[cur] || '₹';
+  if (isINR) {
+    // INR displays whole rupees with a tight symbol, matching storefront copy (e.g. ₹499)
+    return `${symbol}${num.toLocaleString(locale, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  }
   return `${symbol} ${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 

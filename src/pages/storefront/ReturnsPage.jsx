@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { returnsAPI } from '../../api/returns';
 import { ordersAPI } from '../../api/orders';
@@ -124,7 +125,7 @@ export default function ReturnsPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`Returns | ${storeName}`}
+        title={withStoreName('Returns', storeName)}
         description={`Submit and track return requests at ${storeName}.`}
         noIndex={true}
       />

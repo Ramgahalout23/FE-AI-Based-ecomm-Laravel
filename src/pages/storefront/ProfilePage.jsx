@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import useAuthStore from '../../store/authStore';
@@ -130,7 +131,7 @@ export default function ProfilePage() {
     return (
       <div className="page-content bg-white flex-1">
         <SEOHead
-          title={`My Profile | ${storeName}`}
+          title={withStoreName('My Profile', storeName)}
           description={`Sign in to your ${storeName} account to manage orders, addresses, and preferences.`}
           noIndex={true}
         />
@@ -171,7 +172,7 @@ export default function ProfilePage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`My Profile | ${storeName}`}
+        title={withStoreName('My Profile', storeName)}
         description={`Manage your ${storeName} account, orders, wishlist, and saved addresses.`}
         noIndex={true}
       />

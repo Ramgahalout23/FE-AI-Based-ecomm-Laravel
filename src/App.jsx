@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { HelmetProvider } from 'react-helmet-async';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
@@ -233,7 +233,6 @@ function StorefrontLayout() {
   const whatsappNumber = appSettings.whatsappButtonNumber || '';
   const whatsappMessage = appSettings.whatsappButtonMessage || '';
   const whatsappPosition = appSettings.whatsappButtonPosition || 'left';
-  const brandPrimaryColor = appSettings.primaryColor || '#1a1a1a';
   // Parse quick replies from settings (JSON string), or undefined to use widget defaults
   let whatsappQuickReplies;
   try {
@@ -241,7 +240,7 @@ function StorefrontLayout() {
     if (Array.isArray(parsed) && parsed.length > 0) {
       whatsappQuickReplies = parsed;
     }
-  } catch {}
+  } catch { /* malformed quick-replies JSON — use widget defaults */ }
 
   // Initialize user tracking on first mount
   useEffect(() => {
@@ -362,15 +361,16 @@ function AppContent() {
     loadApiTranslations().catch(() => {
       // Silently fail — app already has default English translations
     });
-  }, [loadApiTranslations]);
+  }, []);
 
   // Dynamic title/favicon/currency from settings
   useEffect(() => {
-    const name = appSettings.storeName;
     const favicon = appSettings.faviconUrl;
     const currency = appSettings.currency;
     const timezone = appSettings.timezone;
-    if (name) document.title = name;
+    // NOTE: do NOT set document.title imperatively here — it clobbers the per-page
+    // SEOHead titles (which mount later and must win). The store-name default is
+    // rendered as a Helmet below, so pages without their own title still get it.
     if (currency) setDefaultCurrency(currency);
     if (timezone) setDefaultTimezone(timezone);
     if (favicon) {
@@ -382,7 +382,7 @@ function AppContent() {
       }
       link.href = favicon;
     }
-  }, [appSettings, setDefaultCurrency, setDefaultTimezone]);
+  }, [appSettings]);
 
   // Connect/disconnect WebSocket based on auth state and token version.
   // socket.io-client is imported lazily so it stays OUT of the initial bundle
@@ -422,10 +422,12 @@ function AppContent() {
     }).catch(() => {
       // Server sync failure is silent — local wishlist state remains
     });
-  }, [isAuthenticated, wishlistAPI, useWishlistStore]);
+  }, [isAuthenticated]);
 
   return (
     <BrowserRouter>
+      {/* Default title: last-mounted Helmet wins, so per-page SEOHead titles override this */}
+      <Helmet>{appSettings.storeName ? <title>{appSettings.storeName}</title> : null}</Helmet>
       <ThemeInjector />
       <Toaster
         position="bottom-right"

@@ -147,7 +147,7 @@ export default function TShirtCustomizerSection() {
       },
     });
     openCart();
-  }, [frontUpload.designFile, backUpload.designFile, selectedSize, selectedColor, quantity, designNotes, placement, effectiveUnitPrice, addItem, openCart, getSetting, canAddToCart, frontMissing, backMissing]);
+  }, [frontUpload.designFile, backUpload.designFile, selectedSize, selectedColor, quantity, designNotes, placement, effectiveUnitPrice, addItem, openCart, canAddToCart, frontMissing, backMissing]);
 
   return (
     <section className="relative py-8 sm:py-12 lg:py-16 bg-gradient-to-b from-white via-gray-50 to-white overflow-hidden">

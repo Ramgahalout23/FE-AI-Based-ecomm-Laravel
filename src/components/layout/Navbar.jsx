@@ -57,7 +57,6 @@ export default function Navbar() {
   const { data: appInitData } = useAppInit();
   const activePromotions = appInitData?.promotions || [];
   const customPages = appInitData?.pages || [];
-  const keySettings = appInitData?.keySettings || {};
   const hasActivePromotions = activePromotions.length > 0;
 
   // Sync brand colors from settings onto CSS custom properties

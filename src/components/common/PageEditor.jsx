@@ -224,9 +224,6 @@ export default function PageEditor({ value, onChange, placeholder = '<h1>Your co
             </div>
           </div>
 
-          {/* Undo/Redo Toast */}
-          {undoToast && <div className="undo-toast">{undoToast}</div>}
-
           {/* Preview Content */}
           <div className="preview-container" style={{ display: 'flex', justifyContent: 'center', background: '#f0f0f5' }}>
             <div 

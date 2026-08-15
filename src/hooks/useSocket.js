@@ -19,6 +19,7 @@ import { onRealtimeEvent, connectRealtime, isRealtimeConnected } from '../servic
  * });
  */
 export function useSocketEvent(event, handler, deps) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps is a caller-supplied array, not statically known
   const stableHandler = useCallback(handler, deps || [handler]);
 
   useEffect(() => {
@@ -73,7 +74,7 @@ export function useReviewCreated(onCreated, deps = []) {
  */
 export function useSocketConnection() {
   const [connected, setConnected] = useState(() => {
-    const socket = connectRealtime();
+    connectRealtime();
     return isRealtimeConnected();
   });
 

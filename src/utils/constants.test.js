@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr, getBestStoreOffer, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, ticketStatusLabel, ticketStatusClass, ticketPriorityLabel } from './constants';
+import { BUNDLE_TIERS, getBundleTier, calcBundleDiscount, parseBundleTiers, isBundleOfferEnabled, todayStr, getBestStoreOffer, roundINR, TICKET_PRIORITIES, TICKET_CATEGORIES, TICKET_STATUSES, ticketStatusLabel, ticketStatusClass, ticketPriorityLabel } from './constants';
 
 describe('ticket constants', () => {
   it('TICKET_PRIORITIES matches the backend ENUM', () => {
@@ -49,6 +49,23 @@ describe('ticket constants', () => {
     expect(ticketStatusClass('UNKNOWN')).toBe('status-in-transit');
     expect(ticketStatusClass('')).toBe('status-in-transit');
     expect(ticketStatusClass(undefined)).toBe('status-in-transit');
+  });
+});
+
+describe('roundINR', () => {
+  it('rounds to the nearest whole rupee (INR display convention)', () => {
+    expect(roundINR(209.8)).toBe(210);
+    expect(roundINR(339.6)).toBe(340);
+    expect(roundINR(7.5)).toBe(8);
+    expect(roundINR(1888.2)).toBe(1888);
+    expect(roundINR(499)).toBe(499);
+  });
+
+  it('coerces non-numeric input to 0', () => {
+    expect(roundINR(undefined)).toBe(0);
+    expect(roundINR(null)).toBe(0);
+    expect(roundINR(NaN)).toBe(0);
+    expect(roundINR('1049')).toBe(1049);
   });
 });
 
@@ -121,12 +138,12 @@ describe('calcBundleDiscount', () => {
   });
 
   it('applies 5% across DIFFERENT items once total qty reaches 2', () => {
-    // 2 different items (qty 1 each) → total qty 2 → 5% of 150 = 7.5
+    // 2 different items (qty 1 each) → total qty 2 → 5% of 150 = 7.5 → rounded to 8
     const items = [
       { price: 100, quantity: 1 },
       { price: 50, quantity: 1 },
     ];
-    expect(calcBundleDiscount(items)).toBe(7.5);
+    expect(calcBundleDiscount(items)).toBe(8);
   });
 
   it('applies 5% for total qty 2', () => {
@@ -271,7 +288,8 @@ describe('getBestStoreOffer', () => {
   it('returns the best single offer with its rounded amount', () => {
     const best = getBestStoreOffer([{ price: 3396, quantity: 1 }], offers);
     expect(best.id).toBe('smart');
-    expect(best.amount).toBe(339.6);
+    // 10% of 3396 = 339.6 → rounded to whole rupees (INR display convention)
+    expect(best.amount).toBe(340);
     expect(best.badge).toBe('BUY 2');
     expect(best.highlight).toBe('GET 10% OFF');
   });

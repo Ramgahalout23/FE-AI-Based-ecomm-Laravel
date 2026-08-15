@@ -158,7 +158,7 @@ export default function SettingsAdminPage() {
   const [savingSectionOrder, setSavingSectionOrder] = useState(false);
 
   // Dynamic system health metrics state
-  const [systemHealth, setSystemHealth] = useState({
+  const [, setSystemHealth] = useState({
     databaseConnection: false,
     cacheConnection: false,
     diskSpace: 'Checking...',
@@ -178,7 +178,7 @@ export default function SettingsAdminPage() {
           setSectionOrder(parsed);
           return;
         }
-      } catch {}
+      } catch { /* fall back to the default section order */ }
     }
     setSectionOrder([...DEFAULT_SECTION_ORDER]);
   }, [settings.homepageSectionOrder]);
@@ -498,7 +498,7 @@ export default function SettingsAdminPage() {
       await updateContextSettings(updates);
       setSettings(prev => ({ ...prev, ...updates }));
       toast.success(enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
-    } catch (err) {
+    } catch {
       toast.error('Failed to toggle maintenance mode');
     } finally {
       setLoading(false);
@@ -620,7 +620,7 @@ export default function SettingsAdminPage() {
       await settingsAPI.deleteSchedule(id);
       toast.success('Schedule deleted');
       loadSchedules();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete schedule');
     }
   };
@@ -672,7 +672,7 @@ export default function SettingsAdminPage() {
       await settingsAPI.updateSchedule(schedule.id, { isActive: !schedule.isActive });
       toast.success(schedule.isActive ? 'Schedule disabled' : 'Schedule enabled');
       loadSchedules();
-    } catch (err) {
+    } catch {
       toast.error('Failed to toggle schedule');
     }
   };
@@ -790,7 +790,7 @@ export default function SettingsAdminPage() {
         const msg = err.response?.data?.message || err.message || 'Connection failed';
         toast.error(`Connection failed: ${msg}`);
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to test connection');
     } finally {
       setTestingAI(false);

@@ -103,6 +103,7 @@ export default function CuratedLooksAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   // ── CSV Export State ──
@@ -113,6 +114,7 @@ export default function CuratedLooksAdminPage() {
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   // ── Load looksEnabled setting ──
@@ -187,11 +189,13 @@ export default function CuratedLooksAdminPage() {
     } finally {
       setSavingOrder(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [looks, currentPage]);
 
   const handleResetOrder = useCallback(async () => {
     await load(currentPage);
     setOrderChanged(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render
   }, [currentPage]);
 
   const loadProducts = useCallback(async () => {

@@ -1,14 +1,6 @@
 import { AlertTriangle, TrendingUp, RefreshCw, Lightbulb, Eye, DollarSign, BarChart3 } from 'lucide-react';
 
-const STATUS_DOT = {
-  ACTIVE: 'bg-green-500',
-  DRAFT: 'bg-gray-400',
-  PAUSED: 'bg-yellow-500',
-  COMPLETED: 'bg-blue-500',
-  FAILED: 'bg-red-500',
-};
-
-export default function PerformanceAlerts({ campaigns, stats, onSync, onEdit }) {
+export default function PerformanceAlerts({ campaigns, onEdit }) {
   const alerts = [];
 
   // Alert 1: Campaigns about to end

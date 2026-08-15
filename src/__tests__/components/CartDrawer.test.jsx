@@ -75,7 +75,7 @@ describe('CartDrawer (selektt-style)', () => {
   });
 
   it('shows the below-threshold free-shipping message with remaining amount', () => {
-    // 1 item @ ₹299 → ₹299 subtotal, threshold ₹499 → Rs. 200 away
+    // 1 item @ ₹299 → ₹299 subtotal, threshold ₹499 → ₹200 away
     useCartStore.setState({
       items: [{ id: 'p1', productId: 'p1', cartItemId: 'c1', name: 'Classic Tee', price: 299, quantity: 1, variantStock: 10 }],
       count: 1,
@@ -83,13 +83,13 @@ describe('CartDrawer (selektt-style)', () => {
       isOpen: true,
     });
     renderDrawer();
-    expect(screen.getByText('Add Rs. 200.00 more to get FREE shipping!')).toBeDefined();
-    // Cheapest item is Rs. 299 → ceil(200/299) = 1 → "That's just 1 more item!"
+    expect(screen.getByText('Add ₹200 more to get FREE shipping!')).toBeDefined();
+    // Cheapest item is ₹299 → ceil(200/299) = 1 → "That's just 1 more item!"
     expect(screen.getByText("That's just 1 more item!")).toBeDefined();
   });
 
   it('shows how many more items are needed when the gap spans multiple items', () => {
-    // 1 item @ Rs. 100 → ₹100 subtotal, threshold ₹499 → Rs. 399 away → 4 items needed
+    // 1 item @ ₹100 → ₹100 subtotal, threshold ₹499 → ₹399 away → 4 items needed
     useCartStore.setState({
       items: [{ id: 'p2', productId: 'p2', cartItemId: 'c2', name: 'Accessory', price: 100, quantity: 1, variantStock: 10 }],
       count: 1,
@@ -97,7 +97,7 @@ describe('CartDrawer (selektt-style)', () => {
       isOpen: true,
     });
     renderDrawer();
-    expect(screen.getByText('Add Rs. 399.00 more to get FREE shipping!')).toBeDefined();
+    expect(screen.getByText('Add ₹399 more to get FREE shipping!')).toBeDefined();
     expect(screen.getByText("That's about 4 more items!")).toBeDefined();
   });
 
@@ -105,15 +105,15 @@ describe('CartDrawer (selektt-style)', () => {
     renderDrawer();
     expect(screen.getByText('Discount')).toBeDefined();
     expect(screen.getByText(/Buy 2 Items, Get 10% Off/)).toBeDefined();
-    expect(screen.getByText('-Rs. 209.80')).toBeDefined();
+    expect(screen.getByText('-₹210')).toBeDefined();
   });
 
   it('shows Subtotal (gross), Total (net) and the taxes note', () => {
     renderDrawer();
     expect(screen.getByText('Subtotal')).toBeDefined();
-    expect(screen.getByText('Rs. 2,098.00')).toBeDefined();
+    expect(screen.getByText('₹2,098')).toBeDefined();
     expect(screen.getByText('Total')).toBeDefined();
-    expect(screen.getByText('Rs. 1,888.20')).toBeDefined();
+    expect(screen.getByText('₹1,888')).toBeDefined();
     expect(screen.getByText('Taxes and shipping calculated at checkout')).toBeDefined();
   });
 
@@ -140,8 +140,8 @@ describe('CartDrawer (selektt-style)', () => {
     renderDrawer();
 
     expect(await screen.findByText('GET 10% OFF')).toBeDefined();
-    // Both the store offer and the bundle discount are -₹209.80 here
-    expect(screen.getAllByText('-Rs. 209.80').length).toBe(2);
-    expect(screen.getByText('Rs. 1,678.40')).toBeDefined();
+    // Both the store offer and the bundle discount round to -₹210 here
+    expect(screen.getAllByText('-₹210').length).toBe(2);
+    expect(screen.getByText('₹1,678')).toBeDefined();
   });
 });

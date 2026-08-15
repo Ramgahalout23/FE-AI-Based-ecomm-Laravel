@@ -21,7 +21,7 @@ export default function useDesignUpload() {
   const fileInputRef = useRef(null);
   const [designFile, setDesignFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
 
   const handleFileSelect = useCallback(async (e) => {
     const file = e.target.files?.[0];

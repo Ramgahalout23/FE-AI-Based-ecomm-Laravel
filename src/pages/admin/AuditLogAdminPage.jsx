@@ -97,6 +97,7 @@ export default function AuditLogAdminPage() {
 
   useEffect(() => {
     fetchLogs(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLogs is recreated each render; page/actionFilter are the intended triggers
   }, [page, actionFilter]);
 
   // Auto-refresh every 15 seconds

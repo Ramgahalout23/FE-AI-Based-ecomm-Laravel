@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { wishlistAPI } from '../../api/wishlist';
 import { cartAPI } from '../../api/cart';
@@ -161,7 +162,7 @@ export default function WishlistPage() {
       if (isNotFound) {
         // Item is in local wishlist but not on server — add to local cart anyway
         // and try to add directly to server cart as a fallback
-        try { await cartAPI.add({ productId: id, quantity: 1, size: selection.selectedSize, color: selection.selectedColor, variantId: matchedVariant?.id }); } catch {}
+        try { await cartAPI.add({ productId: id, quantity: 1, size: selection.selectedSize, color: selection.selectedColor, variantId: matchedVariant?.id }); } catch { /* local cart fallback already handled */ }
         addItem({
           ...item,
           productId: id,
@@ -305,7 +306,7 @@ export default function WishlistPage() {
   return (
     <div className="wishlist-page">
       <SEOHead
-        title={`My Wishlist | ${storeName}`}
+        title={withStoreName('My Wishlist', storeName)}
         description={`View and manage your saved items at ${storeName}. Add your favorite products to your wishlist and shop them anytime.`}
         noIndex={true}
       />

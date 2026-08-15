@@ -84,7 +84,7 @@ export default function usePullToRefresh({
 
     setPullDistance(Math.round(dist));
     pullDistRef.current = Math.round(dist);
-  }, [isPulling, maxPull]);
+  }, [maxPull]);
 
   /* ── Touch end ── */
   const handleTouchEnd = useCallback(() => {

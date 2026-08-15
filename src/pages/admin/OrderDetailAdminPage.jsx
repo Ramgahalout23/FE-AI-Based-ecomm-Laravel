@@ -25,7 +25,7 @@ function Code39Barcode({ value }) {
     '$': '100100100101', '/': '100100101001', '+': '100101001001', '%': '101001001001'
   };
 
-  const safeVal = (value || '').replace(/[^0-9A-Z\-\.\ \$\/\+\%]/gi, '').toUpperCase();
+  const safeVal = (value || '').replace(/[^0-9A-Z. $/+%-]/gi, '').toUpperCase();
   const str = `*${safeVal}*`;
   let result = '';
   for (let i = 0; i < str.length; i++) {
@@ -159,7 +159,7 @@ export default function OrderDetailAdminPage() {
               window.print();
               setTimeout(function() { window.close(); }, 500);
             }
-          <\/script>
+          </script>
         </body>
       </html>
     `);
@@ -664,7 +664,7 @@ export default function OrderDetailAdminPage() {
                       if (parsed && parsed.backDesignUrl) {
                         backDesignUrl = parsed.backDesignUrl;
                       }
-                    } catch {}
+                    } catch { /* design notes are optional */ }
                   }
                   const unitPrice = editing ? Number(item.price) || 0 : (Number(item.price) || 0);
                   const qty = editing ? Number(item.quantity) || 1 : (Number(item.quantity ?? 1));
@@ -799,7 +799,7 @@ export default function OrderDetailAdminPage() {
                 { status: 'CANCELLED', label: 'Cancelled', time: detail.cancelledAt },
                 { status: 'RETURN_REQUESTED', label: 'Return Requested', time: detail.returnRequestedAt },
                 { status: 'RETURNED', label: 'Returned', time: detail.returnedAt },
-              ].filter(s => s.time || s.status === detail.status).map((step, i) => {
+              ].filter(s => s.time || s.status === detail.status).map((step) => {
                 const isActive = step.time;
                 const isCurrent = step.status === detail.status;
                 const statusOrder = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURN_REQUESTED', 'RETURNED', 'CANCELLED'];

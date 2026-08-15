@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LifeBuoy, Send, Loader2, Inbox, Clock, Tag } from 'lucide-react';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import { ticketsAPI } from '../../api/tickets';
@@ -90,7 +91,7 @@ export default function SupportTicketsPage() {
   return (
     <div className="page-content bg-white">
       <SEOHead
-        title={`Support Tickets | ${storeName}`}
+        title={withStoreName('Support Tickets', storeName)}
         description={`Contact ${storeName} support. Open a support ticket for help with orders, payments, shipping, returns, or product questions.`}
         noIndex={true}
       />

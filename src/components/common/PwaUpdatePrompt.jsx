@@ -15,12 +15,11 @@ export default function PwaUpdatePrompt() {
   const [updateSW, setUpdateSW] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
-  // In dev mode, vite-plugin-pwa is not active so virtual:pwa-register doesn't exist.
-  // Early return avoids runtime errors. @vite-ignore prevents Vite's static analysis
-  // from trying to resolve the virtual module (which only exists in production builds).
-  if (import.meta.env.DEV) return null;
-
   useEffect(() => {
+    // In dev mode, vite-plugin-pwa is not active so virtual:pwa-register doesn't
+    // exist — the dynamic import below fails and is caught. @vite-ignore prevents
+    // Vite's static analysis from trying to resolve the virtual module (which
+    // only exists in production builds).
     const pwaModule = 'virtual:pwa-register';
     import(/* @vite-ignore */ pwaModule).then(({ registerSW }) => {
       const swRegistration = registerSW({
@@ -39,6 +38,9 @@ export default function PwaUpdatePrompt() {
       // virtual:pwa-register not available — that's fine
     });
   }, []);
+
+  // Dev mode has no PWA plugin — nothing to prompt for.
+  if (import.meta.env.DEV) return null;
 
   if (!needRefresh || dismissed) return null;
 

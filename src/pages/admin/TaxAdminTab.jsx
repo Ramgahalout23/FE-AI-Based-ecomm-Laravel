@@ -31,7 +31,7 @@ const INDIAN_STATES = [
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ];
 
-export default function TaxAdminTab({ settings, setSettings, loading, setLoading, handleSaveSettings }) {
+export default function TaxAdminTab({ settings, setSettings, loading, setLoading }) {
   const { updateSettings: updateContextSettings } = useSettings();
   const [taxRates, setTaxRates] = useState([]);
   const [taxRatesLoading, setTaxRatesLoading] = useState(false);
@@ -165,7 +165,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
       await taxAPI.delete(id);
       toast.success('Tax rate deleted');
       loadTaxRates();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete tax rate');
     }
   };
@@ -175,7 +175,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
       await taxAPI.update(rate.id, { isActive: !rate.isActive });
       toast.success(rate.isActive ? 'Tax rate disabled' : 'Tax rate enabled');
       loadTaxRates();
-    } catch (err) {
+    } catch {
       toast.error('Failed to toggle tax rate');
     }
   };
@@ -190,7 +190,7 @@ export default function TaxAdminTab({ settings, setSettings, loading, setLoading
       if (settings.shippingFlatRate) updates.shippingFlatRate = settings.shippingFlatRate;
       await updateContextSettings(updates);
       toast.success('Tax & Shipping settings saved');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save settings');
     } finally {
       setLoading(false);

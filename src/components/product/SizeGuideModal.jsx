@@ -192,7 +192,7 @@ export default memo(function SizeGuideModal({ isOpen, onClose, sizeData }) {
                           { label: t('size_guide.waist'), key: 'waist', desc: t('size_guide.waist_desc') },
                           { label: t('size_guide.length'), key: 'length', desc: t('size_guide.length_desc') },
                           { label: t('size_guide.sleeve'), key: 'sleeve', desc: t('size_guide.sleeve_desc') },
-                        ].map((m, i) => (
+                        ].map((m) => (
                           <tr key={m.key} className="group transition-colors hover:bg-gray-50/50">
                             <td className="py-3 px-4">
                               <div className="flex flex-col">

@@ -125,10 +125,12 @@ export default function ReturnsAdminPage() {
     } else {
       loadRequests(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/loadRequests intentionally excluded: loadRequests is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     loadRequests(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRequests is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   const openActionModal = (type, item) => {

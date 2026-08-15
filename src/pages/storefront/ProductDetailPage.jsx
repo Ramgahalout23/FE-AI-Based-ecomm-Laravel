@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import { trackProductView, trackAddToCart } from '../../services/tracker';
+import { buildSeoTitle } from '../../utils/seo';
 import useInterval from '../../hooks/useInterval';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -1094,7 +1095,7 @@ export default function ProductDetailPage() {
 
       {/* ── SEO meta tags ── */}
       <SEOHead
-        title={seoMeta?.metaTitle || `${product.name} — ${product.seoTitle || ''}` || `${product.name} — ${storeName}`}
+        title={buildSeoTitle({ metaTitle: seoMeta?.metaTitle, name: product.name, seoTitle: product.seoTitle, storeName })}
         description={seoMeta?.metaDescription || product.seoDescription || product.shortDescription || product.description}
         keywords={seoMeta?.metaKeywords || product.seoKeywords || ''}
         image={seoMeta?.ogImage || getImageUrl(getProductImages(product)[0]) || ''}

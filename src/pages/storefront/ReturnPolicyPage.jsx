@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Truck, BadgeCheck, ShieldCheck } from 'lucide-react';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import ContentPageHero from '../../components/storefront/ContentPageHero';
 import ContentMarquee from '../../components/storefront/ContentMarquee';
 import ContentProse from '../../components/storefront/ContentProse';
@@ -92,7 +93,7 @@ export default function ReturnPolicyPage() {
   return (
     <div className="page-content bg-white">
       <SEOHead
-        title={`${title} | ${storeName}`}
+        title={withStoreName(title, storeName)}
         description={content.metaDescription || `Learn about ${storeName} return and exchange policy. Easy returns within 7 days, free pickup, and full refunds on eligible items.`}
       />
 

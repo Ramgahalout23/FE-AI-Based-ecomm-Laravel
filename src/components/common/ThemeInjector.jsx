@@ -69,6 +69,7 @@ export default function ThemeInjector() {
     return () => {
       styleEl.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- settings fields are enumerated below
   }, [
     settings.themePrimaryColor,
     settings.themeSecondaryColor,

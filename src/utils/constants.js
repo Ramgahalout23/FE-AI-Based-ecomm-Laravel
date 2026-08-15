@@ -211,6 +211,16 @@ export const getBundleTier = (qty, tiers = BUNDLE_TIERS) => {
  * @param {Array}  offers   Store offers from promotionsAPI.getStoreOffers().
  * @returns {{ id: string, badge: string, highlight: string, tagline: ?string, amount: number }|null}
  */
+/**
+ * Round a monetary value to the nearest whole rupee.
+ *
+ * INR is displayed (and charged) in whole rupees, so every discount, tax and
+ * total computation must route through this helper — the value used in math
+ * then always matches the value shown by formatCurrency. Keeping the rule in
+ * one place means the convention can't drift again.
+ */
+export const roundINR = (value) => Math.round(Number(value) || 0);
+
 export const getBestStoreOffer = (items = [], offers = []) => {
   const list = Array.isArray(items) ? items : [];
   const active = (offers || []).filter((o) =>
@@ -229,7 +239,7 @@ export const getBestStoreOffer = (items = [], offers = []) => {
     const maxDiscount = Number(offer.maxDiscount ?? offer.max_discount ?? 0);
     const minPurchase = Number(offer.minPurchase ?? offer.min_purchase ?? 0);
     if (minPurchase > 0 && itemSubtotal < minPurchase) return 0;
-    let discount = 0;
+    let discount;
     if (percentTypes.includes(type)) {
       discount = itemSubtotal * (discountValue / 100);
     } else if (type === 'FIXED') {
@@ -264,7 +274,9 @@ export const getBestStoreOffer = (items = [], offers = []) => {
     }
   }
 
-  total = Math.round(total * 100) / 100;
+  // Whole-rupee rounding at the source — line items and totals then reconcile
+  // exactly with what's shown.
+  total = roundINR(total);
   if (total <= 0) return null;
 
   // Name the offer that contributed the most (amounts may combine offers).
@@ -350,7 +362,8 @@ export const calcBundleDiscount = (items, tiers = BUNDLE_TIERS) => {
   const totalQty = list.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
   const totalValue = list.reduce((sum, item) => sum + (item.price || 0) * (item.quantity ?? 1), 0);
   const tier = getBundleTier(totalQty, tiers);
-  return Math.round(totalValue * (tier.discount / 100) * 100) / 100;
+  // Whole-rupee rounding so the displayed discount equals the value used in totals
+  return roundINR(totalValue * (tier.discount / 100));
 };
 
 /**
@@ -376,7 +389,8 @@ export const calcBundleDiscountDetails = (items, tiers = BUNDLE_TIERS) => {
     return { discount: 0, tier: null, message: '', totalQty };
   }
 
-  const discount = Math.round(totalValue * (applicableTier.discount / 100) * 100) / 100;
+  // Whole-rupee rounding so the displayed discount equals the value used in totals
+  const discount = roundINR(totalValue * (applicableTier.discount / 100));
 
   // Build a human-readable message
   const minQty = applicableTier.minQty;
@@ -401,7 +415,7 @@ export const calcBundleDiscountDetails = (items, tiers = BUNDLE_TIERS) => {
  */
 export const calcTax = (subtotal, taxCalculation, taxRate) =>
   taxCalculation === 'exclusive'
-    ? Math.round((subtotal || 0) * (Number(taxRate) || 0)) / 100
+    ? roundINR(((subtotal || 0) * (Number(taxRate) || 0)) / 100)
     : 0;
 
 /**

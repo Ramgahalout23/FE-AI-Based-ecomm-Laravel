@@ -172,7 +172,7 @@ export default function LogViewerAdminPage() {
       if (Array.isArray(payload.files)) {
         setFiles(payload.files);
       }
-    } catch (e) {
+    } catch {
       setError('Failed to load server logs');
       setLines([]);
     } finally {
@@ -184,6 +184,7 @@ export default function LogViewerAdminPage() {
     if (mode === 'browse') {
       fetchLogs(page, selectedFile);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLogs is recreated each render; the listed state is the intended trigger
   }, [page, levelFilter, selectedFile, mode]);
 
   // Auto-refresh every 10 seconds (browse mode only)
@@ -276,7 +277,7 @@ export default function LogViewerAdminPage() {
           streamOffsetRef.current = data.new_offset;
         }
         setStreamConnected(true);
-      } catch (e) {
+      } catch {
         setStreamConnected(false);
         setStreamError('Polling failed — server may be unreachable');
       }

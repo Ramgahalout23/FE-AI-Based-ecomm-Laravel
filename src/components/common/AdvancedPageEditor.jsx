@@ -770,6 +770,7 @@ export default function AdvancedPageEditor({ value, onChange, previewUrl }) {
     if (key === sectionsKeyRef.current) return;
     sectionsKeyRef.current = key;
     onChangeRef.current?.(generateHTML(sections));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- generateHTML is a render-local helper; sections is the trigger
   }, [sections]);
 
   // Keyboard shortcuts
@@ -786,6 +787,7 @@ export default function AdvancedPageEditor({ value, onChange, previewUrl }) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only keyboard shortcuts; doUndo/doRedo are intentionally not deps
   }, []);
 
   function parseSections(html) {

@@ -178,7 +178,7 @@ export default function TaxAdminPage() {
       toast.success('Tax rate deleted');
       loadTaxRates();
       return true;
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete tax rate');
       return false;
     }
@@ -190,7 +190,7 @@ export default function TaxAdminPage() {
       toast.success(rate.isActive ? 'Tax rate disabled' : 'Tax rate enabled');
       loadTaxRates();
       return true;
-    } catch (err) {
+    } catch {
       toast.error('Failed to toggle tax rate');
       return false;
     }
@@ -204,7 +204,7 @@ export default function TaxAdminPage() {
       await settingsAPI.updateSetting('freeShippingThreshold', settings.freeShippingThreshold);
       await settingsAPI.updateSetting('shippingFlatRate', settings.shippingFlatRate);
       toast.success('Tax & Shipping settings saved');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save settings');
     } finally {
       setGlobalSaving(false);
@@ -335,7 +335,7 @@ export default function TaxAdminPage() {
                       color: '#C9A96E',
                       fontWeight: 700,
                     }}>
-                      {rate.type === 'PERCENTAGE' ? `${rate.rate}%` : `\$${rate.rate}`}
+                      {rate.type === 'PERCENTAGE' ? `${rate.rate}%` : `$${rate.rate}`}
                     </span>
                   </td>
                   <td style={{ fontSize: '0.85rem' }}>

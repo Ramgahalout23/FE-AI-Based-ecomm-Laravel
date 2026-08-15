@@ -70,10 +70,12 @@ export default function PromotionsAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, statusFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   const [showExportModal, setShowExportModal] = useState(false);
@@ -675,7 +677,7 @@ function CategoryMultiSelect({ selected, onChange }) {
         const normalized = Array.isArray(list) ? list : [];
         _cachedCategories = normalized;
         setCategories(normalized);
-      } catch {} finally { setLoading(false); }
+      } catch { /* categories are optional — page still works without them */ } finally { setLoading(false); }
     })();
   }, []);
 

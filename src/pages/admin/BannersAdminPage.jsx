@@ -172,10 +172,12 @@ export default function BannersAdminPage() {
     } else {
       load(1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, typeFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   const openCreate = () => { setEditing(null); setForm(EMPTY); validation.reset(); setShowModal(true); };

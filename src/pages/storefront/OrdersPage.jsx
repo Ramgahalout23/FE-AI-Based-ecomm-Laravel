@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { ordersAPI } from '../../api/orders';
 import { useSettings } from '../../store/useSettings';
@@ -45,14 +46,14 @@ export default function OrdersPage() {
 
   const handleReviewSubmitted = useCallback(() => {
     toast.success(t('orders.detail.review_submitted'));
-  }, []);
+  }, [t]);
 
   if (loading) return <OrderListSkeleton />;
 
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`My Orders | ${storeName}`}
+        title={withStoreName('My Orders', storeName)}
         description={`Track and manage your orders at ${storeName}. View order history, check shipping status, and manage returns.`}
         noIndex={true}
       />

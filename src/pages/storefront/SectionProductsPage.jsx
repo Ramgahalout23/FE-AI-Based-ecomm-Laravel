@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import ProductGrid from '../../components/product/ProductGrid';
@@ -296,7 +297,6 @@ export default function SectionProductsPage() {
   );
 
   const sortOptions = SORT_OPTIONS(t);
-  const sortOption = sortOptions.find((o) => o.value === sortBy) || sortOptions[0];
 
   // Active filters count
   const activeFiltersCount =
@@ -312,34 +312,13 @@ export default function SectionProductsPage() {
     setLoading(true);
   };
 
-  // Not a valid section
-  if (!config) {
-    return (
-      <div className="page-content bg-white flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <Package size={48} />
-          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">{t('products.section_not_found')}</h2>
-          <p className="text-gray-500 mb-6">{t('products.section_not_found_desc')}</p>
-          <Breadcrumb
-            items={[
-              { label: t('nav.home'), href: '/' },
-              { label: t('products.section_not_found') },
-            ]}
-            variant="light"
-            className="justify-center mb-4"
-          />
-        </div>
-      </div>
-    );
-  }
-
   const configT = {
-    ...config,
-    title: t(config.title),
-    subtitle: t(config.subtitle),
-    label: t(config.label),
+    ...(config || {}),
+    title: t(config?.title),
+    subtitle: t(config?.subtitle),
+    label: t(config?.label),
   };
-  const Icon = configT.icon || config.icon;
+  const Icon = configT.icon || config?.icon;
 
   // Build API params from all filter + sort state
   const buildApiParams = useCallback(() => {
@@ -353,10 +332,12 @@ export default function SectionProductsPage() {
     if (priceRange[1] < MAX_PRICE) params.maxPrice = priceRange[1];
     if (selectedSizes.length > 0) params.sizes = selectedSizes.join(',');
     return params;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortOptions is recreated each render from t
   }, [page, sortBy, priceRange, selectedSizes]);
 
   // Fetch products
   useEffect(() => {
+    if (!config) return;
     const fetchProducts = async () => {
       if (page === 1) setLoading(true);
       try {
@@ -383,6 +364,7 @@ export default function SectionProductsPage() {
       }
     };
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildApiParams is render-local; section in deps covers config
   }, [page, section, sortBy, priceRange, selectedSizes]);
 
   // Reset when section, sort, price range, or sizes change
@@ -405,10 +387,31 @@ export default function SectionProductsPage() {
     setPriceRange(range);
   };
 
+  // Not a valid section — render after all hooks so the Rules of Hooks hold
+  if (!config) {
+    return (
+      <div className="page-content bg-white flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <Package size={48} />
+          <h2 className="font-display font-bold text-2xl text-gray-900 mb-2">{t('products.section_not_found')}</h2>
+          <p className="text-gray-500 mb-6">{t('products.section_not_found_desc')}</p>
+          <Breadcrumb
+            items={[
+              { label: t('nav.home'), href: '/' },
+              { label: t('products.section_not_found') },
+            ]}
+            variant="light"
+            className="justify-center mb-4"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`${configT.title} | ${storeName}`}
+        title={withStoreName(configT.title, storeName)}
         description={configT.subtitle || `Browse our ${configT.title.toLowerCase()} collection. Shop premium products at ${storeName}.`}
       />
       {/* Hero Banner */}

@@ -37,10 +37,10 @@ function getDateLabel(dateStr) {
 // ─── Main Component ───────────────────────────────────────
 
 export default function LiveChatWidget() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const {
-    chat, messages, loading, error, isTyping, typingName,
-    initChat, sendMessage, sendTyping, resetChat,
+    chat, messages, error, isTyping, typingName,
+    initChat, sendMessage, sendTyping,
   } = useChat();
 
   const [isOpen, setIsOpen] = useState(false);

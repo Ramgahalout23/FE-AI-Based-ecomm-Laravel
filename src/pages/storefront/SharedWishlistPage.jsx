@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 ;
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { wishlistAPI } from '../../api/wishlist';
 import { cartAPI } from '../../api/cart';
@@ -107,7 +108,7 @@ export default function SharedWishlistPage() {
     }));
   }, []);
 
-  const handleAddToCart = async (item, e) => {
+  const handleAddToCart = async (item) => {
     const id = item.productId || item.id || item.product_id;
     if (addingIds.has(id)) return;
 
@@ -206,7 +207,7 @@ export default function SharedWishlistPage() {
   if (notFound) {
     return (
       <div className="shared-wishlist-page">
-        <SEOHead title={`Wishlist Not Found | ${storeName}`} noIndex />
+        <SEOHead title={withStoreName('Wishlist Not Found', storeName)} noIndex />
         <div className="max-w-7xl mx-auto px-4 pt-6 sm:pt-8">
           <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Shared Wishlist' }]} variant="light" />
         </div>
@@ -229,7 +230,7 @@ export default function SharedWishlistPage() {
   return (
     <div className="shared-wishlist-page">
       <SEOHead
-        title={`${sharedData?.user_name}'s Wishlist | ${storeName}`}
+        title={withStoreName(`${sharedData?.user_name}'s Wishlist`, storeName)}
         description={`Check out ${sharedData?.user_name}'s curated wishlist on ${storeName}.`}
         noIndex
       />

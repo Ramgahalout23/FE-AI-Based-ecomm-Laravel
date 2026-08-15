@@ -3,7 +3,7 @@ import {
   Building2, Shield, Megaphone, TrendingUp, DollarSign, Eye,
   BarChart3, RefreshCw, Rocket, Zap, Sparkles, Crown, Tag,
   MessageCircle, Target, Play, ArrowRight, BookOpen,
-  Settings2, Clock3, Award
+  Settings2, Clock3
 } from 'lucide-react';
 import toast from '../../../utils/toast';
 
@@ -24,7 +24,7 @@ const brandPresets = [
 ];
 
 export default function BrandTab({
-  stats, brandSettings, brandCampaigns, setOpenNew, setForm, setShowModal,
+  stats, brandSettings, brandCampaigns, setForm, setShowModal,
   setAiTone, setAiPlatform, setTab, openEdit, adsAPI
 }) {
   const [presetPerformance, setPresetPerformance] = useState(null);

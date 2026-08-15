@@ -1,8 +1,13 @@
 import { TrendingUp, AlertTriangle, Lightbulb, Zap, Clock, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
-
-;
 import { adsAPI } from '../../../api/ads';
+
+// CPC can be sub-rupee (e.g. ₹0.35 per click), so keep paise below ₹1 but display
+// whole rupees at ₹1+ — matching the panel's whole-rupee style for Budget/Spent.
+const formatCPC = (v) => {
+  const val = Number(v) || 0;
+  return val >= 1 ? `₹${Math.round(val).toLocaleString('en-IN')}` : `₹${val.toFixed(2)}`;
+};
 
 export default function BudgetOptimizer({ campaigns }) {
   const [apiData, setApiData] = useState(null);
@@ -72,7 +77,7 @@ export default function BudgetOptimizer({ campaigns }) {
       color: 'text-green-600',
       bg: 'bg-green-50 border-green-200',
       title: `${c.name} — High Performer!`,
-      detail: `${c.ctr.toFixed(1)}% CTR · ₹${c.cpc.toFixed(1)} CPC · ${c.efficiency.toFixed(1)} conversions/₹1K`,
+      detail: `${c.ctr.toFixed(1)}% CTR · ${formatCPC(c.cpc)} CPC · ${c.efficiency.toFixed(1)} conversions/₹1K`,
       action: 'Consider increasing budget by 20-30% to maximize ROI.',
     });
   });
@@ -186,7 +191,7 @@ export default function BudgetOptimizer({ campaigns }) {
                     <td className={`p-2.5 text-right text-xs font-bold ${c.ctr > 2 ? 'text-green-600' : 'text-text-muted'}`}>
                       {c.ctr.toFixed(2)}%
                     </td>
-                    <td className="p-2.5 text-right text-xs">₹{c.cpc.toFixed(2)}</td>
+                    <td className="p-2.5 text-right text-xs">{formatCPC(c.cpc)}</td>
                     <td className={`p-2.5 text-right text-xs font-bold ${c.efficiency > 3 ? 'text-green-600' : 'text-red-500'}`}>
                       {c.efficiency.toFixed(1)}
                     </td>

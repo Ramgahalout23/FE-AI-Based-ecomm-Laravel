@@ -87,7 +87,7 @@ export default function useDashboardCache(maxEntries = 10, namespace = 'default'
       return stored;
     }
     return null;
-  }, [buildKey]);
+  }, [buildKey, STORAGE_KEY_PREFIX]);
 
   /**
    * Store data snapshot for a range.
@@ -114,7 +114,7 @@ export default function useDashboardCache(maxEntries = 10, namespace = 'default'
       cacheRef.current.delete(oldest);
       removeFromStorage(STORAGE_KEY_PREFIX, oldest);
     }
-  }, [buildKey, maxEntries]);
+  }, [buildKey, maxEntries, STORAGE_KEY_PREFIX]);
 
   /**
    * Check if a range has cached data.
@@ -122,7 +122,7 @@ export default function useDashboardCache(maxEntries = 10, namespace = 'default'
   const has = useCallback((range) => {
     const key = buildKey(range);
     return cacheRef.current.has(key) || loadFromStorage(STORAGE_KEY_PREFIX, key) !== null;
-  }, [buildKey]);
+  }, [buildKey, STORAGE_KEY_PREFIX]);
 
   /**
    * Clear the entire cache (memory + sessionStorage).
@@ -131,7 +131,7 @@ export default function useDashboardCache(maxEntries = 10, namespace = 'default'
     cacheRef.current.clear();
     orderRef.current = [];
     clearAllStorage(STORAGE_KEY_PREFIX);
-  }, []);
+  }, [STORAGE_KEY_PREFIX]);
 
   // Stable object reference — prevents cascading re-renders in consuming components
   // (DashboardPage depends on this via useCallback(fn, [cache]) -> useEffect -> fetch -> dispatch -> re-render)

@@ -1,4 +1,4 @@
-import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, X, Check, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag, Crown } from 'lucide-react';
+import { Share2, ShoppingCart, Play, Pause, ChevronLeft, ChevronRight, ChevronUp, X, Check, Heart, Image, Volume2, VolumeX, Minus, Plus, ShoppingBag, Crown } from 'lucide-react';
 import ReelCard from './ReelCard';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -30,10 +30,6 @@ function discountPercent(oldPrice, price) {
   return Math.round(((oNum - pNum) / oNum) * 100);
 }
 
-function getReelBadge(reel, fallback = 'THREVOLT') {
-  // Per-reel badge set from admin wins; fall back to the linked product's badge
-  return reel?.badge || reel?.products?.[0]?.badge || fallback;
-}
 
 function isYouTubeUrl(url) {
   if (!url) return false;
@@ -160,7 +156,7 @@ function FashionShowcase({ reels }) {
   const videoRefs = useRef({});
   const [inViewReelId, setInViewReelId] = useState(null);
   // ── Mobile swipe affordance — hides once the user interacts ──
-  const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const [, setShowSwipeHint] = useState(true);
   // ── Auto-scroll (same as the product carousel) — works on mobile too ──
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const autoplayRef = useRef(null);
@@ -461,6 +457,7 @@ function FashionShowcase({ reels }) {
     );
     el.querySelectorAll('.reel-card').forEach((c) => io.observe(c));
     return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the duplicated-set length matters for observation
   }, [reels, loopReels.length]);
 
   // Play the in-view reel's video; pause everything else (and everything while
@@ -714,7 +711,7 @@ function ReelPlayer({
   const [videoReady, setVideoReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [showProductCard, setShowProductCard] = useState(true);
-  const [isSwiping, setIsSwiping] = useState(false);
+  const [isSwiping] = useState(false);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
   const [showVariantModal, setShowVariantModal] = useState(false);
@@ -741,9 +738,6 @@ function ReelPlayer({
   const variantData = extractVariantData(selectedProduct?.variants, selectedColor, selectedSize);
   const { colors, sizes, oosColors, oosSizes, matched: matchedVariant, firstAvailable: firstAvailVariant, hasVariants, allSelected: hasAllVariantSelections } = variantData;
   const hasSelectableOptions = colors.length > 0 || sizes.length > 0;
-
-  // Drag-down-to-close: close player when swiping down on first reel
-  const shouldCloseOnSwipeDown = reelIndex === 0;
 
   useEffect(() => {
     setShowProductCard(true);
@@ -825,14 +819,6 @@ function ReelPlayer({
      SWIPE HANDLERS — TikTok/Whatmore-style
      Uses pointer capture + transitionend for pixel-perfect timing
      ══════════════════════════════════════════════════════════ */
-  const getCardHeight = useCallback(() => {
-    if (contentRef.current) {
-      const card = contentRef.current.parentElement;
-      return card?.clientHeight || window.innerHeight;
-    }
-    return window.innerHeight;
-  }, []);
-
   const animateTo = useCallback((el, y, transition, onDone) => {
     if (transition) el.style.transition = transition;
     else el.style.transition = 'none';
@@ -880,60 +866,6 @@ function ReelPlayer({
     swipeOffsetRef.current = dy;
   }, []);
 
-  const handlePointerUp = useCallback((e) => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-
-    // Release pointer capture
-    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch {}
-
-    const offset = swipeOffsetRef.current;
-    swipeOffsetRef.current = 0;
-    const el = contentRef.current;
-    if (!el) return;
-
-    if (Math.abs(offset) > SWIPE_THRESHOLD) {
-      const direction = offset > 0 ? 1 : -1;
-
-      // ── DRAG DOWN TO CLOSE: On first reel, swipe down closes the player ──
-      if (direction > 0 && shouldCloseOnSwipeDown) {
-        setIsSwiping(true);
-        const cardHeight = getCardHeight();
-        animateTo(el, cardHeight, SWIPE_TRANSITION, () => {
-          onClose();
-        });
-        return;
-      }
-
-      // ── PAST THRESHOLD: TikTok-style off-screen → switch → on-screen ──
-      setIsSwiping(true);
-      const cardHeight = getCardHeight();
-      const targetY = direction * cardHeight;
-
-      // 1. Animate current content off-screen
-      animateTo(el, targetY, SWIPE_TRANSITION, () => {
-        // 2. Switch reel
-        if (direction > 0) goPrev();
-        else goNext();
-
-        // 3. On next frame, position new content from opposite side
-        requestAnimationFrame(() => {
-          animateTo(el, -targetY, null, () => {
-            // 4. Animate new content on-screen
-            requestAnimationFrame(() => {
-              animateTo(el, 0, SWIPE_TRANSITION, () => {
-                setIsSwiping(false);
-              });
-            });
-          });
-        });
-      });
-    } else {
-      // ── BELOW THRESHOLD: Snap back ──
-      animateTo(el, 0, SWIPE_TRANSITION);
-    }
-  }, [getCardHeight, goPrev, goNext, animateTo, setIsSwiping, shouldCloseOnSwipeDown, onClose]);
-
   // A genuine tap (press + release, no movement) on the video toggles play/pause.
   // setPointerCapture above retargets the click away from the <video>, so the
   // video's onClick can never fire — detect the tap here instead.
@@ -941,24 +873,24 @@ function ReelPlayer({
   const handlePointerUpTap = useCallback((e) => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch {}
+    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch { /* pointer capture release is best-effort */ }
     const offset = swipeOffsetRef.current;
     swipeOffsetRef.current = 0;
     const el = contentRef.current;
     if (!el) return;
     if (Math.abs(offset) <= SWIPE_THRESHOLD) togglePlayPause();
     animateTo(el, 0, SWIPE_TRANSITION);
-  }, [togglePlayPause]);
+  }, [togglePlayPause, animateTo]);
 
   const handlePointerCancel = useCallback((e) => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch {}
+    try { e?.currentTarget?.releasePointerCapture?.(e.pointerId); } catch { /* pointer capture release is best-effort */ }
     swipeOffsetRef.current = 0;
     const el = contentRef.current;
     if (!el) return;
     animateTo(el, 0, SWIPE_TRANSITION);
-  }, []);
+  }, [animateTo]);
 
   const reelLike = reelLikes?.[reel?.id] || { liked: false, count: 0 };
   const isLiked = !!reelLike.liked;
@@ -1503,7 +1435,7 @@ function ReelProgressBar({ isPlaying, videoRef, duration = 10, onComplete }) {
     const tick = (ts) => {
       if (!startRef.current) startRef.current = ts;
       const v = videoRef.current;
-      let p = 0;
+      let p;
       if (v && v.duration && isFinite(v.duration)) {
         p = v.currentTime / v.duration;
       } else {

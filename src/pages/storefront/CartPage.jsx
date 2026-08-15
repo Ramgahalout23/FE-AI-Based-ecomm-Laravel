@@ -1,10 +1,11 @@
 import { Minus, Plus, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart } from 'lucide-react';
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 
 import SEOHead from '../../components/seo/SEOHead';
+import { withStoreName } from '../../utils/seo';
 import CartIcon from '../../components/common/CartIcon';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { trackRemoveFromCart } from '../../services/tracker';
@@ -16,14 +17,14 @@ import { cartAPI } from '../../api/cart';
 import { wishlistAPI } from '../../api/wishlist';
 import { promotionsAPI } from '../../api/promotions';
 import { formatCurrency, slugify, getImageUrl } from '../../utils/formatters';
-import { calcBundleDiscount, calcBundleDiscountDetails, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer } from '../../utils/constants';
+import { calcBundleDiscount, calcBundleDiscountDetails, calcTax, parseBundleTiers, isBundleOfferEnabled, getBestStoreOffer, roundINR } from '../../utils/constants';
 import BundleTierProgress from '../../components/cart/BundleTierProgress';
-import { showError, showSuccess, removedFromCart, addedToWishlist } from '../../utils/toast';
+import { showError, showSuccess, removedFromCart } from '../../utils/toast';
 import CartPageSkeleton from '../../components/ui/CartItemSkeleton';
 
 export default function CartPage() {
   const { t } = useTranslation();
-  const { items, subtotal, updateQuantity, removeItem, clearCart, setItems } = useCartStore();
+  const { items, updateQuantity, removeItem, setItems } = useCartStore();
   const { addItem: addToWishlist } = useWishlistStore();
   const { isAuthenticated } = useAuthStore();
   const { getSetting } = useSettings();
@@ -108,7 +109,7 @@ export default function CartPage() {
 
   // ── How many more items needed for free shipping (based on cheapest item in cart) ──
   const cheapestItemPrice = availableItems.length ? Math.min(...availableItems.map((item) => item.price || 0)) : 0;
-  const shippingRemaining = Math.max(0, Math.round((freeShippingThreshold - availableSubtotal) * 100) / 100);
+  const shippingRemaining = Math.max(0, roundINR(freeShippingThreshold - availableSubtotal));
   const itemsNeededForShipping = shippingRemaining > 0 && cheapestItemPrice > 0
     ? Math.max(1, Math.ceil(shippingRemaining / cheapestItemPrice))
     : 0;
@@ -153,7 +154,9 @@ export default function CartPage() {
 
   const shipping = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
   const afterDiscount = Math.max(0, availableSubtotal - autoDiscount - bundleDiscount);
-  const total = afterDiscount + tax + shipping;
+  // Whole-rupee total — discounts/tax are already rounded to whole rupees, so
+  // this equals the sum of the displayed line items exactly.
+  const total = roundINR(afterDiscount + tax + shipping);
 
   // ── Event handlers ──
 
@@ -201,13 +204,13 @@ export default function CartPage() {
     try {
       // Add to wishlist
       if (isAuthenticated) {
-        try { await wishlistAPI.add({ productId }); } catch {}
+        try { await wishlistAPI.add({ productId }); } catch { /* local state already updated */ }
       }
       addToWishlist({ ...item, productId });
       // Remove from cart
       removeItem(itemKey);
       if (isAuthenticated) {
-        try { await cartAPI.removeItem(itemKey); } catch {}
+        try { await cartAPI.removeItem(itemKey); } catch { /* local state already updated */ }
       }
       showSuccess(
         <span className="inline-flex items-center gap-1.5">
@@ -344,7 +347,7 @@ export default function CartPage() {
     return (
       <div className="page-content bg-white flex-1">
         <SEOHead
-          title={`Shopping Cart | ${storeName}`}
+          title={withStoreName('Shopping Cart', storeName)}
           description={t('cart.seo_desc', { store: storeName, amount: formatCurrency(freeShippingThreshold, currency) })}
           noIndex={true}
         />
@@ -375,7 +378,7 @@ export default function CartPage() {
   return (
     <div className="page-content bg-white flex-1">
       <SEOHead
-        title={`Shopping Cart | ${storeName}`}
+        title={withStoreName('Shopping Cart', storeName)}
         description={t('cart.seo_desc', { store: storeName, amount: formatCurrency(freeShippingThreshold, currency) })}
         noIndex={true}
       />
