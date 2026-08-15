@@ -1,4 +1,4 @@
-import { ShoppingBag, Plus, Minus, X, Heart, Eye } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, X, Heart, Eye, BadgePercent } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
@@ -746,6 +746,12 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
               <span className="price-item tabular-nums text-red-600">
                 {formatProductCardPrice(product.price)}
               </span>
+              {discount > 0 && (
+                <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-extrabold tracking-wide px-2 py-1 rounded-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white shadow-md shadow-red-600/30 ring-1 ring-white/20">
+                  <BadgePercent size={10} strokeWidth={2.75} />
+                  {discount}% OFF
+                </span>
+              )}
             </div>
             {!isOutOfStock && isLowStock && (
               <p className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-gray-400">
