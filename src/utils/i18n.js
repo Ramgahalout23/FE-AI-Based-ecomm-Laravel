@@ -730,6 +730,7 @@ const DEFAULT_EN_TRANSLATIONS = {
   'support.order_placeholder': 'e.g. ORD-12345678-ABCD',
   'support.message': 'Describe your issue',
   'support.message_placeholder': 'Tell us what happened and how we can help...',
+  'support.screenshots': 'Screenshots (optional)',
   'support.submit': 'Submit Ticket',
   'support.submitting': 'Submitting...',
   'support.required_fields': 'Please fill in all required fields',

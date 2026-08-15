@@ -9,6 +9,16 @@ export const ticketsAPI = {
   createTicket: (data) => client.post('/tickets', data),
   // Add message to ticket
   addMessage: (id, data) => client.post(`/tickets/${id}/messages`, data),
+
+  // ── Ticket Screenshot Uploads ──
+  // Uses 'files[]' so PHP parses even a single file as an array (required|array).
+  uploadImages: (files) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files[]', f));
+    return client.post('/uploads/ticket-images', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ─── Live Chat API ────────────────────────────────────────

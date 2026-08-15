@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminAPI } from '../../api/admin';
 import { formatCurrency, formatDate, formatDateTime, getUserFullName } from '../../utils/formatters';
+import { returnReasonLabel } from '../../utils/constants';
 import toast from '../../utils/toast';
 import Pagination from '../../components/admin/Pagination';
 
@@ -56,8 +57,10 @@ function DetailSection({ title, icon, children, defaultExpanded = true }) {
 }
 
 function DetailGrid({ items }) {
+  // auto-fit collapses to a single column on narrow screens (inline styles
+  // can't be overridden by media queries, so the grid itself must be fluid)
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
       {items.map((item, i) => (
         <div key={i}>
           <div style={{ fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#999', marginBottom: '0.15rem' }}>{item.label}</div>
@@ -277,15 +280,16 @@ export default function ReturnsAdminPage() {
               <th>Amount</th>
               <th>Resolution</th>
               <th>Status</th>
+              <th>Reviewed By</th>
               <th>Date</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
+              <tr><td colSpan={11}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
             ) : requests.length === 0 ? (
-              <tr><td colSpan={10}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No return requests found</h3></div></td></tr>
+              <tr><td colSpan={11}><div className="empty-state"><div className="empty-state-icon">📦</div><h3>No return requests found</h3></div></td></tr>
             ) : requests.map(r => (
               <tr key={r.id}>
                 <td><strong style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>#{r.id?.slice(0, 8)}</strong></td>
@@ -303,8 +307,10 @@ export default function ReturnsAdminPage() {
                     <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>User #{r.user_id?.slice(0, 8)}</span>
                   )}
                 </td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>
-                  {r.order ? `#${r.order.order_number || r.order.id?.slice(0, 8)}` : `#${r.order_id?.slice(0, 8)}`}
+                <td>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>
+                    {r.order ? `#${r.order.order_number || r.order.id?.slice(0, 8)}` : `#${r.order_id?.slice(0, 8)}`}
+                  </span>
                 </td>
                 <td>
                   {r.return_type ? (
@@ -320,9 +326,19 @@ export default function ReturnsAdminPage() {
                     <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
                   )}
                 </td>
-                <td style={{ maxWidth: 160, fontSize: '0.82rem' }}>
-                  <div>{r.reason || '—'}</div>
+                <td className="return-reason-cell return-stack-cell" style={{ fontSize: '0.82rem' }}>
+                  <div>{returnReasonLabel(r.reason)}</div>
                   {r.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{r.description}</div>}
+                  {Array.isArray(r.images) && r.images.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {r.images.slice(0, 3).map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noreferrer">
+                          <img src={url} alt={`Return photo ${i + 1}`} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                        </a>
+                      ))}
+                      {r.images.length > 3 && <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>+{r.images.length - 3}</span>}
+                    </div>
+                  )}
                 </td>
                 <td>
                   {r.refund_amount ? (
@@ -341,7 +357,7 @@ export default function ReturnsAdminPage() {
                     <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
                   )}
                 </td>
-                <td>
+                <td className="return-stack-cell">
                   <span className={`status-badge ${RETURN_REQUEST_STATUSES[r.status]?.class || 'status-pending'}`}>
                     {RETURN_REQUEST_STATUSES[r.status]?.label || r.status}
                   </span>
@@ -349,6 +365,20 @@ export default function ReturnsAdminPage() {
                     <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 2 }}>
                       Admin: {r.admin_response}
                     </div>
+                  )}
+                </td>
+                <td style={{ fontSize: '0.82rem' }}>
+                  {r.reviewer ? (
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                        {getUserFullName(r.reviewer) || r.reviewer.email || '—'}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                        {r.reviewer.email || ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
                   )}
                 </td>
                 <td style={{ fontSize: '0.82rem' }}>{r.created_at ? formatDate(r.created_at) : '—'}</td>
@@ -453,9 +483,10 @@ export default function ReturnsAdminPage() {
                       { label: 'Request ID', value: <span style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{detailModal.data.id}</span> },
                       { label: 'Status', value: <span className={`status-badge ${RETURN_REQUEST_STATUSES[detailModal.data.status]?.class || 'status-pending'}`} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>{RETURN_REQUEST_STATUSES[detailModal.data.status]?.label || detailModal.data.status}</span> },
                       { label: 'Return Type', value: RETURN_TYPE_LABELS[detailModal.data.return_type] || detailModal.data.return_type || '—' },
-                      { label: 'Reason', value: detailModal.data.reason || '—' },
+                      { label: 'Reason', value: returnReasonLabel(detailModal.data.reason) },
                       { label: 'Created', value: detailModal.data.created_at ? formatDateTime(detailModal.data.created_at) : '—' },
                       { label: 'Processed', value: detailModal.data.processed_at ? formatDateTime(detailModal.data.processed_at) : '—' },
+                      { label: 'Reviewed By', value: detailModal.data.reviewer ? `${getUserFullName(detailModal.data.reviewer) || detailModal.data.reviewer.email || '—'} (${detailModal.data.reviewer.email || '—'})` : '—' },
                       { label: 'Refund Amount', value: detailModal.data.refund_amount ? <strong>{formatCurrency(detailModal.data.refund_amount)}</strong> : '—' },
                       { label: 'Resolution', value: detailModal.data.resolution ? (RETURN_TYPE_LABELS[detailModal.data.resolution] || detailModal.data.resolution) : '—' },
                     ]} />
@@ -463,6 +494,18 @@ export default function ReturnsAdminPage() {
                       <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.75rem', background: '#f5f5f5', borderRadius: '8px', fontSize: '0.82rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                         <div style={{ fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', color: '#999', marginBottom: '0.25rem' }}>📝 Customer Description</div>
                         {detailModal.data.description}
+                      </div>
+                    )}
+                    {Array.isArray(detailModal.data.images) && detailModal.data.images.length > 0 && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <div style={{ fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', color: '#999', marginBottom: '0.35rem' }}>📷 Attached Photos ({detailModal.data.images.length})</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {detailModal.data.images.map((url, i) => (
+                            <a key={i} href={url} target="_blank" rel="noreferrer">
+                              <img src={url} alt={`Return photo ${i + 1}`} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }} />
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </DetailSection>
@@ -630,7 +673,7 @@ export default function ReturnsAdminPage() {
                 </div>
                 <div className="detail-item">
                   <span className="label">Reason</span>
-                  <span className="value">{actionModal.item?.reason || '—'}</span>
+                  <span className="value">{returnReasonLabel(actionModal.item?.reason)}</span>
                 </div>
                 {actionModal.item?.refund_amount > 0 && (
                   <div className="detail-item">

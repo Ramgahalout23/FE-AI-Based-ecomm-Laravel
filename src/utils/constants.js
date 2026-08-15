@@ -77,6 +77,26 @@ export const ticketStatusClass = (status) => {
   return map[status] || 'status-in-transit';
 };
 
+// ── Return Requests ──
+// Values mirror the reason strings the storefront form submits (see
+// ReturnController::store and RefundService). Use returnReasonLabel() when
+// rendering so the admin panel never shows raw snake_case codes.
+export const RETURN_REASONS = [
+  { value: 'defective',   label: 'Defective / Damaged Item' },
+  { value: 'wrong_item',  label: 'Wrong Item Received' },
+  { value: 'not_as_desc', label: 'Not as Described' },
+  { value: 'size_issue',  label: 'Size / Fit Issue' },
+  { value: 'other',       label: 'Other' },
+];
+
+/**
+ * Render a return-request reason code as a human-readable label
+ * (e.g. wrong_item → "Wrong Item Received"). Falls back to the raw
+ * value for unknown codes so nothing renders as an empty cell.
+ */
+export const returnReasonLabel = (value) =>
+  RETURN_REASONS.find(r => r.value === value)?.label || value || '—';
+
 /**
  * Map color names to hex codes for swatch rendering.
  */

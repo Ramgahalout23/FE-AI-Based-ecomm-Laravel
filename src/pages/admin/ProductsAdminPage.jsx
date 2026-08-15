@@ -635,7 +635,7 @@ export default function ProductsAdminPage() {
                   ) : (
                     <strong>{formatCurrency(p.price)}</strong>
                   )}</td>
-                <td><span style={{ color: 'var(--warning)', fontSize: '0.8rem' }}>{'★'.repeat(Math.floor(p.rating || 0))}</span><span style={{ fontSize: '0.72rem', color: 'var(--muted)', marginLeft: 4 }}>{p.rating || '—'}</span></td>
+                <td className="admin-stack-cell"><span style={{ color: 'var(--warning)', fontSize: '0.8rem' }}>{'★'.repeat(Math.floor(p.rating || 0))}</span><span style={{ fontSize: '0.72rem', color: 'var(--muted)', marginLeft: 4 }}>{p.rating || '—'}</span></td>
                 <td><span className={`status-badge ${(p.status || 'ACTIVE') === 'ARCHIVED' ? 'status-archived' : (p.status || 'ACTIVE') === 'PUBLISHED' ? 'status-active' : 'status-active'}`}>{p.status || 'Active'}</span></td>
                 <td>
                   <div className="row-actions">

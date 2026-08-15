@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 ;
 import { useTranslation } from 'react-i18next';
-import { getImageUrl, getProductImages, getProductHoverImage, formatCurrency, slugify } from '../../utils/formatters';
+import { getImageUrl, getProductImages, getProductHoverImage, formatCurrency, formatProductCardPrice, slugify } from '../../utils/formatters';
 import { getColorHex, CUSTOM_TEE_SLUG } from '../../utils/constants';
 import { buildHighlights, getStyleTagline } from '../../utils/productHelpers';
 import useCartStore from '../../store/cartStore';
@@ -392,12 +392,12 @@ function NewArrivalCard({ product, index }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.5, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-      className="group relative flex flex-col bg-white"
+      className="group relative flex flex-col bg-gray-900 rounded-xl overflow-hidden"
     >
       {/* ─── Image Container ─── */}
       <div
         ref={flyRef}
-        className="relative w-full overflow-hidden bg-gray-50 aspect-[3/4] max-sm:aspect-[4/5]"
+        className="relative w-full overflow-hidden bg-gray-800 aspect-[3/4] max-sm:aspect-[4/5]"
         onMouseEnter={handleImageMouseEnter}
         onMouseLeave={handleImageMouseLeave}
       >
@@ -503,8 +503,8 @@ function NewArrivalCard({ product, index }) {
                   {/* Price */}
                   <div className="pt-2 pb-2.5 text-center border-b border-gray-50">
                     <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-base font-bold text-black">{formatCurrency(displayPrice)}</span>
-                      {displayOldPrice && <span className="text-[10px] text-gray-400 line-through">{formatCurrency(displayOldPrice)}</span>}
+                      <span className="text-base font-bold text-black">{formatProductCardPrice(displayPrice)}</span>
+                      {displayOldPrice && <span className="text-[10px] text-gray-400 line-through">{formatProductCardPrice(displayOldPrice)}</span>}
                       {displayDiscount && (
                         <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">
                           -{displayDiscount}%
@@ -785,10 +785,10 @@ function NewArrivalCard({ product, index }) {
         {/* Price */}
         <div className="flex items-center justify-center gap-1.5">
           {displayOldPrice && (
-            <span className="text-[11px] max-sm:text-[10px] text-gray-400 line-through">{formatCurrency(displayOldPrice)}</span>
+            <span className="text-[11px] max-sm:text-[10px] text-gray-400 line-through">{formatProductCardPrice(displayOldPrice)}</span>
           )}
           <span className={`text-xs font-bold ${displayOldPrice ? 'text-red-600' : 'text-gray-900'}`}>
-            {formatCurrency(displayPrice)}
+            {formatProductCardPrice(displayPrice)}
           </span>
           {displayDiscount && (
             <span className="text-[8px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200 leading-none">
@@ -903,7 +903,7 @@ function NewArrivalCard({ product, index }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                      <p className="text-base font-display font-extrabold text-black mt-0.5">{formatCurrency(displayPrice)}</p>
+                      <p className="text-base font-display font-extrabold text-black mt-0.5">{formatProductCardPrice(displayPrice)}</p>
                     </div>
                   </div>
 

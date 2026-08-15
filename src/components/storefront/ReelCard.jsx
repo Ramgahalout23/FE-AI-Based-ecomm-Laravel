@@ -2,7 +2,7 @@ import { Crown, Play, ShoppingCart, Heart, Check, X, ShoppingBag } from 'lucide-
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency, getImageUrl, getVideoUrl } from '../../utils/formatters';
+import { formatProductCardPrice, getImageUrl, getVideoUrl } from '../../utils/formatters';
 import { getColorHex, isLightColor } from '../../utils/constants';
 
 /* ═══════════════════════════════════════════════════════════
@@ -254,8 +254,8 @@ export default function ReelCard({
                 <div className="min-w-0 flex-1">
                   <p className="card-title text-[10px] leading-tight truncate">{p?.name || reel?.title}</p>
                   <div className="flex items-center gap-1 mt-0 flex-nowrap overflow-hidden">
-                    {p?.old_price && <span className="hidden sm:inline text-[8px] text-gray-400 line-through shrink-0">{formatCurrency(p.old_price)}</span>}
-                    {p?.price && <span className="price-item text-[10px] font-bold text-gray-900 shrink-0">{formatCurrency(p.price)}</span>}
+                    {p?.old_price && <span className="hidden sm:inline text-[8px] text-gray-400 line-through shrink-0">{formatProductCardPrice(p.old_price)}</span>}
+                    {p?.price && <span className="price-item text-[10px] font-bold text-gray-900 shrink-0">{formatProductCardPrice(p.price)}</span>}
                     {p?.old_price && p?.price && (
                       <span className="inline-flex items-center px-1 py-0.5 rounded-full bg-gray-900 text-white text-[6px] font-bold shrink-0">
                         {discountPercent(p.old_price, p.price)}% OFF

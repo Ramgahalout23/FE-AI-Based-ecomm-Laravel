@@ -6,6 +6,7 @@ import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import { ticketsAPI } from '../../api/tickets';
+import PhotoUploader from '../../components/common/PhotoUploader';
 import { TICKET_PRIORITIES, TICKET_CATEGORIES, ticketStatusLabel } from '../../utils/constants';
 import { formatDate } from '../../utils/formatters';
 import toast from '../../utils/toast';
@@ -42,6 +43,10 @@ export default function SupportTicketsPage() {
   const [tickets, setTickets] = useState([]);
   const [ticketsLoading, setTicketsLoading] = useState(true);
 
+  // ── Screenshot Attachments ──
+  const [photoFiles, setPhotoFiles] = useState([]); // [{ file, preview }]
+  const [uploading, setUploading] = useState(false);
+
   const loadTickets = useCallback(async () => {
     setTicketsLoading(true);
     try {
@@ -68,15 +73,29 @@ export default function SupportTicketsPage() {
     }
     setSubmitting(true);
     try {
+      let imageUrls = [];
+      if (photoFiles.length > 0) {
+        setUploading(true);
+        try {
+          const res = await ticketsAPI.uploadImages(photoFiles.map(p => p.file));
+          imageUrls = (res?.data?.data?.files || []).map(f => f.url).filter(Boolean);
+        } finally {
+          setUploading(false);
+        }
+      }
+
       await ticketsAPI.createTicket({
         subject: form.subject.trim(),
         category: form.category,
         priority: form.priority,
         message: form.message.trim(),
         orderId: form.orderId.trim() || undefined,
+        images: imageUrls.length > 0 ? imageUrls : undefined,
       });
       toast.success(t('support.ticket_created'));
       setForm(EMPTY_FORM);
+      photoFiles.forEach(p => { if (p.preview?.startsWith('blob:')) URL.revokeObjectURL(p.preview); });
+      setPhotoFiles([]);
       loadTickets();
     } catch (err) {
       const msg = err?.response?.data?.message || t('support.failed_create');
@@ -195,6 +214,18 @@ export default function SupportTicketsPage() {
                   />
                 </div>
 
+                {/* Screenshots */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('support.screenshots')}</label>
+                  <PhotoUploader
+                    photos={photoFiles}
+                    onPhotosChange={setPhotoFiles}
+                    maxPhotos={5}
+                    uploading={uploading}
+                    disabled={submitting}
+                  />
+                </div>
+
                 <button
                   type="submit"
                   disabled={submitting}
@@ -257,6 +288,15 @@ export default function SupportTicketsPage() {
                         {ticketStatusLabel(ticket.priority)}
                       </span>
                     </div>
+                    {Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {ticket.attachments.map((att, i) => (
+                          <a key={att.id || i} href={att.file_url} target="_blank" rel="noreferrer" title={`Attached screenshot ${i + 1}`}>
+                            <img src={att.file_url} alt={`Attached screenshot ${i + 1}`} className="w-14 h-14 object-cover rounded-lg border border-gray-200 hover:border-gray-400 transition-colors" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400">
                       <Clock size={13} />
                       {formatDate(ticket.created_at)}

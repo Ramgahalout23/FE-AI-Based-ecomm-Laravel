@@ -214,6 +214,33 @@
   }
 }
 
+/* ── Returns admin — reason cell clamp: desktop only, full width in mobile cards ── */
+.return-reason-cell {
+  max-width: 160px;
+}
+@media (max-width: 640px) {
+  .return-reason-cell {
+    max-width: none;
+  }
+
+  /* Composite cells (reason w/ description + photos, status w/ admin note)
+     contain multiple children — the default flex row would squeeze them.
+     Stack them vertically under the column label instead. */
+  table.admin-table tbody td.return-stack-cell,
+  table.admin-table tbody td.admin-stack-cell {
+    display: block;
+    text-align: left;
+  }
+
+  /* Action cells — stack the column label above the full-width touch bar
+     instead of squeezing the .row-actions grid next to it (which truncated
+     status dropdowns like "Delivered" to "Del..." on narrow screens). */
+  table.admin-table tbody tr td:has(> .row-actions) {
+    display: block;
+    text-align: left;
+  }
+}
+
 
 /* ── Stat Cards Premium ─────────────────────────── */
 .stats-grid .stat-card{position:relative;overflow:hidden;transition:all 0.25s ease}

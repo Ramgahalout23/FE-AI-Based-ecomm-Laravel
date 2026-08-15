@@ -7,9 +7,11 @@ import SEOHead from '../../components/seo/SEOHead';
 import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { returnsAPI } from '../../api/returns';
+import PhotoUploader from '../../components/common/PhotoUploader';
 import { ordersAPI } from '../../api/orders';
 import { useSettings } from '../../store/useSettings';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { RETURN_REASONS } from '../../utils/constants';
 import { showSuccess, showError } from '../../utils/toast';
 
 const STATUS_CONFIG = {
@@ -19,19 +21,15 @@ const STATUS_CONFIG = {
   COMPLETED:  { icon: CheckCircle,   label: 'Completed',         class: 'bg-green-50 text-green-700 border-green-200',     dot: 'bg-green-500' },
 };
 
-const REASONS = [
-  { value: 'defective',    label: 'Defective / Damaged Item' },
-  { value: 'wrong_item',   label: 'Wrong Item Received' },
-  { value: 'not_as_desc',  label: 'Not as Described' },
-  { value: 'size_issue',   label: 'Size / Fit Issue' },
-  { value: 'other',        label: 'Other' },
-];
+const REASONS = RETURN_REASONS;
 
 const RETURN_TYPES = [
   { value: '',          label: 'What would you like?', disabled: true },
   { value: 'exchange',  label: 'Exchange (same item, different size)', desc: 'For size issues' },
   { value: 'replacement', label: 'Replacement (same item, new unit)', desc: 'For defective or wrong items' },
 ];
+
+const MAX_RETURN_IMAGES = 5;
 
 export default function ReturnsPage() {
   const { t } = useTranslation();
@@ -48,6 +46,10 @@ export default function ReturnsPage() {
   const [formData, setFormData] = useState({ order_id: '', reason: '', return_type: '', description: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+
+  // ── Photo Attachments ──
+  const [photoFiles, setPhotoFiles] = useState([]); // [{ file, preview }]
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -88,18 +90,32 @@ export default function ReturnsPage() {
 
     setSubmitting(true);
     try {
+      let imageUrls = [];
+      if (photoFiles.length > 0) {
+        setUploading(true);
+        try {
+          const res = await returnsAPI.uploadImages(photoFiles.map(p => p.file));
+          imageUrls = (res?.data?.data?.files || []).map(f => f.url).filter(Boolean);
+        } finally {
+          setUploading(false);
+        }
+      }
+
       const payload = {
         order_id: formData.order_id,
         reason: formData.reason,
         description: formData.description,
         return_type: formData.return_type,
       };
+      if (imageUrls.length > 0) payload.images = imageUrls;
 
       await returnsAPI.createReturnRequest(payload);
       showSuccess(t('returns.request_submitted'));
 
       // Reset form & reload
       setFormData({ order_id: '', reason: '', return_type: '', description: '' });
+      photoFiles.forEach(p => { if (p.preview?.startsWith('blob:')) URL.revokeObjectURL(p.preview); });
+      setPhotoFiles([]);
       setFormErrors({});
       loadData();
       setActiveTab('requests');
@@ -108,6 +124,7 @@ export default function ReturnsPage() {
       showError(msg);
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -272,9 +289,19 @@ export default function ReturnsPage() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                     rows={3}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm resize-y"
-                    placeholder="Provide more details — include photos/video links if possible (unboxing proof helps!)"
+                    placeholder="Tell us what went wrong — unboxing proof and details help us resolve faster"
                   />
-                </div>
+                </div>                  {/* Photos */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Photos <span className="text-gray-300 normal-case">(optional · helps us review faster)</span></label>
+                    <PhotoUploader
+                      photos={photoFiles}
+                      onPhotosChange={setPhotoFiles}
+                      maxPhotos={MAX_RETURN_IMAGES}
+                      uploading={uploading}
+                      disabled={submitting}
+                    />
+                  </div>
 
                 <button
                   type="submit"
@@ -339,6 +366,15 @@ export default function ReturnsPage() {
                         <p><span className="font-medium text-gray-700">Reason:</span> {req.reason}</p>
                         {req.return_type && <p><span className="font-medium text-gray-700">Requested:</span> {req.return_type}</p>}
                         {req.description && <p><span className="font-medium text-gray-700">Details:</span> {req.description}</p>}
+                        {Array.isArray(req.images) && req.images.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1.5">
+                            {req.images.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noreferrer" title={`Attached photo ${i + 1}`}>
+                                <img src={url} alt={`Attached photo ${i + 1}`} className="w-16 h-16 object-cover rounded-lg border border-gray-200 hover:border-gray-400 transition-colors" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                         {req.admin_response && (
                           <p className="text-gray-500 italic mt-1">Admin: {req.admin_response}</p>
                         )}

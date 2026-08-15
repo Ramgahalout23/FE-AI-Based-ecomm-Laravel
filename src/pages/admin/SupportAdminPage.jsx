@@ -374,7 +374,19 @@ export default function SupportAdminPage() {
                   <strong>{customerName(t)}</strong>
                   <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{t.user?.email || t.email || '—'}</div>
                 </td>
-                <td style={{ maxWidth: 300 }}><strong>{t.subject}</strong><div style={{ fontSize: '0.8rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.message}</div></td>
+                <td style={{ maxWidth: 300 }}>
+                  <strong>{t.subject}</strong>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.message}</div>
+                  {Array.isArray(t.attachments) && t.attachments.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                      {t.attachments.slice(0, 5).map((att, i) => (
+                        <a key={att.id || i} href={att.file_url} target="_blank" rel="noreferrer" title={`Screenshot ${i + 1}`}>
+                          <img src={att.file_url} alt={`Screenshot ${i + 1}`} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </td>
                 <td>
                   <span className="status-badge">{ticketPriorityLabel(t.priority)}</span>
                   {aiPriority[t.id]?.loading ? (
@@ -459,6 +471,15 @@ export default function SupportAdminPage() {
                   <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.78rem' }}>#{chatTicket.ticketNumber || chatTicket.ticket_number || chatTicket.id?.slice(0, 8)}</span>
                   <span className="status-badge">{ticketPriorityLabel(chatTicket.priority)}</span>
                   <span className={`status-badge ${ticketStatusClass(chatTicket.status)}`}>{ticketStatusLabel(chatTicket.status) || 'Open'}</span>
+                  {Array.isArray(chatTicket.attachments) && chatTicket.attachments.length > 0 && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {chatTicket.attachments.slice(0, 5).map((att, i) => (
+                        <a key={att.id || i} href={att.file_url} target="_blank" rel="noreferrer" title={`Screenshot ${i + 1}`}>
+                          <img src={att.file_url} alt={`Screenshot ${i + 1}`} style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                        </a>
+                      ))}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <button className="btn-ghost btn-sm" onClick={handleAiSummary} disabled={aiSummaryLoading}

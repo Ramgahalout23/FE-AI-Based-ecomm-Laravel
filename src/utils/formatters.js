@@ -115,6 +115,18 @@ export const formatCurrency = (amount, currency) => {
   return `${symbol} ${num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+/**
+ * Product-card price format: "Rs." prefix, thousands separator and two
+ * decimals (e.g. Rs. 1,899.00). Used on storefront product cards only —
+ * cart/checkout/admin keep formatCurrency (₹, whole rupees) so the money
+ * math and the rest of the storefront stay unchanged.
+ */
+export const formatProductCardPrice = (amount) => {
+  const num = Number(amount);
+  if (isNaN(num)) return 'Rs. 0.00';
+  return `Rs. ${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export const formatDate = (date, options = {}) => {
   if (!date) return '—';
   const d = new Date(date);

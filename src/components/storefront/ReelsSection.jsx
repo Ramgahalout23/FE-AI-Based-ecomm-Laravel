@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../../store/useSettings';
-import { formatCurrency, getImageUrl, getVideoUrl } from '../../utils/formatters';
+import { formatCurrency, formatProductCardPrice, getImageUrl, getVideoUrl } from '../../utils/formatters';
 import { getColorHex, isLightColor } from '../../utils/constants';
 import useWishlistStore from '../../store/wishlistStore';
 import useAuthStore from '../../store/authStore';
@@ -1169,7 +1169,7 @@ function ReelPlayer({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-900 truncate">{prodName}</p>
                   <p className="text-sm font-extrabold text-gray-900 mt-0.5">
-                    {formatCurrency(matchedVariant?.price ?? prodPrice)}
+                    {formatProductCardPrice(matchedVariant?.price ?? prodPrice)}
                   </p>
                 </div>
               </div>
@@ -1344,8 +1344,8 @@ function ReelPlayer({
                     <div className="min-w-0 flex-1">
                       <p className="card-title">{prodName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {prodOld && <span className="text-[10px] text-gray-400 line-through">{formatCurrency(prodOld)}</span>}
-                        {prodPrice && <span className="price-item text-gray-900">{formatCurrency(prodPrice)}</span>}
+                        {prodOld && <span className="text-[10px] text-gray-400 line-through">{formatProductCardPrice(prodOld)}</span>}
+                        {prodPrice && <span className="price-item text-gray-900">{formatProductCardPrice(prodPrice)}</span>}
                         {prodOld && prodPrice && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-900 text-white text-[7px] font-bold">
                             -{discountPercent(prodOld, prodPrice)}%

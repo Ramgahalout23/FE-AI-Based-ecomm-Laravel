@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import useWishlistStore from '../../store/wishlistStore';
 import useCartStore from '../../store/cartStore';
-import { formatCurrency, slugify, getImageUrl, getResponsiveSrcSet, getProductImage, getProductImages, getProductHoverImage } from '../../utils/formatters';
+import { formatCurrency, formatProductCardPrice, slugify, getImageUrl, getResponsiveSrcSet, getProductImage, getProductImages, getProductHoverImage } from '../../utils/formatters';
 import { getColorHex } from '../../utils/constants';
 import { computeStockStatus } from '../../utils/stockHelpers';
 import { wishlistAPI } from '../../api/wishlist';
@@ -741,10 +741,10 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
           <div className="mt-auto pt-3 max-md:mt-0 max-md:pt-1.5">
             <div className="flex items-baseline justify-center gap-1.5 whitespace-nowrap">
               {product.oldPrice && (
-                <span className="price-old">{formatCurrency(product.oldPrice)}</span>
+                <span className="price-old">{formatProductCardPrice(product.oldPrice)}</span>
               )}
               <span className="price-item tabular-nums text-red-600">
-                {formatCurrency(product.price)}
+                {formatProductCardPrice(product.price)}
               </span>
             </div>
             {!isOutOfStock && isLowStock && (

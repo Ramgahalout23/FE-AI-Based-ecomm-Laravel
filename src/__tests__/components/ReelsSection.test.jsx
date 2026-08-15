@@ -132,6 +132,7 @@ vi.mock('../../api/reelLikes', () => ({
 
 vi.mock('../../utils/formatters', () => ({
   formatCurrency: (val) => `₹${val}`,
+  formatProductCardPrice: (val) => `Rs. ${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   getProductImage: vi.fn(() => 'https://example.com/img.jpg'),
   getImageUrl: vi.fn((url) => url),
   getVideoUrl: vi.fn((url) => url),
@@ -222,7 +223,7 @@ describe('ReelsSection', () => {
 
   it('shows formatted price for reel products', () => {
     renderWithProviders(<ReelsSection reels={mockReels} />);
-    expect(screen.getAllByText('₹999').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Rs. 999.00').length).toBeGreaterThan(0);
   });
 
   it('shows discount badge when old_price exists', () => {
