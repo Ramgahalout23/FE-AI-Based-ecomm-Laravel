@@ -405,8 +405,12 @@ function CategorySection({ categories }) {
   return (
     <section className="py-12 md:py-16 bg-black">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Centered heading */}
-        <div className="text-center mb-8 md:mb-12">
+        {/* Heading — matches the other dark sections (reviews style) */}
+        <div className="border-b border-white/10 pb-4 md:pb-5 mb-8 md:mb-12">
+          <p className="flex items-center gap-2.5 text-[10px] md:text-[11px] font-bold uppercase tracking-[0.22em] text-white/40 mb-2.5">
+            <span className="w-8 h-px bg-white/20" />
+            {t('home.explore')}
+          </p>
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-white leading-[1.1]">
             {t('home.shop_by_category')}
           </h2>
