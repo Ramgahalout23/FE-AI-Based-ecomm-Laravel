@@ -85,6 +85,7 @@ export default function ProductDetailPage() {
   // FOMO purchase toast — toggleable from Admin → Settings
   const fomoNotificationsEnabled = getSetting('fomoNotificationsEnabled', 'true') !== 'false';
   const { t } = useTranslation();
+  const [isMobileFomo, setIsMobileFomo] = useState(() => window.innerWidth < 640);
   const { addItem } = useCartStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
   const { isAuthenticated } = useAuthStore();
@@ -97,6 +98,13 @@ export default function ProductDetailPage() {
   const [reviewLightboxImages, setReviewLightboxImages] = useState([]);
   const [reviewLightboxIdx, setReviewLightboxIdx] = useState(0);
   const [recentPurchase, setRecentPurchase] = useState(null);
+
+  // Keep the FOMO toast compact on small screens
+  useEffect(() => {
+    const onResize = () => setIsMobileFomo(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // FOMO purchase notifications from recent real orders (disabled from admin)
   useInterval(() => {
@@ -1924,46 +1932,46 @@ export default function ProductDetailPage() {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
               position: "fixed",
-              bottom: showStickyBar ? 96 : 24,
-              left: 20,
+              bottom: showStickyBar ? (isMobileFomo ? 80 : 96) : 20,
+              left: isMobileFomo ? 12 : 20,
               zIndex: 50,
               background: "#FFFFFF",
               color: INK,
-              borderRadius: 16,
+              borderRadius: isMobileFomo ? 12 : 16,
               boxShadow: "0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
-              maxWidth: 360,
-              width: "min(360px, calc(100vw - 40px))",
+              maxWidth: isMobileFomo ? 290 : 360,
+              width: isMobileFomo ? "min(290px, calc(100vw - 24px))" : "min(360px, calc(100vw - 40px))",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: 10,
+              gap: isMobileFomo ? 8 : 12,
+              padding: isMobileFomo ? 7 : 10,
               border: "1px solid rgba(0,0,0,0.06)",
             }}
           >
             {/* Product thumbnail */}
             {cartImageUrl && (
-              <div style={{ width: 52, height: 62, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: PANEL, position: "relative" }}>
+              <div style={{ width: isMobileFomo ? 38 : 52, height: isMobileFomo ? 46 : 62, borderRadius: isMobileFomo ? 8 : 10, overflow: "hidden", flexShrink: 0, background: PANEL, position: "relative" }}>
                 <img src={cartImageUrl} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0E9F6E", flexShrink: 0, boxShadow: "0 0 0 3px rgba(14,159,110,0.15)" }} />
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: STONE }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: isMobileFomo ? 5 : 7, height: isMobileFomo ? 5 : 7, borderRadius: "50%", background: "#0E9F6E", flexShrink: 0, boxShadow: "0 0 0 3px rgba(14,159,110,0.15)" }} />
+                <span style={{ fontSize: isMobileFomo ? 8 : 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: STONE }}>
                   Just purchased
                 </span>
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: isMobileFomo ? 11 : 13, fontWeight: 700, lineHeight: 1.35, marginTop: isMobileFomo ? 1 : 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {recentPurchase.name}
               </div>
-              <div style={{ fontSize: 11, color: STONE, lineHeight: 1.3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: isMobileFomo ? 9 : 11, color: STONE, lineHeight: 1.3, marginTop: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 from {recentPurchase.city} • {product?.name || 'recently'}
               </div>
             </div>
             <button
               onClick={() => setRecentPurchase(null)}
               aria-label="Dismiss"
-              style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", border: "none", background: PANEL, color: STONE, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12, lineHeight: 1 }}
+              style={{ flexShrink: 0, width: isMobileFomo ? 20 : 24, height: isMobileFomo ? 20 : 24, borderRadius: "50%", border: "none", background: PANEL, color: STONE, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: isMobileFomo ? 10 : 12, lineHeight: 1 }}
             >
               ×
             </button>
