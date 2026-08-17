@@ -178,6 +178,8 @@ function getDefaultSettings() {
     newArrivalProductId: '',
     newArrivalExpiryDate: '',
     tshirtCustomizerEnabled: 'true',
+    // FOMO purchase notifications on the product page
+    fomoNotificationsEnabled: 'true',
     // Social Login
     googleLoginEnabled: 'true',
     facebookLoginEnabled: 'true',

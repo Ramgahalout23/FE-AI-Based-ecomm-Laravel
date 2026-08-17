@@ -388,6 +388,7 @@ export default function SettingsAdminPage() {
       'autoCancelUnpaidEnabled', 'autoCancelUnpaidMinutes',
       'newArrivalProductId', 'newArrivalExpiryDate', 'newArrivalWeekEnabled',
       'bundleOfferEnabled', 'bundleTiers', 'bundleOfferStartDate', 'bundleOfferEndDate', 'tshirtCustomizerEnabled', 'reelsEnabled', 'homepageSectionOrder',
+      'fomoNotificationsEnabled',
       'cookieConsentEnabled',
       'languageSwitcherEnabled', 'currencySwitcherEnabled', 'announcementEnabled', 'announcementText',
     ],
@@ -1373,6 +1374,37 @@ export default function SettingsAdminPage() {
                   />
                   <span className={"status-badge " + (settings.reelsEnabled !== 'false' ? 'status-active' : 'status-pending')}>
                     {settings.reelsEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                  </span>
+                </label>
+              </div>
+
+              {/* FOMO Purchase Notifications Toggle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem 1.25rem',
+                background: 'var(--off-white)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🛍️</span>
+                  <div>
+                    <strong style={{ fontSize: '0.9rem' }}>FOMO Purchase Notifications</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.15rem 0 0' }}>
+                      "Just purchased" toast on product pages
+                    </p>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.fomoNotificationsEnabled !== 'false'}
+                    onChange={e => setSettings({ ...settings, fomoNotificationsEnabled: e.target.checked ? 'true' : 'false' })}
+                  />
+                  <span className={`status-badge ${settings.fomoNotificationsEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                    {settings.fomoNotificationsEnabled !== 'false' ? 'Visible' : 'Hidden'}
                   </span>
                 </label>
               </div>

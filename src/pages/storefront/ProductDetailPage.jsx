@@ -82,6 +82,8 @@ export default function ProductDetailPage() {
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
   const freeShippingThreshold = getSetting('freeShippingThreshold', 499);
+  // FOMO purchase toast — toggleable from Admin → Settings
+  const fomoNotificationsEnabled = getSetting('fomoNotificationsEnabled', 'true') !== 'false';
   const { t } = useTranslation();
   const { addItem } = useCartStore();
   const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
@@ -96,8 +98,9 @@ export default function ProductDetailPage() {
   const [reviewLightboxIdx, setReviewLightboxIdx] = useState(0);
   const [recentPurchase, setRecentPurchase] = useState(null);
 
-  // FOMO purchase notifications from recent real orders
+  // FOMO purchase notifications from recent real orders (disabled from admin)
   useInterval(() => {
+    if (!fomoNotificationsEnabled) return;
     if (Math.random() > 0.85) {
       const realOrders = realOrdersRef.current;
       let name, city;
@@ -113,9 +116,9 @@ export default function ProductDetailPage() {
         city = fallbackCities[Math.floor(Math.random() * fallbackCities.length)];
       }
       setRecentPurchase({ name, city, id: Date.now() });
-      setTimeout(() => setRecentPurchase(null), 4000);
+      setTimeout(() => setRecentPurchase(null), 5000);
     }
-  }, 4000);
+  }, 5000);
 
   const realOrdersRef = useRef([]);
 
@@ -1910,39 +1913,60 @@ export default function ProductDetailPage() {
       {/* ════════════════════════════════════════ */}
 
       {/* ════════════════════════════════════════ */}
-      {/* FOMO Purchase Notification Toast */}
+      {/* FOMO Purchase Notification Toast (toggleable in admin settings) */}
       {/* ════════════════════════════════════════ */}
       <AnimatePresence>
-        {recentPurchase && (
+        {fomoNotificationsEnabled && recentPurchase && (
           <motion.div
-            initial={{ opacity: 0, y: 40, x: 0 }}
-            animate={{ opacity: 1, y: 0, x: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}                    style={{
-        position: "fixed",
-        bottom: showStickyBar ? 88 : 24,
-        left: 24,
-        zIndex: 50,
-        background: INK,
-        color: PAPER,
-        padding: "12px 20px",
-        borderRadius: 12,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-        maxWidth: 320,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-      }}
+            initial={{ opacity: 0, y: 40, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.97 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            style={{
+              position: "fixed",
+              bottom: showStickyBar ? 96 : 24,
+              left: 20,
+              zIndex: 50,
+              background: "#FFFFFF",
+              color: INK,
+              borderRadius: 16,
+              boxShadow: "0 12px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
+              maxWidth: 360,
+              width: "min(360px, calc(100vw - 40px))",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: 10,
+              border: "1px solid rgba(0,0,0,0.06)",
+            }}
           >
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT, flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.3 }}>
+            {/* Product thumbnail */}
+            {cartImageUrl && (
+              <div style={{ width: 52, height: 62, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: PANEL, position: "relative" }}>
+                <img src={cartImageUrl} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0E9F6E", flexShrink: 0, boxShadow: "0 0 0 3px rgba(14,159,110,0.15)" }} />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: STONE }}>
+                  Just purchased
+                </span>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.35, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {recentPurchase.name}
               </div>
-              <div style={{ fontSize: 11, color: "rgba(239,234,224,0.6)", lineHeight: 1.3, marginTop: 2 }}>
-                purchased from {recentPurchase.city}
+              <div style={{ fontSize: 11, color: STONE, lineHeight: 1.3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                from {recentPurchase.city} • {product?.name || 'recently'}
               </div>
             </div>
+            <button
+              onClick={() => setRecentPurchase(null)}
+              aria-label="Dismiss"
+              style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", border: "none", background: PANEL, color: STONE, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12, lineHeight: 1 }}
+            >
+              ×
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
