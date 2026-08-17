@@ -362,14 +362,27 @@ function CategorySection({ categories }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const scrollRef = useRef(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const autoplayRef = useRef(null);
+  const resumeTimerRef = useRef(null);
   const cats = Array.from(Array.isArray(categories) ? categories : []);
+
+  // Pause autoplay the moment the user grabs the section; resume only after
+  // they let go and stay idle for a while — keeps the row stable to touch.
+  const pauseAutoplay = () => {
+    setIsPaused(true);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  };
+  const scheduleResume = (delay) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => setIsPaused(false), delay);
+  };
 
   // Auto-slide: advance one card every 4s, loop back to start at the end
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || cats.length <= 1) return;
+    if (isPaused) return undefined;
 
     const tick = () => {
       const card = el.querySelector('.category-card');
@@ -384,11 +397,11 @@ function CategorySection({ categories }) {
       }
     };
 
-    if (!isHovered) {
-      autoplayRef.current = setInterval(tick, 4000);
-    }
+    autoplayRef.current = setInterval(tick, 4000);
     return () => clearInterval(autoplayRef.current);
-  }, [isHovered, cats.length]);
+  }, [isPaused, cats.length]);
+
+  useEffect(() => () => clearTimeout(resumeTimerRef.current), []);
 
   if (cats.length === 0) return null;
 
@@ -419,20 +432,24 @@ function CategorySection({ categories }) {
         {/* Horizontal scroll row with arrows + autoplay */}
         <div
           className="relative group/cat"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+          onMouseEnter={pauseAutoplay}
+          onMouseLeave={() => scheduleResume(1500)}
+          onPointerDown={pauseAutoplay}
+          onPointerUp={() => scheduleResume(3000)}
+          onPointerCancel={() => scheduleResume(1500)}
         >
           <div
             ref={scrollRef}
-            className="flex gap-5 sm:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none"
+            onScroll={() => { pauseAutoplay(); scheduleResume(2500); }}
+            className="flex gap-5 sm:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none touch-pan-y overscroll-x-contain"
           >
             {cats.slice(0, 8).map((cat, i) => (
               <motion.button
                 key={cat.slug}
                 type="button"
                 onClick={() => openCategory(cat)}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
                 className="category-card group snap-start shrink-0 w-[calc(50%-12px)] sm:w-[260px] md:w-[calc(25%-18px)]"

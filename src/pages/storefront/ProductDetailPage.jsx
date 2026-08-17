@@ -89,7 +89,6 @@ export default function ProductDetailPage() {
   const { flyRef, flyToCart } = useFlyToCart();
 
   // ── Social Proof State ──
-  const [viewerCount, setViewerCount] = useState(() => Math.floor(Math.random() * 30) + 18);
   const [galleryLightboxOpen, setGalleryLightboxOpen] = useState(false);
   const [galleryLightboxIdx, setGalleryLightboxIdx] = useState(0);
   const [reviewLightboxOpen, setReviewLightboxOpen] = useState(false);
@@ -97,12 +96,8 @@ export default function ProductDetailPage() {
   const [reviewLightboxIdx, setReviewLightboxIdx] = useState(0);
   const [recentPurchase, setRecentPurchase] = useState(null);
 
-  // Gentle fluctuation of live viewer count and FOMO purchase notifications
+  // FOMO purchase notifications from recent real orders
   useInterval(() => {
-    setViewerCount(prev => {
-      const delta = Math.random() > 0.5 ? 1 : -1;
-      return Math.max(5, Math.min(60, prev + delta));
-    });
     if (Math.random() > 0.85) {
       const realOrders = realOrdersRef.current;
       let name, city;
@@ -1205,9 +1200,6 @@ export default function ProductDetailPage() {
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT }} />
               {typeof product.category === 'object' ? product.category.name : product.category}
             </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: STONE, background: PANEL, padding: "5px 12px", borderRadius: 999 }}>
-              ● {viewerCount} {t('product.people_viewing')}
-            </span>
           </div>
 
           {/* Product Title */}
@@ -1233,8 +1225,6 @@ export default function ProductDetailPage() {
             >
               {t('product.reviews', { count: reviews.length })}
             </span>
-            <span style={{ width: 4, height: 4, borderRadius: "50%", background: STONE, display: "inline-block" }} />
-            <span>{t('product.sold', { count: product.soldCount ?? 0 })}</span>
           </div>
 
           {/* Price — premium block: sale price, MRP, savings context */}
