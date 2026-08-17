@@ -375,7 +375,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
               </span>
             )}
             {discount > 0 && (
-              <span className="inline-block text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-[0.12em] rounded-[4px] bg-red-600 text-white shadow-sm">
+              <span className="inline-block text-[9px] max-sm:text-[8px] font-bold px-2 max-sm:px-1.5 py-0.5 uppercase tracking-[0.12em] rounded-[4px] bg-thread text-white shadow-sm">
                 {t('product.sale_badge')}
               </span>
             )}
@@ -409,6 +409,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
               <>
                 {/* Always render the primary image */}
                 <img
+                  draggable={false}
                   src={getImageUrl(productImages[0])}
                   srcSet={getResponsiveSrcSet(productImages[0])}
                   sizes="(max-width: 640px) 45vw, 302px"
@@ -420,6 +421,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                 />
                 {/* Hover image — uses dedicated hoverImageUrl if set, otherwise second product image */}
                 <img
+                  draggable={false}
                   src={getImageUrl(hoverImageUrl || productImages[1] || '')}
                   srcSet={getResponsiveSrcSet(hoverImageUrl || productImages[1] || '')}
                   sizes="(max-width: 640px) 45vw, 302px"
@@ -582,7 +584,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                                 title={c}
                               >
                                 {thumb ? (
-                                  <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                  <img src={thumb} alt={c} loading="lazy" draggable={false} className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
                                 ) : (
                                   <div
                                     className={`w-full h-full ${isOOS ? 'opacity-50' : ''}`}
@@ -743,11 +745,11 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
               {product.oldPrice && (
                 <span className="price-old">{formatProductCardPrice(product.oldPrice)}</span>
               )}
-              <span className="price-item tabular-nums text-red-600">
+              <span className="price-item tabular-nums text-thread">
                 {formatProductCardPrice(product.price)}
               </span>
               {discount > 0 && (
-                <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-extrabold tracking-wide px-2 py-1 rounded-full bg-gradient-to-r from-red-600 via-red-500 to-orange-500 text-white shadow-md shadow-red-600/30 ring-1 ring-white/20">
+                <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-extrabold tracking-wide px-2 py-1 rounded-full bg-gradient-to-r from-gold via-gold-light to-gold-dark text-white shadow-md shadow-gold/30 ring-1 ring-white/20">
                   <BadgePercent size={10} strokeWidth={2.75} />
                   {discount}% OFF
                 </span>
@@ -815,7 +817,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                       {(() => {
                         const thumbUrl = getImageUrl(getProductImage(product));
                         return thumbUrl ? (
-                          <img loading="lazy" src={thumbUrl} alt={product.name} className="w-full h-full object-cover" />
+                          <img loading="lazy" src={thumbUrl} alt={product.name} draggable={false} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-2xl">👕</div>
                         );
@@ -856,7 +858,7 @@ function ProductCard({ product, className = '', imageAspect = 'aspect-[3/4] max-
                                     title={c}
                                   >
                                     {thumb ? (
-                                      <img src={thumb} alt={c} loading="lazy" className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
+                                      <img src={thumb} alt={c} loading="lazy" draggable={false} className={`w-full h-full object-cover ${isOOS ? 'opacity-50' : ''}`} />
                                     ) : (
                                       <div
                                         className={`w-full h-full ${isOOS ? 'opacity-50' : ''}`}

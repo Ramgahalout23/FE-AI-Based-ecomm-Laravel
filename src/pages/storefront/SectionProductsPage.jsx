@@ -1,6 +1,6 @@
-import { ChevronDown, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Filter, Package } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Sparkles, TrendingUp, SlidersHorizontal, X, Filter, Package } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
@@ -9,7 +9,8 @@ import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
 import ProductGrid from '../../components/product/ProductGrid';
 import { productsAPI } from '../../api/products';
-import { formatCurrency } from '../../utils/formatters';
+import { bannersAPI } from '../../api/banners';
+import { formatCurrency, getBannerImage, getImageUrl, getResponsiveSrcSet } from '../../utils/formatters';
 
 /* ── Constants ───────────────────────────────── */
 
@@ -251,6 +252,171 @@ function MobileFilterDrawer({
   );
 }
 
+/* ═══════════ HERO BANNER SLIDER ═══════════ */
+
+function SectionHeroSlider({ fallbackTitle, fallbackSubtitle, fallbackIcon: Icon }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [banners, setBanners] = useState([]);
+  const [current, setCurrent] = useState(0);
+
+  // Fetch hero banners once
+  useEffect(() => {
+    let mounted = true;
+    bannersAPI
+      .getHero()
+      .then((res) => {
+        if (!mounted) return;
+        const data = res?.data?.data;
+        const list = Array.isArray(data) ? data.filter((b) => getBannerImage(b)) : [];
+        setBanners(list);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const [loading, setLoading] = useState(true);
+
+  // Auto-rotate every 5s
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = setInterval(() => setCurrent((c) => (c + 1) % banners.length), 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
+
+  const goPrev = () => setCurrent((c) => (c - 1 + banners.length) % banners.length);
+  const goNext = () => setCurrent((c) => (c + 1) % banners.length);
+
+  // Fallback: plain dark hero with the section title
+  if (!loading && banners.length === 0) {
+    return (
+      <div className="relative w-full bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 overflow-hidden">
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-gold/10 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/20 text-gold-light text-[10px] font-bold uppercase tracking-wider border border-gold/30">
+                <Icon size={12} />
+                {fallbackTitle}
+              </span>
+            </div>
+            <h1 className="text-white font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.1] mb-3">
+              {fallbackTitle}
+            </h1>
+            <p className="text-white/60 text-sm md:text-base max-w-xl">{fallbackSubtitle}</p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading skeleton
+  if (loading || banners.length === 0) {
+    return (
+      <div className="relative w-full h-[300px] sm:h-[380px] md:h-[460px] bg-gray-950 overflow-hidden">
+        <div className="skeleton !w-full !h-full !rounded-none !bg-gray-900" />
+      </div>
+    );
+  }
+
+  const slide = banners[current];
+  const imgSrc = getImageUrl(getBannerImage(slide));
+  const isImageOnly = slide.display_mode === 'IMAGE_ONLY' || slide.displayMode === 'IMAGE_ONLY';
+  const link = slide.link_url || slide.linkUrl || slide.button_link || null;
+  const btnLabel = slide.button_text || slide.cta || t('home.shop_now');
+  const showContent = !isImageOnly && (slide.title || slide.description);
+
+  return (
+    <div className="relative w-full h-[300px] sm:h-[380px] md:h-[460px] bg-gray-950 overflow-hidden">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={current}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.7 }}
+          className="absolute inset-0"
+        >
+          <img
+            src={imgSrc}
+            srcSet={getResponsiveSrcSet(getBannerImage(slide), [640, 1024, 1600, 2000])}
+            sizes="100vw"
+            alt={slide.title || fallbackTitle}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/20" />
+          {showContent && (
+            <div className="absolute inset-x-0 bottom-0 pb-10 md:pb-14">
+              <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <h1 className="text-white font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.05] mb-3 whitespace-pre-line">
+                    {slide.title}
+                  </h1>
+                  {slide.description && (
+                    <p className="text-white/70 text-sm md:text-base max-w-xl mb-4">{slide.description}</p>
+                  )}
+                  {link && (
+                    <button
+                      onClick={() => navigate(link)}
+                      className="inline-flex items-center gap-2 px-7 md:px-8 py-3 rounded-full bg-white text-black text-sm font-bold hover:bg-gray-100 transition-colors"
+                    >
+                      {btnLabel}
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
+                </motion.div>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {banners.length > 1 && (
+        <>
+          <button
+            onClick={goPrev}
+            aria-label="Previous banner"
+            className="absolute left-3 md:left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/25 transition-colors flex items-center justify-center"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            onClick={goNext}
+            aria-label="Next banner"
+            className="absolute right-3 md:right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/25 transition-colors flex items-center justify-center"
+          >
+            <ChevronRight size={20} />
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+            {banners.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrent(idx)}
+                aria-label={`Go to banner ${idx + 1}`}
+                className={`h-[3px] rounded-full transition-all duration-300 ${idx === current ? 'w-8 bg-white' : 'w-3 bg-white/40 hover:bg-white/70'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════ MAIN PAGE ═══════════ */
 
 export default function SectionProductsPage() {
@@ -414,48 +580,36 @@ export default function SectionProductsPage() {
         title={withStoreName(configT.title, storeName)}
         description={configT.subtitle || `Browse our ${configT.title.toLowerCase()} collection. Shop premium products at ${storeName}.`}
       />
-      {/* Hero Banner */}
-      <div className="relative w-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full bg-white/5 blur-2xl" />
+      {/* Hero Banner Slider — auto-rotating, with arrows + dots */}
+      <SectionHeroSlider fallbackTitle={configT.title} fallbackSubtitle={configT.subtitle} fallbackIcon={Icon} />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+      {/* Content area: sidebar + products */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        {/* Breadcrumb + section title row */}
+        <div className="mb-6 md:mb-8">
           <Breadcrumb
             items={[
               { label: t('nav.home'), href: '/' },
               { label: configT.title },
             ]}
-            variant="dark"
-            className="mb-6"
+            variant="light"
+            className="mb-3"
           />
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider border border-primary/30">
-                <Icon size={12} />
-                {configT.label}
-              </span>
-              <span className="text-white/40 text-xs font-medium">
-                {total} {total === 1 ? t('products.product') : t('products.products')}
-              </span>
+          <div className="flex items-end justify-between gap-4 border-b border-gray-200 pb-4">
+            <div>
+              <h1 className="font-display font-extrabold tracking-tight text-gray-900 text-2xl md:text-3xl lg:text-4xl leading-[1.1]">
+                {configT.title}
+              </h1>
+              <p className="mt-2 text-sm md:text-[15px] text-gray-500 max-w-xl">{configT.subtitle}</p>
             </div>
-
-            <h1 className="text-white font-display text-3xl md:text-5xl font-extrabold tracking-tight leading-[1.1] mb-3">
-              {configT.title}
-            </h1>
-            <p className="text-white/60 text-sm md:text-base max-w-xl">
-              {configT.subtitle}
-            </p>
-          </motion.div>
+            {!loading && (
+              <p className="hidden lg:block text-xs font-semibold uppercase tracking-wider text-gray-400 shrink-0 pb-1">
+                {total} {total === 1 ? t('products.product') : t('products.products')}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Content area: sidebar + products */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
         {/* Sort + Filter bar (mobile) */}
         <div className="flex items-center justify-between mb-6 gap-3 lg:hidden">
           <p className="text-sm text-text-muted">
@@ -640,7 +794,11 @@ export default function SectionProductsPage() {
             {loading && page === 1 ? (
               <SectionProductsSkeleton />
             ) : (
-              <ProductGrid products={products} loading={false} />
+              <ProductGrid
+                products={products}
+                loading={false}
+                className="!grid-cols-2 !gap-3 sm:!gap-4 lg:!grid-cols-3 lg:!gap-5 2xl:!grid-cols-4"
+              />
             )}
 
             {/* Infinite scroll sentinel */}

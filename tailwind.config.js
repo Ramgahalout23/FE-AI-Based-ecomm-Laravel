@@ -72,7 +72,12 @@ export default {
         info: { DEFAULT: '#3b82f6', bg: '#eff6ff' },
         // Legacy compatibility
         charcoal: { DEFAULT: '#1a1a1a', light: '#333333' },
-        gold: { DEFAULT: '#888888', light: '#cccccc', hover: '#666666', dark: '#555555' },
+        // THREVOLT premium palette — warm ink/paper/gold/thread (was gray before)
+        gold: { DEFAULT: '#B08D4F', light: '#C9A96E', hover: '#D4B87E', dark: '#8B6914' },
+        ink: { DEFAULT: '#101012', light: '#2C2C2E', dark: '#000000' },
+        paper: { DEFAULT: '#EFEAE0', light: '#F6F2EA', dark: '#E3DDCD' },
+        thread: { DEFAULT: '#8B3A34', light: '#A84B44', dark: '#6B2B26' },
+        stone: { DEFAULT: '#8C877D', light: '#A6A199', dark: '#6E6A62' },
         offWhite: '#fafafa',
         cream: '#f5f5f5',
         muted: { DEFAULT: '#888888', light: '#cccccc' },
@@ -82,6 +87,7 @@ export default {
         headline: ['Jost', 'sans-serif'],
         body: ['Jost', 'sans-serif'],
         label: ['Jost', 'sans-serif'],
+        serif: ['Cormorant Garamond', 'Georgia', 'serif'],
       },
       fontSize: {
         'display-xl': ['56px', { lineHeight: '1.05', fontWeight: '800', letterSpacing: '-0.04em' }],

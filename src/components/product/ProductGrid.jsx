@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import ProductCard from './ProductCard';
 import { CUSTOM_TEE_SLUG } from '../../utils/constants';
 
-export default memo(function ProductGrid({ products = [], loading = false }) {
+export default memo(function ProductGrid({ products = [], loading = false, className = '' }) {
   // Hide the custom t-shirt design product from user listings
   const filteredProducts = products.filter(p => p.slug !== CUSTOM_TEE_SLUG);
   const { t } = useTranslation();
@@ -36,7 +36,7 @@ export default memo(function ProductGrid({ products = [], loading = false }) {
   }
 
   return (
-    <div className="product-grid">
+    <div className={`product-grid ${className}`}>
       {filteredProducts.map((p, idx) => (
         <motion.div
           key={p.id}

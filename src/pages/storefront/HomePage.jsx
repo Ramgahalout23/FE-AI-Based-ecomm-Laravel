@@ -200,7 +200,7 @@ function HeroBanner({ banners }) {
     }`}>
       <div className="max-w-xl">
         {slide.tagline && (
-          <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/25 text-white/85 text-[10px] md:text-xs font-bold px-4 py-1.5 rounded-full mb-5 tracking-[0.2em] uppercase">
+          <span className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-md border border-gold/60 text-[#F0DEB4] text-[10px] md:text-xs font-bold px-4 py-1.5 rounded-full mb-5 tracking-[0.2em] uppercase">
             {slide.tagline}
           </span>
         )}
@@ -361,23 +361,34 @@ function HeroBanner({ banners }) {
 function CategorySection({ categories }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const cats = Array.from(Array.isArray(categories) ? categories : []);
   const scrollRef = useRef(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
+  const autoplayRef = useRef(null);
+  const cats = Array.from(Array.isArray(categories) ? categories : []);
 
+  // Auto-slide: advance one card every 4s, loop back to start at the end
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    const update = () => {
-      setCanScrollLeft(el.scrollLeft > 10);
-      setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+    if (!el || cats.length <= 1) return;
+
+    const tick = () => {
+      const card = el.querySelector('.category-card');
+      if (!card) return;
+      const w = card.offsetWidth + 24; // card width + gap
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 10;
+      if (atEnd) {
+        // Loop back to start smoothly
+        el.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        el.scrollBy({ left: w, behavior: 'smooth' });
+      }
     };
-    el.addEventListener('scroll', update, { passive: true });
-    update();
-    window.addEventListener('resize', update);
-    return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
-  }, [cats.length]);
+
+    if (!isHovered) {
+      autoplayRef.current = setInterval(tick, 4000);
+    }
+    return () => clearInterval(autoplayRef.current);
+  }, [isHovered, cats.length]);
 
   if (cats.length === 0) return null;
 
@@ -386,25 +397,30 @@ function CategorySection({ categories }) {
   const scrollBy = (dir) => {
     const el = scrollRef.current;
     if (!el) return;
-    const card = el.querySelector('.category-slide');
-    const w = card?.offsetWidth || 280;
-    el.scrollBy({ left: dir * (w + 20), behavior: 'smooth' });
+    const card = el.querySelector('.category-card');
+    const w = card?.offsetWidth || 300;
+    el.scrollBy({ left: dir * (w + 24), behavior: 'smooth' });
   };
 
   return (
-    <section className="py-12 md:py-20 bg-white">
+    <section className="py-12 md:py-16 bg-black">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section heading — matches other sections */}
-        <SectionHeading
-          eyebrow={t('home.explore')}
-          title={t('home.shop_by_category')}
-        />
+        {/* Centered heading */}
+        <div className="text-center mb-8 md:mb-12">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-white leading-[1.1]">
+            {t('home.shop_by_category')}
+          </h2>
+        </div>
 
-        {/* Horizontal card row with arrows */}
-        <div className="relative">
+        {/* Horizontal scroll row with arrows + autoplay */}
+        <div
+          className="relative group/cat"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           <div
             ref={scrollRef}
-            className="flex gap-3 md:gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide select-none"
+            className="flex gap-5 sm:gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none"
           >
             {cats.slice(0, 8).map((cat, i) => (
               <motion.button
@@ -415,62 +431,67 @@ function CategorySection({ categories }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-                className="category-slide group shrink-0 w-[120px] sm:w-[180px] md:w-[260px] lg:w-[280px] snap-start text-center"
+                className="category-card group snap-start shrink-0 w-[calc(50%-12px)] sm:w-[260px] md:w-[calc(25%-18px)]"
               >
-                {/* Card — tall image with gradient overlay + text */}
-                <div className="relative overflow-hidden rounded-lg md:rounded-xl bg-gray-100 aspect-[3/4]">
-                  <img
-                    loading="lazy"
-                    decoding="async"
-                    src={getImageUrl(getCategoryImage(cat))}
-                    srcSet={getResponsiveSrcSet(getCategoryImage(cat), [160, 260, 400, 560])}
-                    sizes="(max-width: 640px) 30vw, (max-width: 1024px) 200px, 280px"
-                    alt={cat.name}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                  />
-                  {/* Bottom gradient for text readability */}
+                {/* Portrait card with overlay */}
+                <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-900">
+                  {getCategoryImage(cat) ? (
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      draggable={false}
+                      src={getImageUrl(getCategoryImage(cat))}
+                      srcSet={getResponsiveSrcSet(getCategoryImage(cat), [400, 600, 800])}
+                      sizes="(max-width: 640px) 260px, (max-width: 768px) 300px, 25vw"
+                      alt={cat.name}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                      <span className="font-display font-extrabold text-4xl text-white/20 uppercase">
+                        {cat.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  {/* Dark gradient overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  {/* Category name + tagline on the image bottom */}
-                  <div className="absolute bottom-0 inset-x-0 p-2 sm:p-4 md:p-5 text-left">
-                    <h3 className="text-white font-display font-bold text-[10px] sm:text-sm md:text-lg tracking-tight uppercase leading-tight">
+                  {/* Overlaid category name + tagline */}
+                  <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 md:p-6">
+                    <h3 className="text-white font-display font-extrabold text-base sm:text-lg md:text-xl uppercase tracking-wide leading-tight">
                       {cat.name}
                     </h3>
                     {cat.description && (
-                      <p className="text-white/70 text-[7px] sm:text-[9px] md:text-[10px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.15em] mt-0.5 sm:mt-1.5 hidden sm:block">
-                        {cat.description}
+                      <p className="text-white/50 text-[10px] sm:text-xs mt-1 uppercase tracking-wider leading-snug line-clamp-2">
+                        {cat.description.split(/[—?]/)[0].trim()}
                       </p>
                     )}
                   </div>
                 </div>
-                {/* Category name below card — underlined */}
-                <p className="mt-2 sm:mt-3.5 text-[10px] sm:text-sm font-medium text-gray-900 underline underline-offset-4 decoration-gray-900 decoration-1 truncate">
+                {/* Category name below card */}
+                <p className="mt-3 text-white/70 text-sm font-medium text-center">
                   {cat.name}
                 </p>
               </motion.button>
             ))}
           </div>
 
-          {/* Left / Right arrows */}
-          {cats.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={() => scrollBy(-1)}
-                aria-label="Scroll categories left"
-                className={`absolute left-0 top-[calc(50%-20px)] -translate-x-1 sm:-translate-x-3 z-20 w-7 h-7 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:scale-105 transition-all duration-300 active:scale-90 ${canScrollLeft ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-              >
-                <ChevronLeft size={14} className="sm:w-[18px] sm:h-[18px]" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollBy(1)}
-                aria-label="Scroll categories right"
-                className={`absolute right-0 top-[calc(50%-20px)] translate-x-1 sm:translate-x-3 z-20 w-7 h-7 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-900 hover:border-gray-400 hover:scale-105 transition-all duration-300 active:scale-90 ${canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-              >
-                <ChevronRight size={14} className="sm:w-[18px] sm:h-[18px]" />
-              </button>
-            </>
-          )}
+          {/* White circular scroll arrows — visible on all sizes, smaller on mobile */}
+          <button
+            onClick={() => scrollBy(-1)}
+            className="flex absolute left-2 md:left-0 top-[calc(40%-14px)] md:top-[calc(40%-20px)] z-20 w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg items-center justify-center text-black hover:scale-110 transition-all duration-300 active:scale-90"
+            aria-label="Scroll categories left"
+          >
+            <ChevronLeft size={14} className="md:hidden" />
+            <ChevronLeft size={18} className="hidden md:block" />
+          </button>
+          <button
+            onClick={() => scrollBy(1)}
+            className="flex absolute right-2 md:right-0 top-[calc(40%-14px)] md:top-[calc(40%-20px)] z-20 w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/90 backdrop-blur-sm shadow-lg items-center justify-center text-black hover:scale-110 transition-all duration-300 active:scale-90"
+            aria-label="Scroll categories right"
+          >
+            <ChevronRight size={14} className="md:hidden" />
+            <ChevronRight size={18} className="hidden md:block" />
+          </button>
         </div>
       </div>
     </section>
@@ -752,82 +773,7 @@ function ProductSlider({ products: rawProducts, cardClassName = '', compact = fa
     smoothAdvance(direction * (cardWidth + gap));
   };
 
-  /* ── Drag-to-scroll (touch + mouse) ── */
-  const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
-  const [isDragActive, setIsDragActive] = useState(false);
 
-  const onDragStart = (clientX) => {
-    const el = scrollRef.current;
-    // Mobile uses a plain grid (no inner scroll) — don't hijack taps with drag.
-    if (!el || isMobile || fitsAll) return;
-    // User drag takes over: cancel any pending programmatic wrap so the
-    // delayed snap-back can't fire mid-drag and jump the carousel.
-    if (wrapTimeoutRef.current) {
-      clearTimeout(wrapTimeoutRef.current);
-      wrapTimeoutRef.current = null;
-    }
-    programmaticRef.current = false;
-    dragState.current = {
-      isDragging: true,
-      startPos: clientX,
-      scrollPos: el.scrollLeft,
-      moved: false,
-    };
-    setIsDragActive(true);
-  };
-
-  const onDragMove = (clientX) => {
-    const ds = dragState.current;
-    if (!ds.isDragging || isMobile) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const delta = clientX - ds.startPos;
-    if (Math.abs(delta) > 5) ds.moved = true;
-    let next = ds.scrollPos - delta;
-    // Seamless wrap while dragging: when the drag crosses a copy boundary,
-    // fold back into the first copy and keep the drag baseline in sync so a
-    // long drag keeps working (the duplicated content makes this invisible).
-    if (isLoop) {
-      const cw = getCopyWidth();
-      if (cw > 0 && next >= cw) {
-        const folds = Math.floor(next / cw);
-        next -= folds * cw;
-        ds.scrollPos -= folds * cw;
-      }
-    }
-    el.scrollLeft = next;
-  };
-
-  const onDragEnd = () => {
-    setIsDragActive(false);
-    dragState.current.isDragging = false;
-    // If a drag (e.g. one that started mid-wrap) left the track parked inside
-    // the duplicated region, fold back invisibly so the loop stays seamless.
-    if (isLoop && scrollRef.current) {
-      const el = scrollRef.current;
-      const cw = getCopyWidth();
-      if (cw > 0 && el.scrollLeft >= cw) el.scrollLeft -= cw;
-    }
-    setTimeout(() => { dragState.current.moved = false; }, 50);
-  };
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const handlePreventClick = (e) => {
-      // Skip drag prevention for "View All" card — it should always be clickable
-      if (dragState.current.moved && !e.target.closest('[data-no-drag]')) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    el.addEventListener('click', handlePreventClick, { capture: true });
-    return () => {
-      el.removeEventListener('click', handlePreventClick, { capture: true });
-    };
-  }, [products]);
 
   if (!products || products.length === 0) return null;
 
@@ -843,7 +789,6 @@ function ProductSlider({ products: rawProducts, cardClassName = '', compact = fa
     'sm:overflow-x-auto',
     'sm:snap-x snap-mandatory',
     'scrollbar-hide select-none',
-    fitsAll ? 'cursor-default' : isDragActive ? 'cursor-grabbing' : 'cursor-grab',
   ].join(' ');
 
   // NOTE: keep the plain `product-slide` token on desktop too — it is the JS
@@ -867,10 +812,6 @@ function ProductSlider({ products: rawProducts, cardClassName = '', compact = fa
       {/* Scrollable Track */}
       <div
         ref={scrollRef}
-        onMouseDown={(e) => onDragStart(e.clientX)}
-        onMouseMove={(e) => onDragMove(e.clientX)}
-        onMouseUp={onDragEnd}
-        onMouseLeave={onDragEnd}
         className={scrollableTrackClass}
       >
         {loopProducts.map((p, idx) => (
@@ -1030,6 +971,7 @@ function LookCard({ item, idx }) {
       {/* Same image ratio as the homepage product cards so rows align */}
       <div className="aspect-[300/392] max-sm:aspect-[4/5] relative overflow-hidden">
         <img
+          draggable={false}
           src={item.image_url || item.imageUrl || item.image}
           srcSet={getResponsiveSrcSet(item.image_url || item.imageUrl || item.image)}
           sizes="(max-width: 640px) 45vw, 360px"
@@ -1060,10 +1002,6 @@ function CuratedLooksSection({ looks: curatedLooks = [] }) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  /* ── Mouse drag-to-scroll (same feel as the product slider, desktop only) ── */
-  const dragState = useRef({ isDragging: false, startPos: 0, scrollPos: 0, moved: false });
-  const [isDragging, setIsDragging] = useState(false);
-
   const updateArrows = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1082,29 +1020,6 @@ function CuratedLooksSection({ looks: curatedLooks = [] }) {
       window.removeEventListener('resize', updateArrows);
     };
   }, [curatedLooks.length]);
-
-  const onDragStart = (e) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    dragState.current = { isDragging: true, startPos: e.clientX, scrollPos: el.scrollLeft, moved: false };
-    setIsDragging(true);
-  };
-
-  const onDragMove = (e) => {
-    const ds = dragState.current;
-    if (!ds.isDragging) return;
-    const el = scrollRef.current;
-    if (!el) return;
-    const delta = e.clientX - ds.startPos;
-    if (Math.abs(delta) > 4) ds.moved = true;
-    el.scrollLeft = ds.scrollPos - delta;
-  };
-
-  const onDragEnd = () => {
-    dragState.current.isDragging = false;
-    setIsDragging(false);
-    setTimeout(() => { dragState.current.moved = false; }, 50);
-  };
 
   if (!curatedLooks || curatedLooks.length === 0) return null;
 
@@ -1136,11 +1051,7 @@ function CuratedLooksSection({ looks: curatedLooks = [] }) {
         <div className="hidden sm:block relative group/looks">
           <div
             ref={scrollRef}
-            onMouseDown={onDragStart}
-            onMouseMove={onDragMove}
-            onMouseUp={onDragEnd}
-            onMouseLeave={onDragEnd}
-            className={`flex gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+            className="flex gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 select-none"
           >
             {curatedLooks.map((item, idx) => (
               <motion.div
@@ -1828,7 +1739,7 @@ export default function HomePage() {
         // Invalid stored order — fall through to the default
       }
     }
-    return ['hero_banner','new_arrival_week','new_arrivals','curated_looks','tshirt_customizer','categories','best_sellers','reviews','reels'];
+    return ['hero_banner','new_arrival_week','new_arrivals','categories','curated_looks','tshirt_customizer','best_sellers','reviews','reels'];
   })();
 
   // ── Section renderer map — maps section keys to JSX ──

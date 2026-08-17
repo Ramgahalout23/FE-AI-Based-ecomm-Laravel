@@ -215,7 +215,7 @@ export default function Footer() {
                 className="flex-1 bg-white/10 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-primary transition-colors min-w-0"
                 autoComplete="email"
               />
-              <button className="bg-[#ff6b35] text-white px-4 py-2.5 rounded-xl font-semibold text-xs hover:bg-[#e55a2b] transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-lg shadow-orange-500/20">
+              <button className="bg-gold text-white px-4 py-2.5 rounded-xl font-semibold text-xs hover:bg-gold-light transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-lg shadow-gold/25">
                 {t('footer.newsletter.join')} <ArrowRight size={14} />
               </button>
             </div>
@@ -309,7 +309,7 @@ export default function Footer() {
                   className="flex-1 bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/60 transition-colors min-w-0"
                   autoComplete="email"
                 />
-                <button className="bg-[#ff6b35] text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-[#e55a2b] hover:shadow-lg hover:shadow-orange-500/25 transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md">
+                <button className="bg-gold text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-gold-light hover:shadow-lg hover:shadow-gold/25 transition-all duration-200 flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md">
                   {t('footer.newsletter.join')} <ArrowRight size={16} />
                 </button>
               </div>
