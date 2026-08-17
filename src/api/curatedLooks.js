@@ -5,6 +5,9 @@ export const curatedLooksAPI = {
   // Public: Get active curated looks
   get: () => client.get('/curated-looks'),
 
+  // Public: Get single curated look by slug
+  getBySlug: (slug) => client.get(`/curated-looks/${slug}`),
+
   // Admin: Get all curated looks (including inactive)
   getAll: (params) => adminClient.get('/admin/curated-looks', { params }),
 

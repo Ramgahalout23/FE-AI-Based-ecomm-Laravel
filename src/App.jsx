@@ -70,6 +70,7 @@ const PrivacyPage = lazy(() => import('./pages/storefront/PrivacyPage'));
 const ReturnPolicyPage = lazy(() => import('./pages/storefront/ReturnPolicyPage'));
 const CustomPageView = lazy(() => import('./pages/storefront/CustomPageView'));
 const SectionProductsPage = lazy(() => import('./pages/storefront/SectionProductsPage'));
+const CuratedLookPage = lazy(() => import('./pages/storefront/CuratedLookPage'));
 const SalesPage = lazy(() => import('./pages/storefront/SalesPage'));
 const CartPage = lazy(() => import('./pages/storefront/CartPage'));
 const TrackOrderPage = lazy(() => import('./pages/storefront/TrackOrderPage'));
@@ -479,6 +480,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/section/:section" element={<SectionProductsPage />} />
+          <Route path="/looks/:slug" element={<CuratedLookPage />} />
           {/* Custom tee design product — redirect to the customize page */}
           <Route path="/products/custom-t-shirt-design" element={<Navigate to="/customize" replace />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />

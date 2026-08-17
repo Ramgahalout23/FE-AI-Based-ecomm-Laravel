@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, RefreshCw, ArrowRight } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
@@ -988,32 +988,41 @@ function ProductRow({ title, products }) {
 /* ─────────────── CURATED LOOKS — mobile grid + desktop scroll gallery ─────────────── */
 function LookCard({ item, idx }) {
   return (
-    <div className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-gray-100">
+    <Link
+      to={`/looks/${item.slug}`}
+      className="group relative block overflow-hidden rounded-xl md:rounded-2xl bg-gray-100"
+    >
       {/* Same image ratio as the homepage product cards so rows align */}
       <div className="aspect-[300/392] max-sm:aspect-[4/5] relative overflow-hidden">
         <img
           draggable={false}
           src={item.image_url || item.imageUrl || item.image}
           srcSet={getResponsiveSrcSet(item.image_url || item.imageUrl || item.image)}
-          sizes="(max-width: 640px) 45vw, 360px"
+          sizes="(max-width: 640px) 45vw, 300px"
           alt={item.name}
           loading="lazy"
           decoding="async"
           className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
         />
-        {/* Gradient overlay for label readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
         {/* Look number */}
         <span className="absolute top-2.5 left-2.5 md:top-3 md:left-3 inline-flex items-center px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white/90 text-[8px] md:text-[9px] font-bold tracking-[0.18em]">
           {String(idx + 1).padStart(2, '0')}
         </span>
+        {/* Overlaid look name + tagline, same pattern as category cards */}
         <div className="absolute bottom-0 left-0 right-0 p-3 md:p-5">
-          <h4 className="text-white font-display font-bold text-[13px] md:text-lg tracking-tight leading-tight line-clamp-2">
+          <h4 className="text-white font-display font-bold text-[13px] md:text-lg uppercase tracking-wide leading-tight line-clamp-1">
             {item.name}
           </h4>
+          {item.description && (
+            <p className="mt-1 text-white/60 text-[10px] md:text-xs uppercase tracking-wider leading-snug line-clamp-2">
+              {item.description.split(/[—–?]/)[0].trim()}
+            </p>
+          )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -1081,7 +1090,7 @@ function CuratedLooksSection({ looks: curatedLooks = [] }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-30px' }}
                 transition={{ duration: 0.55, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                className="look-card snap-start shrink-0 w-[320px] md:w-[360px]"
+                className="look-card snap-start shrink-0 w-[280px] md:w-[300px]"
               >
                 <LookCard item={item} idx={idx} />
               </motion.div>
