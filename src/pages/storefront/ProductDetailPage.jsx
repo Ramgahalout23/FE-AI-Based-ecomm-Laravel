@@ -1129,7 +1129,13 @@ export default function ProductDetailPage() {
                 className="thumb"
                 onClick={() => {
                   setSelectedImageIdx(i);
-                  mobileGalleryRef.current?.children[i]?.scrollIntoView({ behavior: 'smooth', inline: 'start' });
+                  // Scroll the strip itself (never the page) so clicking a
+                  // thumbnail can't yank the viewport down the page.
+                  const strip = mobileGalleryRef.current;
+                  const child = strip?.children[i];
+                  if (strip && child) {
+                    strip.scrollTo({ left: child.offsetLeft, behavior: 'smooth' });
+                  }
                 }}
                 style={{
                   aspectRatio: "1 / 1",
