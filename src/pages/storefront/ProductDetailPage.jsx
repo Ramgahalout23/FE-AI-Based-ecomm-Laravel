@@ -1,4 +1,4 @@
-import { Minus, Plus, Star, ChevronDown, Share2, X, Zap, Heart, ShieldCheck, Truck, ZoomIn, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
+import { Minus, Plus, Star, ChevronDown, Share2, X, Zap, Heart, ShieldCheck, Truck, RotateCcw, Play, Volume2, ExternalLink, ShoppingBag, Layers, Ruler, MapPin, Info, Droplets } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -1181,12 +1181,6 @@ export default function ProductDetailPage() {
               {galleryImages.map((_, i) => (
                 <div key={i} className={`gallery-swipe-dot${i === selectedImageIdx ? ' active' : ''}`} />
               ))}
-            </div>
-
-            {/* Zoom affordance — always visible so touch users know the image opens the viewer */}
-            <div style={{ position: "absolute", bottom: 16, left: 16, display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.85)", color: INK, fontSize: 11, padding: "6px 12px", borderRadius: 999, pointerEvents: "none", backdropFilter: "blur(8px)", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
-              <ZoomIn size={12} />
-              <span style={{ letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700 }}>Tap to zoom</span>
             </div>
 
           </div>
