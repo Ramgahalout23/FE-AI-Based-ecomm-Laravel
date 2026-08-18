@@ -10,6 +10,7 @@ const SearchModal = lazy(() => import('../common/SearchModal'));
 import { motion, AnimatePresence } from 'framer-motion';
 import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
+import useUIStore from '../../store/uiStore';
 import { useSettings } from '../../store/useSettings';
 import { useAppInit } from '../../contexts/AppInitContext';
 import { productsAPI } from '../../api/products';
@@ -35,16 +36,17 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const adminSidebarOpen = useUIStore((s) => s.mobileMenuOpen);
 
   // Sync mobile menu state to body attribute so chatbot & other widgets can hide
   useEffect(() => {
-    if (isMobileMenuOpen) {
+    if (isMobileMenuOpen || adminSidebarOpen) {
       document.body.setAttribute('data-mobile-menu', 'open');
     } else {
       document.body.removeAttribute('data-mobile-menu');
     }
     return () => document.body.removeAttribute('data-mobile-menu');
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, adminSidebarOpen]);
 
   const [showAccount, setShowAccount] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -154,13 +156,19 @@ export default function Navbar() {
 
             {/* Mobile Left — Menu + Search (hidden on desktop) */}
             <div className="flex items-center gap-0.5 lg:hidden">
-              {/* Mobile Menu Toggle */}
+              {/* Mobile Menu Toggle — storefront or admin sidebar */}
               <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                onClick={() => {
+                  if (location.pathname.startsWith('/admin')) {
+                    useUIStore.getState().toggleMobileMenu();
+                  } else {
+                    setIsMobileMenuOpen(!isMobileMenuOpen);
+                  }
+                }}
                 className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-white/80 hover:text-primary transition-colors hover:bg-white/10 rounded-lg"
                 aria-label="Toggle menu"
               >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                {(isMobileMenuOpen || adminSidebarOpen) ? <X size={24} /> : <Menu size={24} />}
               </button>
               {/* Mobile Search */}
               <button
@@ -341,9 +349,9 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu — premium left-side drawer with glass-morphism */}
+        {/* Mobile Menu — premium left-side drawer with glass-morphism (hidden on admin routes) */}
         <AnimatePresence>
-          {isMobileMenuOpen && (
+          {isMobileMenuOpen && !location.pathname.startsWith('/admin') && (
             <>
               {/* Backdrop with premium blur */}
               <motion.div

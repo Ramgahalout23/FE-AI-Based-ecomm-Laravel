@@ -1,5 +1,6 @@
 import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, BellPlus, Grid, Languages, Terminal, ShieldCheck, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode, Percent, Menu, X } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import useUIStore from '../../store/uiStore';
 import { motion } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
@@ -192,7 +193,8 @@ export default function AdminSidebar() {
     || user?.email?.[0]?.toUpperCase() || 'A';
 
   const currentGroup = sections.find(g => g.section === activeSection) || sections[0];
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileOpen = useUIStore((s) => s.mobileMenuOpen);
+  const setMobileOpen = (open) => useUIStore.setState({ mobileMenuOpen: open });
 
   useEffect(() => {
     setMobileOpen(false);
@@ -200,6 +202,9 @@ export default function AdminSidebar() {
 
   const sidebarContent = (
     <>
+      {/* ── Top safe area for mobile status bar ── */}
+      <div className="md:hidden shrink-0" style={{ paddingTop: 'env(safe-area-inset-top, 12px)' }} />
+
       {/* ── Logo Header ── */}
       <div className="flex items-center gap-2.5 px-4 h-[60px] shrink-0 border-b border-white/5">
         <div className="flex items-center gap-2.5 w-full">
@@ -229,7 +234,7 @@ export default function AdminSidebar() {
       </div>
 
       {/* ── Section Tabs ── */}
-      <div className="flex flex-col gap-0.5 px-2 py-3">
+      <div className="flex flex-col gap-1 px-2 py-4">
         {sections.map((group) => {
           const isActive = group.section === activeSection;
           const Icon = group.icon;
@@ -273,14 +278,14 @@ export default function AdminSidebar() {
       <div className="mx-3 h-px bg-white/5" />
 
       {/* ── Sub-links ── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3">
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
           <currentGroup.icon size={13} className="text-white/40" />
           <span className="text-[9px] font-semibold tracking-wider uppercase text-white/25">{currentGroup.section}</span>
           <span className="flex-1 h-px bg-white/5" />
         </div>
 
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {currentGroup.items.map((link) => {
             const active = isLinkActive(link.to, link.end);
             const LinkIcon = link.icon;
@@ -292,7 +297,7 @@ export default function AdminSidebar() {
                 to={link.to}
                 end={link.end}
                 className={`
-                  relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm
+                  relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm
                   transition-all duration-150
                   ${active
                     ? 'text-white font-medium'
@@ -353,22 +358,14 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile FAB */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-[#1a1a1a] text-white rounded-2xl shadow-2xl flex items-center justify-center z-40 border border-white/10"
-      >
-        <Menu size={22} />
-      </button>
-
       {/* Mobile Overlay */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/60 z-30" onClick={() => setMobileOpen(false)} />
+        <div className="md:hidden fixed inset-0 bg-black/60 z-[110]" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Mobile Sidebar */}
       <aside className={`
-        md:hidden fixed top-0 left-0 z-40 h-screen w-[280px]
+        md:hidden fixed top-0 left-0 z-[120] h-screen w-[280px]
         bg-[#111] text-white
         transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
