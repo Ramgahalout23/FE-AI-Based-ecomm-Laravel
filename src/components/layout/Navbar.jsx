@@ -331,275 +331,334 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu — premium fullscreen overlay with glass-morphism & gold accents */}
+        {/* Mobile Menu — premium left-side drawer with glass-morphism */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <>
-              {/* Backdrop */}
+              {/* Backdrop with premium blur */}
               <motion.div
                 key="menu-backdrop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.3 }}
                 className="fixed inset-0 z-40 lg:hidden"
                 style={{
-                  background: 'rgba(0, 0, 0, 0.65)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
+                  background: 'linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.7))',
+                  backdropFilter: 'blur(16px) saturate(1.2)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(1.2)',
                 }}
                 onClick={() => setIsMobileMenuOpen(false)}
               />
 
-              {/* Menu panel — slides in from left */}
+              {/* Menu panel — slides in from left with premium spring */}
               <motion.div
                 key="menu-panel"
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
-                transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.85 }}
-                className="fixed top-0 left-0 bottom-0 z-50 lg:hidden w-[300px] max-w-[85vw] overflow-hidden"
+                transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+                className="fixed top-0 left-0 bottom-0 z-50 lg:hidden w-[310px] max-w-[85vw] overflow-hidden flex flex-col"
                 style={{
-                  background: 'rgba(22, 22, 24, 0.98)',
-                  backdropFilter: 'blur(40px) saturate(1.4)',
-                  WebkitBackdropFilter: 'blur(40px) saturate(1.4)',
-                  boxShadow: '8px 0 60px rgba(0,0,0,0.5), inset -1px 0 0 rgba(255,255,255,0.04)',
+                  background: 'linear-gradient(180deg, rgba(18,18,20,1) 0%, rgba(22,22,24,0.98) 100%)',
+                  boxShadow: '8px 0 80px rgba(0,0,0,0.6), 2px 0 20px rgba(0,0,0,0.3)',
                 }}
               >
-                {/* Right edge glass accent */}
-                <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-white/[0.06] to-transparent" />
+                {/* Premium right edge accent line */}
+                <div className="absolute top-0 right-0 w-px h-full" style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.08) 100%)' }} />
 
-                {/* Close button */}
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <X size={15} className="text-white/60" />
-                </button>
+                {/* Top glow accent */}
+                <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%)' }} />
 
-                <div className="px-5 pt-16 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] overflow-y-auto h-full"
+                {/* ── Header with brand + close ── */}
+                <div className="relative flex items-center justify-between px-5 pt-5 pb-4">
+                  <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3">
+                    {logo ? (
+                      <div className="h-9 flex items-center">
+                        <img
+                          src={getImageUrl(logo)}
+                          alt={siteName}
+                          className="h-full w-auto max-w-[140px] object-contain brightness-0 invert opacity-90"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      </div>
+                    ) : (
+                      <span className="font-display text-lg font-bold text-white/90 tracking-tight">
+                        {siteName}
+                      </span>
+                    )}
+                  </Link>
+                  <motion.button
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors duration-200"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    <X size={16} className="text-white/50" />
+                  </motion.button>
+                </div>
+
+                {/* ── Scrollable content ── */}
+                <div className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))]"
                   style={{ overscrollBehavior: 'contain' }}>
 
-                  <div className="space-y-6">
-                    {/* ── Profile Section ── */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.05, type: 'spring', stiffness: 300, damping: 28 }}
-                    >
-                      <div className="flex items-center gap-4 pb-4 border-b border-white/[0.06]">
-                        <div
-                          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
+                  {/* ── Profile Section ── */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.08, type: 'spring', stiffness: 300, damping: 26 }}
+                    className="mb-5"
+                  >
+                    <div className="flex items-center gap-3.5 p-3.5 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div
+                        className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: isAuthenticated
+                            ? 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))'
+                            : 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))',
+                          border: isAuthenticated ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(255,255,255,0.06)',
+                        }}
+                      >
+                        <User size={18} className={isAuthenticated ? 'text-white/90' : 'text-white/40'} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white/90 font-medium text-sm truncate">
+                          {isAuthenticated ? (fullName || user?.email || 'User') : 'Guest'}
+                        </div>
+                        <div className="text-white/30 text-xs truncate mt-0.5">
+                          {isAuthenticated ? (user?.email || '') : 'Sign in for the full experience'}
+                        </div>
+                      </div>
+                      {!isAuthenticated && !isAdmin && (
+                        <Link
+                          to="/login"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold tracking-wide uppercase transition-all duration-200"
                           style={{
-                            background: isAuthenticated
-                              ? 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.06))'
-                              : 'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))',
-                            border: isAuthenticated ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.08)',
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))',
+                            color: 'rgba(255,255,255,0.9)',
+                            border: '1px solid rgba(255,255,255,0.12)',
                           }}
                         >
-                          <User size={20} className={isAuthenticated ? 'text-white' : 'text-white/50'} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white font-semibold text-base truncate">
-                            {isAuthenticated ? (fullName || user?.email || 'User') : 'Guest'}
-                          </div>
-                          <div className="text-white/35 text-sm truncate">
-                            {isAuthenticated ? (user?.email || '') : 'Sign in for personalized experience'}
-                          </div>
-                        </div>
-                        {!isAuthenticated && !isAdmin && (
-                          <Link
-                            to="/login"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
-                            style={{
-                              background: 'rgba(255,255,255,0.1)',
-                              color: '#fff',
-                              border: '1px solid rgba(255,255,255,0.15)',
-                            }}
-                          >
-                            Sign In
-                          </Link>
-                        )}
-                      </div>
-                    </motion.div>
+                          Sign In
+                        </Link>
+                      )}
+                    </div>
+                  </motion.div>
 
-                    {/* ── Mobile Search ── */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 28 }}
-                    >
-                      <form onSubmit={handleSearch} className="relative group">
-                        <input
-                          type="text"
-                          placeholder={t('search.placeholder')}
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          onFocus={() => setSearchFocused(true)}
-                          onBlur={() => setSearchFocused(false)}
-                          className="w-full rounded-2xl py-3.5 px-4 pl-11 text-sm outline-none transition-all duration-200 placeholder:text-white/30"
+                  {/* ── Search ── */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.12, type: 'spring', stiffness: 300, damping: 26 }}
+                    className="mb-5"
+                  >
+                    <form onSubmit={handleSearch} className="relative">
+                      <input
+                        type="text"
+                        placeholder={t('search.placeholder')}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onFocus={() => setSearchFocused(true)}
+                        onBlur={() => setSearchFocused(false)}
+                        className="w-full rounded-xl py-3 px-4 pl-10 text-sm outline-none transition-all duration-300 placeholder:text-white/25"
+                        style={{
+                          background: searchFocused ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${searchFocused ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)'}`,
+                          color: '#fff',
+                          boxShadow: searchFocused ? '0 0 0 3px rgba(255,255,255,0.04)' : 'none',
+                        }}
+                      />
+                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.2)' }} />
+                    </form>
+                  </motion.div>
+
+                  {/* ── Section Label ── */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.15 }}
+                    className="flex items-center gap-2.5 px-1 mb-2.5"
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/20">Menu</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)' }} />
+                  </motion.div>
+
+                  {/* ── Navigation Links with staggered entry ── */}
+                  <div className="flex flex-col gap-0.5">
+                    {/* Admin link */}
+                    {isAdmin && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.16, type: 'spring', stiffness: 300, damping: 26 }}
+                      >
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200"
+                          style={{ color: '#fff', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <LayoutDashboard size={15} className="text-white/70" />
+                          </span>
+                          <span className="flex-1">Admin Dashboard</span>
+                          <ArrowRight size={14} className="text-white/25" />
+                        </Link>
+                      </motion.div>
+                    )}
+
+                    {/* Watch & Buy */}
+                    {watchAndBuyActive && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.17, type: 'spring', stiffness: 300, damping: 26 }}
+                      >
+                        <Link
+                          to="/watch-and-buy"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200"
                           style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            border: `1px solid ${searchFocused ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                            color: '#fff',
-                            boxShadow: searchFocused ? '0 0 0 3px rgba(255,255,255,0.1)' : 'none',
+                            color: location.pathname === '/watch-and-buy' ? '#fff' : 'rgba(255,255,255,0.55)',
+                            background: location.pathname === '/watch-and-buy' ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                            borderLeft: location.pathname === '/watch-and-buy' ? '2px solid rgba(16, 185, 129, 0.6)' : '2px solid transparent',
                           }}
-                        />
-                        <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200" style={{ color: 'rgba(255,255,255,0.25)' }} />
-                      </form>
-                    </motion.div>
+                        >
+                          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.12)' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                              <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                            </svg>
+                          </span>
+                          <span className="flex-1">Watch & Buy</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        </Link>
+                      </motion.div>
+                    )}
 
-                    {/* ── Navigation Links ── */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 28 }}
-                    >
-                      <div className="flex items-center gap-2 px-1 mb-3">
-                        <div className="w-1 h-4 rounded-full bg-white/30" />
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/30">Navigate</span>
-                        <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), transparent)' }} />
-                      </div>
+                    {/* Sales */}
+                    {salesActive && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.18, type: 'spring', stiffness: 300, damping: 26 }}
+                      >
+                        <Link
+                          to="/sales"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200"
+                          style={{
+                            color: location.pathname === '/sales' ? '#fff' : 'rgba(255,255,255,0.55)',
+                            background: location.pathname === '/sales' ? 'rgba(248, 113, 113, 0.08)' : 'transparent',
+                            borderLeft: location.pathname === '/sales' ? '2px solid rgba(248, 113, 113, 0.5)' : '2px solid transparent',
+                          }}
+                        >
+                          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.1)' }}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                          </span>
+                          <span className="flex-1">Sales</span>
+                          <span className="text-[10px] font-medium text-red-400/50">Active</span>
+                        </Link>
+                      </motion.div>
+                    )}
 
-                      <div className="flex flex-col gap-1">
-                        {isAdmin && (
+                    {/* Main nav links with staggered animation */}
+                    {[
+                      { to: '/', label: t('nav.home'), icon: Home },
+                      { to: '/products', label: t('nav.shop'), icon: Package },
+                      { to: '/about', label: t('nav.about'), icon: Info },
+                      { to: '/contact', label: t('nav.contact'), icon: Mail },
+                      { to: '/track-order', label: t('nav.track'), icon: null },
+                      { to: '/wishlist', label: t('nav.wishlist'), icon: Heart },
+                      { to: '/cart', label: t('nav.cart'), icon: null },
+                    ].map((link, idx) => {
+                      const Icon = link.icon;
+                      const isActive = location.pathname === link.to ||
+                        (link.to === '/products' && location.pathname.startsWith('/products'));
+                      const staggerDelay = 0.18 + idx * 0.03;
+                      return (
+                        <motion.div
+                          key={link.to}
+                          initial={{ opacity: 0, x: -16 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: staggerDelay, type: 'spring', stiffness: 300, damping: 26 }}
+                        >
                           <Link
-                            to="/admin"
+                            to={link.to}
                             onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200"
                             style={{
-                              color: '#fff',
-                              background: 'rgba(255,255,255,0.08)',
+                              color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                              background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
+                              borderLeft: isActive ? '2px solid rgba(255,255,255,0.25)' : '2px solid transparent',
                             }}
                           >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                              <LayoutDashboard size={15} className="text-white/80" />
-                            </span>
-                            <span className="flex-1">Admin Dashboard</span>
-                            <ArrowRight size={14} className="text-white/30" />
-                          </Link>
-                        )}
-
-                        {watchAndBuyActive && (
-                          <Link
-                            to="/watch-and-buy"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                            style={{
-                              color: location.pathname === '/watch-and-buy' ? '#fff' : 'rgba(255,255,255,0.6)',
-                              background: location.pathname === '/watch-and-buy' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.06)',
-                              border: location.pathname === '/watch-and-buy' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid transparent',
-                            }}
-                          >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
-                                <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                              </svg>
-                            </span>
-                            <span className="flex-1 text-emerald-400">Watch & Buy</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          </Link>
-                        )}
-
-                        {salesActive && (
-                          <Link
-                            to="/sales"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ color: '#F87171', background: 'rgba(248, 113, 113, 0.06)' }}
-                          >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.12)' }}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                            </span>
-                            <span className="flex-1">Sales</span>
-                            <span className="text-[10px] font-medium text-red-400/60">Active</span>
-                          </Link>
-                        )}
-
-                        {[
-                          { to: '/', label: t('nav.home') },
-                          { to: '/products', label: t('nav.shop') },
-                          { to: '/track-order', label: t('nav.track') },
-                          { to: '/about', label: t('nav.about') },
-                          { to: '/contact', label: t('nav.contact') },
-                          { to: '/wishlist', label: t('nav.wishlist') },
-                          { to: '/cart', label: t('nav.cart') },
-                        ].map((link, idx) => {
-                          const Icon = [Home, Search, Package, Info, Mail, Heart, CartIcon][idx];
-                          const isLinkActive = location.pathname === link.to ||
-                            (link.to === '/products' && location.pathname.startsWith('/products'));
-                          return (
-                            <Link
-                              key={link.to}
-                              to={link.to}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                              style={{
-                                color: isLinkActive ? '#fff' : 'rgba(255,255,255,0.5)',
-                                background: isLinkActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                              }}
-                            >
+                            {Icon && (
                               <span
-                                className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
                                 style={{
-                                  background: isLinkActive
-                                    ? 'rgba(255,255,255,0.12)'
-                                    : 'rgba(255,255,255,0.04)',
-                                  border: isLinkActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                                  background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
                                 }}
                               >
-                                <Icon size={16} className={isLinkActive ? 'text-white' : 'text-white/40'} />
+                                <Icon size={15} className={isActive ? 'text-white/80' : 'text-white/30'} />
                               </span>
-                              <span className="flex-1">{link.label}</span>
-                              {link.to === '/cart' && count > 0 && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white text-[#1A1A1A]">
-                                  {count > 9 ? '9+' : count}
-                                </span>
-                              )}
-                              {!isLinkActive && (
-                                <ArrowRight size={14} style={{ color: 'rgba(255,255,255,0.15)' }} />
-                              )}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-
-                    {/* ── Bottom Stack ── */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, type: 'spring', stiffness: 300, damping: 28 }}
-                    >
-                      <div className="pt-3 pb-2 border-t border-white/[0.06] space-y-3">
-                        {/* Currency & Language */}
-                        <div className="flex items-center gap-2 px-4">
-                          {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="mobile" />}
-                          {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="mobile" />}
-                        </div>
-
-                        {/* Sign Out */}
-                        {(isAuthenticated || isAdmin) && (
-                          <button
-                            onClick={async () => {
-                              await logout();
-                              localStorage.removeItem('adminToken');
-                              navigate('/');
-                            }}
-                            className="flex items-center gap-3.5 w-full px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ color: 'rgba(255,255,255,0.35)' }}
-                          >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
-                            </span>
-                            Sign Out
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
+                            )}
+                            {!Icon && <span className="w-8" />}
+                            <span className="flex-1">{link.label}</span>
+                            {link.to === '/cart' && count > 0 && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.9)', color: '#1A1A1A' }}>
+                                {count > 9 ? '9+' : count}
+                              </span>
+                            )}
+                            {isActive && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                            )}
+                          </Link>
+                        </motion.div>
+                      );
+                    })}
                   </div>
+
+                  {/* ── Bottom section ── */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="mt-6 pt-4 space-y-3"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                  >
+                    {/* Currency & Language */}
+                    <div className="flex items-center gap-2 px-1">
+                      {getSetting('currencySwitcherEnabled', 'true') !== 'false' && <CurrencySwitcher variant="mobile" />}
+                      {getSetting('languageSwitcherEnabled', 'true') !== 'false' && <LanguageSwitcher variant="mobile" />}
+                    </div>
+
+                    {/* Sign Out */}
+                    {(isAuthenticated || isAdmin) && (
+                      <motion.button
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={async () => {
+                          await logout();
+                          localStorage.removeItem('adminToken');
+                          navigate('/');
+                        }}
+                        className="flex items-center gap-3 w-full px-3.5 py-3 rounded-xl text-sm font-medium transition-all duration-200"
+                        style={{ color: 'rgba(255,255,255,0.3)' }}
+                      >
+                        <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          <LogOut size={14} className="text-white/30" />
+                        </span>
+                        Sign Out
+                      </motion.button>
+                    )}
+
+                    {/* Brand tagline */}
+                    <div className="px-1 pt-2 pb-1">
+                      <p className="text-[10px] text-white/15 tracking-wider uppercase">Premium Streetwear</p>
+                    </div>
+                  </motion.div>
                 </div>
               </motion.div>
             </>
