@@ -36,6 +36,16 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Sync mobile menu state to body attribute so chatbot & other widgets can hide
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.setAttribute('data-mobile-menu', 'open');
+    } else {
+      document.body.removeAttribute('data-mobile-menu');
+    }
+    return () => document.body.removeAttribute('data-mobile-menu');
+  }, [isMobileMenuOpen]);
+
   const [showAccount, setShowAccount] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   // Mount SearchModal on first open, then keep it mounted so its internal
@@ -135,8 +145,8 @@ export default function Navbar() {
     }`}
       style={scrolled ? { boxShadow: '0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.3)' } : {}}
     >
-      {/* Announcement Bar - above main navigation */}
-      <AnnouncementBar />
+      {/* Announcement Bar - hidden when mobile menu is open */}
+      {!isMobileMenuOpen && <AnnouncementBar />}
       {/* Main Navbar */}
       <nav>
         <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -358,7 +368,7 @@ export default function Navbar() {
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
-                className="fixed top-0 left-0 bottom-0 z-50 lg:hidden w-[310px] max-w-[85vw] overflow-hidden flex flex-col"
+                className="fixed top-0 left-0 bottom-0 z-50 lg:hidden w-full overflow-hidden flex flex-col"
                 style={{
                   background: 'linear-gradient(180deg, rgba(18,18,20,1) 0%, rgba(22,22,24,0.98) 100%)',
                   boxShadow: '8px 0 80px rgba(0,0,0,0.6), 2px 0 20px rgba(0,0,0,0.3)',

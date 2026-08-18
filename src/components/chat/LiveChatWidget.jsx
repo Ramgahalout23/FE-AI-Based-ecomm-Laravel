@@ -48,6 +48,7 @@ export default function LiveChatWidget() {
   const [chatLoading, setChatLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [isReelActive, setIsReelActive] = useState(false);
+  const [isMobileMenuActive, setIsMobileMenuActive] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -78,6 +79,19 @@ export default function LiveChatWidget() {
     checkReel();
     const observer = new MutationObserver(checkReel);
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-reel-player'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Hide the chat icon while the mobile menu drawer is open
+  useEffect(() => {
+    const checkMenu = () => {
+      const active = document.body.getAttribute('data-mobile-menu') === 'open';
+      setIsMobileMenuActive(active);
+      if (active) setIsOpen(false);
+    };
+    checkMenu();
+    const observer = new MutationObserver(checkMenu);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-mobile-menu'] });
     return () => observer.disconnect();
   }, []);
 
@@ -165,9 +179,9 @@ export default function LiveChatWidget() {
           justifyContent: 'center',
           boxShadow: '0 4px 24px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, scale 0.25s ease',
-          opacity: isReelActive ? 0 : 1,
-          pointerEvents: isReelActive ? 'none' : 'auto',
-          scale: isReelActive ? 0.75 : 1,
+          opacity: (isReelActive || isMobileMenuActive) ? 0 : 1,
+          pointerEvents: (isReelActive || isMobileMenuActive) ? 'none' : 'auto',
+          scale: (isReelActive || isMobileMenuActive) ? 0.75 : 1,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.08)';
@@ -209,7 +223,7 @@ export default function LiveChatWidget() {
       </button>
 
       {/* ─── Chat Window ─── */}
-      {isOpen && !isReelActive && (
+      {isOpen && !isReelActive && !isMobileMenuActive && (
         <div className="chat-float-window"
         style={{
           position: 'fixed',
