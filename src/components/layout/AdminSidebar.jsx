@@ -104,6 +104,7 @@ export default function AdminSidebar() {
   const { getSetting } = useSettings();
   const { user } = useAuthStore();
   const adminLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
+  const storeName = getSetting('storeName', 'Admin');
 
   const isLinkActive = useCallback((to, end) => {
     if (end) return location.pathname === to;
@@ -215,7 +216,7 @@ export default function AdminSidebar() {
           )}
           {adminLogo ? (
             <div className="h-7 flex items-center">
-              <img src={getImageUrl(adminLogo)} alt="Store"
+              <img src={getImageUrl(adminLogo)} alt={storeName}
                 className="h-full w-auto max-w-[140px] object-contain"
                 onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
@@ -225,8 +226,8 @@ export default function AdminSidebar() {
                 <span className="text-white font-bold text-sm">A</span>
               </div>
               <div>
-                <div className="font-semibold text-sm text-white/90 leading-tight">Admin</div>
-                <div className="text-[8px] text-white/30 uppercase tracking-wider">Console</div>
+                <div className="font-semibold text-sm text-white/90 leading-tight">{storeName}</div>
+                <div className="text-[8px] text-white/30 uppercase tracking-wider">Admin Panel</div>
               </div>
             </div>
           )}

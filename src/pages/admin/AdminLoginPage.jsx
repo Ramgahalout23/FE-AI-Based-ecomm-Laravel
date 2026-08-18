@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { adminAPI } from '../../api/admin';
 import useAuthStore from '../../store/authStore';
+import { useSettings } from '../../store/useSettings';
+import { getImageUrl } from '../../utils/formatters';
 import useSessionStore from '../../store/sessionStore';
 import PasswordStrengthMeter from '../../components/admin/PasswordStrengthMeter';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
@@ -18,6 +20,9 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
+  const { getSetting } = useSettings();
+  const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
+  const storeName = getSetting('storeName', 'Admin');
 
   // Live inline validation — the same security rules the backend enforces
   const validation = useAdminFormValidation({
@@ -93,9 +98,13 @@ export default function AdminLoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="admin-auth-logo">
-            <BarChart3 size={22} />
-          </div>
+          {logo ? (
+            <div className="flex justify-center">
+              <img src={getImageUrl(logo)} alt={storeName} className="h-12 w-auto object-contain" />
+            </div>
+          ) : (
+            <div className="admin-auth-logo"><BarChart3 size={22} /></div>
+          )}
           <h1 className="font-display text-2xl font-bold text-white mt-5">Admin Login</h1>
           <p className="text-white/50 mt-1 text-sm">Enter your credentials to access the dashboard</p>
         </div>

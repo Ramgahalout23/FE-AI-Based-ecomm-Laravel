@@ -6,6 +6,7 @@ import { Loader2, Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, Truck, Refre
 import useAuthStore from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { useSettings } from '../../store/useSettings';
+import { getImageUrl } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import { trackSignUp } from '../../services/tracker';
 import PasswordStrengthMeter from '../../components/admin/PasswordStrengthMeter';
@@ -32,6 +33,7 @@ export default function RegisterPage() {
   });
 
   const storeName = getSetting('storeName', 'THREVOLT');
+  const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
   const adminEnabledGoogle = getSetting('googleLoginEnabled', 'true') !== 'false';
   const adminEnabledFacebook = getSetting('facebookLoginEnabled', 'true') !== 'false';
   const hasGoogleCreds = Boolean(getSetting('googleClientId', '')) && Boolean(getSetting('googleClientSecret', ''));
@@ -136,10 +138,16 @@ export default function RegisterPage() {
 
           <div className="relative z-10 flex flex-col h-full">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg">
-                <span className="text-black font-display font-extrabold text-xl tracking-tight">T</span>
-              </div>
-              <span className="font-display font-bold text-white text-lg tracking-[0.22em]">{storeName}</span>
+              {logo ? (
+                <img src={getImageUrl(logo)} alt={storeName} className="h-10 w-auto object-contain" />
+              ) : (
+                <>
+                  <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg">
+                    <span className="text-black font-display font-extrabold text-xl tracking-tight">T</span>
+                  </div>
+                  <span className="font-display font-bold text-white text-lg tracking-[0.22em]">{storeName}</span>
+                </>
+              )}
             </div>
 
             <div className="mt-auto">
