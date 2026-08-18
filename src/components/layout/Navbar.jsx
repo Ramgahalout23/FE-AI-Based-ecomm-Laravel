@@ -1,4 +1,4 @@
-import { Search, User, Menu, X, Heart, LogOut, Home, Info, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Search, User, Menu, X, Heart, LogOut, Home, Info, Mail, Package, ArrowRight, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -11,9 +11,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
 import { useSettings } from '../../store/useSettings';
+import { useAppInit } from '../../contexts/AppInitContext';
 import { productsAPI } from '../../api/products';
 import { getImageUrl, getUserFullName } from '../../utils/formatters';
-import { useAppInit } from '../../contexts/AppInitContext';
 import AnnouncementBar from './AnnouncementBar';
 import CurrencySwitcher from '../common/CurrencySwitcher';
 import LanguageSwitcher from '../common/LanguageSwitcher';
@@ -50,25 +50,14 @@ export default function Navbar() {
   const searchRef = useRef(null);
 
   const { getSetting } = useSettings();
+  const { data: appInitData } = useAppInit();
+  const activePromotions = appInitData?.promotions || [];
+  const salesActive = getSetting('salesEnabled', 'true') !== 'false' && activePromotions.length > 0;
+  const watchAndBuyActive = getSetting('reelsEnabled', 'true') !== 'false';
   const siteName = getSetting('storeName', 'THREVOLT');
   const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
 
   // Use consolidated app-init data for nav — replaces 2 individual API calls
-  const { data: appInitData } = useAppInit();
-  const activePromotions = appInitData?.promotions || [];
-  const customPages = appInitData?.pages || [];
-
-  // Short display names for the navbar (e.g. "Frequently Asked Questions" → "FAQ")
-  const SHORT_NAMES = {
-    faq: t('nav.faq', { defaultValue: 'FAQ' }),
-    'care-instructions': t('nav.care', { defaultValue: 'Care' }),
-    'shipping-information': t('nav.shipping', { defaultValue: 'Shipping' }),
-    'size-guide': t('nav.size_guide', { defaultValue: 'Size Guide' }),
-    'privacy-policy': t('nav.privacy', { defaultValue: 'Privacy' }),
-    'return-policy': t('nav.returns', { defaultValue: 'Returns' }),
-  };
-  const navLabel = (page) => SHORT_NAMES[page.slug] || page.title;
-  const hasActivePromotions = activePromotions.length > 0;
 
   // Sync brand colors from settings onto CSS custom properties
   useEffect(() => {
@@ -193,19 +182,20 @@ export default function Navbar() {
 
             {/* Left Nav Links — Desktop only (logo floats centered, links sit left) */}
             <div className="hidden lg:flex items-center justify-start gap-1">
-              {/* Watch & Buy */}
-              <Link
-                to="/watch-and-buy"
-                className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 ${
-                  location.pathname === '/watch-and-buy'
-                    ? 'text-white bg-white/15'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Watch & Buy
-              </Link>
-              {hasActivePromotions && (
+              {watchAndBuyActive && (
+                <Link
+                  to="/watch-and-buy"
+                  className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 ${
+                    location.pathname === '/watch-and-buy'
+                      ? 'text-white bg-white/15'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Watch & Buy
+                </Link>
+              )}
+              {salesActive && (
                 <Link
                   to="/sales"
                   className={`px-3 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5 ${
@@ -218,44 +208,25 @@ export default function Navbar() {
                   {t('nav.sales')}
                 </Link>
               )}
-              {customPages.filter((p) => p.slug !== 'care-instructions').slice(0, 4).map((page) => {
-                const isActive = location.pathname === `/pages/${page.slug}`;
-                return (
-                  <Link
-                    key={page.slug}
-                    to={`/pages/${page.slug}`}
-                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? 'text-primary bg-white/10'
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {navLabel(page)}
-                  </Link>
-                );
-              })}
-              {/* Track Order */}
-              <Link
-                to="/track-order"
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  location.pathname === '/track-order'
-                    ? 'text-primary bg-white/10'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {t('nav.track')}
-              </Link>
-              {/* About Us */}
-              <Link
-                to="/about"
-                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  location.pathname === '/about'
-                    ? 'text-primary bg-white/10'
-                    : 'text-white/70 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {t('nav.about')}
-              </Link>
+              {[
+                { to: '/', label: t('nav.home') },
+                { to: '/products', label: t('nav.shop') },
+                { to: '/track-order', label: t('nav.track') },
+                { to: '/about', label: t('nav.about') },
+                { to: '/contact', label: t('nav.contact') },
+              ].map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    location.pathname === link.to
+                      ? 'text-primary bg-white/10'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </div>
 
             {/* Right Actions */}
@@ -520,34 +491,52 @@ export default function Navbar() {
                           </Link>
                         )}
 
-                        {/* Watch & Buy */}
-                        <Link
-                          to="/watch-and-buy"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                          style={{
-                            color: location.pathname === '/watch-and-buy' ? '#fff' : 'rgba(255,255,255,0.6)',
-                            background: location.pathname === '/watch-and-buy' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.06)',
-                            border: location.pathname === '/watch-and-buy' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid transparent',
-                          }}
-                        >
-                          <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
-                              <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                            </svg>
-                          </span>
-                          <span className="flex-1 text-emerald-400">Watch & Buy</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        </Link>
+                        {watchAndBuyActive && (
+                          <Link
+                            to="/watch-and-buy"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{
+                              color: location.pathname === '/watch-and-buy' ? '#fff' : 'rgba(255,255,255,0.6)',
+                              background: location.pathname === '/watch-and-buy' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.06)',
+                              border: location.pathname === '/watch-and-buy' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid transparent',
+                            }}
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(16, 185, 129, 0.15)' }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                                <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                              </svg>
+                            </span>
+                            <span className="flex-1 text-emerald-400">Watch & Buy</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          </Link>
+                        )}
+
+                        {salesActive && (
+                          <Link
+                            to="/sales"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                            style={{ color: '#F87171', background: 'rgba(248, 113, 113, 0.06)' }}
+                          >
+                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.12)' }}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                            </span>
+                            <span className="flex-1">Sales</span>
+                            <span className="text-[10px] font-medium text-red-400/60">Active</span>
+                          </Link>
+                        )}
 
                         {[
                           { to: '/', label: t('nav.home') },
-                          { to: '/products', label: t('nav.products') },
+                          { to: '/products', label: t('nav.shop') },
+                          { to: '/track-order', label: t('nav.track') },
+                          { to: '/about', label: t('nav.about') },
+                          { to: '/contact', label: t('nav.contact') },
                           { to: '/wishlist', label: t('nav.wishlist') },
                           { to: '/cart', label: t('nav.cart') },
-                          { to: '/about', label: t('nav.about') },
                         ].map((link, idx) => {
-                          const Icon = [Home, Search, Heart, CartIcon, Info][idx];
+                          const Icon = [Home, Search, Package, Info, Mail, Heart, CartIcon][idx];
                           const isLinkActive = location.pathname === link.to ||
                             (link.to === '/products' && location.pathname.startsWith('/products'));
                           return (
@@ -581,49 +570,6 @@ export default function Navbar() {
                               {!isLinkActive && (
                                 <ArrowRight size={14} style={{ color: 'rgba(255,255,255,0.15)' }} />
                               )}
-                            </Link>
-                          );
-                        })}
-
-                        {/* Promotions link */}
-                        {hasActivePromotions && (
-                          <Link
-                            to="/sales"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ color: '#F87171', background: 'rgba(248, 113, 113, 0.06)' }}
-                          >
-                            <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(248, 113, 113, 0.12)' }}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                            </span>
-                            <span className="flex-1">Sales</span>
-                            <span className="text-[10px] font-medium text-red-400/60">Active</span>
-                          </Link>
-                        )}
-
-                        {/* Custom pages */}
-                        {customPages.filter((p) => p.slug !== 'care-instructions').slice(0, 5).map((page) => {
-                          const isActive = location.pathname === `/pages/${page.slug}`;
-                          return (
-                            <Link
-                              key={page.slug}
-                              to={`/pages/${page.slug}`}
-                              onClick={() => setIsMobileMenuOpen(false)}
-                              className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                              style={{
-                                color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
-                                background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
-                              }}
-                            >
-                              <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{
-                                background: isActive ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
-                                border: isActive ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
-                              }}>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isActive ? 'text-white' : 'text-white/40'}>
-                                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-                                </svg>
-                              </span>
-                              {navLabel(page)}
                             </Link>
                           );
                         })}
