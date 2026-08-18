@@ -45,6 +45,21 @@
   min-height: 420px;
 }
 
+.auth-brand-layout {
+  gap: 1.5rem;
+}
+
+.auth-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding-top: 0.25rem;
+}
+
+.auth-brand-copy {
+  padding-top: 1.5rem;
+}
+
 @media (min-width: 900px) {
   .auth-brand-panel {
     display: block;
