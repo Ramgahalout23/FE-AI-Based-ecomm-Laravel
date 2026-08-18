@@ -1548,8 +1548,10 @@ export function initI18nSync() {
     keySeparator: '.',
     parseMissingKeyHandler: (key) => {
       // If a translation key is missing, return the last segment as readable text
+      // with the first letter of each word capitalised for a polished fallback.
       const parts = key.split('.');
-      return parts[parts.length - 1]?.replace(/_/g, ' ') || key;
+      const raw = parts[parts.length - 1]?.replace(/_/g, ' ') || key;
+      return raw.replace(/\b\w/g, (c) => c.toUpperCase());
     },
   });
 
