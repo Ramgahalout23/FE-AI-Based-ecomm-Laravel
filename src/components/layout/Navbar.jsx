@@ -351,32 +351,23 @@ export default function Navbar() {
                 onClick={() => setIsMobileMenuOpen(false)}
               />
 
-              {/* Menu panel — slides up from bottom */}
+              {/* Menu panel — slides in from left */}
               <motion.div
                 key="menu-panel"
-                initial={{ y: '100%', opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: '100%', opacity: 0 }}
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
                 transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.85 }}
-                className="fixed bottom-0 left-0 right-0 z-50 lg:hidden rounded-t-[32px] overflow-hidden"
+                className="fixed top-0 left-0 bottom-0 z-50 lg:hidden w-[300px] max-w-[85vw] overflow-hidden"
                 style={{
-                  maxHeight: '92dvh',
                   background: 'rgba(22, 22, 24, 0.98)',
                   backdropFilter: 'blur(40px) saturate(1.4)',
                   WebkitBackdropFilter: 'blur(40px) saturate(1.4)',
-                  boxShadow: '0 -8px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
+                  boxShadow: '8px 0 60px rgba(0,0,0,0.5), inset -1px 0 0 rgba(255,255,255,0.04)',
                 }}
               >
-                {/* White top accent bar */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-[3px] rounded-full bg-white/30" />
-
-                {/* Drag handle */}
-                <div className="flex justify-center pt-4 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-white/15" />
-                </div>
-
-                {/* Top glass edge */}
-                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                {/* Right edge glass accent */}
+                <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-white/[0.06] to-transparent" />
 
                 {/* Close button */}
                 <button
@@ -387,8 +378,8 @@ export default function Navbar() {
                   <X size={15} className="text-white/60" />
                 </button>
 
-                <div className="px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] overflow-y-auto"
-                  style={{ maxHeight: 'calc(92dvh - 44px)', overscrollBehavior: 'contain' }}>
+                <div className="px-5 pt-16 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] overflow-y-auto h-full"
+                  style={{ overscrollBehavior: 'contain' }}>
 
                   <div className="space-y-6">
                     {/* ── Profile Section ── */}
@@ -573,27 +564,6 @@ export default function Navbar() {
                             </Link>
                           );
                         })}
-
-                        {/* Track Order */}
-                        <Link
-                          to="/track-order"
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                          style={{
-                            color: location.pathname === '/track-order' ? '#fff' : 'rgba(255,255,255,0.5)',
-                            background: location.pathname === '/track-order' ? 'rgba(255,255,255,0.08)' : 'transparent',
-                          }}
-                        >
-                          <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{
-                            background: location.pathname === '/track-order' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
-                            border: location.pathname === '/track-order' ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
-                          }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={location.pathname === '/track-order' ? 'text-white' : 'text-white/40'}>
-                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
-                            </svg>
-                          </span>
-                          {t('nav.track')}
-                        </Link>
                       </div>
                     </motion.div>
 
