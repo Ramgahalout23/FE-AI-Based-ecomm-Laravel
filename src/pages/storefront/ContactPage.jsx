@@ -5,6 +5,7 @@ import SEOHead from '../../components/seo/SEOHead';
 import { withStoreName } from '../../utils/seo';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
+import { contactAPI } from '../../api/contact';
 import toast from '../../utils/toast';
 
 /* Brand design tokens (matches tailwind.config.js / tokens.css) */
@@ -32,11 +33,21 @@ export default function ContactPage() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await contactAPI.send({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        message: form.message,
+      });
       toast.success(t('contact.success_message'));
       setForm({ name: '', email: '', phone: '', message: '' });
+    } catch (err) {
+      const msg = err.response?.data?.message;
+      toast.error(msg || t('contact.error_message'));
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const channels = [

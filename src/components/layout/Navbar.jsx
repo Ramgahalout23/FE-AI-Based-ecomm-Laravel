@@ -57,6 +57,17 @@ export default function Navbar() {
   const { data: appInitData } = useAppInit();
   const activePromotions = appInitData?.promotions || [];
   const customPages = appInitData?.pages || [];
+
+  // Short display names for the navbar (e.g. "Frequently Asked Questions" → "FAQ")
+  const SHORT_NAMES = {
+    faq: t('nav.faq', { defaultValue: 'FAQ' }),
+    'care-instructions': t('nav.care', { defaultValue: 'Care' }),
+    'shipping-information': t('nav.shipping', { defaultValue: 'Shipping' }),
+    'size-guide': t('nav.size_guide', { defaultValue: 'Size Guide' }),
+    'privacy-policy': t('nav.privacy', { defaultValue: 'Privacy' }),
+    'return-policy': t('nav.returns', { defaultValue: 'Returns' }),
+  };
+  const navLabel = (page) => SHORT_NAMES[page.slug] || page.title;
   const hasActivePromotions = activePromotions.length > 0;
 
   // Sync brand colors from settings onto CSS custom properties
@@ -219,7 +230,7 @@ export default function Navbar() {
                         : 'text-white/70 hover:text-white hover:bg-white/10'
                     }`}
                   >
-                    {page.title}
+                    {navLabel(page)}
                   </Link>
                 );
               })}
@@ -601,7 +612,7 @@ export default function Navbar() {
                                   <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
                                 </svg>
                               </span>
-                              {page.title}
+                              {navLabel(page)}
                             </Link>
                           );
                         })}

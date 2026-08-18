@@ -68,6 +68,10 @@ const AboutPage = lazy(() => import('./pages/storefront/AboutPage'));
 const ContactPage = lazy(() => import('./pages/storefront/ContactPage'));
 const PrivacyPage = lazy(() => import('./pages/storefront/PrivacyPage'));
 const ReturnPolicyPage = lazy(() => import('./pages/storefront/ReturnPolicyPage'));
+const SizeGuidePage = lazy(() => import('./pages/storefront/SizeGuidePage'));
+const ShippingInfoPage = lazy(() => import('./pages/storefront/ShippingInfoPage'));
+const CareInstructionsPage = lazy(() => import('./pages/storefront/CareInstructionsPage'));
+const FaqPage = lazy(() => import('./pages/storefront/FaqPage'));
 const CustomPageView = lazy(() => import('./pages/storefront/CustomPageView'));
 const SectionProductsPage = lazy(() => import('./pages/storefront/SectionProductsPage'));
 const CuratedLookPage = lazy(() => import('./pages/storefront/CuratedLookPage'));
@@ -503,6 +507,15 @@ function AppContent() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/privacy-policy" element={<PrivacyPage />} />
           <Route path="/return-policy" element={<ReturnPolicyPage />} />
+          <Route path="/size-guide" element={<SizeGuidePage />} />
+          <Route path="/shipping-info" element={<ShippingInfoPage />} />
+          <Route path="/care-instructions" element={<CareInstructionsPage />} />
+          <Route path="/faq" element={<FaqPage />} />
+          {/* Premium content pages replace the legacy CMS versions of these slugs */}
+          <Route path="/pages/faq" element={<Navigate to="/faq" replace />} />
+          <Route path="/pages/care-instructions" element={<Navigate to="/care-instructions" replace />} />
+          <Route path="/pages/size-guide" element={<Navigate to="/size-guide" replace />} />
+          <Route path="/pages/shipping-information" element={<Navigate to="/shipping-info" replace />} />
           <Route path="/pages/:slug" element={<CustomPageView />} />
 
           {/* Unsubscribe */}

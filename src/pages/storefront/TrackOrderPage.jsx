@@ -1,10 +1,11 @@
-import { Search, Package } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import SEOHead from '../../components/seo/SEOHead';
 import { withStoreName } from '../../utils/seo';
-import Breadcrumb from '../../components/common/Breadcrumb';
+import ContentPageHero from '../../components/storefront/ContentPageHero';
+import ContentMarquee from '../../components/storefront/ContentMarquee';
 import { useSettings } from '../../store/useSettings';
 import { ordersAPI } from '../../api/orders';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -49,34 +50,33 @@ export default function TrackOrderPage() {
   };
 
   return (
-    <div className="section">
+    <div className="page-content bg-white">
       <SEOHead
         title={withStoreName('Track Your Order', storeName)}
         description={`Track your ${storeName} order in real-time. Enter your order number to see shipping status, delivery timeline, and package location.`}
         noIndex={true}
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
-        <Breadcrumb
-          items={[    {label: t('nav.home'), href: '/' },
-    { label: t('track.title') },
-          ]}
-          variant="light"
-          className="mb-6"
-        />
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        {/* Hero Section */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/20 mb-4">
-            <Package size={28} />
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-charcoal mb-2">{t('track.title')}</h1>
-          <p className="text-muted text-sm max-w-md mx-auto">
-            {t('track.hero_desc')}
-          </p>
-        </div>
+      {/* Premium editorial hero — same family as About/Contact/Size Guide */}
+      <ContentPageHero
+        watermark={t('track.watermark', { defaultValue: 'TRACK' })}
+        eyebrow={t('track.eyebrow', { defaultValue: 'Order Status' })}
+        title={t('track.title')}
+        description={t('track.hero_desc')}
+        breadcrumb={[
+          { label: t('nav.home'), href: '/' },
+          { label: t('track.title') },
+        ]}
+      />
+      <ContentMarquee
+        items={[
+          t('track.marquee_1', { defaultValue: 'Real-Time Tracking' }),
+          t('track.marquee_2', { defaultValue: 'No Login Required' }),
+          t('track.marquee_3', { defaultValue: 'SMS & Email Updates' }),
+        ]}
+      />
 
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
         {/* Search Form */}
         <form onSubmit={handleTrack} className="mb-8">
           <div className="flex gap-3">

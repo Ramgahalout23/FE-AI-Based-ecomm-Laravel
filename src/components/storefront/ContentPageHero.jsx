@@ -52,15 +52,17 @@ export default function ContentPageHero({ watermark, eyebrow, title, description
       style={{
         background: 'linear-gradient(165deg, #141416 0%, #000000 100%)',
         color: PAPER,
-        padding: '96px 24px 84px',
+        padding: '56px 20px 48px',
         position: 'relative',
         overflow: 'hidden',
         textAlign: 'center',
       }}
+      className="content-page-hero"
     >
       {/* Decorative watermark */}
       <div
         aria-hidden
+        className="content-page-watermark"
         style={{
           position: 'absolute',
           top: '50%',
@@ -79,12 +81,12 @@ export default function ContentPageHero({ watermark, eyebrow, title, description
       </div>
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 820, margin: '0 auto' }}>
         <Breadcrumb items={breadcrumb} variant="dark" className="justify-center mb-6" />
-        <div style={{ fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', fontWeight: 700, marginBottom: 18 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.35em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', fontWeight: 700, marginBottom: 12 }}>
           {eyebrow}
         </div>
         <h1
           className="content-hero-mark"
-          style={{ fontSize: 'clamp(46px, 7vw, 78px)', lineHeight: 1.02, letterSpacing: '-0.03em', margin: '0 0 22px', ...displayFont }}
+          style={{ fontSize: 'clamp(36px, 7vw, 78px)', lineHeight: 1.05, letterSpacing: '-0.03em', margin: '0 0 16px', ...displayFont }}
         >
           {title}
         </h1>
@@ -125,6 +127,12 @@ export default function ContentPageHero({ watermark, eyebrow, title, description
       <style>{`
         .content-hero-mark { animation: content-rise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
         @keyframes content-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .content-page-hero { padding: 48px 20px 40px; }
+        .content-page-watermark { display: none; }
+        @media (min-width: 768px) {
+          .content-page-hero { padding: 96px 24px 84px; }
+          .content-page-watermark { display: block; }
+        }
       `}</style>
     </header>
   );

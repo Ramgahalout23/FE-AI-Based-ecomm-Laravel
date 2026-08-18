@@ -195,8 +195,10 @@ export default function Footer() {
               <Link to="/track-order" className="hover:text-white transition-colors w-fit">{t('footer.help.track')}</Link>
               <Link to="/about" className="hover:text-white transition-colors w-fit">{t('footer.help.about')}</Link>
               <Link to="/contact" className="hover:text-white transition-colors w-fit">{t('footer.help.contact')}</Link>
-              <span className="hover:text-white transition-colors cursor-pointer w-fit">{t('footer.help.size_guide')}</span>
-              <span className="hover:text-white transition-colors cursor-pointer w-fit">{t('footer.help.shipping_info')}</span>
+              <Link to="/size-guide" className="hover:text-white transition-colors w-fit">{t('footer.help.size_guide')}</Link>
+              <Link to="/shipping-info" className="hover:text-white transition-colors w-fit">{t('footer.help.shipping_info')}</Link>
+              <Link to="/care-instructions" className="hover:text-white transition-colors w-fit">{t('footer.help.care')}</Link>
+              <Link to="/faq" className="hover:text-white transition-colors w-fit">{t('footer.help.faq')}</Link>
               <Link to="/return-policy" className="hover:text-white transition-colors w-fit">{t('footer.help.returns')}</Link>
               <Link to="/privacy-policy" className="hover:text-white transition-colors w-fit">{t('footer.help.privacy')}</Link>
             </MobileAccordion>
@@ -286,8 +288,10 @@ export default function Footer() {
               <Link to="/track-order" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.track')}</Link>
               <Link to="/about" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.about')}</Link>
               <Link to="/contact" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.contact')}</Link>
-              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">{t('footer.help.size_guide')}</span>
-              <span className="hover:text-primary hover:translate-x-1 transition-all duration-200 cursor-pointer w-fit">{t('footer.help.shipping_info')}</span>
+              <Link to="/size-guide" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.size_guide')}</Link>
+              <Link to="/shipping-info" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.shipping_info')}</Link>
+              <Link to="/care-instructions" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.care')}</Link>
+              <Link to="/faq" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.faq')}</Link>
               <Link to="/return-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.returns')}</Link>
               <Link to="/privacy-policy" className="hover:text-primary hover:translate-x-1 transition-all duration-200 w-fit">{t('footer.help.privacy')}</Link>
             </div>
