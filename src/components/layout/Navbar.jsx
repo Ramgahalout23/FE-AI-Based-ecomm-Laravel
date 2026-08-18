@@ -1,4 +1,4 @@
-import { Search, User, Menu, X, Heart, LogOut, Home, Info, Mail, Package, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Search, User, Menu, X, Heart, LogOut, Home, Info, Mail, Package, ArrowRight, LayoutDashboard, Truck, ShoppingCart } from 'lucide-react';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -587,9 +587,9 @@ export default function Navbar() {
                       { to: '/products', label: t('nav.shop'), icon: Package },
                       { to: '/about', label: t('nav.about'), icon: Info },
                       { to: '/contact', label: t('nav.contact'), icon: Mail },
-                      { to: '/track-order', label: t('nav.track'), icon: null },
+                      { to: '/track-order', label: t('nav.track'), icon: Truck },
                       { to: '/wishlist', label: t('nav.wishlist'), icon: Heart },
-                      { to: '/cart', label: t('nav.cart'), icon: null },
+                      { to: '/cart', label: t('nav.cart'), icon: ShoppingCart },
                     ].map((link, idx) => {
                       const Icon = link.icon;
                       const isActive = location.pathname === link.to ||
@@ -612,17 +612,14 @@ export default function Navbar() {
                               borderLeft: isActive ? '2px solid rgba(255,255,255,0.25)' : '2px solid transparent',
                             }}
                           >
-                            {Icon && (
-                              <span
-                                className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
-                                style={{
-                                  background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
-                                }}
-                              >
-                                <Icon size={15} className={isActive ? 'text-white/80' : 'text-white/30'} />
-                              </span>
-                            )}
-                            {!Icon && <span className="w-8" />}
+                            <span
+                              className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200"
+                              style={{
+                                background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                              }}
+                            >
+                              <Icon size={15} className={isActive ? 'text-white/80' : 'text-white/30'} />
+                            </span>
                             <span className="flex-1">{link.label}</span>
                             {link.to === '/cart' && count > 0 && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.9)', color: '#1A1A1A' }}>
