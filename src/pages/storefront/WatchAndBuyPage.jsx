@@ -1,5 +1,6 @@
-import { Heart, Eye, ShoppingCart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, Pause, X, Volume2, VolumeX, Image as ImageIcon, ChevronLeft, ChevronRight, Maximize2, Sparkles, Crown, Compass, Gem, Quote } from 'lucide-react';
+import { Heart, ArrowRight, Truck, RefreshCw, ShieldCheck, Headphones, Play, Pause, X, Volume2, VolumeX, Image as ImageIcon, ChevronLeft, ChevronRight, Maximize2, Sparkles, Crown, Compass, Gem, Quote } from 'lucide-react';
 import ReelCard, { getReelBadge, discountPercent } from '../../components/storefront/ReelCard';
+import ProductCard from '../../components/product/ProductCard';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -7,11 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import SEOHead from '../../components/seo/SEOHead';
 import { homepageAPI } from '../../api/homepage';
 import { formatCurrency, getImageUrl, getProductImage, getVideoUrl } from '../../utils/formatters';
-import { computeStockStatus } from '../../utils/stockHelpers';
 import useCartStore from '../../store/cartStore';
-import useWishlistStore from '../../store/wishlistStore';
 import { cartAPI } from '../../api/cart';
-import { wishlistAPI } from '../../api/wishlist';
 import useAuthStore from '../../store/authStore';
 import { addedToCart, showError } from '../../utils/toast';
 import { useTranslation } from 'react-i18next';
@@ -862,102 +860,6 @@ function CinematicHero({ reels }) {
   );
 }
 
-/* ── SELEKTT-STYLE PRODUCT CARD ── */
-function SelektProductCard({ product, index }) {
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
-  const { isInWishlist, addItem: addToWL, removeItem: removeFromWL } = useWishlistStore();
-  const addToCart = useCartStore((s) => s.addItem);
-  const inWishlist = isInWishlist(product.id);
-  const [isAdding, setIsAdding] = useState(false);
-
-  const imgUrl = getProductImage(product);
-  const imageSrc = imgUrl ? getImageUrl(imgUrl) : null;
-  const productSlug = product.slug || product.id;
-  const { isOutOfStock } = computeStockStatus(product);
-  const discount = product.oldPrice ? Math.round(((Number(product.oldPrice) - Number(product.price)) / Number(product.oldPrice)) * 100) : null;
-  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-
-  const handleQuickAdd = async (e) => {
-    e.stopPropagation();
-    if (isAdding || isOutOfStock) return;
-    // Products with variants → go to product page for size/color selection
-    if (hasVariants) {
-      navigate(`/products/${productSlug}`);
-      return;
-    }
-    setIsAdding(true);
-    try {
-      addToCart({ id: product.id, productId: product.id, name: product.name, price: product.price, image: imgUrl, quantity: 1 });
-      if (isAuthenticated) await cartAPI.add({ productId: product.id, quantity: 1 }).catch(() => {});
-      addedToCart(product.name);
-    } finally { setIsAdding(false); }
-  };
-
-  const handleWishlist = async (e) => {
-    e.stopPropagation();
-    try {
-      if (inWishlist) {
-        if (isAuthenticated) await wishlistAPI.remove(product.id).catch(() => {});
-        removeFromWL(product.id);
-      } else {
-        if (isAuthenticated) await wishlistAPI.add({ productId: product.id }).catch(() => {});
-        addToWL(product);
-      }
-    } catch { inWishlist ? removeFromWL(product.id) : addToWL(product); }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-30px' }}
-      transition={{ duration: 0.5, delay: (index % 4) * 0.05, ease: [0.16, 1, 0.3, 1] }}
-      className="group cursor-pointer"
-      onClick={() => navigate(`/products/${productSlug}`)}
-    >
-      <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden mb-3 md:mb-4">
-        {imageSrc ? (
-          <img loading="lazy" src={imageSrc} alt={product.name} className={`w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-105 ${isOutOfStock ? 'opacity-60 grayscale' : ''}`} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl text-gray-200">👕</div>
-        )}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 pointer-events-none" />
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 transition-all duration-300 z-10">
-          <button onClick={handleWishlist} className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md transition-all duration-200 active:scale-90 ${inWishlist ? 'bg-rose-500 text-white' : 'bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-white hover:text-gray-900'}`}>
-            <Heart size={15} fill={inWishlist ? 'currentColor' : 'none'} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); navigate(`/products/${productSlug}`); }} className="w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-600 hover:bg-white hover:text-gray-900 transition-all duration-200 active:scale-90">
-            <Eye size={15} />
-          </button>
-        </div>
-        {isOutOfStock && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <span className="bg-white/90 backdrop-blur-sm text-gray-700 text-[10px] font-bold uppercase tracking-[0.15em] px-4 py-1.5 rounded-full shadow-lg">Sold Out</span>
-          </div>
-        )}
-        {discount && !isOutOfStock && (
-          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-red-500 text-white text-[9px] font-bold rounded-md shadow-md">-{discount}%</div>
-        )}
-        {!isOutOfStock && (
-          /* Hidden until card hover on desktop (hover-capable); always visible on touch */
-          <button onClick={handleQuickAdd} className="qa-reveal absolute bottom-0 inset-x-0 z-20 h-10 bg-black/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300">
-            {isAdding ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><ShoppingCart size={13} /> Quick Add</>}
-          </button>
-        )}
-      </div>
-      <div className="px-0.5">
-        <h3 className="card-title">{product.name}</h3>
-        <div className="flex items-baseline gap-0">
-          {product.oldPrice && <span className="text-sm md:text-base text-gray-500 line-through font-normal">{formatCurrency(product.oldPrice)}</span>}
-          <span className="price-item text-red-500 ml-1.5">{formatCurrency(product.price)}</span>
-        </div>
-
-      </div>
-    </motion.div>
-  );
-}
-
 /* ── SECTION HEADER ── */
 function SectionHeader({ title, subtitle, tagline }) {
   return (
@@ -1124,7 +1026,7 @@ function MarketplaceBadge() {
   return (
     <section className="py-6 bg-gray-50 border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-xs text-gray-400 uppercase tracking-[0.15em] font-semibold">Also Available on <span className="text-gray-600">Flipkart</span>, <span className="text-gray-600">Amazon</span> & <span className="text-gray-600">Myntra</span></p>
+        <p className="text-center text-xs text-gray-400 uppercase tracking-[0.15em] font-semibold">Also Available on <span className="text-gray-600">Flipkart</span> & <span className="text-gray-600">Amazon</span></p>
       </div>
     </section>
   );
@@ -1138,8 +1040,8 @@ function ProductSection({ products, title, subtitle, tagline }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <SectionHeader title={title} subtitle={subtitle} tagline={tagline} />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {products.slice(0, 8).map((product, idx) => (
-            <SelektProductCard key={product.id} product={product} index={idx} />
+          {products.slice(0, 8).map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
         <div className="flex justify-center mt-8 md:mt-10">

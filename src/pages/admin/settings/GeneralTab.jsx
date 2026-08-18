@@ -42,6 +42,17 @@ export default function GeneralTab({ settings, setSettings, loading, handleSaveS
               <option value="NZST">NZST (New Zealand Standard Time)</option>
             </select></div>
         <div className="form-group form-full"><label>Store Address</label><input value={settings.storeAddress} onChange={e => setSettings({...settings, storeAddress: e.target.value})} /></div>
+        <div className="form-group form-full">
+          <label>Store Map Embed URL</label>
+          <input
+            value={settings.storeMapEmbedUrl || ''}
+            onChange={e => setSettings({...settings, storeMapEmbedUrl: e.target.value})}
+            placeholder="https://www.google.com/maps?q=27.4854301,77.6411272&z=15&output=embed"
+          />
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+            Google Maps embed URL shown on the About Us page. Get it from Google Maps → Share → Embed a map, or use a <code>?q=lat,lng&output=embed</code> link. Leave empty to keep the default store pin.
+          </span>
+        </div>
       </div>
       <div className="form-actions"><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</button></div>
 

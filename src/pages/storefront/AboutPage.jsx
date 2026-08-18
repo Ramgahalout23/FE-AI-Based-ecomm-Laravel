@@ -1,4 +1,4 @@
-import { ArrowRight, Gem, Palette, BadgeCheck, Truck } from 'lucide-react';
+import { ArrowRight, Gem, Palette, BadgeCheck, Truck, MapPin, Clock, Phone, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -16,6 +16,12 @@ export default function AboutPage() {
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
   const brandTagline = getSetting('brandTagline', 'Premium Fashion & Lifestyle');
+  const storeAddress = getSetting('storeAddress', 'Girdharkunj Colony, Sonkh Rd, near Narsi Vihar Colony, Mathura, Maholi, Uttar Pradesh 281004');
+  const contactEmail = getSetting('contactEmail', 'support@threvolt.com');
+  const contactPhone = getSetting('contactPhone', '+91 98765 43210');
+  // Exact store pin — resolved from the official Google Maps link (Threvolt),
+  // overridable via the `storeMapEmbedUrl` admin setting (General tab).
+  const storeMapEmbed = getSetting('storeMapEmbedUrl') || 'https://www.google.com/maps?q=27.4854301,77.6411272&z=15&output=embed';
 
   const stats = [
     { num: '50K+', label: t('about.stat_customers', { defaultValue: 'Total Customers' }) },
@@ -52,6 +58,7 @@ export default function AboutPage() {
         @media (max-width: 900px) {
           .about-story-grid { grid-template-columns: 1fr !important; }
           .about-col-4 { grid-template-columns: repeat(2, 1fr) !important; }
+          .about-map-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 560px) {
           .about-col-4 { grid-template-columns: 1fr !important; }
@@ -219,6 +226,93 @@ export default function AboutPage() {
                 <div style={{ fontSize: 13, lineHeight: 1.65, color: "rgba(255,255,255,0.55)" }}>{s.desc}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── LOCATION / GOOGLE MAPS — trust section ── */}
+      <section style={{ background: "#fafafa", padding: "96px 24px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: STONE, fontWeight: 700, marginBottom: 14 }}>
+              {t('about.location_label', { defaultValue: 'Visit Us' })}
+            </div>
+            <h2 style={{ fontSize: "clamp(28px, 4vw, 40px)", lineHeight: 1.1, letterSpacing: "-0.02em", margin: 0, ...displayFont }}>
+              {t('about.location_heading', { defaultValue: 'Find Our Store' })}
+            </h2>
+            <p style={{ fontSize: 15.5, color: THREAD, margin: "14px auto 0", maxWidth: 560, lineHeight: 1.7 }}>
+              {t('about.location_desc', { defaultValue: 'We\'re a real brand with a real address. Drop by, feel the fabric, and meet the team behind the drops.' })}
+            </p>
+          </div>
+
+          <div className="about-map-grid" style={{ display: "grid", gridTemplateColumns: "0.9fr 1.1fr", gap: 40, alignItems: "stretch" }}>
+            {/* Store info card */}
+            <div style={{ background: PAPER, border: "1px solid rgba(0,0,0,0.07)", borderRadius: 18, padding: "32px 28px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", justifyContent: "center", gap: 24 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: INK, color: PAPER, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <MapPin size={19} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: INK, marginBottom: 6 }}>
+                    {t('about.location_address', { defaultValue: 'Our Address' })}
+                  </div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, color: THREAD }}>{storeAddress}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: INK, color: PAPER, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Clock size={19} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: INK, marginBottom: 6 }}>
+                    {t('about.location_hours', { defaultValue: 'Store Hours' })}
+                  </div>
+                  <div style={{ fontSize: 14, lineHeight: 1.7, color: THREAD }}>
+                    {t('about.location_hours_value', { defaultValue: 'Mon - Sat: 10AM - 8PM' })}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: INK, color: PAPER, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Phone size={19} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: INK, marginBottom: 6 }}>
+                    {t('about.location_phone', { defaultValue: 'Call Us' })}
+                  </div>
+                  <a href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`} style={{ fontSize: 14, lineHeight: 1.7, color: THREAD, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.color = INK; }} onMouseLeave={(e) => { e.currentTarget.style.color = THREAD; }}>
+                    {contactPhone}
+                  </a>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: INK, color: PAPER, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Mail size={19} strokeWidth={1.8} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: INK, marginBottom: 6 }}>
+                    {t('about.location_email', { defaultValue: 'Email Us' })}
+                  </div>
+                  <a href={`mailto:${contactEmail}`} style={{ fontSize: 14, lineHeight: 1.7, color: THREAD, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => { e.currentTarget.style.color = INK; }} onMouseLeave={(e) => { e.currentTarget.style.color = THREAD; }}>
+                    {contactEmail}
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Google Map embed — no API key needed (`output=embed`) */}
+            <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)", boxShadow: "0 18px 40px rgba(0,0,0,0.08)", minHeight: 380, position: "relative" }}>
+              <iframe
+                title={`${storeName} — Store Location`}
+                src={storeMapEmbed}
+                width="100%"
+                height="100%"
+                style={{ border: 0, position: "absolute", inset: 0, minHeight: 380 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
           </div>
         </div>
       </section>

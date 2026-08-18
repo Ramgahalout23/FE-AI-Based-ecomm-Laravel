@@ -117,6 +117,7 @@ const DEFAULT_EN_TRANSLATIONS = {
   'nav.addresses': 'Addresses',
   'nav.support': 'Support',
   'nav.about': 'About Us',
+  'nav.track': 'Track Order',
   'nav.faq': 'FAQ',
   'nav.care': 'Care',
   'nav.shipping': 'Shipping',
@@ -1164,6 +1165,14 @@ const DEFAULT_EN_TRANSLATIONS = {
   'about.process_print_desc': 'High-durability inks that stay bold through washes and years.',
   'about.process_quality': 'Quality',
   'about.process_quality_desc': 'Every piece is checked, measured, and approved before it ships.',
+  'about.location_label': 'Visit Us',
+  'about.location_heading': 'Find Our Store',
+  'about.location_desc': "We're a real brand with a real address. Drop by, feel the fabric, and meet the team behind the drops.",
+  'about.location_address': 'Our Address',
+  'about.location_hours': 'Store Hours',
+  'about.location_hours_value': 'Mon - Sat: 10AM - 8PM',
+  'about.location_phone': 'Call Us',
+  'about.location_email': 'Email Us',
 
   // ── Privacy & Return Policy ──
   'privacy.page_not_available': 'Page Not Available',

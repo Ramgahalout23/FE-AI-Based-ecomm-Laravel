@@ -21,7 +21,7 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const { getSetting } = useSettings();
   const storeName = getSetting('storeName', 'THREVOLT');
-  const storeAddress = getSetting('storeAddress', 'Mumbai, Maharashtra, India');
+  const storeAddress = getSetting('storeAddress', 'Girdharkunj Colony, Sonkh Rd, near Narsi Vihar Colony, Mathura, Maholi, Uttar Pradesh 281004');
   const contactEmail = getSetting('contactEmail', 'support@threvolt.com');
   const contactPhone = getSetting('contactPhone', '+91 98765 43210');
   const whatsappNumber = String(getSetting('whatsappButtonNumber', '') || '');

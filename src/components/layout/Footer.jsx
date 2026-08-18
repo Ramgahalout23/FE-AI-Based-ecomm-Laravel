@@ -75,7 +75,7 @@ export default function Footer() {
   const siteName = getSetting('storeName', 'THREVOLT');
   const brandTagline = getSetting('footerBrandTagline', "India's favorite t-shirt brand. Premium quality, bold designs, and unbeatable comfort — all at prices that make you smile.");
   const settingsLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
-  const storeAddress = getSetting('storeAddress', 'Bangalore, Karnataka, India');
+  const storeAddress = getSetting('storeAddress', 'Girdharkunj Colony, Sonkh Rd, near Narsi Vihar Colony, Mathura, Maholi, Uttar Pradesh 281004');
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`;
   const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
   const currency = getSetting('currency', 'INR');

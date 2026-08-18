@@ -218,7 +218,7 @@ export default function Navbar() {
                   {t('nav.sales')}
                 </Link>
               )}
-              {customPages.slice(0, 4).map((page) => {
+              {customPages.filter((p) => p.slug !== 'care-instructions').slice(0, 4).map((page) => {
                 const isActive = location.pathname === `/pages/${page.slug}`;
                 return (
                   <Link
@@ -234,6 +234,17 @@ export default function Navbar() {
                   </Link>
                 );
               })}
+              {/* Track Order */}
+              <Link
+                to="/track-order"
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  location.pathname === '/track-order'
+                    ? 'text-primary bg-white/10'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {t('nav.track')}
+              </Link>
               {/* About Us */}
               <Link
                 to="/about"
@@ -591,7 +602,7 @@ export default function Navbar() {
                         )}
 
                         {/* Custom pages */}
-                        {customPages.slice(0, 5).map((page) => {
+                        {customPages.filter((p) => p.slug !== 'care-instructions').slice(0, 5).map((page) => {
                           const isActive = location.pathname === `/pages/${page.slug}`;
                           return (
                             <Link
@@ -616,6 +627,27 @@ export default function Navbar() {
                             </Link>
                           );
                         })}
+
+                        {/* Track Order */}
+                        <Link
+                          to="/track-order"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                          style={{
+                            color: location.pathname === '/track-order' ? '#fff' : 'rgba(255,255,255,0.5)',
+                            background: location.pathname === '/track-order' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                          }}
+                        >
+                          <span className="w-8 h-8 rounded-full flex items-center justify-center" style={{
+                            background: location.pathname === '/track-order' ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                            border: location.pathname === '/track-order' ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.04)',
+                          }}>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={location.pathname === '/track-order' ? 'text-white' : 'text-white/40'}>
+                              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
+                          </span>
+                          {t('nav.track')}
+                        </Link>
                       </div>
                     </motion.div>
 
