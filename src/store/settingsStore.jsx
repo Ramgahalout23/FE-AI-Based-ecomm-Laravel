@@ -4,17 +4,44 @@ import { useAppInit } from '../contexts/AppInitContext';
 import toast from '../utils/toast';
 import { SettingsContext } from './settingsContext';
 
+// Brand-critical keys that should be cached in localStorage for instant display
+const BRAND_CACHE_KEYS = ['logoDarkUrl', 'logoUrl', 'storeName', 'faviconUrl'];
+const BRAND_CACHE_KEY = 'threvolt_brand_cache';
+
+function loadBrandCache() {
+  try {
+    const raw = localStorage.getItem(BRAND_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveBrandCache(settings) {
+  try {
+    const cache = {};
+    BRAND_CACHE_KEYS.forEach(k => { if (settings[k]) cache[k] = settings[k]; });
+    if (Object.keys(cache).length > 0) {
+      localStorage.setItem(BRAND_CACHE_KEY, JSON.stringify(cache));
+    }
+  } catch { /* ignore */ }
+}
+
 export function SettingsProvider({ children }) {
   // Read settings from app-init (already fetched, no separate API call needed)
   const { data: appInitData, loading: appInitLoading, refetch: refetchAppInit } = useAppInit();
-  const [settings, setSettings] = useState(getDefaultSettings());
+  // Merge localStorage cache into defaults so logo shows BEFORE API responds
+  const [settings, setSettings] = useState(() => ({ ...getDefaultSettings(), ...loadBrandCache() }));
   const [loading, setLoading] = useState(true);
 
   // Sync from app-init data when it loads
   useEffect(() => {
     const appSettings = appInitData?.settings || appInitData?.data?.settings || {};
     if (appSettings && Object.keys(appSettings).length > 0) {
-      setSettings(prev => ({ ...prev, ...appSettings }));
+      setSettings(prev => {
+        const next = { ...prev, ...appSettings };
+        // Cache brand settings so next page load is instant
+        saveBrandCache(next);
+        return next;
+      });
     }
     if (!appInitLoading) {
       setLoading(false);

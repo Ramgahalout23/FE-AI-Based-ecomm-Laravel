@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 ;
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../../store/useSettings';
+import { useLogo } from '../../hooks/useLogo';
 import { getImageUrl } from '../../utils/formatters';
 
 const SocialIcon = ({ platform, url }) => {
@@ -74,7 +75,7 @@ export default function Footer() {
   const { getSetting } = useSettings();
   const siteName = getSetting('storeName', 'THREVOLT');
   const brandTagline = getSetting('footerBrandTagline', "India's favorite t-shirt brand. Premium quality, bold designs, and unbeatable comfort — all at prices that make you smile.");
-  const settingsLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
+  const { logoUrl } = useLogo();
   const storeAddress = getSetting('storeAddress', 'Girdharkunj Colony, Sonkh Rd, near Narsi Vihar Colony, Mathura, Maholi, Uttar Pradesh 281004');
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`;
   const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
@@ -145,9 +146,9 @@ export default function Footer() {
           {/* Brand + Social — centered */}
           <div className="text-center mb-6">
             <Link to="/" className="inline-flex items-center justify-center mb-3 group">
-              {settingsLogo ? (
+              {logoUrl ? (
                 <div className="h-9 flex items-center transition-transform group-hover:scale-105">
-                  <img loading="lazy" src={getImageUrl(settingsLogo)}
+                  <img loading="lazy" src={logoUrl}
                     alt={siteName}
                     className="h-full w-auto max-w-[160px] object-contain"
                     onError={(e) => { e.target.style.display = 'none'; }}
@@ -231,9 +232,9 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-4 lg:border-r lg:border-white/10 lg:pr-10">
             <Link to="/" className="flex items-center mb-5 group">
-              {settingsLogo ? (
+              {logoUrl ? (
                 <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
-                  <img loading="lazy" src={getImageUrl(settingsLogo)}
+                  <img loading="lazy" src={logoUrl}
                     alt={siteName}
                     className="h-full w-auto max-w-[200px] object-contain"
                     onError={(e) => { e.target.style.display = 'none'; }}

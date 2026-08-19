@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { adminAPI } from '../../api/admin';
 import useAuthStore from '../../store/authStore';
 import { useSettings } from '../../store/useSettings';
+import { useLogo } from '../../hooks/useLogo';
 import { getImageUrl } from '../../utils/formatters';
 import useSessionStore from '../../store/sessionStore';
 import PasswordStrengthMeter from '../../components/admin/PasswordStrengthMeter';
@@ -21,8 +22,7 @@ export default function AdminLoginPage() {
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
   const { getSetting } = useSettings();
-  const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
-  const storeName = getSetting('storeName', 'Admin');
+  const { logoUrl: logo, storeName } = useLogo();
 
   // Live inline validation — the same security rules the backend enforces
   const validation = useAdminFormValidation({
@@ -100,7 +100,7 @@ export default function AdminLoginPage() {
         <div className="text-center mb-8">
           {logo ? (
             <div className="flex justify-center">
-              <img src={getImageUrl(logo)} alt={storeName} className="h-12 w-auto object-contain" />
+              <img src={logo} alt={storeName} className="h-12 w-auto object-contain" />
             </div>
           ) : (
             <div className="admin-auth-logo"><BarChart3 size={22} /></div>

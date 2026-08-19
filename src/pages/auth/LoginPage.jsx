@@ -6,6 +6,7 @@ import { Loader2, Eye, EyeOff, Mail, Lock, ArrowRight, Truck, RefreshCw, ShieldC
 import useAuthStore from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { useSettings } from '../../store/useSettings';
+import { useLogo } from '../../hooks/useLogo';
 import { getImageUrl } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import { trackLogin } from '../../services/tracker';
@@ -19,10 +20,8 @@ export default function LoginPage() {
   const [oauthLoading, setOauthLoading] = useState(null); // 'google' | 'facebook' | null
   const { login } = useAuthStore();
   const { getSetting } = useSettings();
+  const { logoUrl: logo, storeName } = useLogo();
   const navigate = useNavigate();
-
-  const storeName = getSetting('storeName', 'THREVOLT');
-  const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
   const adminEnabledGoogle = getSetting('googleLoginEnabled', 'true') !== 'false';
   const adminEnabledFacebook = getSetting('facebookLoginEnabled', 'true') !== 'false';
   const hasGoogleCreds = Boolean(getSetting('googleClientId', '')) && Boolean(getSetting('googleClientSecret', ''));
@@ -118,7 +117,7 @@ export default function LoginPage() {
           <div className="relative z-10 flex flex-col h-full auth-brand-layout">
             <div className="auth-brand-header">
               {logo ? (
-                <img src={getImageUrl(logo)} alt={storeName} className="h-10 w-auto object-contain" />
+                <img src={logo} alt={storeName} className="h-10 w-auto object-contain" />
               ) : (
                 <>
                   <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg">

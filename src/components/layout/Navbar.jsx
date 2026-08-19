@@ -12,6 +12,7 @@ import useAuthStore from '../../store/authStore';
 import useCartStore from '../../store/cartStore';
 import useUIStore from '../../store/uiStore';
 import { useSettings } from '../../store/useSettings';
+import { useLogo } from '../../hooks/useLogo';
 import { useAppInit } from '../../contexts/AppInitContext';
 import { productsAPI } from '../../api/products';
 import { getImageUrl, getUserFullName } from '../../utils/formatters';
@@ -62,12 +63,11 @@ export default function Navbar() {
   const searchRef = useRef(null);
 
   const { getSetting } = useSettings();
+  const { logoUrl, storeName: siteName } = useLogo({ variant: 'light' });
   const { data: appInitData } = useAppInit();
   const activePromotions = appInitData?.promotions || [];
   const salesActive = getSetting('salesEnabled', 'true') !== 'false' && activePromotions.length > 0;
   const watchAndBuyActive = getSetting('reelsEnabled', 'true') !== 'false';
-  const siteName = getSetting('storeName', 'THREVOLT');
-  const logo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
 
   // Use consolidated app-init data for nav — replaces 2 individual API calls
 
@@ -182,20 +182,17 @@ export default function Navbar() {
 
             {/* Center Logo — absolutely centered on desktop (lg+), in-flow on mobile */}
             <Link to="/" className="flex items-center flex-shrink-0 group lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2">
-              {logo ? (
-                <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
-                  <img 
-                    src={getImageUrl(logo)} 
-                    alt={siteName} 
-                    className="h-full w-auto max-w-[180px] object-contain" 
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                </div>
-              ) : (
-                <span className="font-display text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  {siteName}
-                </span>
-              )}
+              <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
+                <img
+                  src={logoUrl}
+                  alt={siteName}
+                  width="180"
+                  height="48"
+                  loading="eager"
+                  fetchPriority="high"
+                  className="h-full w-auto object-contain"
+                />
+              </div>
             </Link>
 
             {/* Left Nav Links — Desktop only (logo floats centered, links sit left) */}
@@ -391,20 +388,16 @@ export default function Navbar() {
                 {/* ── Header with brand + close ── */}
                 <div className="relative flex items-center justify-between px-5 pt-5 pb-4">
                   <Link to="/" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3">
-                    {logo ? (
-                      <div className="h-9 flex items-center">
-                        <img
-                          src={getImageUrl(logo)}
-                          alt={siteName}
-                          className="h-full w-auto max-w-[140px] object-contain brightness-0 invert opacity-90"
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      </div>
-                    ) : (
-                      <span className="font-display text-lg font-bold text-white/90 tracking-tight">
-                        {siteName}
-                      </span>
-                    )}
+                    <div className="h-11 flex items-center">
+                      <img
+                        src={logoUrl}
+                        alt={siteName}
+                        width="160"
+                        height="44"
+                        loading="eager"
+                        className="h-full w-auto object-contain brightness-0 invert"
+                      />
+                    </div>
                   </Link>
                   <motion.button
                     whileHover={{ scale: 1.1, rotate: 90 }}

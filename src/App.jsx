@@ -368,22 +368,47 @@ function AppContent() {
     });
   }, []);
 
-  // Dynamic title/favicon/currency from settings
+  // Set favicon from localStorage cache IMMEDIATELY — no API wait
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('threvolt_brand_cache');
+      if (raw) {
+        const cache = JSON.parse(raw);
+        const cachedFavicon = cache.faviconUrl;
+        if (cachedFavicon) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+          }
+          link.href = cachedFavicon;
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Dynamic title/favicon/currency from settings (updates when API responds)
   useEffect(() => {
     const favicon = appSettings.faviconUrl;
     const currency = appSettings.currency;
     const timezone = appSettings.timezone;
-    // NOTE: do NOT set document.title imperatively here — it clobbers the per-page
-    // SEOHead titles (which mount later and must win). The store-name default is
-    // rendered as a Helmet below, so pages without their own title still get it.
     if (currency) setDefaultCurrency(currency);
     if (timezone) setDefaultTimezone(timezone);
     if (favicon) {
+      // Update the localStorage cache so next page load is instant
+      try {
+        const raw = localStorage.getItem('threvolt_brand_cache');
+        const cache = raw ? JSON.parse(raw) : {};
+        cache.faviconUrl = favicon;
+        localStorage.setItem('threvolt_brand_cache', JSON.stringify(cache));
+      } catch { /* ignore */ }
+
       let link = document.querySelector("link[rel~='icon']");
       if (!link) {
         link = document.createElement('link');
         link.rel = 'icon';
-        document.getElementsByTagName('head')[0].appendChild(link);
+        document.head.appendChild(link);
       }
       link.href = favicon;
     }

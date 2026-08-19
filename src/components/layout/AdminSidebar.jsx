@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { NavLink, useLocation } from 'react-router-dom';
 import { adminAPI } from '../../api/admin';
 import { useSettings } from '../../store/useSettings';
+import { useLogo } from '../../hooks/useLogo';
 import useAuthStore from '../../store/authStore';
 import { getImageUrl, getInitials, getUserFullName } from '../../utils/formatters';
 import { useSocketEvent, useSocketConnection, useOrderCreated, useReviewCreated } from '../../hooks/useSocket';
@@ -103,7 +104,7 @@ export default function AdminSidebar() {
   const location = useLocation();
   const { getSetting } = useSettings();
   const { user } = useAuthStore();
-  const adminLogo = getSetting('logoDarkUrl') || getSetting('logoUrl') || null;
+  const { logoUrl: adminLogo } = useLogo();
   const storeName = getSetting('storeName', 'Admin');
 
   const isLinkActive = useCallback((to, end) => {
@@ -216,7 +217,7 @@ export default function AdminSidebar() {
           )}
           {adminLogo ? (
             <div className="h-7 flex items-center">
-              <img src={getImageUrl(adminLogo)} alt={storeName}
+              <img src={adminLogo} alt={storeName}
                 className="h-full w-auto max-w-[140px] object-contain"
                 onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
