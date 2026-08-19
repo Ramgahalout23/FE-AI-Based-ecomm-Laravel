@@ -145,17 +145,17 @@ export default function Footer() {
 
           {/* Brand + Social — centered */}
           <div className="text-center mb-6">
-            <Link to="/" className="inline-flex items-center justify-center mb-3 group">
+            <Link to="/" className="inline-flex items-center justify-center mb-4 group">
               {logoUrl ? (
-                <div className="h-9 flex items-center transition-transform group-hover:scale-105">
+                <div className="h-32 flex items-center justify-center transition-transform group-hover:scale-105">
                   <img loading="lazy" src={logoUrl}
                     alt={siteName}
-                    className="h-full w-auto max-w-[160px] object-contain"
+                    className="h-full w-auto max-w-[440px] object-contain"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 </div>
               ) : (
-                <span className="font-display text-xl font-bold text-white tracking-tight">
+                <span className="font-display text-3xl font-bold text-white tracking-tight">
                   {siteName}
                 </span>
               )}
@@ -231,17 +231,17 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="lg:col-span-4 lg:border-r lg:border-white/10 lg:pr-10">
-            <Link to="/" className="flex items-center mb-5 group">
+            <Link to="/" className="flex items-center justify-start mb-6 group">
               {logoUrl ? (
-                <div className="h-10 sm:h-12 flex items-center transition-transform group-hover:scale-105">
+                <div className="h-40 sm:h-48 flex items-center justify-center transition-transform group-hover:scale-105">
                   <img loading="lazy" src={logoUrl}
                     alt={siteName}
-                    className="h-full w-auto max-w-[200px] object-contain"
+                    className="h-full w-auto max-w-[520px] object-contain"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 </div>
               ) : (
-                <span className="font-display text-2xl font-bold text-white tracking-tight">
+                <span className="font-display text-4xl font-bold text-white tracking-tight">
                   {siteName}
                 </span>
               )}

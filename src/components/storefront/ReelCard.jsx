@@ -90,7 +90,7 @@ export function getColorThumb(color, variants) {
 export default function ReelCard({
   reel,
   index = 0,
-  widthClass = 'w-[150px] sm:w-[200px] xl:w-[240px]',
+  widthClass = 'w-[170px] sm:w-[220px] xl:w-[260px]',
   onOpen,
   badgeFallback = 'THREVOLT',
   liked = false,

@@ -109,9 +109,9 @@ function ReelsSectionSkeleton() {
           <div className="w-52 h-9 bg-gray-200 rounded mx-auto animate-pulse mb-3" />
           <div className="w-64 h-3 bg-gray-100 rounded mx-auto animate-pulse" />
         </div>
-        <div className="flex gap-4 overflow-hidden">
+        <div className="flex gap-5 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="shrink-0 w-[150px] sm:w-[200px] xl:w-[240px]">
+            <div key={i} className="shrink-0 w-[170px] sm:w-[220px] xl:w-[260px]">
               <div className="bg-gray-100 overflow-hidden">
                 <div className="aspect-[9/16] bg-gray-200 animate-pulse" />
                 <div className="p-3 space-y-2 bg-white">
@@ -161,8 +161,7 @@ function FashionShowcase({ reels }) {
   const [isCarouselHovered, setIsCarouselHovered] = useState(false);
   const autoplayRef = useRef(null);
   const autoplayRestartRef = useRef(null);
-  // ── Mobile peek carousel: track which card is centered ──
-  const [mobileCenterIdx, setMobileCenterIdx] = useState(0);
+  const [centerIdx, setCenterIdx] = useState(0);
 
   // ── Infinite loop: duplicate the reel set so the carousel can scroll
   //    forever and fold back invisibly at the copy boundary (like the
@@ -395,7 +394,7 @@ function FashionShowcase({ reels }) {
     if (!el) return;
     const card = el.querySelector('.reel-card');
     const w = card?.offsetWidth || 220;
-    advanceBy((w + 16) * (dir === 'left' ? -2 : 2));
+    advanceBy((w + 20) * (dir === 'left' ? -2 : 2));
   };
 
   /* ── Auto-scroll: advance one reel at a time; loops seamlessly forever. ── */
@@ -403,8 +402,8 @@ function FashionShowcase({ reels }) {
     const el = scrollRef.current;
     if (!el) return;
     const card = el.querySelector('.reel-card');
-    const w = card?.offsetWidth || 220;
-    advanceBy(w + 16);
+    const w = card?.offsetWidth || 240;
+    advanceBy(w + 20);
   }, [advanceBy]);
 
   const startAutoplay = useCallback(() => {
@@ -582,22 +581,18 @@ function FashionShowcase({ reels }) {
           )}
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 sm:pb-2 max-sm:pb-0 max-sm:px-[calc(50vw-75px)] max-sm:snap-center max-sm:[scroll-snap-type:x_mandatory] sm:max-sm:gap-3"
-            style={{ scrollPaddingInline: 'max(0px, calc(50vw - 75px))' }}
+            className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-[calc(50vw-85px)] sm:px-[calc(50vw-120px)] lg:px-[calc(50vw-140px)]"
             onScroll={(e) => {
               handleTrackInteraction();
-              // Detect centered card on mobile
               const el = e.currentTarget;
               const cards = el.querySelectorAll('.reel-card');
-              const containerCenter = el.scrollLeft + el.clientWidth / 2;
-              let closestIdx = 0;
-              let closestDist = Infinity;
-              cards.forEach((card, i) => {
-                const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-                const dist = Math.abs(cardCenter - containerCenter);
-                if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+              const center = el.scrollLeft + el.clientWidth / 2;
+              let closest = 0, minDist = Infinity;
+              cards.forEach((c, i) => {
+                const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - center);
+                if (d < minDist) { minDist = d; closest = i; }
               });
-              setMobileCenterIdx(closestIdx);
+              setCenterIdx(closest);
             }}
             onPointerDown={handleTrackInteraction}
             onWheel={handleTrackInteraction}
@@ -605,10 +600,6 @@ function FashionShowcase({ reels }) {
           >
             {loopReels.map((reel, idx) => {
               const realIdx = idx % reels.length;
-              // Mobile peek: center card full scale, side cards dim + smaller
-              const dist = Math.abs(idx - mobileCenterIdx);
-              const mobileScale = dist === 0 ? 1 : dist === 1 ? 0.85 : 0.7;
-              const mobileOpacity = dist === 0 ? 1 : dist === 1 ? 0.7 : 0.4;
               return (
                 <ReelCard
                   key={`${reel.id}-${idx}`}
@@ -616,13 +607,7 @@ function FashionShowcase({ reels }) {
                   index={realIdx}
                   instanceKey={`${reel.id}-${idx}`}
                   skipEntrance={idx >= reels.length}
-                  widthClass="w-[150px] sm:w-[200px] xl:w-[240px]"
-                  mobileStyle={{
-                    transform: `scale(${mobileScale})`,
-                    opacity: mobileOpacity,
-                    transition: 'transform 0.35s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease',
-                    transformOrigin: 'center center',
-                  }}
+                  widthClass="w-[170px] sm:w-[220px] xl:w-[260px]"
                   onOpen={() => openReel(realIdx)}
                   badgeFallback={getSetting('storeName', 'THREVOLT')}
                   liked={!!reelLikeMap[reel.id]?.liked}
@@ -657,7 +642,7 @@ function FashionShowcase({ reels }) {
                   if (cards[i]) cards[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
                 }}
                 className={`rounded-full transition-all duration-300 ${
-                  i === (mobileCenterIdx % reels.length)
+                  i === (centerIdx % reels.length)
                     ? 'w-5 h-1.5 bg-gray-900'
                     : 'w-1.5 h-1.5 bg-gray-300'
                 }`} aria-label={`Go to reel ${i + 1}`} />
