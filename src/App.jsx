@@ -37,6 +37,7 @@ import { AppInitProvider, useAppInit } from './contexts/AppInitContext';
 import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
 import ThemeInjector from './components/common/ThemeInjector';
 import PhoneLeadBanner from './components/common/PhoneLeadBanner';
+import EmailPopupBanner from './components/common/EmailPopupBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
 import { useAdminTableLabels } from './hooks/useAdminTableLabels';
@@ -283,6 +284,7 @@ function StorefrontLayout() {
       <Footer />
       <MobileNav />
       <PhoneLeadBanner />
+      <EmailPopupBanner />
       {deferChatWidgets && chatbotEnabled && (
         <Suspense fallback={null}>
           <LiveChatWidget />

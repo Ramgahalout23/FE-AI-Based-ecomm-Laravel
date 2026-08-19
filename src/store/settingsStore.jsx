@@ -236,6 +236,11 @@ function getDefaultSettings() {
     phoneLeadBannerEnabled: 'false',
     phoneLeadBannerHeading: '🎉 Get ₹100 Off Your First Order!',
     phoneLeadBannerOfferText: 'Enter your phone number to receive exclusive offers, updates, and instant ₹100 discount on your first purchase!',
+    // Email Popup Banner
+    emailPopupEnabled: 'false',
+    emailPopupHeading: 'Get 10% Off Your First Order!',
+    emailPopupOfferText: 'Enter your email to receive exclusive offers, early access to new drops, and an instant 10% discount on your first purchase!',
+    emailPopupBtnText: 'Claim 10% Off',
     // Chatbot / Live Chat
     // Bundle Offer (Buy More, Save More) — seeded inactive; admin activates it from Admin → Settings
     // Date window: blank start/end = no date bounds (permanent while enabled)

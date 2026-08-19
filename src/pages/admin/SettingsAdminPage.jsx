@@ -456,6 +456,10 @@ export default function SettingsAdminPage() {
       'phoneLeadBannerEnabled',
       'phoneLeadBannerHeading',
       'phoneLeadBannerOfferText',
+      'emailPopupEnabled',
+      'emailPopupHeading',
+      'emailPopupOfferText',
+      'emailPopupBtnText',
     ],
   };
 
