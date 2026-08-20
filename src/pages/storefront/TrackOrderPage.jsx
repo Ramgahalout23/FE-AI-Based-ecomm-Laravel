@@ -76,17 +76,17 @@ export default function TrackOrderPage() {
         ]}
       />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 pb-28 sm:pb-14">
         {/* Search Form */}
         <form onSubmit={handleTrack} className="mb-8">
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search size={18} />
+              <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
               <input
                 type="text"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
-                placeholder={t('track.search_placeholder')}
+                placeholder={t('track.search_placeholder', { defaultValue: 'Enter order number (e.g. ORD-123456)' })}
                 className="w-full pl-11 pr-4 py-3.5 border border-border rounded-xl text-sm focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all bg-white"
                 autoComplete="off"
               />
@@ -94,17 +94,18 @@ export default function TrackOrderPage() {
             <button
               type="submit"
               disabled={loading || !orderNumber.trim()}
-              className="px-6 py-3.5 bg-charcoal text-white rounded-xl font-semibold text-sm hover:bg-charcoal/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-black/5"
+              className="w-full sm:w-auto px-8 py-3.5 bg-charcoal text-white rounded-xl font-semibold text-sm hover:bg-charcoal/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-black/5"
             >
-              {loading ? (                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {t('track.searching')}
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    <Search size={16} />
-                    {t('track.track_btn')}
-                  </span>
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {t('track.searching', { defaultValue: 'Tracking…' })}
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Search size={16} />
+                  {t('track.track_btn', { defaultValue: 'Track Order' })}
+                </span>
               )}
             </button>
           </div>
@@ -145,7 +146,7 @@ export default function TrackOrderPage() {
                       <div key={step.status} className="flex flex-col items-center flex-1 relative">
                         {/* Connector line */}
                         {i < TIMELINE_STEPS.length - 1 && (
-                          <div className={`absolute top-4 left-[calc(50%+14px)] right-[calc(50%-50%)] h-0.5 ${
+                          <div className={`absolute top-4 left-[calc(50%+16px)] w-[calc(100%-32px)] h-0.5 ${
                             isReached ? 'bg-gold' : 'bg-border'
                           }`} />
                         )}
