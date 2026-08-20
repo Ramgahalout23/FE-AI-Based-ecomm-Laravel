@@ -17,6 +17,14 @@ import toast from '../../utils/toast';
  */
 const PERMISSION_GROUPS = [
   {
+    module: 'Dashboard & Analytics',
+    permissions: [
+      { key: 'dashboard:view', label: 'View Dashboard' },
+      { key: 'analytics:view', label: 'View Analytics' },
+      { key: 'reports:view', label: 'View Reports' },
+    ],
+  },
+  {
     module: 'Products',
     permissions: [
       { key: 'product:view', label: 'View Products' },
@@ -24,6 +32,34 @@ const PERMISSION_GROUPS = [
       { key: 'product:update', label: 'Update Products' },
       { key: 'product:delete', label: 'Delete Products' },
       { key: 'product:publish', label: 'Publish Products' },
+      { key: 'product:import', label: 'Import Products (CSV)' },
+    ],
+  },
+  {
+    module: 'Product Variants',
+    permissions: [
+      { key: 'variant:view', label: 'View Variants' },
+      { key: 'variant:create', label: 'Create Variants' },
+      { key: 'variant:update', label: 'Update Variants' },
+      { key: 'variant:delete', label: 'Delete Variants' },
+    ],
+  },
+  {
+    module: 'Categories',
+    permissions: [
+      { key: 'category:view', label: 'View Categories' },
+      { key: 'category:create', label: 'Create Categories' },
+      { key: 'category:update', label: 'Update Categories' },
+      { key: 'category:delete', label: 'Delete Categories' },
+    ],
+  },
+  {
+    module: 'Brands',
+    permissions: [
+      { key: 'brand:view', label: 'View Brands' },
+      { key: 'brand:create', label: 'Create Brands' },
+      { key: 'brand:update', label: 'Update Brands' },
+      { key: 'brand:delete', label: 'Delete Brands' },
     ],
   },
   {
@@ -37,12 +73,17 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    module: 'Categories',
+    module: 'Payments',
     permissions: [
-      { key: 'category:view', label: 'View Categories' },
-      { key: 'category:create', label: 'Create Categories' },
-      { key: 'category:update', label: 'Update Categories' },
-      { key: 'category:delete', label: 'Delete Categories' },
+      { key: 'payment:view', label: 'View Payments' },
+      { key: 'payment:refund', label: 'Process Refunds' },
+    ],
+  },
+  {
+    module: 'Returns & Refunds',
+    permissions: [
+      { key: 'return:view', label: 'View Returns' },
+      { key: 'return:process', label: 'Process Returns' },
     ],
   },
   {
@@ -63,6 +104,15 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    module: 'Staff',
+    permissions: [
+      { key: 'staff:view', label: 'View Staff' },
+      { key: 'staff:create', label: 'Add Staff' },
+      { key: 'staff:update', label: 'Update Staff' },
+      { key: 'staff:delete', label: 'Remove Staff' },
+    ],
+  },
+  {
     module: 'Reviews',
     permissions: [
       { key: 'review:view', label: 'View Reviews' },
@@ -79,11 +129,84 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    module: 'Dashboard & Analytics',
+    module: 'Promotions',
     permissions: [
-      { key: 'dashboard:view', label: 'View Dashboard' },
-      { key: 'analytics:view', label: 'View Analytics' },
-      { key: 'reports:view', label: 'View Reports' },
+      { key: 'promotion:view', label: 'View Promotions' },
+      { key: 'promotion:create', label: 'Create Promotions' },
+      { key: 'promotion:update', label: 'Update Promotions' },
+      { key: 'promotion:delete', label: 'Delete Promotions' },
+    ],
+  },
+  {
+    module: 'Banners',
+    permissions: [
+      { key: 'banner:view', label: 'View Banners' },
+      { key: 'banner:create', label: 'Create Banners' },
+      { key: 'banner:update', label: 'Update Banners' },
+      { key: 'banner:delete', label: 'Delete Banners' },
+    ],
+  },
+  {
+    module: 'Shipping',
+    permissions: [
+      { key: 'shipping:view', label: 'View Shipping' },
+      { key: 'shipping:update', label: 'Update Shipping' },
+    ],
+  },
+  {
+    module: 'Tax',
+    permissions: [
+      { key: 'tax:view', label: 'View Tax Rates' },
+      { key: 'tax:update', label: 'Update Tax Rates' },
+    ],
+  },
+  {
+    module: 'Support Tickets',
+    permissions: [
+      { key: 'ticket:view', label: 'View Tickets' },
+      { key: 'ticket:update', label: 'Manage Tickets' },
+      { key: 'ticket:close', label: 'Close Tickets' },
+    ],
+  },
+  {
+    module: 'Pages & CMS',
+    permissions: [
+      { key: 'page:view', label: 'View Pages' },
+      { key: 'page:create', label: 'Create Pages' },
+      { key: 'page:update', label: 'Update Pages' },
+      { key: 'page:delete', label: 'Delete Pages' },
+    ],
+  },
+  {
+    module: 'Content — Reels',
+    permissions: [
+      { key: 'reel:view', label: 'View Reels' },
+      { key: 'reel:create', label: 'Create Reels' },
+      { key: 'reel:update', label: 'Update Reels' },
+      { key: 'reel:delete', label: 'Delete Reels' },
+    ],
+  },
+  {
+    module: 'Content — Curated Looks',
+    permissions: [
+      { key: 'curated_look:view', label: 'View Curated Looks' },
+      { key: 'curated_look:create', label: 'Create Curated Looks' },
+      { key: 'curated_look:update', label: 'Update Curated Looks' },
+      { key: 'curated_look:delete', label: 'Delete Curated Looks' },
+    ],
+  },
+  {
+    module: 'Content — Custom Designs',
+    permissions: [
+      { key: 'custom_design:view', label: 'View Custom Designs' },
+      { key: 'custom_design:moderate', label: 'Moderate Custom Designs' },
+    ],
+  },
+  {
+    module: 'SEO',
+    permissions: [
+      { key: 'seo:view', label: 'View SEO' },
+      { key: 'seo:update', label: 'Update SEO' },
     ],
   },
   {
@@ -94,10 +217,71 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
+    module: 'Email Templates',
+    permissions: [
+      { key: 'email_template:view', label: 'View Templates' },
+      { key: 'email_template:update', label: 'Edit Templates' },
+    ],
+  },
+  {
+    module: 'Notification Templates',
+    permissions: [
+      { key: 'notification_template:view', label: 'View Templates' },
+      { key: 'notification_template:update', label: 'Edit Templates' },
+    ],
+  },
+  {
+    module: 'Marketing & Campaigns',
+    permissions: [
+      { key: 'marketing:view', label: 'View Marketing' },
+      { key: 'marketing:create', label: 'Create Campaigns' },
+      { key: 'marketing:update', label: 'Update Campaigns' },
+    ],
+  },
+  {
+    module: 'Abandoned Carts',
+    permissions: [
+      { key: 'abandoned_cart:view', label: 'View Abandoned Carts' },
+      { key: 'abandoned_cart:manage', label: 'Manage Abandoned Carts' },
+    ],
+  },
+  {
     module: 'Settings',
     permissions: [
       { key: 'settings:view', label: 'View Settings' },
       { key: 'settings:update', label: 'Update Settings' },
+    ],
+  },
+  {
+    module: 'Translations',
+    permissions: [
+      { key: 'translation:view', label: 'View Translations' },
+      { key: 'translation:update', label: 'Update Translations' },
+    ],
+  },
+  {
+    module: 'Currencies',
+    permissions: [
+      { key: 'currency:view', label: 'View Currencies' },
+      { key: 'currency:update', label: 'Manage Currencies' },
+    ],
+  },
+  {
+    module: 'Webhooks',
+    permissions: [
+      { key: 'webhook:view', label: 'View Webhooks' },
+      { key: 'webhook:create', label: 'Create Webhooks' },
+      { key: 'webhook:update', label: 'Update Webhooks' },
+      { key: 'webhook:delete', label: 'Delete Webhooks' },
+    ],
+  },
+  {
+    module: 'Backups & Logs',
+    permissions: [
+      { key: 'backup:view', label: 'View Backups' },
+      { key: 'backup:create', label: 'Create Backups' },
+      { key: 'audit_log:view', label: 'View Audit Logs' },
+      { key: 'system_log:view', label: 'View System Logs' },
     ],
   },
 ];
