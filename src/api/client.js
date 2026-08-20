@@ -12,8 +12,14 @@ const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1';
 
 const client = axios.create({
   baseURL: API_BASE,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept-Encoding': 'gzip, br, deflate',
+  },
   timeout: 15000,
+  // Request response compression — the backend CompressResponse middleware
+  // gzips JSON payloads > 1 KB when this header is present.
+  decompress: true,
 });
 
 // ── Shared token refresh ──
@@ -160,6 +166,11 @@ client.interceptors.response.use(
 export const adminClient = axios.create({
   baseURL: ADMIN_API_BASE,
   timeout: 60000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept-Encoding': 'gzip, br, deflate',
+  },
+  decompress: true,
 });
 
 adminClient.interceptors.request.use((config) => {
