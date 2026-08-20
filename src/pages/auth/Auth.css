@@ -52,6 +52,7 @@
 .auth-brand-header {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.9rem;
   padding-top: 0.25rem;
 }

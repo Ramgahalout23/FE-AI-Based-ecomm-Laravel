@@ -208,23 +208,23 @@ export default function AdminSidebar() {
       <div className="md:hidden shrink-0" style={{ paddingTop: 'env(safe-area-inset-top, 12px)' }} />
 
       {/* ── Logo Header ── */}
-      <div className="flex items-center gap-2.5 px-4 h-[60px] shrink-0 border-b border-white/5">
-        <div className="flex items-center gap-2.5 w-full">
+      <div className="flex items-center justify-center gap-2.5 px-4 h-[60px] shrink-0 border-b border-white/5">
+        <div className="flex items-center justify-center gap-2.5 w-full">
           {mobileOpen && (
             <button onClick={() => setMobileOpen(false)} className="md:hidden mr-1 text-white/40 hover:text-white">
               <X size={20} />
             </button>
           )}
           {adminLogo ? (
-            <div className="h-7 flex items-center">
+            <div className="h-10 flex items-center">
               <img src={adminLogo} alt={storeName}
-                className="h-full w-auto max-w-[140px] object-contain"
+                className="h-full w-auto max-w-[180px] object-contain"
                 onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/25 to-white/10 flex items-center justify-center border border-white/10">
-                <span className="text-white font-bold text-sm">A</span>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-white/25 to-white/10 flex items-center justify-center border border-white/10">
+                <span className="text-white font-bold text-base">A</span>
               </div>
               <div>
                 <div className="font-semibold text-sm text-white/90 leading-tight">{storeName}</div>

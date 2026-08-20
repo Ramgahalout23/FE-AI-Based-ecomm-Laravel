@@ -3741,6 +3741,54 @@ export default function SettingsAdminPage() {
             </div>
           </div>
 
+          {/* ── Email Popup Banner ── */}
+          <div className="detail-panel" style={{ marginTop: '1.5rem' }}>
+            <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <h3>Email Popup Banner</h3>
+                <span className={`status-badge ${settings.emailPopupEnabled !== 'false' ? 'status-active' : 'status-pending'}`}>
+                  {settings.emailPopupEnabled !== 'false' ? 'Visible' : 'Hidden'}
+                </span>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={settings.emailPopupEnabled !== 'false'} onChange={e => setSettings({ ...settings, emailPopupEnabled: e.target.checked ? 'true' : 'false' })} />
+                <strong>Show popup on storefront</strong>
+              </label>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+              A full-screen welcome overlay that asks visitors for their email to receive exclusive offers and discounts. Appears 3 seconds after page load and dismisses permanently on close or submit.
+            </p>
+            <div className="form-grid">
+              <div className="form-group form-full">
+                <label>Popup Heading</label>
+                <input
+                  value={settings.emailPopupHeading || 'Get 10% Off Your First Order!'}
+                  onChange={e => setSettings({ ...settings, emailPopupHeading: e.target.value })}
+                  placeholder="Get 10% Off Your First Order!"
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>The bold heading shown at the top of the popup</span>
+              </div>
+              <div className="form-group form-full">
+                <label>Offer Description</label>
+                <textarea
+                  rows={2}
+                  value={settings.emailPopupOfferText || 'Enter your email to receive exclusive offers, early access to new drops, and an instant 10% discount on your first purchase!'}
+                  onChange={e => setSettings({ ...settings, emailPopupOfferText: e.target.value })}
+                  placeholder="Enter your email to receive exclusive offers..."
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>The paragraph text below the heading explaining the offer</span>
+              </div>
+              <div className="form-group form-full">
+                <label>Button Text</label>
+                <input
+                  value={settings.emailPopupBtnText || 'Claim 10% Off'}
+                  onChange={e => setSettings({ ...settings, emailPopupBtnText: e.target.value })}
+                  placeholder="Claim 10% Off"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="form-actions" style={{ marginTop: '1rem' }}>
             <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>
               {loading ? 'Saving...' : 'Save Chat Settings'}

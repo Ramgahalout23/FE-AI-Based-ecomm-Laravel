@@ -135,21 +135,21 @@ export default function RegisterPage() {
           <div className="auth-brand-orb auth-brand-orb--one" />
           <div className="auth-brand-orb auth-brand-orb--two" />
 
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="flex items-center gap-3">
+          <div className="relative z-10 flex flex-col h-full auth-brand-layout">
+            <div className="auth-brand-header">
               {logo ? (
-                <img src={logo} alt={storeName} className="h-10 w-auto object-contain" />
+                <img src={logo} alt={storeName} className="h-16 w-auto object-contain" />
               ) : (
                 <>
-                  <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg">
-                    <span className="text-black font-display font-extrabold text-xl tracking-tight">T</span>
+                  <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center shadow-lg">
+                    <span className="text-black font-display font-extrabold text-2xl tracking-tight">T</span>
                   </div>
-                  <span className="font-display font-bold text-white text-lg tracking-[0.22em]">{storeName}</span>
+                  <span className="font-display font-bold text-white text-xl tracking-[0.22em]">{storeName}</span>
                 </>
               )}
             </div>
 
-            <div className="mt-auto">
+            <div className="mt-auto auth-brand-copy">
               <p className="auth-brand-eyebrow">
                 <Sparkles size={12} />
                 Join the Community

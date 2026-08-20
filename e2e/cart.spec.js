@@ -47,10 +47,8 @@ test.describe('Cart', () => {
   test('cart drawer opens and shows items', async ({ page }) => {
     await addFirstProductToCart(page);
 
-    // Open cart drawer via header cart button (aria-label on mobile, icon-only desktop)
-    const cartBtn = page.locator('header button:visible').filter({
-      has: page.locator('svg.lucide-shopping-bag, svg.lucide-shopping-cart, svg.lucide-bag'),
-    }).first();
+    // Open cart drawer via header cart button
+    const cartBtn = page.locator('#cart-btn').first();
     await robustClick(page, cartBtn);
 
     await expect(
