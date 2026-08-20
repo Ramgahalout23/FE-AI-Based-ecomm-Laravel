@@ -460,7 +460,7 @@ export default function StaffAdminPage() {
         </table>
       </div>              {showModal && (
         <div className="modal-overlay open" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-          <div className="modal" style={{ maxWidth: 600 }}>
+          <div className="modal staff-modal" style={{ maxWidth: 600 }}>
             <div className="modal-header"><h3>{editing ? '✏️ Edit Staff Account' : '🛡️ Add Staff Account'}</h3><button className="modal-close" onClick={() => setShowModal(false)}>✕</button></div>
             <div className="modal-body">
               <AdminFormField label="First Name" required error={validation.errors.firstName} valid={validation.validFields.firstName}>

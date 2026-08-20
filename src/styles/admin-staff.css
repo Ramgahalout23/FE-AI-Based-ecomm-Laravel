@@ -1,5 +1,11 @@
 /* ═══ STAFF & PERMISSIONS UI ═══ */
 
+/* Staff modal: allow body to scroll when permissions overflow */
+.staff-modal .modal-body{max-height:calc(100vh - 160px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.staff-modal .modal-body::-webkit-scrollbar{width:6px}
+.staff-modal .modal-body::-webkit-scrollbar-track{background:transparent}
+.staff-modal .modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
 /* Role Radio Buttons */
 .role-radio-group{display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem}
 .role-radio{display:flex;align-items:flex-start;gap:0.75rem;padding:0.75rem;border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;transition:all 0.2s ease}
@@ -10,7 +16,10 @@
 .role-radio-desc{font-size:0.75rem;color:var(--muted);margin-top:0.15rem}
 
 /* Permissions Grid */
-.permissions-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-height:400px;overflow-y:auto;padding:0.25rem}
+.permissions-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;max-height:60vh;overflow-y:auto;padding:0.25rem;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.permissions-grid::-webkit-scrollbar{width:6px}
+.permissions-grid::-webkit-scrollbar-track{background:transparent}
+.permissions-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 @media(max-width:600px){.permissions-grid{grid-template-columns:1fr}}
 
 .permission-group{border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:var(--surface)}
