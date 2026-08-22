@@ -1,0 +1,25 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://ai-based-ecomm.onrender.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://ai-based-ecomm.onrender.com/uploads/:path*" },
+    { "source": "/socket.io/:path*", "destination": "https://ai-based-ecomm.onrender.com/socket.io/:path*" },
+    { "source": "/((?!assets|favicon\\.svg|icons\\.svg|manifest\\.webmanifest|sw\\.js|workbox-.*\\.js).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}
