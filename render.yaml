@@ -1,0 +1,17 @@
+services:
+  # Option 1: Static Site (recommended for SPAs)
+  - type: static_site
+    name: fe-ai-based-ecomm-laravel
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Option 2: Web Service (if you prefer a server)
+  # - type: web
+  #   name: fe-ai-based-ecomm-laravel
+  #   runtime: node
+  #   buildCommand: npm install && npm run build
+  #   startCommand: npx serve -s dist -l $PORT
