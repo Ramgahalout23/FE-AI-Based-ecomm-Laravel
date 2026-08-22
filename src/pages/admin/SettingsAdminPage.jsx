@@ -768,6 +768,21 @@ export default function SettingsAdminPage() {
     catch { toast.error('Failed to clear cache'); }
   };
 
+  const handleMigrateDatabase = async () => {
+    try {
+      await adminAPI.migrateDatabase();
+      toast.success('Database migration started. Check server logs.');
+    } catch { toast.error('Failed to run migrations'); }
+  };
+
+  const handleSeedDatabase = async () => {
+    if (!window.confirm('This will reset ALL database data and repopulate with sample data. Continue?')) return;
+    try {
+      await adminAPI.seedDatabase();
+      toast.success('Database seeding started. Check server logs for progress.');
+    } catch { toast.error('Failed to seed database'); }
+  };
+
   const handleTestAIConnection = async () => {
     setTestingAI(true);
     try {
@@ -2913,6 +2928,18 @@ export default function SettingsAdminPage() {
                 <strong>Activity Logs</strong>
                 <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>View system activity and audit trail</p>
                 <button className="btn-ghost btn-sm" onClick={() => toast.success('Logs exported')}>Export Logs</button>
+              </div>
+              <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔄</div>
+                <strong>Run Migrations</strong>
+                <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Create missing database tables</p>
+                <button className="btn-dark btn-sm" onClick={handleMigrateDatabase}>Run Migrations</button>
+              </div>
+              <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🌱</div>
+                <strong>Seed Database</strong>
+                <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Populate with sample data</p>
+                <button className="btn-dark btn-sm" onClick={handleSeedDatabase}>Seed Database</button>
               </div>
             </div>
           </div>

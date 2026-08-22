@@ -135,6 +135,8 @@ export const adminAPI = {
   getBackupSchedule: () => adminClient.get('/admin/backup-settings'),
   updateBackupSchedule: (data) => adminClient.patch('/admin/backup-settings', data),
   clearCache: () => adminClient.post('/admin/cache/clear'),
+  migrateDatabase: () => adminClient.post('/admin/database/migrate'),
+  seedDatabase: () => adminClient.post('/admin/database/seed', { confirm: true }),
   getAuditLogs: (params) => adminClient.get('/admin/audit-logs', { params }),
   // Error Log Viewer
   getLogs: (params) => adminClient.get('/admin/logs', { params }),
