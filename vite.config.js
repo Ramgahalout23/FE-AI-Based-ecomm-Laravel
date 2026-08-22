@@ -112,11 +112,11 @@ export default defineConfig(({ mode }) => {
       // to Laravel dev server (port 8000 via php artisan serve)
       proxy: {
         '/api': {
-          target: 'http://localhost:8000',
+          target: 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
           // Return JSON error instead of HTML so CORB doesn't block the response
-          configure: (proxy) => {
+          configure: (proxy) => {   
             proxy.on('proxyReq', (proxyReq) => {
               // Ensure the proxied request has JSON accept header
               proxyReq.setHeader('Accept', 'application/json');
@@ -133,21 +133,21 @@ export default defineConfig(({ mode }) => {
               // Return JSON error when backend is unreachable (prevents CORB from HTML error pages)
               res.writeHead(502, {
                 'Content-Type': 'application/json; charset=utf-8',
-              });
-              res.end(JSON.stringify({
+              });                res.end(JSON.stringify({
                 success: false,
-                message: 'Backend server is not available. Please ensure the Laravel server is running on port 8000.',
+                message: 'Backend server is not available. Please ensure the Node.js server is running on port 3000.',
               }));
             });
           },
         },
         '/uploads': {
-          target: 'http://localhost:8000',
+          target: 'http://localhost:3000',
           changeOrigin: true,
         },
-        '/storage': {
-          target: 'http://localhost:8000',
+        '/socket.io': {
+          target: 'http://localhost:3000',
           changeOrigin: true,
+          ws: true,
         },
       },
     },

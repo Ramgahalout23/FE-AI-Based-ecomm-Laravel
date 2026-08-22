@@ -2,13 +2,16 @@ import axios from 'axios';
 import useSessionStore from '../store/sessionStore';
 
 // ── API Base URLs ──
-// Main storefront API → Laravel (port 8000 via Vite proxy in dev, same-domain in production)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api/v1';
+// Main storefront API → Node.js backend (port 3000 via Vite proxy in dev, proxied via vercel.json in production)
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
-// Admin API → Laravel (port 8000 via Vite proxy in dev, same-domain in production)
-// Laravel already has efficient caching (Cache::remember 300s), optimized SQL aggregation,
-// and NO blocking external service calls in health checks.
-const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE_URL || '/api/v1';
+// Admin API → same Node.js backend
+const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE_URL || API_BASE;
+
+// Production (Render.com) needs longer timeout due to cold-start spin-up (30-60s)
+const isProduction = API_BASE.includes('onrender.com') || API_BASE.includes('https://') || (!API_BASE.includes('localhost') && API_BASE.startsWith('/'));
+const REQUEST_TIMEOUT = isProduction ? 60000 : 15000;
+const MAX_RETRIES = isProduction ? 2 : 0;
 
 const client = axios.create({
   baseURL: API_BASE,
@@ -16,9 +19,7 @@ const client = axios.create({
     'Content-Type': 'application/json',
     'Accept-Encoding': 'gzip, br, deflate',
   },
-  timeout: 15000,
-  // Request response compression — the backend CompressResponse middleware
-  // gzips JSON payloads > 1 KB when this header is present.
+  timeout: REQUEST_TIMEOUT,
   decompress: true,
 });
 
@@ -143,10 +144,22 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor — handle 401 / token refresh + log DB errors
+// Response interceptor — handle timeout retries, then 401 / token refresh + log DB errors
 client.interceptors.response.use(
   (res) => res,
   async (error) => {
+    // Retry on timeout/abort (Render cold start)
+    const original = error.config;
+    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout') || error.message?.includes('aborted');
+    if (isTimeout) {
+      original._retryCount = (original._retryCount || 0) + 1;
+      if (original._retryCount <= MAX_RETRIES) {
+        const delay = 2000 * Math.pow(2, original._retryCount - 1);
+        await new Promise((r) => setTimeout(r, delay));
+        original.timeout = REQUEST_TIMEOUT;
+        return client(original);
+      }
+    }
     logDbError(error);
     return createAuthErrorHandler(client, refreshSharedToken)(error);
   }
@@ -186,6 +199,18 @@ adminClient.interceptors.request.use((config) => {
 adminClient.interceptors.response.use(
   (res) => res,
   async (error) => {
+    // Retry on timeout/abort (Render cold start)
+    const original = error.config;
+    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout') || error.message?.includes('aborted');
+    if (isTimeout) {
+      original._retryCount = (original._retryCount || 0) + 1;
+      if (original._retryCount <= MAX_RETRIES) {
+        const delay = 2000 * Math.pow(2, original._retryCount - 1);
+        await new Promise((r) => setTimeout(r, delay));
+        original.timeout = REQUEST_TIMEOUT;
+        return adminClient(original);
+      }
+    }
     logDbError(error);
     return createAuthErrorHandler(adminClient, refreshSharedToken)(error);
   }

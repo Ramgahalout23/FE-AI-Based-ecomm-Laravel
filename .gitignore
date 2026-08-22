@@ -10,7 +10,6 @@ build/
 .env.local
 .env.development
 .env.test
-.env.production
 
 # But keep .env.example as a reference template
 !.env.example
