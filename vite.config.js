@@ -49,24 +49,15 @@ export default defineConfig(({ mode }) => {
               navigateFallback: 'index.html',
               navigateFallbackDenylist: [/^\/api\//],
               runtimeCaching: [
-                // Admin API — always fetch fresh from server (dashboard data must be live)
+                // Admin API — NEVER cache (network only). Admin data must always
+                // come fresh from the server; a stale cached 403/500 causes confusing
+                // blank pages when the token is refreshed but old errors persist.
                 {
                   urlPattern: ({ url, request }) =>
                     url.pathname.startsWith('/api/v1/admin/') &&
                     request.method === 'GET' &&
                     request.mode !== 'navigate',
-                  handler: 'NetworkFirst',
-                  options: {
-                    cacheName: 'admin-api-cache',
-                    networkTimeoutSeconds: 10,
-                    expiration: {
-                      maxEntries: 50,
-                      maxAgeSeconds: 30,
-                    },
-                    cacheableResponse: {
-                      statuses: [0, 200],
-                    },
-                  },
+                  handler: 'NetworkOnly',
                 },
                 // Public storefront API — cache-first with background revalidation
                 {

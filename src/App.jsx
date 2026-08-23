@@ -652,15 +652,22 @@ export default function App() {
     })();
   }, []);
 
-  // In dev mode, unregister any stale service worker that may have been
-  // cached from a previous production build — prevents CORB warnings when
-  // the SW intercepts cross-origin requests (images, fonts, etc.).
+  // Dev: unregister stale SW that may intercept cross-origin requests.
+  // Prod: clear the old 'admin-api-cache' so stale 403/500 responses from
+  // before backend fixes are never served. NetworkOnly in vite.config.js
+  // prevents re-caching, but old entries from the previous workbox config
+  // (NetworkFirst) can linger until the SW is fully updated.
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((reg) => reg.unregister());
-      }).catch(() => {});
+      // Always clear the old admin API cache
+      if (caches) {
+        caches.delete('admin-api-cache').catch(() => {});
+      }
+      if (import.meta.env.DEV) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((reg) => reg.unregister());
+        }).catch(() => {});
+      }
     }
   }, []);
 
