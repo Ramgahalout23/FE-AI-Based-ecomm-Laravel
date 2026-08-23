@@ -137,6 +137,7 @@ export const adminAPI = {
   clearCache: () => adminClient.post('/admin/cache/clear'),
   migrateDatabase: () => adminClient.post('/admin/database/migrate'),
   seedDatabase: () => adminClient.post('/admin/database/seed', { confirm: true }),
+  flushDatabase: () => adminClient.post('/admin/database/flush', { confirm: true }),
   getAuditLogs: (params) => adminClient.get('/admin/audit-logs', { params }),
   // Error Log Viewer
   getLogs: (params) => adminClient.get('/admin/logs', { params }),

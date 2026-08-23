@@ -783,6 +783,15 @@ export default function SettingsAdminPage() {
     } catch { toast.error('Failed to seed database'); }
   };
 
+  const handleFlushDatabase = async () => {
+    if (!window.confirm('⚠️ DANGER: This will DELETE ALL DATA from the database including users, products, orders, settings — everything. This cannot be undone. Continue?')) return;
+    if (!window.confirm('Are you absolutely sure? Type YES in your mind and click OK.')) return;
+    try {
+      await adminAPI.flushDatabase();
+      toast.success('Database flush started. All data will be deleted. Check server logs.');
+    } catch { toast.error('Failed to flush database'); }
+  };
+
   const handleTestAIConnection = async () => {
     setTestingAI(true);
     try {
@@ -2940,6 +2949,12 @@ export default function SettingsAdminPage() {
                 <strong>Seed Database</strong>
                 <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>Populate with sample data</p>
                 <button className="btn-dark btn-sm" onClick={handleSeedDatabase}>Seed Database</button>
+              </div>
+              <div style={{ flex: 1, minWidth: 200, padding: '1.25rem', background: '#fff5f5', borderRadius: 'var(--radius-lg)', textAlign: 'center', border: '1px solid #fecaca' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💣</div>
+                <strong>Flush All Data</strong>
+                <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.5rem 0 1rem' }}>⚠️ DELETE all data — products, orders, users, everything</p>
+                <button className="btn-sm" style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius)', cursor: 'pointer' }} onClick={handleFlushDatabase}>Flush Database</button>
               </div>
             </div>
           </div>
