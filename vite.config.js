@@ -10,12 +10,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      // Only enable PWA service worker in production — in dev mode it
-      // intercepts cross-origin requests (Unspash images, fonts, etc.)
-      // triggering CORB warnings in the console.
-      ...(isProduction
-        ? [VitePWA({
+      // Enable VitePWA plugin in ALL modes so `virtual:pwa-register`
+      // is always available (avoids dev-server crash).  In dev mode
+      // the service worker itself is disabled via devOptions so it
+      // doesn't intercept external requests.
+      VitePWA({
             registerType: 'autoUpdate',
+            devOptions: {
+              enabled: false, // Don't register SW in dev — just make the virtual module available
+            },
             includeAssets: ['favicon.svg', 'icons.svg'],
             manifest: {
               name: process.env.VITE_STORE_NAME
@@ -107,9 +110,7 @@ export default defineConfig(({ mode }) => {
                 },
               ],
             },
-          })]
-        : []
-      ),
+          }),
     ],
 
     // ★ Production build output goes to 'dist/' folder

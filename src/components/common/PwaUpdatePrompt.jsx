@@ -1,13 +1,14 @@
+import { registerSW } from 'virtual:pwa-register';
 import { RefreshCw, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-;
 
 /**
  * PwaUpdatePrompt
  * Shows a slide-up banner when a new version of the app is available.
  * Uses vite-plugin-pwa's virtual:pwa-register module.
- * In dev mode (where VitePWA plugin is disabled), this component does nothing.
+ * In dev mode the service worker is disabled via devOptions so this
+ * component renders nothing.
  */
 export default function PwaUpdatePrompt() {
   const { t } = useTranslation();
@@ -16,30 +17,23 @@ export default function PwaUpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // In dev mode, vite-plugin-pwa is not active so virtual:pwa-register doesn't
-    // exist — the dynamic import below fails and is caught. @vite-ignore prevents
-    // Vite's static analysis from trying to resolve the virtual module (which
-    // only exists in production builds).
-    const pwaModule = 'virtual:pwa-register';
-    import(/* @vite-ignore */ pwaModule).then(({ registerSW }) => {
-      const swRegistration = registerSW({
-        onNeedRefresh() {
-          setNeedRefresh(true);
-          setUpdateSW(() => () => {
-            swRegistration?.updateServiceWorker();
-            window.location.reload();
-          });
-        },
-        onOfflineReady() {
-          console.log('[PWA] App ready for offline use');
-        },
-      });
-    }).catch(() => {
-      // virtual:pwa-register not available — that's fine
+    // In dev mode the SW registration is disabled (devOptions.enabled: false),
+    // so registerSW is a no-op.  In production it registers the real SW.
+    const swRegistration = registerSW({
+      onNeedRefresh() {
+        setNeedRefresh(true);
+        setUpdateSW(() => () => {
+          swRegistration?.updateServiceWorker();
+          window.location.reload();
+        });
+      },
+      onOfflineReady() {
+        console.log('[PWA] App ready for offline use');
+      },
     });
   }, []);
 
-  // Dev mode has no PWA plugin — nothing to prompt for.
+  // Dev mode has no PWA service worker — nothing to prompt for.
   if (import.meta.env.DEV) return null;
 
   if (!needRefresh || dismissed) return null;
