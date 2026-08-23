@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useReducer } from 'react';
+import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, CartesianGrid } from 'recharts';
 import { motion, animate, useReducedMotion } from 'framer-motion';
@@ -395,7 +395,14 @@ export default function DashboardPage() {
   }, [cache, dateRange, fetchDashboardData]);
 
   // ── Load on mount and date range change ──
+  // The ref prevents a duplicate fetch caused by React Strict Mode
+  // double-rendering in development.  Date-range changes still trigger
+  // fresh fetches because we track the last-fetched range.
+  const lastFetchedRangeRef = useRef(null);
   useEffect(() => {
+    const rangeKey = dateRange ? `${dateRange.start}_${dateRange.end}` : '';
+    if (lastFetchedRangeRef.current === rangeKey) return; // already fetched this range
+    lastFetchedRangeRef.current = rangeKey;
     fetchDashboardData(dateRange);
   }, [dateRange, fetchDashboardData]);
 
