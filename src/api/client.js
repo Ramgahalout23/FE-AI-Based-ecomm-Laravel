@@ -15,12 +15,8 @@ const MAX_RETRIES = isProduction ? 2 : 0;
 
 const client = axios.create({
   baseURL: API_BASE,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept-Encoding': 'gzip, br, deflate',
-  },
+  headers: { 'Content-Type': 'application/json' },
   timeout: REQUEST_TIMEOUT,
-  decompress: true,
 });
 
 // ── Shared token refresh ──
@@ -179,11 +175,7 @@ client.interceptors.response.use(
 export const adminClient = axios.create({
   baseURL: ADMIN_API_BASE,
   timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept-Encoding': 'gzip, br, deflate',
-  },
-  decompress: true,
+  headers: { 'Content-Type': 'application/json' },
 });
 
 adminClient.interceptors.request.use((config) => {
