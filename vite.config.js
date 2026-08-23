@@ -49,6 +49,26 @@ export default defineConfig(({ mode }) => {
               navigateFallback: 'index.html',
               navigateFallbackDenylist: [/^\/api\//],
               runtimeCaching: [
+                // Admin API — always fetch fresh from server (dashboard data must be live)
+                {
+                  urlPattern: ({ url, request }) =>
+                    url.pathname.startsWith('/api/v1/admin/') &&
+                    request.method === 'GET' &&
+                    request.mode !== 'navigate',
+                  handler: 'NetworkFirst',
+                  options: {
+                    cacheName: 'admin-api-cache',
+                    networkTimeoutSeconds: 10,
+                    expiration: {
+                      maxEntries: 50,
+                      maxAgeSeconds: 30,
+                    },
+                    cacheableResponse: {
+                      statuses: [0, 200],
+                    },
+                  },
+                },
+                // Public storefront API — cache-first with background revalidation
                 {
                   urlPattern: ({ url, request }) =>
                     url.pathname.startsWith('/api/') &&
