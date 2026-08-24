@@ -1922,6 +1922,25 @@ export default function HomePage() {
         title={seoData.title || `${storeName} — Premium Streetwear`}
         description={seoData.description || `Discover premium streetwear fashion at ${storeName}. Shop the latest oversized tees, hoodies, accessories and more.`}
         keywords="streetwear, fashion, premium clothing, oversized t-shirts, hoodies, accessories"
+        jsonLd={[{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: storeName || 'THREVOLT',
+          url: window.location.origin,
+          logo: `${window.location.origin}/favicon.ico`,
+          sameAs: [],
+          description: `Premium streetwear fashion at ${storeName || 'THREVOLT'}`,
+        }, {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: storeName || 'THREVOLT',
+          url: window.location.origin,
+          potentialAction: {
+            '@type': 'SearchAction',
+            target: `${window.location.origin}/products?search={search_term_string}`,
+            'query-input': 'required name=search_term_string',
+          },
+        }]}
       />
       {/* Pull-to-refresh indicator */}
       <PullToRefreshIndicator

@@ -52,6 +52,7 @@ export default function CareInstructionsPage() {
       <SEOHead
         title={withStoreName('Care Instructions', storeName)}
         description={`How to care for your ${storeName} garments: washing, drying, ironing, and storage tips to keep your streetwear looking fresh for years.`}
+        canonicalUrl={`${window.location.origin}/care-instructions`}
       />
 
       <ContentPageHero

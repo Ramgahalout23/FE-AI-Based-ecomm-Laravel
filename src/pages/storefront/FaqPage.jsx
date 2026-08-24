@@ -1,6 +1,7 @@
 import { ArrowRight, Package, Truck, RefreshCw, CreditCard, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import SEOHead from '../../components/seo/SEOHead';
 import { withStoreName } from '../../utils/seo';
 import ContentPageHero from '../../components/storefront/ContentPageHero';
@@ -67,7 +68,23 @@ export default function FaqPage() {
       <SEOHead
         title={withStoreName('FAQs', storeName)}
         description={`Frequently asked questions about ${storeName}: orders, shipping, returns, payments, and sizing. Quick answers to everything you need to know.`}
+        canonicalUrl={`${window.location.origin}/faq`}
       />
+      {/* FAQPage JSON-LD for Google rich results */}
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: groups.flatMap(g => g.faqs.map(faq => ({
+            '@type': 'Question',
+            name: faq.q,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: faq.a,
+            },
+          }))),
+        })}</script>
+      </Helmet>
 
       <ContentPageHero
         watermark={t('faq.watermark', { defaultValue: 'HELP' })}

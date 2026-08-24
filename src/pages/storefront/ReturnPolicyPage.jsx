@@ -95,6 +95,7 @@ export default function ReturnPolicyPage() {
       <SEOHead
         title={withStoreName(title, storeName)}
         description={content.metaDescription || `Learn about ${storeName} return and exchange policy. Easy returns within 7 days, free pickup, and full refunds on eligible items.`}
+        canonicalUrl={`${window.location.origin}/return-policy`}
       />
 
       {/* ── HERO ── */}

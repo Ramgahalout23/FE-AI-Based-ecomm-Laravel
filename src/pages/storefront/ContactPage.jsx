@@ -100,6 +100,7 @@ export default function ContactPage() {
         title={withStoreName('Contact Us', storeName)}
         description={'Get in touch with ' + storeName + '. Contact our support team for orders, returns, product inquiries, or general questions. We\'re here to help.'}
         keywords="contact us, customer support, luxury streetwear help, order support"
+        canonicalUrl={`${window.location.origin}/contact`}
       />
 
       {/* HERO */}

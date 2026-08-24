@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,9 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-64px)] flex items-center justify-center bg-surface px-4 py-8 sm:py-12 pb-[max(2rem,env(safe-area-inset-bottom,0px))]">
+    <>
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
+      <div className="min-h-[calc(100dvh-64px)] flex items-center justify-center bg-surface px-4 py-8 sm:py-12 pb-[max(2rem,env(safe-area-inset-bottom,0px))]">
       <div className="bg-white border border-border rounded-2xl p-5 sm:p-8 w-full max-w-md shadow-card">
         <div className="text-center mb-8">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-text-primary mb-2">{t('auth.forgot_password_title')}</h1>
@@ -37,5 +40,6 @@ export default function ForgotPasswordPage() {
         <p className="text-center mt-6 text-sm text-text-muted"><Link to="/login" className="font-bold text-primary hover:text-primary-dark transition-colors">{t('auth.back_to_login')}</Link></p>
       </div>
     </div>
+    </>
   );
 }

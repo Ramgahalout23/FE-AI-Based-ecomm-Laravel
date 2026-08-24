@@ -8,6 +8,7 @@ import { buildSeoTitle } from '../../utils/seo';
 import useInterval from '../../hooks/useInterval';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Breadcrumb from '../../components/common/Breadcrumb';
+import { Helmet } from 'react-helmet-async';
 import SEOHead from '../../components/seo/SEOHead';
 import { productsAPI } from '../../api/products';
 import { seoAPI } from '../../api/seo';
@@ -1108,7 +1109,44 @@ export default function ProductDetailPage() {
         ogTitle={seoMeta?.ogTitle}
         ogDescription={seoMeta?.ogDescription}
         canonicalUrl={seoMeta?.canonicalUrl || `${window.location.origin}/products/${product.slug}`}
+        jsonLd={[{
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: product.name,
+          description: product.seoDescription || product.shortDescription || product.description || '',
+          image: getProductImages(product).map(img => getImageUrl(img)).filter(Boolean),
+          url: `${window.location.origin}/products/${product.slug}`,
+          sku: product.sku || undefined,
+          brand: product.brand ? { '@type': 'Brand', name: product.brand.name || product.brand } : undefined,
+          category: typeof product.category === 'object' ? product.category.name : product.category,
+          offers: {
+            '@type': 'Offer',
+            url: `${window.location.origin}/products/${product.slug}`,
+            priceCurrency: 'USD',
+            price: product.price,
+            availability: (product.quantity > 0) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            itemCondition: 'https://schema.org/NewCondition',
+          },
+          aggregateRating: product.reviewCount > 0 ? {
+            '@type': 'AggregateRating',
+            ratingValue: product.rating || product.averageRating || 0,
+            reviewCount: product.reviewCount,
+          } : undefined,
+        }]}
       />
+
+      {/* ── Breadcrumb JSON-LD ── */}
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Home', item: window.location.origin },
+            { '@type': 'ListItem', position: 2, name: typeof product.category === 'object' ? product.category.name : 'Products', item: `${window.location.origin}/products` },
+            { '@type': 'ListItem', position: 3, name: product.name },
+          ],
+        })}</script>
+      </Helmet>
 
       {/* ── Breadcrumb ── */}
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 24px 0", fontSize: 12, letterSpacing: "0.05em", textTransform: "uppercase", color: STONE }}>

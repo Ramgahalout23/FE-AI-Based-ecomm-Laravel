@@ -59,6 +59,7 @@ export default function SizeGuidePage() {
       <SEOHead
         title={withStoreName('Size Guide', storeName)}
         description={`Find your perfect fit at ${storeName}. Garment measurements, fit tips, and size charts for tees, hoodies, and bottoms.`}
+        canonicalUrl={`${window.location.origin}/size-guide`}
       />
 
       <ContentPageHero

@@ -349,6 +349,7 @@ export default function SalesPage() {
         title={withStoreName('Sales & Promotions — Deals & Discounts', storeName)}
         description={`Shop the best deals and flash sales at ${storeName}. Limited-time discounts on premium streetwear, oversized tees, hoodies and more.`}
         keywords="sales, promotions, flash sale, discounts, streetwear deals, limited time offers"
+        canonicalUrl={`${window.location.origin}/sales`}
       />
 
       {/* Page Header */}

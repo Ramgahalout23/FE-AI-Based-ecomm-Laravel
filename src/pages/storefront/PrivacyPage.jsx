@@ -94,6 +94,7 @@ export default function PrivacyPage() {
       <SEOHead
         title={withStoreName(content?.title ? content.title : 'Privacy Policy', storeName)}
         description={content?.metaDescription || `Learn how ${storeName} collects, uses, and protects your personal information. Our privacy policy outlines our commitment to your data security.`}
+        canonicalUrl={`${window.location.origin}/privacy-policy`}
       />
 
       {/* ── HERO ── */}

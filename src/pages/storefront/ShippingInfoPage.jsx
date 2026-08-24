@@ -74,6 +74,7 @@ export default function ShippingInfoPage() {
       <SEOHead
         title={withStoreName('Shipping Info', storeName)}
         description={`Shipping details for ${storeName}: delivery methods, timelines, and costs across India. Free shipping on orders above ₹499.`}
+        canonicalUrl={`${window.location.origin}/shipping-info`}
       />
 
       <ContentPageHero

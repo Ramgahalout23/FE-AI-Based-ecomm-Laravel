@@ -1,5 +1,6 @@
 import { ArrowRight, Gem, Palette, BadgeCheck, Truck, MapPin, Clock, Phone, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
 import SEOHead from '../../components/seo/SEOHead';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { useSettings } from '../../store/useSettings';
@@ -69,7 +70,29 @@ export default function AboutPage() {
         title={`${storeName} — About Us`}
         description={`${storeName} — ${brandTagline} Discover our story: premium quality, bold designs, and streetwear crafted in India.`}
         keywords="about us, streetwear brand, premium fashion, our story"
+        canonicalUrl={`${window.location.origin}/about`}
       />
+      {/* AboutPage JSON-LD */}
+      <Helmet>
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: `${storeName} — About Us`,
+          description: `${storeName} — ${brandTagline}`,
+          url: `${window.location.origin}/about`,
+          mainEntity: {
+            '@type': 'Organization',
+            name: storeName,
+            url: window.location.origin,
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: storeAddress,
+              addressCountry: 'IN',
+            },
+            email: contactEmail,
+          },
+        })}</script>
+      </Helmet>
 
       {/* ── HERO ── */}
       <header style={{ background: "linear-gradient(165deg, #141416 0%, #000000 100%)", color: PAPER, padding: "96px 24px 84px", position: "relative", overflow: "hidden", textAlign: "center" }}>

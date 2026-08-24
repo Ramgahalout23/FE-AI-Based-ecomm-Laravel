@@ -1,0 +1,23 @@
+{
+  "name": "THREVOLT | Premium Streetwear",
+  "short_name": "THREVOLT",
+  "description": "Premium streetwear fashion — oversized tees, hoodies, accessories and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

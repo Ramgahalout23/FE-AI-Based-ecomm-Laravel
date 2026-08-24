@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -123,7 +124,9 @@ export default function RegisterPage() {
     `${validation.errors[key] ? 'has-error' : ''} ${validation.validFields[key] ? 'is-valid' : ''}`.trim();
 
   return (
-    <div className="auth-page auth-page--split">
+    <>
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
+      <div className="auth-page auth-page--split">
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.99 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -360,5 +363,6 @@ export default function RegisterPage() {
         </div>
       </motion.div>
     </div>
+    </>
   );
 }

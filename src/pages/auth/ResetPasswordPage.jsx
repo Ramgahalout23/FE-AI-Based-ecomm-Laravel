@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +20,9 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-surface px-4 py-12">
+    <>
+      <Helmet><meta name="robots" content="noindex, nofollow" /></Helmet>
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-surface px-4 py-12">
       <div className="bg-white border border-border rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-card">
         <div className="text-center mb-8">
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-text-primary mb-2">{t('auth.reset_password')}</h1>
@@ -35,5 +38,6 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+    </>
   );
 }
