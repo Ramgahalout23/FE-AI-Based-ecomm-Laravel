@@ -1922,6 +1922,7 @@ export default function HomePage() {
         title={seoData.title || `${storeName} — Premium Streetwear`}
         description={seoData.description || `Discover premium streetwear fashion at ${storeName}. Shop the latest oversized tees, hoodies, accessories and more.`}
         keywords="streetwear, fashion, premium clothing, oversized t-shirts, hoodies, accessories"
+        canonicalUrl={window.location.origin}
         jsonLd={[{
           '@context': 'https://schema.org',
           '@type': 'LocalBusiness',

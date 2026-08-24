@@ -697,6 +697,23 @@ export default function ProductsPage() {
         keywords={selectedCategorySeo?.metaKeywords || `premium streetwear, ${pageTitle.toLowerCase()}, luxury fashion`}
         image={seoImage}
         canonicalUrl={selectedCategory ? `${window.location.origin}/products?category=${selectedCategory}` : `${window.location.origin}/products`}
+        jsonLd={[{
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: seoTitle,
+          description: seoDescription,
+          url: selectedCategory ? `${window.location.origin}/products?category=${selectedCategory}` : `${window.location.origin}/products`,
+          mainEntity: {
+            '@type': 'ItemList',
+            numberOfItems: allProducts?.length || 0,
+            itemListElement: (allProducts || []).slice(0, 20).map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              url: `${window.location.origin}/products/${p.slug || p.id}`,
+              name: p.name,
+            })),
+          },
+        }]}
       />
       {/* ── Category Hero Banner ── */}
       {selectedCategory && categoryImage && (
