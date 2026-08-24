@@ -91,6 +91,32 @@ export default function AboutPage() {
             },
             email: contactEmail,
           },
+          mainEntity: {
+            '@type': 'LocalBusiness',
+            name: storeName,
+            url: window.location.origin,
+            telephone: '+917251080691',
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: 'Girdharkunj Colony, Sonkh Rd, Near Narsi Vihar Colony',
+              addressLocality: 'Mathura',
+              addressRegion: 'Uttar Pradesh',
+              postalCode: '281004',
+              addressCountry: 'IN',
+            },
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: 27.4924,
+              longitude: 77.6737,
+            },
+            openingHoursSpecification: {
+              '@type': 'OpeningHoursSpecification',
+              dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+              opens: '08:00',
+              closes: '22:00',
+            },
+            email: contactEmail,
+          },
         })}</script>
       </Helmet>
 
