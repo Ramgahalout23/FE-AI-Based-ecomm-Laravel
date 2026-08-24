@@ -9,7 +9,13 @@ import { io } from 'socket.io-client';
 // Note: Only connect if VITE_SOCKET_URL is explicitly set (Laravel-only mode doesn't run socket.io)
 function getSocketOrigin() {
   const raw = import.meta.env.VITE_SOCKET_URL;
-  if (!raw) return null;
+  if (!raw) {
+    // Auto-detect from current page URL for local dev
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      return 'http://localhost:3000';
+    }
+    return null;
+  }
   try {
     const url = new URL(raw);
     return url.origin;
@@ -43,13 +49,14 @@ export function connectSocket() {
   if (!SOCKET_URL) return null;
 
   const token = getToken();
-  if (!token) return null;
+  const sessionId = localStorage.getItem('chatSessionId') || `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  localStorage.setItem('chatSessionId', sessionId);
 
   try {
     // Suppress socket.io-client's internal debug logging
     // Use polling first, then websocket — avoids raw WS error spam in console
     socket = io(SOCKET_URL, {
-      auth: { token },
+      auth: token ? { token } : { sessionId },
       transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 3,

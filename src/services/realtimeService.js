@@ -26,14 +26,14 @@ const DRIVER_CACHE_KEY = 'LUXE_REALTIME_DRIVER';
  */
 async function fetchDriver() {
   const cached = localStorage.getItem(DRIVER_CACHE_KEY);
-  if (cached && ['pusher', 'websocket', 'disabled'].includes(cached)) {
-    realtimeDriver = cached;
-    return cached;
+  if (cached && ['pusher', 'websocket', 'disabled'].includes(cached.toLowerCase())) {
+    realtimeDriver = cached.toLowerCase();
+    return cached.toLowerCase();
   }
 
   try {
     const res = await client.get('/settings/realtime_driver');
-    const driver = res?.data?.data?.value || res?.data?.value || 'disabled';
+    const driver = (res?.data?.data?.value || res?.data?.value || 'disabled').toLowerCase();
     if (['pusher', 'websocket', 'disabled'].includes(driver)) {
       realtimeDriver = driver;
       localStorage.setItem(DRIVER_CACHE_KEY, driver);
@@ -43,8 +43,9 @@ async function fetchDriver() {
     // Fallback
   }
 
-  realtimeDriver = 'disabled';
-  return 'disabled';
+  // Default to websocket for local dev
+  realtimeDriver = 'websocket';
+  return 'websocket';
 }
 
 /**
@@ -195,7 +196,8 @@ export function onRealtimeEvent(event, handler) {
  * Initialize realtime connection.
  */
 export async function connectRealtime() {
-  if (realtimeDriver && pusherClient?.connection?.state === 'connected') return;
+  // Already connected — skip
+  if (realtimeDriver === 'pusher' && pusherClient?.connection?.state === 'connected') return;
   if (realtimeDriver === 'websocket' && socketClient?.connected) return;
   await initDriver();
 }

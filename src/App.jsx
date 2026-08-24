@@ -113,6 +113,7 @@ const BannersAdminPage = lazy(() => import('./pages/admin/BannersAdminPage'));
 const VariantsAdminPage = lazy(() => import('./pages/admin/VariantsAdminPage'));
 const AnalyticsAdminPage = lazy(() => import('./pages/admin/AnalyticsAdminPage'));
 const SettingsAdminPage = lazy(() => import('./pages/admin/SettingsAdminPage'));
+const ChatPanel = lazy(() => import('./pages/admin/ChatPanel'));
 const SEOAdminPage = lazy(() => import('./pages/admin/SEOAdminPage'));
 const SEODashboardPage = lazy(() => import('./pages/admin/SEODashboardPage'));
 const EmailTemplatesAdminPage = lazy(() => import('./pages/admin/EmailTemplatesAdminPage'));
@@ -577,6 +578,7 @@ function AppContent() {
           <Route path="/admin/banners" element={<BannersAdminPage />} />
           <Route path="/admin/variants" element={<VariantsAdminPage />} />
 
+          <Route path="/admin/chat" element={<ChatPanel />} />
           <Route path="/admin/support" element={<SupportAdminPage />} />
           <Route path="/admin/abandoned-carts" element={<AbandonedCartsAdminPage />} />
           <Route path="/admin/pages" element={<PagesAdminPage />} />

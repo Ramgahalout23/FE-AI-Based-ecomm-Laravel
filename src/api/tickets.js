@@ -25,11 +25,11 @@ export const ticketsAPI = {
 
 export const chatAPI = {
   /** Init or return an existing chat ticket */
-  initChat: () => client.post('/chat/init'),
+  initChat: (sessionId) => client.post('/chat/init', {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
 
   /** Send a message in a chat */
-  sendMessage: (ticketId, content) =>
-    client.post(`/chat/${ticketId}/messages`, { content }),
+  sendMessage: (ticketId, content, sessionId) =>
+    client.post(`/chat/${ticketId}/messages`, { content }, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
 
   /** Get messages for a chat */
   getMessages: (ticketId) =>
@@ -50,4 +50,36 @@ export const chatAPI = {
   /** Admin: get chat stats */
   getChatStats: () =>
     adminClient.get('/admin/chat/stats'),
+
+  /** Get current chat mode (ai or live) */
+  getChatMode: () =>
+    client.get('/chat/mode'),
+
+  /** Get welcome message with suggestions */
+  getWelcomeMessage: () =>
+    client.get('/chat/welcome'),
+
+  /** Track order by number */
+  trackOrder: (orderNumber) =>
+    client.post('/chat/track-order', { orderNumber }),
+
+  /** Submit CSAT rating */
+  submitCsat: (ticketId, rating) =>
+    client.post('/chat/csat', { ticketId, rating }),
+
+  /** Admin: get chat analytics */
+  getChatAnalytics: (params) =>
+    adminClient.get('/admin/chat/analytics', { params }),
+
+  /** Admin: switch chat mode */
+  setChatMode: (mode) =>
+    adminClient.put('/admin/chat/mode', { mode }),
+
+  /** Admin: send message in a conversation */
+  adminSendMessage: (ticketId, content) =>
+    adminClient.post(`/admin/chat/${ticketId}/messages`, { content }),
+
+  /** Admin: get messages for a conversation */
+  adminGetMessages: (ticketId) =>
+    adminClient.get(`/admin/chat/${ticketId}/messages`),
 };

@@ -4,14 +4,12 @@
  * Uses existing support ticket system for persistence and Socket.io for real-time messaging.
  */
 
-import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle } from 'lucide-react';
+import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { formatTime } from '../../utils/formatters';
-
-;
 import useChat from '../../hooks/useChat';
-import useAuthStore from '../../store/authStore';
+import { chatAPI } from '../../api/tickets';
 import toast from '../../utils/toast';
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -37,10 +35,9 @@ function getDateLabel(dateStr) {
 // ─── Main Component ───────────────────────────────────────
 
 export default function LiveChatWidget() {
-  const { isAuthenticated } = useAuthStore();
   const {
-    chat, messages, error, isTyping, typingName,
-    initChat, sendMessage, sendTyping,
+    chat, messages, error, isTyping, isAiTyping, typingName,
+    initChat, sendMessage, sendTyping, isSocketConnected,
   } = useChat();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -49,6 +46,14 @@ export default function LiveChatWidget() {
   const [hasUnread, setHasUnread] = useState(false);
   const [isReelActive, setIsReelActive] = useState(false);
   const [isMobileMenuActive, setIsMobileMenuActive] = useState(false);
+  const [chatMode, setChatMode] = useState('ai'); // 'ai' or 'live'
+  const [suggestions, setSuggestions] = useState([]);
+
+  const [welcomeLoaded, setWelcomeLoaded] = useState(false);
+  const [proactiveNudge, setProactiveNudge] = useState(false);
+  const [proactiveDismissed, setProactiveDismissed] = useState(false);
+  const [csatRating, setCsatRating] = useState(null); // null | 'good' | 'bad'
+  const [csatSubmitted, setCsatSubmitted] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -95,38 +100,97 @@ export default function LiveChatWidget() {
     return () => observer.disconnect();
   }, []);
 
-  // Initialize chat when opened (for authenticated users)
+  // Fetch chat mode on mount
+  useEffect(() => {
+    chatAPI.getChatMode()
+      .then(res => {
+        const mode = res.data?.data?.mode || 'ai';
+        setChatMode(mode);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Proactive Triggers ──
+
+  // Timer trigger: show nudge after 30 seconds on site
+  useEffect(() => {
+    if (isOpen || proactiveDismissed) return;
+    const timer = setTimeout(() => {
+      setProactiveNudge(true);
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [isOpen, proactiveDismissed]);
+
+  // Exit intent: show nudge when mouse leaves viewport top
+  useEffect(() => {
+    if (isOpen || proactiveDismissed) return;
+    const handleMouseLeave = (e) => {
+      if (e.clientY < 0) setProactiveNudge(true);
+    };
+    document.addEventListener('mouseleave', handleMouseLeave);
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+  }, [isOpen, proactiveDismissed]);
+
+  // Load welcome message with suggestions
+  useEffect(() => {
+    if (chatMode === 'ai' && !welcomeLoaded) {
+      chatAPI.getWelcomeMessage()
+        .then(res => {
+          const data = res.data?.data;
+          if (data?.suggestions) setSuggestions(data.suggestions);
+          setWelcomeLoaded(true);
+        })
+        .catch(() => {});
+    }
+  }, [chatMode, welcomeLoaded]);
+
+
+
+  // Initialize chat when opened — works for everyone
   const handleOpen = useCallback(async () => {
     setIsOpen(true);
     setHasUnread(false);
-
-    if (!isAuthenticated) return;
+    setProactiveNudge(false);
 
     if (!chat) {
       setChatLoading(true);
       await initChat();
       setChatLoading(false);
     }
-  }, [isAuthenticated, chat, initChat]);
+  }, [chat, initChat]);
 
   // Send a message
-  const handleSend = useCallback(async () => {
-    if (!inputValue.trim()) return;
+  const handleSend = useCallback(async (text) => {
+    const msg = text || inputValue.trim();
+    if (!msg) return;
 
-    const content = inputValue.trim();
     setInputValue('');
+    setSuggestions([]);
     setChatLoading(true);
-
-    // Send typing indicator (stopped)
     sendTyping(false);
 
-    const result = await sendMessage(content);
+    const result = await sendMessage(msg);
     setChatLoading(false);
 
     if (!result) {
       toast.error('Failed to send message');
     }
   }, [inputValue, sendMessage, sendTyping]);
+
+  // Parse AI structured response from message content
+  const parseAiMessage = (msg) => {
+    if (msg.senderId !== 'ai-chatbot') return { text: msg.content, suggestions: [], products: [] };
+    try {
+      const data = JSON.parse(msg.content);
+      return {
+        text: data.message || msg.content,
+        suggestions: data.suggestions || [],
+        products: data.products || [],
+      };
+    } catch {
+      return { text: msg.content, suggestions: [], products: [] };
+    }
+  };
 
   // Handle typing indicator
   const handleInputChange = useCallback((e) => {
@@ -155,8 +219,8 @@ export default function LiveChatWidget() {
     };
   }, []);
 
-  // If not authenticated, show login prompt
-  const showLoginPrompt = !isAuthenticated;
+  // Chat works for everyone — auth is optional (for order tracking)
+  const showLoginPrompt = false;
 
   return (
     <>
@@ -222,6 +286,32 @@ export default function LiveChatWidget() {
         )}
       </button>
 
+      {/* ─── Proactive Nudge Banner ─── */}
+      {proactiveNudge && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
+        <div style={{
+          position: 'fixed', right: '24px', bottom: '92px', zIndex: 9998,
+          background: 'white', borderRadius: '16px', padding: '16px 20px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.15)', maxWidth: '280px',
+          animation: 'chatSlideUp 0.3s ease-out',
+          border: '1px solid #e5e7eb',
+        }}>
+          <button onClick={() => setProactiveDismissed(true)} style={{
+            position: 'absolute', top: '8px', right: '8px', background: 'none', border: 'none',
+            cursor: 'pointer', color: '#9ca3af', fontSize: '16px', padding: '2px',
+          }}>×</button>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a1a1a', marginBottom: '6px' }}>
+            Need help? 🤝
+          </div>
+          <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.4, marginBottom: '10px' }}>
+            Chat with us for instant help with sizing, orders, or recommendations!
+          </div>
+          <button onClick={() => { setProactiveDismissed(false); setProactiveNudge(false); handleOpen(); }} style={{
+            width: '100%', padding: '8px', borderRadius: '8px', border: 'none',
+            background: '#1a1a1a', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+          }}>Start Chat</button>
+        </div>
+      )}
+
       {/* ─── Chat Window ─── */}
       {isOpen && !isReelActive && !isMobileMenuActive && (
         <div className="chat-float-window"
@@ -265,13 +355,17 @@ export default function LiveChatWidget() {
                 width: '10px',
                 height: '10px',
                 borderRadius: '50%',
-                background: '#22c55e',
-                boxShadow: '0 0 8px rgba(34, 197, 94, 0.5)',
+                background: chatMode === 'ai' ? '#6366f1' : '#22c55e',
+                boxShadow: chatMode === 'ai' ? '0 0 8px rgba(99, 102, 241, 0.5)' : '0 0 8px rgba(34, 197, 94, 0.5)',
                 animation: 'chatPulse 2s ease-in-out infinite',
               }} />
               <div>
-                <div style={{ fontSize: '15px', fontWeight: 700 }}>Live Support</div>
-                <div style={{ fontSize: '11px', opacity: 0.7 }}>We typically reply in minutes</div>
+                <div style={{ fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {chatMode === 'ai' ? <><Bot size={14} /> AI Assistant</> : <><Headphones size={14} /> Live Support</>}
+                </div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                  {chatMode === 'ai' ? 'Instant replies 24/7' : 'We typically reply in minutes'}
+                </div>
               </div>
             </div>
             <button
@@ -310,58 +404,7 @@ export default function LiveChatWidget() {
             flexDirection: 'column',
             gap: '8px',
           }}>
-            {/* Login Prompt */}
-            {showLoginPrompt ? (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100%',
-                textAlign: 'center',
-                padding: '24px',
-                gap: '16px',
-              }}>
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  background: '#e8e8e8',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '28px',
-                }}>
-                  💬
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a', marginBottom: '4px' }}>
-                    Chat with us!
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.4 }}>
-                    Sign in to start a conversation with our support team.
-                  </div>
-                </div>
-                <Link
-                  to="/login"
-                  style={{
-                    display: 'inline-block',
-                    padding: '10px 32px',
-                    borderRadius: '10px',
-                    background: '#1a1a1a',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                    transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#1a1a1a'; }}
-                >
-                  Sign In to Chat
-                </Link>
-              </div>
-            ) : chatLoading && !chat ? (
+            {chatLoading && !chat ? (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -413,84 +456,77 @@ export default function LiveChatWidget() {
                 padding: '24px',
                 gap: '12px',
               }}>
-                <div style={{ fontSize: '36px' }}>👋</div>
+                <div style={{ fontSize: '36px' }}>{chatMode === 'ai' ? '🤖' : '👋'}</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>
-                  How can we help you today?
+                  {chatMode === 'ai' ? 'Ask me anything!' : 'How can we help you today?'}
                 </div>
                 <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.4 }}>
-                  Send us a message and our team will get back to you shortly.
+                  {chatMode === 'ai'
+                    ? 'I can help with product recommendations, order tracking, sizing, and more.'
+                    : 'Send us a message and our team will get back to you shortly.'}
                 </div>
               </div>
             ) : (
               <>
-                {/* Date groups */}
-                {Object.entries(groupMessagesByDate(messages)).map(([dateStr, msgs]) => (
+                {/* Date groups */}                {Object.entries(groupMessagesByDate(messages)).map(([dateStr, msgs]) => (
                   <div key={dateStr}>
-                    <div style={{
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      color: '#999',
-                      margin: '8px 0',
-                      fontWeight: 600,
-                    }}>
+                    <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', margin: '8px 0', fontWeight: 600 }}>
                       {getDateLabel(dateStr)}
                     </div>
-                    {msgs.map((msg) => (
-                      <div
-                        key={msg.id}
-                        style={{
-                          display: 'flex',
-                          justifyContent: msg.isFromAdmin ? 'flex-start' : 'flex-end',
-                          marginBottom: '4px',
-                        }}
-                      >
-                        <div style={{
-                          maxWidth: '80%',
-                          padding: '8px 14px',
-                          borderRadius: msg.isFromAdmin
-                            ? '4px 16px 16px 16px'
-                            : '16px 4px 16px 16px',
-                          background: msg.isFromAdmin ? '#e8e8e8' : '#1a1a1a',
-                          color: msg.isFromAdmin ? '#1a1a1a' : 'white',
-                          fontSize: '14px',
-                          lineHeight: 1.4,
-                          wordBreak: 'break-word',
-                        }}>
-                          <div>{msg.content}</div>
-                          <div style={{
-                            fontSize: '10px',
-                            opacity: 0.6,
-                            marginTop: '4px',
-                            textAlign: 'right',
-                          }}>
-                            {formatTime(msg.createdAt)}
+                    {msgs.map((msg) => {
+                      const parsed = parseAiMessage(msg);
+                      return (
+                        <div key={msg.id} style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: msg.isFromAdmin ? 'flex-start' : 'flex-end' }}>
+                            <div style={{
+                              maxWidth: '80%', padding: '8px 14px', borderRadius: msg.isFromAdmin ? '4px 16px 16px 16px' : '16px 4px 16px 16px',
+                              background: msg.isFromAdmin ? '#e8e8e8' : '#1a1a1a',
+                              color: msg.isFromAdmin ? '#1a1a1a' : 'white',
+                              fontSize: '14px', lineHeight: 1.4, wordBreak: 'break-word',
+                            }}>
+                              {msg.senderId === 'ai-chatbot' && (
+                                <div style={{ fontSize: '10px', color: '#6366f1', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  🤖 AI Assistant
+                                </div>
+                              )}
+                              <div style={{ whiteSpace: 'pre-line' }}>{parsed.text}</div>
+                              <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
+                                {formatTime(msg.createdAt)}
+                              </div>
+                            </div>
                           </div>
+                          {/* Product Cards */}
+                          {parsed.products.length > 0 && (
+                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '4px 0', marginTop: '4px' }}>
+                              {parsed.products.map((p, i) => (
+                                <a key={i} href={`/products/${p.slug}`} target="_blank" rel="noopener noreferrer" style={{
+                                  minWidth: '140px', padding: '10px', borderRadius: '10px', border: '1px solid #e5e7eb', background: 'white', textDecoration: 'none', color: '#1a1a1a', fontSize: '12px', flexShrink: 0,
+                                }}>
+                                  <div style={{ fontWeight: 700, marginBottom: '2px' }}>{p.name}</div>
+                                  <div style={{ color: '#666', fontSize: '11px' }}>{p.category}</div>
+                                  <div style={{ fontWeight: 700, color: '#1a1a1a', marginTop: '4px' }}>₹{p.price}</div>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ))}
 
                 {/* Typing indicator */}
-                {isTyping && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'flex-start',
-                    marginBottom: '4px',
-                  }}>
+                {(isTyping || isAiTyping) && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '4px' }}>
                     <div style={{
-                      padding: '10px 14px',
-                      borderRadius: '4px 16px 16px 16px',
-                      background: '#e8e8e8',
-                      display: 'flex',
-                      gap: '4px',
-                      alignItems: 'center',
+                      padding: '10px 14px', borderRadius: '4px 16px 16px 16px', background: '#e8e8e8',
+                      display: 'flex', gap: '4px', alignItems: 'center',
                     }}>
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#888' }} />
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#888' }} />
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#888' }} />
-                      <span style={{ fontSize: '10px', color: '#888', marginLeft: '4px' }}>
-                        {typingName || 'Support'}
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
+                      <span style={{ fontSize: '10px', color: isAiTyping ? '#6366f1' : '#888', marginLeft: '4px', fontWeight: 600 }}>
+                        {isAiTyping ? 'AI is typing...' : (typingName || 'Support')}
                       </span>
                     </div>
                   </div>
@@ -501,8 +537,55 @@ export default function LiveChatWidget() {
             )}
           </div>
 
+          {/* ── CSAT Rating (after 3+ messages) ── */}
+          {messages.length >= 3 && !csatSubmitted && (
+            <div style={{ padding: '0 16px 8px' }}>
+              <div style={{
+                padding: '12px 16px', borderRadius: '12px', background: 'white',
+                border: '1px solid #e5e7eb', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+                  Was this helpful?
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                  <button onClick={async () => { setCsatRating('good'); setCsatSubmitted(true); try { await chatAPI.submitCsat(chat?.id, 'good'); } catch {} }} style={{
+                    padding: '6px 16px', borderRadius: '8px', border: '1px solid #dcfce7',
+                    background: '#f0fdf4', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: '#16a34a',
+                  }}>👍 Yes</button>
+                  <button onClick={async () => { setCsatRating('bad'); setCsatSubmitted(true); try { await chatAPI.submitCsat(chat?.id, 'bad'); } catch {} }} style={{
+                    padding: '6px 16px', borderRadius: '8px', border: '1px solid #fecaca',
+                    background: '#fef2f2', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: '#dc2626',
+                  }}>👎 No</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {csatSubmitted && (
+            <div style={{ padding: '0 16px 8px' }}>
+              <div style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', padding: '8px' }}>
+                {csatRating === 'good' ? '🎉 Glad we could help!' : '😔 Sorry about that. Let us improve!'}
+              </div>
+            </div>
+          )}
+
+          {/* ── Suggestion Chips ── */}
+          {suggestions.length > 0 && (
+            <div style={{ padding: '0 16px 8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              {suggestions.map((s, i) => (
+                <button key={i} onClick={() => handleSend(s)} style={{
+                  padding: '6px 12px', borderRadius: '20px', border: '1px solid #e5e7eb', background: 'white',
+                  fontSize: '12px', fontWeight: 500, color: '#374151', cursor: 'pointer', transition: 'all 0.2s',
+                  whiteSpace: 'nowrap',
+                }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#d1d5db'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                >{s}</button>
+              ))}
+            </div>
+          )}
+
           {/* ── Input Area ── */}
-          {!showLoginPrompt && (
+          {(
             <div style={{
               borderTop: '1px solid #e8e8e8',
               padding: '12px 16px',

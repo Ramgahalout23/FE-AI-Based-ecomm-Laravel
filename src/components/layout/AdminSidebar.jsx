@@ -63,7 +63,8 @@ const sections = [
     icon: Users,
     items: [
       { to: '/admin/users', icon: Users, label: 'Users' },
-      { to: '/admin/support', icon: MessageCircle, label: 'Support Tickets' },
+      { to: '/admin/chat', icon: MessageCircle, label: 'Live Chat', badge: 'AI' },
+      { to: '/admin/support', icon: Ticket, label: 'Support Tickets' },
       { to: '/admin/reviews', icon: Star, label: 'Reviews' },
       { to: '/admin/notifications', icon: Bell, label: 'Notifications' },
     ]
