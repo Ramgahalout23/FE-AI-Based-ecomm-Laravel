@@ -126,6 +126,18 @@ export const adminAPI = {
   bulkAuditSEO: (entityType) => adminClient.post('/admin/seo/advanced/audit/bulk', { entity_type: entityType }),
   generateBreadcrumbs: (entityType, entityId) => adminClient.get(`/admin/seo/advanced/breadcrumbs/${entityType}/${entityId}`),
   pushIndexNow: (url) => adminClient.post('/admin/seo/advanced/indexnow', { url }),
+  // Submit to Google
+  submitToGoogle: () => adminClient.post('/admin/seo/advanced/submit-google'),
+  // SEO Page Scores
+  getPageScore: (slug) => adminClient.get(`/admin/seo/advanced/score/${encodeURIComponent(slug)}`),
+  getAllPageScores: () => adminClient.get('/admin/seo/advanced/scores'),
+  // Bulk Schema Generation
+  bulkGenerateSchemas: (data) => adminClient.post('/admin/seo/advanced/schema/bulk', data),
+  // LocalBusiness Schema
+  getLocalBusinessSchema: () => adminClient.get('/admin/seo/advanced/schema/local-business'),
+  // AI Meta Generation
+  aiGenerateMeta: (data) => adminClient.post('/admin/seo/ai/generate', data),
+  aiBulkGenerateMeta: (data) => adminClient.post('/admin/seo/ai/generate-bulk', data),
   // System — Backup & Monitoring
   triggerBackup: () => adminClient.post('/admin/backup'),
   listBackups: () => adminClient.get('/admin/backups'),

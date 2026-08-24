@@ -400,6 +400,55 @@ export default function SEOAdminPage() {
     finally { setLoading(false); }
   };
 
+  // Submit to Google
+  const [submitGoogleLoading, setSubmitGoogleLoading] = useState(false);
+  const handleSubmitToGoogle = async () => {
+    setSubmitGoogleLoading(true);
+    try {
+      const res = await adminAPI.submitToGoogle();
+      const data = res.data?.data;
+      if (data?.success) toast.success(data.message);
+      else toast.warning(data?.message || 'Submission may have failed');
+    } catch { toast.error('Failed to submit to Google'); }
+    finally { setSubmitGoogleLoading(false); }
+  };
+
+  // SEO Page Scores
+  const [pageScores, setPageScores] = useState(null);
+  const [scoresLoading, setScoresLoading] = useState(false);
+  const loadPageScores = async () => {
+    setScoresLoading(true);
+    try { const res = await adminAPI.getAllPageScores(); setPageScores(res.data?.data || null); }
+    catch { toast.error('Failed to load page scores'); }
+    finally { setScoresLoading(false); }
+  };
+
+  // Bulk Schema Generation
+  const [bulkSchemaLoading, setBulkSchemaLoading] = useState(false);
+  const [bulkSchemaData, setBulkSchemaData] = useState(null);
+  const handleBulkSchema = async () => {
+    setBulkSchemaLoading(true);
+    try {
+      const res = await adminAPI.bulkGenerateSchemas({ limit: 50 });
+      setBulkSchemaData(res.data?.data || null);
+      toast.success(`Generated ${res.data?.data?.success || 0} product schemas`);
+    } catch { toast.error('Failed to generate bulk schemas'); }
+    finally { setBulkSchemaLoading(false); }
+  };
+
+  // AI Meta Description Generator
+  const [aiMetaLoading, setAiMetaLoading] = useState(false);
+  const [aiMetaResults, setAiMetaResults] = useState(null);
+  const handleAiGenerateAll = async () => {
+    setAiMetaLoading(true);
+    try {
+      const res = await adminAPI.aiBulkGenerateMeta({ entityType, save: false });
+      setAiMetaResults(res.data?.data || null);
+      toast.success(`Generated ${res.data?.data?.generatedCount || 0} meta descriptions`);
+    } catch { toast.error('Failed to generate meta descriptions'); }
+    finally { setAiMetaLoading(false); }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -760,6 +809,25 @@ export default function SEOAdminPage() {
                     placeholder="https://facebook.com/yourstore&#10;https://instagram.com/yourstore" style={{ fontFamily: "'Courier New', monospace", fontSize: '0.82rem' }} />
                 </div>
                 <div className="form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Globe size={14} /> Local Business (Google Knowledge Panel)</h4>
+                </div>
+                <div className="form-group"><label>Phone Number</label><input value={advSettings.local_phone || ''} onChange={e => setAdvSettings({ ...advSettings, local_phone: e.target.value })} placeholder="+91XXXXXXXXXX" /></div>
+                <div className="form-group"><label>Price Range</label><select value={advSettings.local_price_range || '$$'} onChange={e => setAdvSettings({ ...advSettings, local_price_range: e.target.value })}><option value="$">$ (Budget)</option><option value="$$">$$ (Moderate)</option><option value="$$$">$$$ (Premium)</option><option value="$$$$">$$$$ (Luxury)</option></select></div>
+                <div className="form-group form-full"><label>Street Address</label><input value={advSettings.local_address || ''} onChange={e => setAdvSettings({ ...advSettings, local_address: e.target.value })} placeholder="Girdharkunj Colony, Sonkh Rd" /></div>
+                <div className="form-group"><label>City</label><input value={advSettings.local_city || ''} onChange={e => setAdvSettings({ ...advSettings, local_city: e.target.value })} placeholder="Mathura" /></div>
+                <div className="form-group"><label>Region / State</label><input value={advSettings.local_region || ''} onChange={e => setAdvSettings({ ...advSettings, local_region: e.target.value })} placeholder="Uttar Pradesh" /></div>
+                <div className="form-group"><label>Postal Code</label><input value={advSettings.local_postal_code || ''} onChange={e => setAdvSettings({ ...advSettings, local_postal_code: e.target.value })} placeholder="281004" /></div>
+                <div className="form-group"><label>Country Code</label><input value={advSettings.local_country || ''} onChange={e => setAdvSettings({ ...advSettings, local_country: e.target.value })} placeholder="IN" maxLength={2} /></div>
+                <div className="form-group"><label>Latitude</label><input value={advSettings.local_latitude || ''} onChange={e => setAdvSettings({ ...advSettings, local_latitude: e.target.value })} placeholder="27.4924" /></div>
+                <div className="form-group"><label>Longitude</label><input value={advSettings.local_longitude || ''} onChange={e => setAdvSettings({ ...advSettings, local_longitude: e.target.value })} placeholder="77.6737" /></div>
+                <div className="form-group"><label>Opening Hours</label><input type="time" value={advSettings.local_hours_open || '08:00'} onChange={e => setAdvSettings({ ...advSettings, local_hours_open: e.target.value })} /></div>
+                <div className="form-group"><label>Closing Hours</label><input type="time" value={advSettings.local_hours_close || '22:00'} onChange={e => setAdvSettings({ ...advSettings, local_hours_close: e.target.value })} /></div>
+                <div className="form-group form-full">
+                  <label>Default OG Image URL</label>
+                  <input value={advSettings.default_image || ''} onChange={e => setAdvSettings({ ...advSettings, default_image: e.target.value })} placeholder="https://yourstore.com/og-default.png" />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Used when pages don't have their own OG image. Recommended: 1200×630px.</span>
+                </div>
+                <div className="form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><BarChart3 size={14} /> Analytics & Tracking</h4>
                 </div>
                 <div className="form-group"><label>Google Analytics ID</label><input value={advSettings.google_analytics_id || ''} onChange={e => setAdvSettings({ ...advSettings, google_analytics_id: e.target.value })} placeholder="G-XXXXXXXXXX" /></div>
@@ -775,9 +843,39 @@ export default function SEOAdminPage() {
                 <div className="form-group form-full"><label>IndexNow API Key</label><input value={advSettings.indexnow_key || ''} onChange={e => setAdvSettings({ ...advSettings, indexnow_key: e.target.value })} placeholder="abc123... (8-128 chars, alphanumeric + dashes)" maxLength={128} /><span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Generate a key on <a href="https://www.indexnow.org" target="_blank" rel="noopener noreferrer">IndexNow.org</a> and paste it here. A <code>/{'{key}'}.txt</code> verification file will be served automatically.</span></div>
                 <div className="form-group"><label>Audit Schedule</label><select value={advSettings.audit_schedule || 'weekly'} onChange={e => setAdvSettings({ ...advSettings, audit_schedule: e.target.value })}><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div>
               </div>
-              <div className="form-actions" style={{ marginTop: '1.5rem' }}>
+              <div className="form-actions" style={{ marginTop: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <button className="btn-dark btn-sm" onClick={handleSaveAdvancedSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Advanced Settings'}</button>
+                <button className="btn-ghost btn-sm" onClick={handleSubmitToGoogle} disabled={submitGoogleLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {submitGoogleLoading ? <RefreshCw size={13} className="spin" /> : <Globe size={13} />} Submit Sitemap to Google
+                </button>
+                <button className="btn-ghost btn-sm" onClick={handleBulkSchema} disabled={bulkSchemaLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {bulkSchemaLoading ? <RefreshCw size={13} className="spin" /> : <Code2 size={13} />} Generate Product Schemas
+                </button>
+                <button className="btn-ghost btn-sm" onClick={loadPageScores} disabled={scoresLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  {scoresLoading ? <RefreshCw size={13} className="spin" /> : <Trophy size={13} />} Check Page Scores
+                </button>
               </div>
+              {/* SEO Page Scores */}
+              {pageScores && (
+                <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Trophy size={14} /> Page SEO Scores (Avg: {pageScores.averageScore}/100)</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                    {pageScores.pages?.map((p, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: '#fff', borderRadius: '8px', fontSize: '0.78rem' }}>
+                        <span style={{ fontWeight: 500, color: 'var(--text)' }}>{p.slug}</span>
+                        <ScoreBadge score={p.score} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Bulk Schema Results */}
+              {bulkSchemaData && (
+                <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--off-white)', borderRadius: 'var(--radius-lg)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Generated {bulkSchemaData.success} of {bulkSchemaData.total} schemas</h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Schemas generated successfully. Products: {bulkSchemaData.success}, Failed: {bulkSchemaData.failed}</p>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted)' }}><Settings size={32} style={{ margin: '0 auto 0.5rem', opacity: 0.3 }} /><p>Unable to load settings.</p></div>
