@@ -82,4 +82,30 @@ export const chatAPI = {
   /** Admin: get messages for a conversation */
   adminGetMessages: (ticketId) =>
     adminClient.get(`/admin/chat/${ticketId}/messages`),
+
+  /** User: send chat image */
+  sendChatImage: (ticketId, file, sessionId) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return client.post(`/chat/${ticketId}/upload-image`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data', ...(sessionId ? { 'X-Session-ID': sessionId } : {}) },
+    });
+  },
+
+  /** Admin: send chat image */
+  adminSendChatImage: (ticketId, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return adminClient.post(`/admin/chat/${ticketId}/upload-image`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /** Admin: clear all messages in a chat */
+  adminClearMessages: (ticketId) =>
+    adminClient.delete(`/admin/chat/${ticketId}/messages`),
+
+  /** Admin: delete entire chat */
+  adminDeleteChat: (ticketId) =>
+    adminClient.delete(`/admin/chat/${ticketId}`),
 };

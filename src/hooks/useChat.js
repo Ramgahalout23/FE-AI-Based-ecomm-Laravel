@@ -12,7 +12,6 @@ let storeSocket = null;
 let storeSocketListeners = {};
 
 function getStoreSocket() {
-  // Return existing connected socket
   if (storeSocket?.connected) return storeSocket;
   if (storeSocket?.connecting) return storeSocket;
 
@@ -74,6 +73,15 @@ function onChatEvent(event, handler) {
   };
 }
 
+function normalizeMsg(msg) {
+  if (!msg) return msg;
+  return {
+    ...msg,
+    isFromAdmin: msg.isFromAdmin !== undefined ? msg.isFromAdmin : !!msg.is_from_admin,
+    createdAt: msg.createdAt || msg.created_at,
+  };
+}
+
 export default function useChat() {
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -83,6 +91,7 @@ export default function useChat() {
   const [typingName, setTypingName] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [chatMode, setChatMode] = useState('ai');
   const typingTimeoutRef = useRef(null);
 
   const sessionIdRef = useRef(
@@ -94,18 +103,30 @@ export default function useChat() {
     localStorage.setItem('chatSessionId', sessionIdRef.current);
   }, []);
 
+  // Stable refs for callbacks — always up-to-date without re-creating callbacks
+  const chatRef = useRef(null);
+  const messagesRef = useRef([]);
+  useEffect(() => { chatRef.current = chat; }, [chat]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
   /** Initialize or resume an existing chat */
   const initChat = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await chatAPI.initChat(sessionIdRef.current);
+      const sid = sessionIdRef.current;
+      console.log('[Chat] initChat with sessionId:', sid);
+      const res = await chatAPI.initChat(sid);
       const ticket = res.data?.data || res.data;
+      console.log('[Chat] initChat response:', ticket?.id, 'chatMode:', ticket?.chatMode);
       setChat(ticket);
+      chatRef.current = ticket;
+      if (ticket?.chatMode) setChatMode(ticket.chatMode);
       const list = ticket?.messages || ticket?.ticketmessage || [];
       setMessages(Array.isArray(list) ? list.map(normalizeMsg) : []);
       return ticket;
     } catch (err) {
+      console.error('[Chat] initChat failed:', err.message);
       const msg = err.response?.data?.message || 'Failed to start chat';
       setError(msg);
       return null;
@@ -114,37 +135,58 @@ export default function useChat() {
     }
   }, []);
 
-  /** Send a message */
+  /** Send a message — uses refs so it always works without re-creating */
   const sendMessage = useCallback(async (content) => {
-    if (!chat?.id || !content?.trim()) return null;
+    const chatId = chatRef.current?.id;
+    const sid = sessionIdRef.current;
+    console.log('[Chat] sendMessage called. chatId:', chatId, 'sessionId:', sid, 'content:', content?.substring(0, 30));
+
+    if (!chatId) {
+      console.warn('[Chat] sendMessage: no chatId — chat not initialized');
+      return null;
+    }
+    if (!content?.trim()) {
+      console.warn('[Chat] sendMessage: empty content');
+      return null;
+    }
+
     try {
-      const res = await chatAPI.sendMessage(chat.id, content.trim(), sessionIdRef.current);
-      const newMsg = normalizeMsg(res.data?.data || res.data);
-      // Don't add optimistically — socket will deliver it
+      const res = await chatAPI.sendMessage(chatId, content.trim(), sid);
+      const raw = res.data?.data || res.data;
+      const newMsg = normalizeMsg(raw);
+      console.log('[Chat] sendMessage success:', newMsg?.id);
       return newMsg;
     } catch (err) {
+      console.error('[Chat] sendMessage failed:', err.response?.status, err.message);
       const msg = err.response?.data?.message || 'Failed to send message';
       setError(msg);
       return null;
     }
-  }, [chat?.id]);
+  }, []);
 
   /** Send typing indicator */
   const sendTyping = useCallback((isTyping) => {
-    if (!chat?.id) return;
-    chatAPI.sendTyping(chat.id, isTyping).catch(() => {});
-  }, [chat?.id]);
-
-  // Keep chat ref for socket callbacks
-  const chatRef = useRef(null);
-  useEffect(() => { chatRef.current = chat; }, [chat]);
+    const chatId = chatRef.current?.id;
+    if (!chatId) return;
+    chatAPI.sendTyping(chatId, isTyping).catch(() => {});
+  }, []);
 
   /** Handle incoming message from socket */
   const handleIncomingMessage = useCallback((data) => {
-    if (data.ticketId === chatRef.current?.id && data.message) {
+    const currentChatId = chatRef.current?.id;
+    if (data.ticketId === currentChatId && data.message) {
       setMessages(prev => {
-        if (prev.some(m => m.id === data.message.id)) return prev;
-        return [...prev, normalizeMsg(data.message)];
+        const incoming = data.message;
+        // Dedup 1: exact ID match
+        if (prev.some(m => m.id === incoming.id)) return prev;
+        // Dedup 2: optimistic temp message with same content from same sender
+        // (socket arrives before replaceMessage completes)
+        if (prev.some(m =>
+          m.id?.startsWith('temp-') &&
+          m.content === incoming.content &&
+          m.isFromAdmin === incoming.isFromAdmin
+        )) return prev;
+        return [...prev, normalizeMsg(incoming)];
       });
     }
   }, []);
@@ -206,10 +248,26 @@ export default function useChat() {
   /** Reset chat */
   const resetChat = useCallback(() => {
     setChat(null);
+    chatRef.current = null;
     setMessages([]);
     setIsTyping(false);
     setTypingName('');
     setError(null);
+  }, []);
+
+  /** Add an optimistic message to the list */
+  const addMessage = useCallback((msg) => {
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  /** Replace a temp message with the real server message */
+  const replaceMessage = useCallback((tempId, realMsg) => {
+    setMessages(prev => prev.map(m => m.id === tempId ? realMsg : m));
+  }, []);
+
+  /** Remove a temp message (on send failure) */
+  const removeMessage = useCallback((tempId) => {
+    setMessages(prev => prev.filter(m => m.id !== tempId));
   }, []);
 
   return {
@@ -220,21 +278,14 @@ export default function useChat() {
     isTyping,
     isAiTyping,
     typingName,
+    chatMode,
     initChat,
     sendMessage,
     sendTyping,
     resetChat,
+    addMessage,
+    replaceMessage,
+    removeMessage,
     isSocketConnected: socketConnected,
-  };
-}
-
-// ── Helpers ──
-
-function normalizeMsg(msg) {
-  if (!msg) return msg;
-  return {
-    ...msg,
-    isFromAdmin: msg.isFromAdmin !== undefined ? msg.isFromAdmin : !!msg.is_from_admin,
-    createdAt: msg.createdAt || msg.created_at,
   };
 }

@@ -160,7 +160,7 @@ export default function SupportAdminPage() {
         const msgs = Array.isArray(t.messages) ? t.messages : [];
         const last = msgs[msgs.length - 1];
         // Admin already has the latest word — nothing to flag.
-        if (last?.is_from_admin) return false;
+        if (last?.is_from_admin || last?.isFromAdmin) return false;
         const seen = seenChatRef.current[t.id];
         // Never opened this session → new conversation. Otherwise, only flag when
         // a customer message arrived after the admin last opened it.
@@ -185,26 +185,43 @@ export default function SupportAdminPage() {
   }, []);
 
   /**
-   * Live chat:message subscription — append messages to the open thread and
-   * refresh the badge immediately when a customer sends a new message.
+   * Chat badge refresh via socket — lightweight, no API calls on every message.
+   * Only increments/decrements the badge count from socket data.
+   * Full badge refresh only on mount and every 30s (already handled above).
    */
   useEffect(() => {
     connectRealtime().catch(() => {});
+    let badgeTimer = null;
 
     const unsub = onRealtimeEvent('chat:message', (data) => {
       // Only append when the message belongs to the currently-open conversation.
-      if (data?.ticketId === chatTicketIdRef.current && data?.message?.id) {
-        setChatMessages(prev =>
-          prev.some(m => m.id === data.message.id) ? prev : [...prev, data.message]
-        );
+      if (data?.ticketId === chatTicketIdRef.current && data?.message) {
+        setChatMessages(prev => {
+          const incoming = data.message;
+          // Dedup: exact ID match
+          if (prev.some(m => m.id === incoming.id)) return prev;
+          // Dedup: admin message with same content already exists (optimistic temp)
+          const isIncomingAdmin = incoming.isFromAdmin ?? incoming.is_from_admin;
+          if (isIncomingAdmin && prev.some(m =>
+            (m.isFromAdmin || m.is_from_admin) && m.content === incoming.content
+          )) return prev;
+          return [...prev, incoming];
+        });
         scrollThreadToBottom();
       }
-      // A customer message (in any conversation) means the badge needs a refresh.
-      if (data?.message && !data?.isAdmin) {
-        refreshChatBadge();
+      // Lightweight badge: just increment counter, NO API call
+      if (data?.message && !data?.isAdmin && data?.ticketId !== chatTicketIdRef.current) {
+        setChatBadge(prev => prev + 1);
+      }
+      // Debounced full badge refresh — at most once per 30 seconds
+      if (!badgeTimer) {
+        badgeTimer = setTimeout(() => {
+          refreshChatBadge();
+          badgeTimer = null;
+        }, 30000);
       }
     });
-    return () => unsub();
+    return () => { unsub(); if (badgeTimer) clearTimeout(badgeTimer); };
   }, [refreshChatBadge, scrollThreadToBottom]);
 
   const customerName = (t) =>
@@ -248,18 +265,28 @@ export default function SupportAdminPage() {
     const text = chatInput.trim();
     if (!text || !chatTicket || sendingChat) return;
     setSendingChat(true);
+    setChatInput('');
+    // Optimistic: show message instantly
+    const tempId = `support-temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setChatMessages(prev => [...prev, { id: tempId, content: text, is_from_admin: true, isFromAdmin: true, senderId: 'admin', senderName: 'You', createdAt: new Date().toISOString() }]);
     try {
       const r = await adminAPI.sendAdminChatMessage(chatTicket.id, text);
-      // Ignore the response if the admin switched to a different conversation meanwhile.
       if (chatTicketIdRef.current !== chatTicket.id) return;
       const msg = r.data?.data || r.data;
       if (msg?.id) {
-        setChatMessages(prev => [...prev, msg]);
-        setChatInput('');
-        // Our reply is now the latest message — refresh the badge.
+        // Replace optimistic with real message
+        setChatMessages(prev => prev.map(m => m.id === tempId ? { ...msg, is_from_admin: true, isFromAdmin: true } : m));
         refreshChatBadge();
+      } else {
+        setChatMessages(prev => prev.filter(m => m.id !== tempId));
+        setChatInput(text);
+        toast.error('Failed');
       }
-    } catch { toast.error('Failed to send message'); } finally { setSendingChat(false); }
+    } catch {
+      setChatMessages(prev => prev.filter(m => m.id !== tempId));
+      setChatInput(text);
+      toast.error('Failed to send message');
+    } finally { setSendingChat(false); }
   };
 
   const resolveTicket = async (id) => {
@@ -548,7 +575,20 @@ export default function SupportAdminPage() {
                 ) : chatMessages.length === 0 ? (
                   <div className="empty-state"><div className="empty-state-icon">💬</div><h3>No messages yet</h3><p>Start the conversation with the customer.</p></div>
                 ) : chatMessages.map(m => {
-                  const mine = !!m.is_from_admin;
+                  // Support both snake_case (from DB) and camelCase (from socket)
+                  const mine = !!(m.is_from_admin ?? m.isFromAdmin);
+                  const contentTime = m.created_at || m.createdAt;
+                  // Parse image messages
+                  let renderContent = m.content;
+                  let isImage = false;
+                  let imageUrl = null;
+                  try {
+                    const parsed = JSON.parse(m.content);
+                    if (parsed.type === 'image' && parsed.url) { isImage = true; imageUrl = parsed.url; }
+                  } catch {}
+                  // Skip csat/system messages
+                  const raw = (m.content || '').trim().toLowerCase();
+                  if (raw.startsWith('csat:') || raw === 'system:chat_closed') return null;
                   return (
                     <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                       <div style={{ maxWidth: '78%' }}>
@@ -563,10 +603,12 @@ export default function SupportAdminPage() {
                           borderBottomRightRadius: mine ? 4 : 14,
                           borderBottomLeftRadius: mine ? 14 : 4,
                         }}>
-                          {m.content}
+                          {isImage ? (
+                            <img src={imageUrl} alt="Shared" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: 8, cursor: 'pointer' }} loading="lazy" onClick={() => window.open(imageUrl, '_blank')} />
+                          ) : m.content}
                         </div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
-                          {mine ? 'You' : customerName(chatTicket)} · {chatTime(m.created_at)}
+                          {mine ? 'You' : customerName(chatTicket)} · {chatTime(contentTime)}
                         </div>
                       </div>
                     </div>

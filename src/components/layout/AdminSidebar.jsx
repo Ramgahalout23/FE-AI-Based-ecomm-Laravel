@@ -128,7 +128,7 @@ export default function AdminSidebar() {
     setActiveSection(getActiveSection());
   }, [location.pathname, getActiveSection]);
 
-  const [badgeCounts, setBadgeCounts] = useState({ products: null, orders: null, abandoned: null, reviews: null, notifications: null });
+  const [badgeCounts, setBadgeCounts] = useState({ products: null, orders: null, abandoned: null, reviews: null, notifications: null, chat: null });
 
   useEffect(() => {
     let active = true;
@@ -136,11 +136,12 @@ export default function AdminSidebar() {
       const token = localStorage.getItem('adminToken') || localStorage.getItem('authToken');
       if (!token) return;
       try {
-        const [metricsRes, productsRes, abandonedRes, notifRes] = await Promise.all([
+        const [metricsRes, productsRes, abandonedRes, notifRes, chatRes] = await Promise.all([
           adminAPI.getDashboardMetrics().catch(() => ({ data: null })),
           adminAPI.getProducts({ limit: 1 }).catch(() => ({ data: null })),
           adminAPI.getAbandonedCarts().catch(() => ({ data: null })),
           notificationsAPI.getUnread().catch(() => ({ data: null })),
+          import('../../api/tickets').then(m => m.chatAPI.getAdminConversations({ page: 1, limit: 1 })).catch(() => ({ data: null })),
         ]);
         if (!active) return;
         const metrics = metricsRes.data?.data || metricsRes.data || {};
@@ -151,12 +152,15 @@ export default function AdminSidebar() {
         if (Array.isArray(notifPayload)) notifCount = notifPayload.length;
         else if (notifPayload?.count !== undefined) notifCount = notifPayload.count;
         else if (typeof notifPayload === 'number') notifCount = notifPayload;
+        const chatData = chatRes?.data?.data;
+        const chatCount = chatData?.total || (Array.isArray(chatData?.items) ? chatData.items.length : null);
         setBadgeCounts({
           products: productsData.total !== undefined ? productsData.total : null,
           orders: metrics.totalOrders !== undefined ? metrics.totalOrders : null,
           abandoned: Array.isArray(abandonedList) ? abandonedList.length : null,
           reviews: metrics.pendingReviews !== undefined ? metrics.pendingReviews : null,
           notifications: notifCount,
+          chat: chatCount,
         });
       } catch (err) { console.warn('Failed to load sidebar counts:', err); }
     };
@@ -188,6 +192,7 @@ export default function AdminSidebar() {
       case 'Abandoned Carts': return badgeCounts.abandoned !== null ? Number(badgeCounts.abandoned) : null;
       case 'Reviews': return badgeCounts.reviews !== null ? Number(badgeCounts.reviews) : null;
       case 'Notifications': return badgeCounts.notifications !== null && badgeCounts.notifications > 0 ? Number(badgeCounts.notifications) : null;
+      case 'Live Chat': return badgeCounts.chat !== null && badgeCounts.chat > 0 ? Number(badgeCounts.chat) : null;
       default: return null;
     }
   };
