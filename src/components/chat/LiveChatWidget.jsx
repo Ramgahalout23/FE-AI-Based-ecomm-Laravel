@@ -61,30 +61,7 @@ export default function LiveChatWidget() {
   const lastMessageCountRef = useRef(0);
   const unreadCountRef = useRef(0);
 
-  // Play notification sound — reuse singleton AudioContext
-  const playNotificationSound = useCallback(() => {
-    try {
-      if (!window.__chatAudioCtx || window.__chatAudioCtx.state === 'closed') {
-        window.__chatAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      const c = window.__chatAudioCtx;
-      const osc = c.createOscillator();
-      const gain = c.createGain();
-      osc.connect(gain);
-      gain.connect(c.destination);
-      osc.frequency.setValueAtTime(800, c.currentTime);
-      osc.frequency.setValueAtTime(600, c.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.3, c.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.3);
-      osc.start(c.currentTime);
-      osc.stop(c.currentTime + 0.3);
-    } catch {}
-  }, []);
 
-  // Vibrate on mobile
-  const vibrate = useCallback(() => {
-    try { navigator.vibrate?.(200); } catch {}
-  }, []);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -105,13 +82,11 @@ export default function LiveChatWidget() {
         if (!isOpen) {
           unreadCountRef.current += newUnread;
           setHasUnread(true);
-          playNotificationSound();
-          vibrate();
         }
       }
     }
     lastMessageCountRef.current = newCount;
-  }, [messages, isOpen, playNotificationSound, vibrate]);
+  }, [messages, isOpen]);
 
   // Hide the chat icon while the fullscreen reel player is open
   useEffect(() => {

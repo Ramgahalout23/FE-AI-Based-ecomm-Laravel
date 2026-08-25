@@ -137,6 +137,11 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Auto-attach chat session ID for all /chat/ requests
+  const chatSessionId = localStorage.getItem('chatSessionId');
+  if (chatSessionId && config.url?.includes('/chat/')) {
+    config.headers['X-Session-ID'] = chatSessionId;
+  }
   return config;
 });
 

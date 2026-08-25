@@ -44,28 +44,7 @@ function isHiddenMessage(msg) {
   const c = (msg?.content || '').trim().toLowerCase();
   return c.startsWith('csat:') || c.startsWith('csat ') || c === 'csat:good' || c === 'csat:bad' || c === 'csat:neutral' || c.startsWith('{"type":"csat"}') || c === 'system:chat_closed';
 }
-// Singleton AudioContext — reuse instead of creating one per message
-let sharedAudioCtx = null;
-let lastSoundTime = 0;
-function playNotifSound() {
-  const now = Date.now();
-  if (now - lastSoundTime < 2000) return; // Debounce: max once per 2s
-  lastSoundTime = now;
-  try {
-    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    const c = sharedAudioCtx;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.connect(g); g.connect(c.destination);
-    o.frequency.setValueAtTime(800, c.currentTime);
-    o.frequency.setValueAtTime(600, c.currentTime + 0.1);
-    g.gain.setValueAtTime(0.15, c.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, c.currentTime + 0.2);
-    o.start(c.currentTime); o.stop(c.currentTime + 0.2);
-  } catch {}
-}
+// Sound removed per user request
 function StatusBadge({ status }) {
   const map = { OPEN: { c: '#22c55e', b: '#dcfce7', l: 'Active' }, IN_PROGRESS: { c: '#2563eb', b: '#dbeafe', l: 'In Progress' }, WAITING_CUSTOMER: { c: '#f59e0b', b: '#fef3c7', l: 'Waiting' }, RESOLVED: { c: '#6b7280', b: '#f3f4f6', l: 'Resolved' }, CLOSED: { c: '#9ca3af', b: '#f9fafb', l: 'Closed' } };
   const s = map[status] || map.OPEN;
@@ -123,6 +102,9 @@ export default function ChatPanel() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState(null);
+  const [autoReply, setAutoReply] = useState({ enabled: true, timeout: 120, message: '' });
+  const [showAutoReplySettings, setShowAutoReplySettings] = useState(false);
+  const [savingAutoReply, setSavingAutoReply] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -137,15 +119,24 @@ export default function ChatPanel() {
     try {
       const res = await chatAPI.getAdminConversations({ page: 1, limit: 50 });
       const items = res.data?.data?.items || res.data?.data || [];
-      setConversations(items);
-      const lm = {};
-      items.forEach(c => {
-        const vis = (c.ticketmessage || []).filter(m => !isHiddenMessage(m));
-        // Messages are desc (newest first) — first visible is latest
-        if (vis.length > 0) lm[c.id] = vis[0].content;
-      });
-      setLastMessages(lm);
-    } catch {} finally { if (showSpinner) setLoading(false); }
+      // Only update if we got real data — NEVER overwrite with empty array on failure
+      if (Array.isArray(items) && items.length > 0) {
+        setConversations(items);
+        const lm = {};
+        items.forEach(c => {
+          const vis = (c.ticketmessage || []).filter(m => !isHiddenMessage(m));
+          if (vis.length > 0) lm[c.id] = vis[0].content;
+        });
+        setLastMessages(lm);
+      } else if (showSpinner) {
+        // First load with no data — show empty state (don't hide on bg refresh)
+        setConversations([]);
+      }
+      // If items is empty on background refresh, keep existing conversations
+    } catch (err) {
+      console.warn('[ChatPanel] loadConversations failed:', err?.message);
+      // NEVER clear conversations on failure — keep what we have
+    } finally { if (showSpinner) setLoading(false); }
   }, []);
 
   const loadChatMode = useCallback(async () => {
@@ -156,6 +147,19 @@ export default function ChatPanel() {
     const m = chatMode === 'ai' ? 'live' : 'ai';
     setModeLoading(true);
     try { await chatAPI.setChatMode(m); setChatMode(m); toast.success(`Mode: ${m === 'ai' ? 'AI' : 'Live'}`); } catch { toast.error('Failed'); } finally { setModeLoading(false); }
+  };
+
+  const loadAutoReplySettings = useCallback(async () => {
+    try { const res = await chatAPI.getAutoReplySettings(); if (res.data?.data) setAutoReply(res.data.data); } catch {}
+  }, []);
+
+  const saveAutoReplySettings = async () => {
+    setSavingAutoReply(true);
+    try {
+      await chatAPI.updateAutoReplySettings(autoReply);
+      toast.success('Auto-reply settings saved');
+      setShowAutoReplySettings(false);
+    } catch { toast.error('Failed to save'); } finally { setSavingAutoReply(false); }
   };
 
   const loadMessages = useCallback(async (id) => {
@@ -251,7 +255,7 @@ export default function ChatPanel() {
 
   const visibleMessages = useMemo(() => messages.filter(m => !isHiddenMessage(m)), [messages]);
 
-  // ── Socket: ONE listener, ultra-lean handler ──
+  // ── Socket: ONE listener, ultra-lean handler — ZERO API calls from here ──
   useEffect(() => {
     const socket = getAdminSocket();
     if (!socket) return;
@@ -262,50 +266,30 @@ export default function ChatPanel() {
     const onChatMessage = (data) => {
       const cur = selectedChatRef.current;
 
-      // Add to open chat — bulletproof dedup
+      // 1. Add to open chat — bulletproof dedup (only if viewing this ticket)
       if (cur && data.ticketId === cur.id && data.message) {
         setMessages(p => {
           const incoming = data.message;
-          // 1. Exact ID match (most common — real message already added by API)
           if (p.some(m => m.id === incoming.id)) return p;
-          // 2. Admin message: skip if ANY admin message with same content exists
-          //    (covers race: socket arrives before API replaces optimistic temp)
-          if (incoming.isFromAdmin && p.some(m =>
-            m.isFromAdmin && m.content === incoming.content
-          )) return p;
-          // 3. Customer message: skip if same sender sent same content within 2s
-          if (!incoming.isFromAdmin && p.some(m =>
-            !m.isFromAdmin && m.senderId === incoming.senderId &&
-            m.content === incoming.content &&
-            Math.abs(new Date(m.createdAt).getTime() - new Date(incoming.createdAt).getTime()) < 2000
-          )) return p;
+          if (incoming.isFromAdmin && p.some(m => m.isFromAdmin && m.content === incoming.content)) return p;
+          if (!incoming.isFromAdmin && p.some(m => !m.isFromAdmin && m.senderId === incoming.senderId && m.content === incoming.content && Math.abs(new Date(m.createdAt).getTime() - new Date(incoming.createdAt).getTime()) < 2000)) return p;
           return [...p, incoming];
         });
       }
 
-      // Sound + unread for customer messages outside open chat
-      if (data.message && !data.message.isFromAdmin) {
-        playNotifSound();
-        if (!cur || data.ticketId !== cur.id) {
-          setUnreadCounts(p => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
-        }
+      // 2. Unread count for messages outside open chat
+      if (data.message && !data.message.isFromAdmin && (!cur || data.ticketId !== cur.id)) {
+        setUnreadCounts(p => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
       }
 
-      // Lightweight last-message update (no full array copy)
+      // 3. Update last-message preview inline — NO API CALL
       if (data.message) {
-        setLastMessages(prev => {
-          if (prev[data.ticketId] === data.message.content) return prev; // Skip if same
-          return { ...prev, [data.ticketId]: data.message.content };
-        });
+        setLastMessages(prev => ({ ...prev, [data.ticketId]: data.message.content }));
+        // Also update conversation in-place so sidebar shows latest
+        setConversations(prev => prev.map(c => c.id === data.ticketId ? { ...c, updatedAt: new Date().toISOString() } : c));
       }
-
-      // For brand-new conversations not yet in the list, do a debounced background refresh
-      if (!conversationsRef.current.some(c => c.id === data.ticketId) && !loadingConvsRef.current) {
-        loadingConvsRef.current = true;
-        setTimeout(() => {
-          loadConversations(false).finally(() => { loadingConvsRef.current = false; });
-        }, 500);
-      }
+      // NOTE: For brand-new conversations, user clicks Refresh button to load them.
+      // We do NOT call loadConversations from the socket handler to avoid freezes.
     };
 
     const onTyping = (d) => {
@@ -332,7 +316,7 @@ export default function ChatPanel() {
     };
   }, []);
 
-  useEffect(() => { loadConversations(); loadChatMode(); }, [loadConversations, loadChatMode]);
+  useEffect(() => { loadConversations(); loadChatMode(); loadAutoReplySettings(); }, [loadConversations, loadChatMode, loadAutoReplySettings]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [visibleMessages.length]);
   useEffect(() => {
     const i = setInterval(() => {
@@ -375,6 +359,35 @@ export default function ChatPanel() {
             <button onClick={handleSwitchMode} disabled={modeLoading} style={{ flex: 1, padding: '9px 0', borderRadius: '10px', border: 'none', cursor: 'pointer', background: chatMode === 'ai' ? 'white' : 'transparent', boxShadow: chatMode === 'ai' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', fontWeight: 700, fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', color: chatMode === 'ai' ? '#6366f1' : '#9ca3af', transition: 'all 0.2s' }}><Bot size={15} /> AI {chatMode === 'ai' ? 'ON' : 'OFF'}</button>
             <button onClick={handleSwitchMode} disabled={modeLoading} style={{ flex: 1, padding: '9px 0', borderRadius: '10px', border: 'none', cursor: 'pointer', background: chatMode === 'live' ? 'white' : 'transparent', boxShadow: chatMode === 'live' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none', fontWeight: 700, fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', color: chatMode === 'live' ? '#22c55e' : '#9ca3af', transition: 'all 0.2s' }}><Headphones size={15} /> Live {chatMode === 'live' ? 'ON' : 'OFF'}</button>
           </div>
+          {chatMode === 'live' && (
+            <div style={{ marginBottom: '10px' }}>
+              <button onClick={() => setShowAutoReplySettings(!showAutoReplySettings)} style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #e5e7eb', background: autoReply.enabled ? '#f0fdf4' : '#fafafa', cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: autoReply.enabled ? '#16a34a' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>⚡ Auto-reply {autoReply.enabled ? 'ON' : 'OFF'}</span>
+                <span style={{ fontSize: '10px', color: '#9ca3af' }}>{autoReply.timeout}s</span>
+              </button>
+              {showAutoReplySettings && (
+                <div style={{ marginTop: '8px', padding: '12px', background: 'white', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={autoReply.enabled} onChange={e => setAutoReply(p => ({ ...p, enabled: e.target.checked }))} style={{ width: '16px', height: '16px', accentColor: '#22c55e' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Enable auto-reply</span>
+                  </label>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: '4px' }}>Timeout (seconds)</label>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {[60, 120, 180, 300].map(s => (
+                        <button key={s} onClick={() => setAutoReply(p => ({ ...p, timeout: s }))} style={{ flex: 1, padding: '6px', borderRadius: '6px', border: `1px solid ${autoReply.timeout === s ? '#3b82f6' : '#e5e7eb'}`, background: autoReply.timeout === s ? '#eff6ff' : 'white', color: autoReply.timeout === s ? '#2563eb' : '#6b7280', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}>{s < 60 ? `${s / 60}m` : `${s / 60}m`}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: '4px' }}>Auto-reply message</label>
+                    <textarea value={autoReply.message} onChange={e => setAutoReply(p => ({ ...p, message: e.target.value }))} rows={3} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px', resize: 'vertical', outline: 'none', fontFamily: 'inherit' }} placeholder="Thank you for your patience..." />
+                  </div>
+                  <button onClick={saveAutoReplySettings} disabled={savingAutoReply} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: 'none', background: '#2563eb', color: 'white', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: savingAutoReply ? 0.6 : 1 }}>{savingAutoReply ? 'Saving...' : 'Save'}</button>
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ position: 'relative' }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search conversations..." style={{ width: '100%', padding: '8px 12px 8px 32px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px', outline: 'none', background: '#f9fafb', color: '#111' }} />

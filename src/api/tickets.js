@@ -108,4 +108,12 @@ export const chatAPI = {
   /** Admin: delete entire chat */
   adminDeleteChat: (ticketId) =>
     adminClient.delete(`/admin/chat/${ticketId}`),
+
+  /** Admin: get auto-reply settings */
+  getAutoReplySettings: () =>
+    adminClient.get('/admin/chat/auto-reply-settings'),
+
+  /** Admin: update auto-reply settings */
+  updateAutoReplySettings: (data) =>
+    adminClient.put('/admin/chat/auto-reply-settings', data),
 };
