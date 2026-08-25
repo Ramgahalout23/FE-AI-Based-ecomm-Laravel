@@ -124,7 +124,7 @@ export default function LogViewerAdminPage() {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, per_page: 100, total: 0, total_pages: 1 });
   const [files, setFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState('laravel.log');
+  const [selectedFile, setSelectedFile] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [expandedLines, setExpandedLines] = useState(new Set());
   const [copiedId, setCopiedId] = useState(null);
@@ -149,7 +149,7 @@ export default function LogViewerAdminPage() {
   const streamPollRef = useRef(null);
   const streamOffsetRef = useRef(null);
   const streamContainerRef = useRef(null);
-  const streamFileRef = useRef('laravel.log');
+  const streamFileRef = useRef('combined.log');
 
   const fetchLogs = useCallback(async (p = page, file = selectedFile) => {
     try {
@@ -496,7 +496,7 @@ export default function LogViewerAdminPage() {
                 {files.map((f) => (
                   <option key={f.name} value={f.name}>{f.name} ({formatBytes(f.size)})</option>
                 ))}
-                {files.length === 0 && <option value="laravel.log">laravel.log</option>}
+                {files.length === 0 && <option value="">No log files found</option>}
               </select>
               <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--muted)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={autoRefresh}
@@ -792,7 +792,7 @@ export default function LogViewerAdminPage() {
           {streamError && (
             <div className="admin-alert danger mb-4" style={{ fontSize: '0.82rem' }}>
               <span className="admin-alert-icon">⚠️</span>
-              <div>{streamError}. Ensure the <code>logs:stream</code> artisan command is running (or polling fallback is active).</div>
+              <div>{streamError}. Log streaming uses polling fallback — check server logs.</div>
             </div>
           )}
 
@@ -831,7 +831,7 @@ export default function LogViewerAdminPage() {
                   Start the stream to begin receiving real-time log events.
                 </p>
                 <div style={{ marginTop: 16, fontSize: '0.78rem', color: 'var(--muted)' }}>
-                  <div>💡 Requires the <code>logs:stream</code> artisan command running on the server</div>
+                  <div>💡 Uses polling to fetch latest log entries from the server</div>
                   <div style={{ marginTop: 4 }}>🔄 Falls back to polling every 2s if WebSocket is unavailable</div>
                 </div>
               </div>
