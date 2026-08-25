@@ -27,6 +27,9 @@ export const chatAPI = {
   /** Init or return an existing chat ticket */
   initChat: (sessionId) => client.post('/chat/init', {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
 
+  /** Start a new conversation (close current, create fresh) */
+  startNewConversation: (sessionId) => client.post('/chat/new', {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
+
   /** Send a message in a chat */
   sendMessage: (ticketId, content, sessionId) =>
     client.post(`/chat/${ticketId}/messages`, { content }, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),

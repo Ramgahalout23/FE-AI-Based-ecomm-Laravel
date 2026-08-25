@@ -245,6 +245,35 @@ export default function useChat() {
     };
   }, []);
 
+  /** Start a fresh conversation — close current ticket and create new one */
+  const newConversation = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const sid = sessionIdRef.current;
+      console.log('[Chat] Starting new conversation, sessionId:', sid);
+      const res = await chatAPI.startNewConversation(sid);
+      const ticket = res.data?.data || res.data;
+      console.log('[Chat] New conversation:', ticket?.id);
+      setChat(ticket);
+      chatRef.current = ticket;
+      if (ticket?.chatMode) setChatMode(ticket.chatMode);
+      const list = ticket?.messages || ticket?.ticketmessage || [];
+      setMessages(Array.isArray(list) ? list.map(normalizeMsg) : []);
+      setIsTyping(false);
+      setIsAiTyping(false);
+      setTypingName('');
+      return ticket;
+    } catch (err) {
+      console.error('[Chat] newConversation failed:', err.message);
+      const msg = err.response?.data?.message || 'Failed to start new conversation';
+      setError(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   /** Reset chat */
   const resetChat = useCallback(() => {
     setChat(null);
@@ -280,6 +309,7 @@ export default function useChat() {
     typingName,
     chatMode,
     initChat,
+    newConversation,
     sendMessage,
     sendTyping,
     resetChat,

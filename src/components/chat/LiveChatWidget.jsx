@@ -37,7 +37,7 @@ function getDateLabel(dateStr) {
 export default function LiveChatWidget() {
   const {
     chat, messages, error, isTyping, isAiTyping, typingName, chatMode,
-    initChat, sendMessage, isSocketConnected,
+    initChat, newConversation, sendMessage, isSocketConnected,
     addMessage, replaceMessage, removeMessage,
   } = useChat();
 
@@ -421,30 +421,60 @@ export default function LiveChatWidget() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'rgba(255,255,255,0.6)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                borderRadius: '6px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
-                e.currentTarget.style.background = 'none';
-              }}
-              aria-label="Close chat"
-            >
-              <Minus size={18} />
-            </button>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Start a new conversation? Current chat will be closed.')) {
+                    await newConversation();
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  borderRadius: '6px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                  e.currentTarget.style.background = 'none';
+                }}
+                title="New Conversation"
+              >
+                <RefreshCw size={16} />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  borderRadius: '6px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                  e.currentTarget.style.background = 'none';
+                }}
+                aria-label="Close chat"
+              >
+                <Minus size={18} />
+              </button>
+            </div>
           </div>
 
           {/* ── Messages Area ── */}
