@@ -63,10 +63,14 @@ export default function LiveChatWidget() {
 
 
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (safe for mobile keyboard)
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (isOpen && messagesEndRef.current) {
+      requestAnimationFrame(() => {
+        try {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch {}
+      });
     }
   }, [messages, isOpen]);
 
@@ -209,20 +213,26 @@ export default function LiveChatWidget() {
       createdAt: new Date().toISOString(),
     });
 
-    const result = await sendMessage(msg);
+    try {
+      const result = await sendMessage(msg);
 
-    if (result) {
-      replaceMessage(tempId, result);
-    } else {
-      removeMessage(tempId);
-      const ticket = await initChat();
-      if (ticket?.id) {
-        const retry = await sendMessage(msg);
-        if (retry) addMessage(retry);
-        else toast.error('Failed to send message');
+      if (result) {
+        replaceMessage(tempId, result);
       } else {
-        toast.error('Failed to connect to chat');
+        removeMessage(tempId);
+        const ticket = await initChat();
+        if (ticket?.id) {
+          const retry = await sendMessage(msg);
+          if (retry) addMessage(retry);
+          else toast.error('Failed to send message');
+        } else {
+          toast.error('Failed to connect to chat');
+        }
       }
+    } catch (err) {
+      console.error('[Chat] handleSend error:', err);
+      removeMessage(tempId);
+      toast.error('Failed to send message');
     }
   }, [inputValue, sendMessage, initChat, addMessage, replaceMessage, removeMessage]);
 
@@ -397,7 +407,7 @@ export default function LiveChatWidget() {
           width: '360px',
           maxWidth: 'calc(100vw - 48px)',
           height: '520px',
-          maxHeight: 'calc(100vh - 140px)',
+          maxHeight: 'calc(100dvh - 140px)',
           background: '#ffffff',
           borderRadius: '16px',
           boxShadow: '0 8px 40px rgba(0,0,0,0.18), 0 2px 12px rgba(0,0,0,0.08)',
@@ -859,6 +869,12 @@ export default function LiveChatWidget() {
         }
         .chat-float-window {
           bottom: 156px !important;
+          height: min(520px, calc(100dvh - 140px)) !important;
+        }
+        @supports not (height: 100dvh) {
+          .chat-float-window {
+            height: min(520px, calc(100vh - 140px)) !important;
+          }
         }
 
         @keyframes spin {

@@ -289,7 +289,9 @@ function StorefrontLayout() {
       <EmailPopupBanner />
       {deferChatWidgets && chatbotEnabled && (
         <Suspense fallback={null}>
-          <LiveChatWidget />
+          <ErrorBoundary title="Chat Error" description="The chat widget encountered an error.">
+            <LiveChatWidget />
+          </ErrorBoundary>
         </Suspense>
       )}
       {deferChatWidgets && location.pathname === '/' && whatsappEnabled && whatsappNumber && (
