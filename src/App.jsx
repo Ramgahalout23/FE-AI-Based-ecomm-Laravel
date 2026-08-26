@@ -226,10 +226,10 @@ function StorefrontLayout() {
   useEffect(() => {
     if (isCartOpen) setCartEverOpened(true);
   }, [isCartOpen]);
-  // Defer chat widgets past initial paint so their chunks don't block LCP.
+  // Show chat widget quickly — 500ms is enough to avoid blocking initial paint
   const [deferChatWidgets, setDeferChatWidgets] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setDeferChatWidgets(true), 2000);
+    const t = setTimeout(() => setDeferChatWidgets(true), 500);
     return () => clearTimeout(t);
   }, []);
   // Keep admin-table cards labeled on mobile for storefront pages too
