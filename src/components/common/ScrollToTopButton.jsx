@@ -50,7 +50,7 @@ export default function ScrollToTopButton() {
           onClick={scrollToTop}
           className="scroll-to-top-desktop fixed z-[9997] flex items-center justify-center"
           style={{
-            bottom: '120px',
+            bottom: '24px',
             left: '20px',
             width: '44px',
             height: '44px',
@@ -94,7 +94,7 @@ export default function ScrollToTopButton() {
           <style>{`
             @media (min-width: 1024px) {
               .scroll-to-top-desktop {
-                bottom: 88px !important;
+                bottom: 24px !important;
                 left: 28px !important;
               }
             }
