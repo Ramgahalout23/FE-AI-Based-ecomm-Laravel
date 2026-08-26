@@ -1060,7 +1060,7 @@ function ProductMultiSelect({ selected, onChange }) {
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: '#fff', minHeight: 38, cursor: 'text' }} onClick={() => setOpen(true)}>
-        {selected.map(pid => (
+        {selected.filter(Boolean).map(pid => (
           <span key={pid} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.72rem', padding: '2px 6px', borderRadius: 4, background: '#f3f4f6', border: '1px solid #e5e7eb' }}>
             {pid.slice(0, 8)}...
             <button onClick={(e) => { e.stopPropagation(); toggle(pid); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#6b7280', fontSize: '0.72rem', lineHeight: 1 }}>x</button>
