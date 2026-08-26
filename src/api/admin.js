@@ -41,6 +41,7 @@ export const adminAPI = {
   updateOrderStatus: (id, data) => adminClient.patch(`/admin/orders/${id}/status`, data),
   editOrder: (id, data) => adminClient.put(`/admin/orders/${id}/edit`, data),
   exportOrders: (params) => adminClient.get('/admin/orders/export', { params, responseType: 'blob' }),
+  refuseCod: (orderId) => adminClient.post(`/admin/orders/${orderId}/refuse-cod`),
   // Coupons
   getCoupons: (params) => adminClient.get('/admin/coupons', { params }),
   createCoupon: (data) => adminClient.post('/admin/coupons', data),

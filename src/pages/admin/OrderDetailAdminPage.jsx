@@ -1064,6 +1064,45 @@ export default function OrderDetailAdminPage() {
                           <div className="prepaid-badge"><Check size={14} /><span>PAID</span></div>
                         )}
                       </div>
+
+                      {/* COD-specific info */}
+                      {isCOD && (
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid #eee', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                          {detail.codPincode && (
+                            <div style={{ fontSize: '0.8rem' }}>
+                              <span style={{ color: '#888' }}>Pincode:</span> <strong>{detail.codPincode}</strong>
+                            </div>
+                          )}
+                          {detail.isPartialPayment && (
+                            <div style={{ fontSize: '0.8rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px' }}>
+                              <span style={{ color: '#92400e' }}>Partial Payment: </span>
+                              <strong>₹{Number(detail.partialPaymentAmount)} paid, ₹{Number(detail.partialPaymentRemaining)} pending</strong>
+                            </div>
+                          )}
+                          {detail.otpVerified && (
+                            <div style={{ fontSize: '0.8rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', color: '#166534' }}>
+                              ✓ OTP Verified
+                            </div>
+                          )}
+                          {detail.status !== 'CANCELLED' && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm('Mark this COD order as refused? This will increment the customer\'s refusal count and may block them from future COD orders.')) return;
+                                try {
+                                  await adminAPI.refuseCod(detail.id);
+                                  toast.success('Order marked as COD refused');
+                                  fetchOrder();
+                                } catch (err) {
+                                  toast.error(err?.response?.data?.message || 'Failed to refuse order');
+                                }
+                              }}
+                              style={{ marginLeft: 'auto', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: '6px', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Mark as Refused
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </>
                   );
                 })()}

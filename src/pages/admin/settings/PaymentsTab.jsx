@@ -155,9 +155,102 @@ export default function PaymentsTab({
               <label>Instructions for Checkout</label>
               <textarea rows={2} value={settings.codInstructions || ''} onChange={e => setSettings({ ...settings, codInstructions: e.target.value })} placeholder="Pay with cash upon package delivery..." />
             </div>
+            <div className="form-group form-full" style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <label style={{ fontWeight: 600 }}>🚫 COD Restrictions</label>
+            </div>
+            <div className="form-group form-full">
+              <label>Blocked Pincodes (comma-separated)</label>
+              <textarea rows={2} value={settings.codBlockedPincodes || ''} onChange={e => setSettings({ ...settings, codBlockedPincodes: e.target.value })} placeholder="281001, 110001, 400001..." style={{ fontSize: '0.85rem' }} />
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>COD will be hidden for customers shipping to these pincodes</span>
+            </div>
+            <div className="form-group">
+              <label>Max COD Refusals Before Block</label>
+              <input type="number" min={1} max={10} value={settings.codMaxRefusals || '2'} onChange={e => setSettings({ ...settings, codMaxRefusals: e.target.value })} placeholder="2" />
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Block COD for customers who refuse this many orders</span>
+            </div>
+            <div className="form-group">
+              <label>Refusal Action</label>
+              <select value={settings.codRefusalAction || 'block'} onChange={e => setSettings({ ...settings, codRefusalAction: e.target.value })}>
+                <option value="block">Block COD permanently</option>
+                <option value="warn">Show warning but allow</option>
+                <option value="notify">Notify admin only</option>
+              </select>
+            </div>
           </div>
         )}
         <div className="form-actions" style={{ marginTop: '1rem' }}><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save COD Settings'}</button></div>
+      </div>
+
+      {/* Partial Payment Configuration */}
+      <div className="detail-panel">
+        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h3>Partial Payment</h3>
+            <span className={`status-badge ${settings.partialPaymentEnabled === 'true' ? 'status-active' : 'status-pending'}`}>
+              {settings.partialPaymentEnabled === 'true' ? 'Active' : 'Disabled'}
+            </span>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={settings.partialPaymentEnabled === 'true'} onChange={e => setSettings({ ...settings, partialPaymentEnabled: e.target.checked ? 'true' : 'false' })} />
+            <strong>Enable Partial Payment</strong>
+          </label>
+        </div>
+        {settings.partialPaymentEnabled === 'true' && (
+          <div className="form-grid" style={{ marginTop: '1rem' }}>
+            <div className="form-group">
+              <label>Minimum Order Amount (₹)</label>
+              <input type="number" min={0} value={settings.partialPaymentMinAmount || '999'} onChange={e => setSettings({ ...settings, partialPaymentMinAmount: e.target.value })} placeholder="999" />
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Partial payment only available above this amount</span>
+            </div>
+            <div className="form-group">
+              <label>Advance Payment (%)</label>
+              <input type="number" min={10} max={90} value={settings.partialPaymentPercentage || '50'} onChange={e => setSettings({ ...settings, partialPaymentPercentage: e.target.value })} placeholder="50" />
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>Percentage to pay upfront (10-90%)</span>
+            </div>
+            <div className="form-group form-full">
+              <label>Instructions for Checkout</label>
+              <textarea rows={2} value={settings.partialPaymentInstructions || ''} onChange={e => setSettings({ ...settings, partialPaymentInstructions: e.target.value })} placeholder="Pay {percentage}% now, rest on delivery..." />
+            </div>
+          </div>
+        )}
+        <div className="form-actions" style={{ marginTop: '1rem' }}><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Partial Payment Settings'}</button></div>
+      </div>
+
+      {/* OTP Verification for COD */}
+      <div className="detail-panel">
+        <div className="detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h3>OTP Verification (COD Orders)</h3>
+            <span className={`status-badge ${settings.orderOtpEnabled === 'true' ? 'status-active' : 'status-pending'}`}>
+              {settings.orderOtpEnabled === 'true' ? 'Active' : 'Disabled'}
+            </span>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={settings.orderOtpEnabled === 'true'} onChange={e => setSettings({ ...settings, orderOtpEnabled: e.target.checked ? 'true' : 'false' })} />
+            <strong>Enable OTP for COD</strong>
+          </label>
+        </div>
+        {settings.orderOtpEnabled === 'true' && (
+          <div className="form-grid" style={{ marginTop: '1rem' }}>
+            <div className="form-group">
+              <label>OTP Expiry (minutes)</label>
+              <input type="number" min={1} max={30} value={settings.orderOtpExpiry || '5'} onChange={e => setSettings({ ...settings, orderOtpExpiry: e.target.value })} placeholder="5" />
+              <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>How long the OTP is valid (1-30 min)</span>
+            </div>
+            <div className="form-group form-full">
+              <div style={{ background: 'var(--off-white)', borderRadius: 'var(--radius)', padding: '1rem', fontSize: '0.85rem' }}>
+                <strong>ℹ️ How it works:</strong>
+                <ul style={{ margin: '0.5rem 0 0 1.25rem', lineHeight: 1.6 }}>
+                  <li>Customer selects COD at checkout</li>
+                  <li>System sends a 6-digit OTP to their registered phone number</li>
+                  <li>Customer must enter the OTP to confirm the order</li>
+                  <li>Reduces fake/returned COD orders significantly</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="form-actions" style={{ marginTop: '1rem' }}><button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save OTP Settings'}</button></div>
       </div>
 
       {/* Custom Dynamic Gateways Configuration */}

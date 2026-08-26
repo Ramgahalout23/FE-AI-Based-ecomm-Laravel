@@ -19,4 +19,7 @@ export const paymentsAPI = {
   verifyRazorpayPayment: (data) => client.post('/payments/razorpay/verify', data),
   // Custom gateways
   initiateCustomGateway: (data) => client.post('/payments/custom/initiate', data),
+  // COD restrictions & OTP
+  checkCodAvailability: (data) => client.post('/orders/check-cod', data),
+  generateOtp: () => client.post('/orders/generate-otp'),
 };

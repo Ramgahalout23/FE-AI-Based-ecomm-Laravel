@@ -79,6 +79,38 @@ export default function CheckoutPage() {
   const [autoDiscountPromos, setAutoDiscountPromos] = useState([]);
   const [storeOffers, setStoreOffers] = useState([]);
 
+  // COD restriction, OTP, and partial payment state
+  const [codAvailable, setCodAvailable] = useState(true);
+  const [codReason, setCodReason] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpExpiry, setOtpExpiry] = useState(null);
+  const [wantPartialPayment, setWantPartialPayment] = useState(false);
+
+  // Check COD availability when pincode changes
+  useEffect(() => {
+    if (!address.zipCode || address.zipCode.length < 6) return;
+    const checkCod = async () => {
+      try {
+        const res = await paymentsAPI.checkCodAvailability({ pincode: address.zipCode });
+        const data = res.data?.data || res.data;
+        setCodAvailable(data?.available !== false);
+        setCodReason(data?.reason || '');
+        if (data?.available === false && paymentMethod === 'COD') {
+          // Auto-switch to Razorpay if COD is blocked
+          setPaymentMethod('RAZORPAY');
+          showError(data?.reason || 'COD is not available for this pincode');
+        }
+      } catch {
+        setCodAvailable(true);
+        setCodReason('');
+      }
+    };
+    const timer = setTimeout(checkCod, 500); // debounce
+    return () => clearTimeout(timer);
+  }, [address.zipCode, paymentMethod]);
+
   // Payment methods render instantly on page load: derive them from the admin
   // settings already available via app-init, so disabled methods are hidden right
   // away. Falls back to the standard defaults if settings aren't loaded yet. The
@@ -325,6 +357,27 @@ export default function CheckoutPage() {
     }
   };
 
+  const sendOtp = async () => {
+    setOtpLoading(true);
+    try {
+      const res = await paymentsAPI.generateOtp();
+      const data = res.data?.data || res.data;
+      setOtpSent(true);
+      if (data?.expiresAt) setOtpExpiry(new Date(data.expiresAt));
+      if (data?.otp) {
+        // Dev mode: auto-fill OTP
+        setOtpCode(data.otp);
+        showSuccess(`OTP sent! (Dev: ${data.otp})`);
+      } else {
+        showSuccess('OTP sent to your phone number');
+      }
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const handleCheckout = async () => {
     if (!address.firstName || !address.lastName || !address.addressLine1 || !address.city || !address.phone) {
       fillRequiredFields();
@@ -339,6 +392,18 @@ export default function CheckoutPage() {
         showError('Password must be at least 8 characters');
         return;
       }
+    }
+    // Validate COD OTP if enabled
+    if (paymentMethod === 'COD' && getSetting('orderOtpEnabled', 'false') === 'true') {
+      if (!otpCode || otpCode.length !== 6) {
+        showError('Please enter the 6-digit OTP to verify your COD order');
+        return;
+      }
+    }
+    // Validate COD is available
+    if (paymentMethod === 'COD' && !codAvailable) {
+      showError(codReason || 'COD is not available for this pincode');
+      return;
     }
     // Validate we have items before proceeding
     if (!items || items.length === 0) {
@@ -386,6 +451,10 @@ export default function CheckoutPage() {
         shippingMethod: 'STANDARD',
         createAccount,
         password: createAccount ? password : undefined,
+        // COD restrictions & OTP
+        codPincode: address.zipCode || undefined,
+        otpCode: paymentMethod === 'COD' && otpCode ? otpCode : undefined,
+        partialPayment: paymentMethod === 'COD' && wantPartialPayment ? true : undefined,
       });
 
       const data = res.data?.data || res.data;
@@ -1336,6 +1405,61 @@ export default function CheckoutPage() {
                 );
               })}
             </div>
+
+            {/* ── COD OTP Verification ── */}
+            {paymentMethod === 'COD' && getSetting('orderOtpEnabled', 'false') === 'true' && (
+              <div className="mt-4 p-4 border-2 border-dashed border-gray-300 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck size={16} className="text-green-600" />
+                  <p className="text-sm font-semibold text-black">Verify with OTP</p>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">A 6-digit code will be sent to your phone to confirm this COD order.</p>
+                {!otpSent ? (
+                  <button onClick={sendOtp} disabled={otpLoading}
+                    className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-black transition-colors disabled:opacity-50">
+                    {otpLoading ? 'Sending...' : 'Send OTP to my phone'}
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <input type="text" inputMode="numeric" maxLength={6} value={otpCode}
+                      onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter 6-digit OTP"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none" />
+                    <button onClick={sendOtp} disabled={otpLoading}
+                      className="text-xs text-gray-500 hover:text-black underline whitespace-nowrap">
+                      {otpLoading ? 'Resending...' : 'Resend'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── COD Unavailable Warning ── */}
+            {paymentMethod === 'COD' && !codAvailable && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={14} className="text-red-600" />
+                  <p className="text-sm text-red-700 font-medium">{codReason || 'COD is not available for this pincode'}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Partial Payment Option ── */}
+            {paymentMethod === 'COD' && getSetting('partialPaymentEnabled', 'false') === 'true' && total >= parseFloat(getSetting('partialPaymentMinAmount', '999')) && (
+              <div className="mt-4 p-4 border border-gray-200 rounded-xl">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={wantPartialPayment}
+                    onChange={e => setWantPartialPayment(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-black rounded" />
+                  <div>
+                    <p className="text-sm font-semibold text-black">Pay now, rest on delivery</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Pay {getSetting('partialPaymentPercentage', '50')}% advance ({formatCurrency(total * parseFloat(getSetting('partialPaymentPercentage', '50')) / 100)}) now, rest on delivery.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
 
             {/* Place Order Button */}
             <div className="border-t pt-6 mt-6">
