@@ -830,7 +830,7 @@ export default function LiveChatWidget() {
                 onBlur={(e) => { e.target.style.borderColor = '#ddd'; }}
               />
               <button
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!inputValue.trim()}
                 style={{
                   width: '40px',
