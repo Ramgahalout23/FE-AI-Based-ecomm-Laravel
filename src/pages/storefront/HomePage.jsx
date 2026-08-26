@@ -1473,16 +1473,17 @@ function PremiumReviewSlider({ reviews: reviewsProp = [], onOpenAllReviews }) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); goPrev(); }}
-                className="hidden md:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
+                className="flex absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
                 aria-label="Previous review"
               >
-                <ChevronLeft size={16} className="transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
+                <ChevronLeft size={14} className="sm:w-4 sm:h-4 transition-transform duration-300 group-hover/arrow:-translate-x-0.5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); goNext(); }}
-                className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
+                className="flex absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white/10 backdrop-blur-xl border border-white/15 hover:bg-white/25 text-white shadow-lg shadow-black/20 items-center justify-center hover:scale-110 transition-all duration-300 active:scale-90 "
                 aria-label="Next review"
               >
+                <ChevronRight size={14} className="sm:w-4 sm:h-4 transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
                 <ChevronRight size={16} className="transition-transform duration-300 group-hover/arrow:translate-x-0.5" />
               </button>
             </>
