@@ -293,4 +293,21 @@ export const adminAPI = {
   getAdminTranslations: (lang, group = 'frontend') =>
     adminClient.get(`/admin/translations/${lang}/${group}`),
   bulkUpdateTranslations: (data) => adminClient.post('/admin/translations/bulk', data),
+
+  // Delivery Partners
+  getDeliveryPartners: (params) => adminClient.get('/admin/delivery-partners', { params }),
+  getDeliveryPartnerStats: () => adminClient.get('/admin/delivery-partners/stats'),
+  getDeliveryPartner: (id) => adminClient.get(`/admin/delivery-partners/${id}`),
+  getDeliveryPartnerOrders: (id, params) => adminClient.get(`/admin/delivery-partners/${id}/orders`, { params }),
+  createDeliveryPartner: (data) => adminClient.post('/admin/delivery-partners', data),
+  updateDeliveryPartner: (id, data) => adminClient.put(`/admin/delivery-partners/${id}`, data),
+  deleteDeliveryPartner: (id) => adminClient.delete(`/admin/delivery-partners/${id}`),
+  togglePartnerAvailability: (id) => adminClient.patch(`/admin/delivery-partners/${id}/toggle-availability`),
+  togglePartnerActive: (id) => adminClient.patch(`/admin/delivery-partners/${id}/toggle-active`),
+  assignDeliveryPartner: (data) => adminClient.post('/admin/delivery-partners/assign', data),
+  reassignDeliveryPartner: (data) => adminClient.post('/admin/delivery-partners/reassign', data),
+  autoAssignDeliveryPartner: (data) => adminClient.post('/admin/delivery-partners/auto-assign', data),
+  bulkAutoAssignPartners: () => adminClient.post('/admin/delivery-partners/bulk-auto-assign'),
+  markDelivered: (data) => adminClient.post('/admin/delivery-partners/mark-delivered', data),
+  markDeliveryFailed: (data) => adminClient.post('/admin/delivery-partners/mark-failed', data),
 };

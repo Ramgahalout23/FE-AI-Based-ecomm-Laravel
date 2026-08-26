@@ -132,6 +132,7 @@ const TrackingAdminPage = lazy(() => import('./pages/admin/TrackingAdminPage'));
 const ProductImportAdminPage = lazy(() => import('./pages/admin/ProductImportAdminPage'));
 const AuditLogAdminPage = lazy(() => import('./pages/admin/AuditLogAdminPage'));
 const LogViewerAdminPage = lazy(() => import('./pages/admin/LogViewerAdminPage'));
+const DeliveryPartnersAdminPage = lazy(() => import('./pages/admin/DeliveryPartnersAdminPage'));
 const CuratedLooksAdminPage = lazy(() => import('./pages/admin/CuratedLooksAdminPage'));
 const ReelsAdminPage = lazy(() => import('./pages/admin/ReelsAdminPage'));
 const TranslationsAdminPage = lazy(() => import('./pages/admin/TranslationsAdminPage'));
@@ -607,6 +608,7 @@ function AppContent() {
           <Route path="/admin/webhooks" element={<WebhooksAdminPage />} />
           <Route path="/admin/audit-logs" element={<AuditLogAdminPage />} />
           <Route path="/admin/logs" element={<LogViewerAdminPage />} />
+          <Route path="/admin/delivery-partners" element={<DeliveryPartnersAdminPage />} />
         </Route>
 
         {/* 404 Catch-all */}

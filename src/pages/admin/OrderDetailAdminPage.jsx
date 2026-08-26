@@ -1106,6 +1106,42 @@ export default function OrderDetailAdminPage() {
                     </>
                   );
                 })()}
+
+                {/* Delivery Partner Section */}
+                <div style={{ padding: '12px 16px', borderTop: '1px solid #eee' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Truck size={14} /> Delivery Partner
+                  </div>
+                  {detail.deliveryPartner ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem' }}>
+                        <strong>{detail.deliveryPartner.name}</strong>
+                        {detail.deliveryPartner.company && <span style={{ color: '#666', marginLeft: 8 }}>{detail.deliveryPartner.company}</span>}
+                      </div>
+                      {detail.deliveryPartner.phone && <span style={{ fontSize: '0.78rem', color: '#666' }}>📞 {detail.deliveryPartner.phone}</span>}
+                      <span style={{ fontSize: '0.75rem', color: '#888' }}>Assigned {detail.assignedAt ? new Date(detail.assignedAt).toLocaleDateString() : ''}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#999' }}>No partner assigned</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await adminAPI.autoAssignDeliveryPartner({ orderId: detail.id });
+                            toast.success(`Assigned to ${res.data?.data?.name || 'partner'}`);
+                            fetchOrder();
+                          } catch (err) {
+                            toast.error(err?.response?.data?.message || 'No partner available');
+                          }
+                        }}
+                        style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 6, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        ⚡ Auto-Assign
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {(detail.items?.length > 0) && (
                   <div className="items-section">
                     <div className="items-section-title">ITEMS</div>

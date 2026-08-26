@@ -47,6 +47,7 @@ const sections = [
       { to: '/admin/payments', icon: CreditCard, label: 'Payments' },
       { to: '/admin/returns', icon: RotateCcw, label: 'Returns' },
       { to: '/admin/shipping', icon: Truck, label: 'Shipping' },
+      { to: '/admin/delivery-partners', icon: Truck, label: 'Delivery Partners' },
       { to: '/admin/tax', icon: Percent, label: 'Tax Rates' },
     ]
   },
