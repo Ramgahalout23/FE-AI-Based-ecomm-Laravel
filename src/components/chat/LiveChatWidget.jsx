@@ -352,47 +352,57 @@ export default function LiveChatWidget() {
       {/* ─── Proactive Nudge Banner ─── */}
       {proactiveNudge && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
         <div className="cw-nudge" style={{
-          position: 'fixed', right: '20px', bottom: '88px', zIndex: 9998,
+          position: 'fixed', right: '24px', bottom: '90px', zIndex: 9998,
         }}>
+          {/* Dismiss button */}
           <button onClick={() => setProactiveDismissed(true)} style={{
-            position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px',
-            borderRadius: '50%', background: '#f3f4f6', border: '1px solid #e5e7eb',
+            position: 'absolute', top: '-4px', right: '-4px', width: '18px', height: '18px',
+            borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)',
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '12px', color: '#aaa', lineHeight: 1, padding: 0, zIndex: 1,
-            transition: 'all 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            fontSize: '10px', color: 'rgba(255,255,255,0.7)', lineHeight: 1, padding: 0, zIndex: 1,
+            transition: 'all 0.15s',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#e8e8e8'; e.currentTarget.style.color = '#666'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.color = '#aaa'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; e.currentTarget.style.color = 'white'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; }}
           >×</button>
+          {/* Main nudge bubble — dark glass matching chat button */}
           <div onClick={() => { setProactiveDismissed(false); setProactiveNudge(false); handleOpen(); }} style={{
             display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-            background: 'white', borderRadius: '24px', padding: '8px 12px 8px 10px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
-            border: '1px solid #f0f0f0', transition: 'all 0.2s',
+            background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(45,45,45,0.95))',
+            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: '28px', padding: '8px 14px 8px 10px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(255,255,255,0.08)', transition: 'all 0.25s cubic-bezier(0.16,1,0.3,1)',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,0.12)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.2)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)'; }}
           >
+            {/* Avatar — same gradient as chat button */}
             <div className="cw-nudge-avatar" style={{
-              width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #1a1a1a, #333)',
+              width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '13px', color: 'white',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              fontSize: '14px', color: 'white',
+              boxShadow: '0 2px 8px rgba(99,102,241,0.4)',
             }}>💬</div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#1a1a1a', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-                Need help? <span style={{ color: '#888', fontWeight: 400 }}>Chat with us</span>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'white', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                Need help?
+              </div>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                Chat with us ✨
               </div>
             </div>
-            <div style={{
-              padding: '5px 10px', borderRadius: '14px', background: '#1a1a1a',
-              color: 'white', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap',
-              letterSpacing: '0.3px', flexShrink: 0,
-            }}>CHAT</div>
           </div>
-          {/* Animated sparkle */}
-          <div className="cw-nudge-sparkle" />
+          {/* Tail pointing down to chat button */}
+          <div style={{
+            position: 'absolute', bottom: '-6px', right: '24px',
+            width: '12px', height: '12px',
+            background: 'rgba(26,26,26,0.95)',
+            transform: 'rotate(45deg)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+          }} />
         </div>
       )}
 
@@ -423,29 +433,19 @@ export default function LiveChatWidget() {
               to { opacity: 1; transform: translateY(0); }
             }
             .cw-nudge {
-              animation: nudgeSlide 0.4s cubic-bezier(.4,0,.2,1);
+              animation: nudgeSlide 0.5s cubic-bezier(0.16,1,0.3,1);
             }
             @keyframes nudgeSlide {
-              0% { opacity: 0; transform: translateY(12px) scale(0.9); }
-              60% { transform: translateY(-2px) scale(1.02); }
+              0% { opacity: 0; transform: translateY(16px) scale(0.85); }
+              50% { transform: translateY(-3px) scale(1.03); }
               100% { opacity: 1; transform: translateY(0) scale(1); }
             }
             .cw-nudge-avatar {
-              animation: nudgePulse 2s ease-in-out infinite;
+              animation: nudgeGlow 2s ease-in-out infinite;
             }
-            @keyframes nudgePulse {
-              0%, 100% { box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-              50% { box-shadow: 0 2px 12px rgba(0,0,0,0.25); }
-            }
-            .cw-nudge-sparkle {
-              position: absolute; top: 4px; right: 24px;
-              width: 6px; height: 6px; border-radius: 50%;
-              background: #1a1a1a;
-              animation: sparkle 2.5s ease-in-out infinite;
-            }
-            @keyframes sparkle {
-              0%, 100% { opacity: 0; transform: scale(0); }
-              50% { opacity: 0.3; transform: scale(1); }
+            @keyframes nudgeGlow {
+              0%, 100% { box-shadow: 0 2px 8px rgba(99,102,241,0.4); }
+              50% { box-shadow: 0 2px 16px rgba(99,102,241,0.6); }
             }
           `}</style>
 
