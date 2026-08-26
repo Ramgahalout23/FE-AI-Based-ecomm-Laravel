@@ -62,12 +62,13 @@ export default function WhatsAppChatWidget({
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const inputRef = useRef(null);
 
-  // Watch body overflow & reel-player data attr — modals/sheets set overflow: hidden when open
+  // Watch body overflow, reel-player, and mobile menu — hide when any overlay is open
   useEffect(() => {
     const checkOverlay = () => {
       setIsOverlayOpen(
         document.body.style.overflow === 'hidden' ||
-        document.body.getAttribute('data-reel-player') === 'active'
+        document.body.getAttribute('data-reel-player') === 'active' ||
+        document.body.getAttribute('data-mobile-menu') === 'open'
       );
     };
     checkOverlay();

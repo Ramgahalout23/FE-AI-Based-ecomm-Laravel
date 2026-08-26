@@ -12,15 +12,18 @@ export default function WhatsAppButton({ phoneNumber, message = 'Hi, I need help
   const [isHovered, setIsHovered] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 
-  // Watch body overflow — all modals/sheets set overflow: hidden when open
+  // Watch body overflow + mobile menu — hide when any overlay is open
   useEffect(() => {
-    const checkOverflow = () => {
-      setIsOverlayOpen(document.body.style.overflow === 'hidden');
+    const checkOverlay = () => {
+      setIsOverlayOpen(
+        document.body.style.overflow === 'hidden' ||
+        document.body.getAttribute('data-mobile-menu') === 'open'
+      );
     };
 
-    checkOverflow();
-    const observer = new MutationObserver(checkOverflow);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] });
+    checkOverlay();
+    const observer = new MutationObserver(checkOverlay);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-mobile-menu'] });
     return () => observer.disconnect();
   }, []);
 

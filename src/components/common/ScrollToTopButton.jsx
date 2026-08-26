@@ -20,12 +20,13 @@ export default function ScrollToTopButton() {
     const checkOverlay = () => {
       setIsOverlayOpen(
         document.body.style.overflow === 'hidden' ||
-        document.body.getAttribute('data-reel-player') === 'active'
+        document.body.getAttribute('data-reel-player') === 'active' ||
+        document.body.getAttribute('data-mobile-menu') === 'open'
       );
     };
     checkOverlay();
     const observer = new MutationObserver(checkOverlay);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player', 'data-mobile-menu'] });
     return () => observer.disconnect();
   }, []);
 
