@@ -352,7 +352,7 @@ export default function LiveChatWidget() {
       {/* ─── Proactive Nudge Banner ─── */}
       {proactiveNudge && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
         <div className="cw-nudge" style={{
-          position: 'fixed', right: '20px', bottom: '88px', zIndex: 9998,
+          position: 'fixed', right: '20px', bottom: '152px', zIndex: 9998,
         }}>
           <button onClick={() => setProactiveDismissed(true)} style={{
             position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px',
@@ -424,6 +424,11 @@ export default function LiveChatWidget() {
             }
             .cw-nudge {
               animation: nudgeSlide 0.4s cubic-bezier(.4,0,.2,1);
+            }
+            @media (min-width: 1024px) {
+              .cw-nudge {
+                bottom: 92px !important;
+              }
             }
             @keyframes nudgeSlide {
               0% { opacity: 0; transform: translateY(12px) scale(0.9); }
