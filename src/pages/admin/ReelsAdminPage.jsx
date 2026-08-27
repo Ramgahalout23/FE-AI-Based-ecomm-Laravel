@@ -4,7 +4,7 @@ import { adminAPI } from '../../api/admin';
 import { settingsAPI } from '../../api/settings';
 import toast from '../../utils/toast';
 import ImageUploadZone from '../../components/common/ImageUploadZone';
-import { getImageUrl } from '../../utils/formatters';
+import { getImageUrl, getVideoUrl } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
 import AdminFormField from '../../components/admin/AdminFormField';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
@@ -526,7 +526,7 @@ export default function ReelsAdminPage() {
                         position: 'relative',
                       }}>
                         <video
-                          src={reel.video_url}
+                          src={getVideoUrl(reel.video_url)}
                           muted
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onMouseEnter={(e) => e.currentTarget.play()}
@@ -844,7 +844,7 @@ export default function ReelsAdminPage() {
                         </div>
                       ) : form.videoUrl ? (
                         <video
-                          src={form.videoUrl}
+                          src={getVideoUrl(form.videoUrl)}
                           controls
                           muted
                           style={{ width: '100%', maxHeight: 320, display: 'block' }}
