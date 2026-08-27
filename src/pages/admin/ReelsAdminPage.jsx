@@ -230,14 +230,15 @@ export default function ReelsAdminPage() {
     try {
       const res = await reelsAPI.getById(reel.id);
       const data = res.data?.data || reel;
+      // Prisma returns camelCase; also accept snake_case from legacy API
       setForm({
         title: data.title || '',
         badge: data.badge || '',
         description: data.description || '',
-        videoUrl: data.video_url || '',
-        imageUrl: data.image_url || '',
-        linkUrl: data.link_url || '',
-        isActive: data.is_active !== undefined ? data.is_active : true,
+        videoUrl: data.videoUrl || data.video_url || '',
+        imageUrl: data.imageUrl || data.image_url || '',
+        linkUrl: data.linkUrl || data.link_url || '',
+        isActive: (data.isActive !== undefined ? data.isActive : data.is_active !== undefined ? data.is_active : true),
         productIds: (data.products || []).map(p => p.id),
       });
     } catch {
@@ -245,10 +246,10 @@ export default function ReelsAdminPage() {
         title: reel.title || '',
         badge: reel.badge || '',
         description: reel.description || '',
-        videoUrl: reel.video_url || '',
-        imageUrl: reel.image_url || '',
-        linkUrl: reel.link_url || '',
-        isActive: reel.is_active !== undefined ? reel.is_active : true,
+        videoUrl: reel.videoUrl || reel.video_url || '',
+        imageUrl: reel.imageUrl || reel.image_url || '',
+        linkUrl: reel.linkUrl || reel.link_url || '',
+        isActive: (reel.isActive !== undefined ? reel.isActive : reel.is_active !== undefined ? reel.is_active : true),
         productIds: [],
       });
     }
@@ -513,7 +514,7 @@ export default function ReelsAdminPage() {
                     </span>
                   </td>
                   <td>
-                    {reel.video_url ? (
+                    {reel.videoUrl || reel.video_url ? (
                       <div style={{
                         width: 60,
                         height: 80,
@@ -526,7 +527,7 @@ export default function ReelsAdminPage() {
                         position: 'relative',
                       }}>
                         <video
-                          src={getVideoUrl(reel.video_url)}
+                          src={getVideoUrl(reel.videoUrl || reel.video_url)}
                           muted
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onMouseEnter={(e) => e.currentTarget.play()}
@@ -540,10 +541,10 @@ export default function ReelsAdminPage() {
                           pointerEvents: 'none',
                         }}>▶</span>
                       </div>
-                    ) : reel.image_url ? (
+                    ) : (reel.imageUrl || reel.image_url) ? (
                       <img
                         loading="lazy"
-                        src={getImageUrl(reel.image_url)}
+                        src={getImageUrl(reel.imageUrl || reel.image_url)}
                         alt={reel.title}
                         style={{
                           width: 60,
@@ -602,7 +603,7 @@ export default function ReelsAdminPage() {
                   </td>
                   <td>
                     <span className="status-badge status-info" style={{ fontSize: '0.72rem' }}>
-                      {reel.video_url ? '🎬 Video' : '🖼️ Image'}
+                      {reel.videoUrl || reel.video_url ? '🎬 Video' : '🖼️ Image'}
                     </span>
                   </td>
                   <td>
@@ -622,8 +623,8 @@ export default function ReelsAdminPage() {
                     </span>
                   </td>
                   <td>
-                    <span className={`status-badge ${reel.is_active !== false ? 'status-active' : 'status-inactive'}`}>
-                      {reel.is_active !== false ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${reel.isActive !== undefined ? reel.isActive : reel.is_active !== false ? 'status-active' : 'status-inactive'}`}>
+                      {(reel.isActive !== undefined ? reel.isActive : reel.is_active !== false) ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td>
@@ -632,10 +633,10 @@ export default function ReelsAdminPage() {
                         Edit
                       </button>
                       <button
-                        className={reel.is_active !== false ? 'btn-del' : 'btn-approve'}
+                        className={(reel.isActive !== undefined ? reel.isActive : reel.is_active !== false) ? 'btn-del' : 'btn-approve'}
                         onClick={() => handleToggle(reel.id)}
                       >
-                        {reel.is_active !== false ? 'Disable' : 'Enable'}
+                        {(reel.isActive !== undefined ? reel.isActive : reel.is_active !== false) ? 'Disable' : 'Enable'}
                       </button>
                       <button className="btn-del" onClick={() => handleDelete(reel.id)}>
                         Delete
