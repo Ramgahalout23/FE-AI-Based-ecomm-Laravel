@@ -16,12 +16,12 @@ export const reelsAPI = {
     title: data.title,
     badge: data.badge ?? '',
     description: data.description,
-    video_url: data.videoUrl ?? data.video_url ?? '',
-    image_url: data.imageUrl ?? data.image_url ?? '',
-    link_url: data.linkUrl ?? data.link_url ?? '',
-    display_order: data.displayOrder ?? data.display_order ?? 0,
-    is_active: data.isActive ?? data.is_active ?? true,
-    product_ids: data.productIds ?? data.product_ids ?? [],
+    videoUrl: data.videoUrl ?? data.video_url ?? '',
+    imageUrl: data.imageUrl ?? data.image_url ?? '',
+    linkUrl: data.linkUrl ?? data.link_url ?? '',
+    displayOrder: data.displayOrder ?? data.display_order ?? 0,
+    isActive: data.isActive ?? data.is_active ?? true,
+    productIds: data.productIds ?? data.product_ids ?? [],
   }),
 
   // Admin: Update reel
@@ -29,12 +29,12 @@ export const reelsAPI = {
     title: data.title,
     badge: data.badge ?? '',
     description: data.description,
-    video_url: data.videoUrl ?? data.video_url,
-    image_url: data.imageUrl ?? data.image_url,
-    link_url: data.linkUrl ?? data.link_url,
-    display_order: data.displayOrder ?? data.display_order,
-    is_active: data.isActive ?? data.is_active,
-    product_ids: data.productIds ?? data.product_ids ?? [],
+    videoUrl: data.videoUrl ?? data.video_url,
+    imageUrl: data.imageUrl ?? data.image_url,
+    linkUrl: data.linkUrl ?? data.link_url,
+    displayOrder: data.displayOrder ?? data.display_order,
+    isActive: data.isActive ?? data.is_active,
+    productIds: data.productIds ?? data.product_ids ?? [],
   }),
 
   // Admin: Delete reel
@@ -48,6 +48,6 @@ export const reelsAPI = {
 
   // Admin: Reorder reels
   reorder: (reels) => adminClient.patch('/admin/reels/reorder', {
-    reels: reels.map((r, i) => ({ id: r.id, display_order: r.displayOrder ?? i })),
+    reels: reels.map((r, i) => ({ id: r.id, displayOrder: r.displayOrder ?? r.display_order ?? i })),
   }),
 };
