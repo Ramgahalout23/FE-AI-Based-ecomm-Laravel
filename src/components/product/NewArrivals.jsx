@@ -309,6 +309,18 @@ function NewArrivalCard({ product, index }) {
     return () => { document.body.style.overflow = ''; };
   }, [showQuickAdd]);
 
+  /* ── Close quick-add panel when cart drawer opens ── */
+  useEffect(() => {
+    if (!showQuickAdd) return;
+    const observer = new MutationObserver(() => {
+      if (document.body.getAttribute('data-cart-drawer') === 'open') {
+        resetSelections();
+      }
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-cart-drawer'] });
+    return () => observer.disconnect();
+  }, [showQuickAdd, resetSelections]);
+
   const handleQuickAdd = (e) => {
     e.stopPropagation();
     if (isAdding) return;

@@ -1,32 +1,46 @@
 /**
  * ScrollToTopButton
  * Reusable premium scroll-to-top button with glass-morphism styling.
- * Positioned safely above the WhatsApp button and MobileNav on mobile,
- * and above the WhatsApp button on desktop.
- *
- * Mobile:   120px from bottom (above MobileNav + WhatsApp)
- * Desktop:  88px from bottom (above WhatsApp at 24px)
+ * Hidden on pages where it's intrusive: checkout, cart, login, register, admin.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp } from 'lucide-react';
 
+// Pages where scroll-to-top is not useful or intrusive
+const HIDDEN_PATHS = [
+  '/checkout',
+  '/cart',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/admin',
+];
+
+function isPathHidden(pathname) {
+  return HIDDEN_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+}
+
 export default function ScrollToTopButton() {
+  const location = useLocation();
   const [visible, setVisible] = useState(false);
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 
-  // Watch body overflow & reel-player data attr — ReelPlayer sets both when open
+  // Hide when overlay is open (reel player, mobile menu, cart drawer)
   useEffect(() => {
     const checkOverlay = () => {
       setIsOverlayOpen(
         document.body.style.overflow === 'hidden' ||
         document.body.getAttribute('data-reel-player') === 'active' ||
-        document.body.getAttribute('data-mobile-menu') === 'open'
+        document.body.getAttribute('data-mobile-menu') === 'open' ||
+        document.body.getAttribute('data-cart-drawer') === 'open'
       );
     };
     checkOverlay();
     const observer = new MutationObserver(checkOverlay);
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player', 'data-mobile-menu'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'data-reel-player', 'data-mobile-menu', 'data-cart-drawer'] });
     return () => observer.disconnect();
   }, []);
 
@@ -36,13 +50,16 @@ export default function ScrollToTopButton() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Don't show on hidden pages
+  const hidden = isPathHidden(location.pathname);
+
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   return (
     <AnimatePresence>
-      {visible && !isOverlayOpen && (
+      {visible && !isOverlayOpen && !hidden && (
         <motion.button
           initial={{ opacity: 0, scale: 0.8, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
