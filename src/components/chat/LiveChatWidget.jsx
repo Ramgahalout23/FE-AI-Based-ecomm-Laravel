@@ -208,18 +208,20 @@ export default function LiveChatWidget() {
     setUploadProgress(0);
   }, [imagePreview]);
 
-  // Initialize chat when opened — works for everyone
+  // Initialize chat when opened — opens instantly, loads in background
   const handleOpen = useCallback(async () => {
     setIsOpen(true);
     setHasUnread(false);
     unreadCountRef.current = 0;
     setProactiveNudge(false);
+    setNudgeVisible(false);
 
-    if (!chat) {
-      setChatLoading(true);
-      await initChat();
-      setChatLoading(false);
-    }
+    // If chat already exists, just open — no loading needed
+    if (chat) return;
+
+    // Fire init in background — window is already open
+    setChatLoading(true);
+    initChat().finally(() => setChatLoading(false));
   }, [chat, initChat]);
 
   // Send a message — refs handle chatId, so deps are minimal
@@ -555,18 +557,35 @@ export default function LiveChatWidget() {
             flexDirection: 'column',
             gap: '8px',
           }}>
-            {chatLoading && !chat ? (
+            {!chat && !error ? (
               <div style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 height: '100%',
-                gap: '8px',
-                color: '#666',
-                fontSize: '14px',
+                gap: '12px',
+                padding: '24px',
+                textAlign: 'center',
               }}>
-                <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-                Starting chat...
+                <div style={{
+                  width: '48px', height: '48px', borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #1a1a1a, #333)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <MessageCircle size={22} color="white" />
+                </div>
+                <div>
+                  <p style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a', margin: 0 }}>Hi there! 👋</p>
+                  <p style={{ fontSize: '13px', color: '#999', margin: '4px 0 0' }}>How can we help you today?</p>
+                </div>
+                {chatLoading && (
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                    <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ccc' }} />
+                    <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ccc' }} />
+                    <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ccc' }} />
+                  </div>
+                )}
               </div>
             ) : error && !chat ? (
               <div style={{
