@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => {
             devOptions: {
               enabled: false, // Don't register SW in dev — just make the virtual module available
             },
+            srcDir: 'src',
+            filename: 'sw.js',
             includeAssets: ['favicon.svg', 'icons.svg'],
             manifest: {
               name: process.env.VITE_STORE_NAME

@@ -95,6 +95,19 @@ export default function OrderDetailPage() {
     return () => { cancelledRef.current = true; };
   }, [fetchOrder]);
 
+  // ── Smart polling: auto-refresh order status every 10s ──
+  // Only polls when the order is in an active state (not DELIVERED/CANCELLED)
+  // to avoid unnecessary API calls.
+  useEffect(() => {
+    if (!order || loading) return;
+    const activeStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'];
+    if (!activeStatuses.includes(order.status)) return;
+    const interval = setInterval(() => {
+      if (!cancelledRef.current) fetchOrder();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [order?.status, loading, fetchOrder]);
+
   useEffect(() => { if (reviewModal.open) setReviewEverOpened(true); }, [reviewModal.open]);
 
   const handleCancel = async () => {

@@ -11,6 +11,7 @@ import useAuthStore from '../../store/authStore';
 import { userProfileAPI } from '../../api/userProfile';
 import { getImageUrl, getInitials, getUserFullName } from '../../utils/formatters';
 import toast from '../../utils/toast';
+import PushNotificationToggle from '../../components/common/PushNotificationToggle';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -338,6 +339,11 @@ export default function ProfilePage() {
               </form>
             </div>
           )}
+        </div>
+
+        {/* Push Notifications */}
+        <div className="mt-4">
+          <PushNotificationToggle />
         </div>
       </div>
     </div>
