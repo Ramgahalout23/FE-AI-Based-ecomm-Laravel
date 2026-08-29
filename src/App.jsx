@@ -287,7 +287,7 @@ function StorefrontLayout() {
       <MobileNav />
       <PhoneLeadBanner />
       <EmailPopupBanner />
-      {deferChatWidgets && chatbotEnabled && (
+      {deferChatWidgets && chatbotEnabled && !['/checkout', '/cart', '/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p)) && (
         <Suspense fallback={null}>
           <ErrorBoundary title="Chat Error" description="The chat widget encountered an error.">
             <LiveChatWidget />

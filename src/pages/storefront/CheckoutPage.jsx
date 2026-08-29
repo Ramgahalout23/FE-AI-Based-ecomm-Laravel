@@ -1128,31 +1128,31 @@ export default function CheckoutPage() {
 
           {/* ── Order Summary (2nd on mobile, right col on desktop) ── */}
           <div className="order-summary order-2 md:col-start-2 md:row-start-1 lg:sticky lg:top-8 h-fit">
-            <div className="bg-gray-50 rounded-xl sm:rounded-2xl p-4 sm:p-6">
-              <h3 className="font-display text-lg font-bold text-black mb-4">Order Summary</h3>
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm">
+              <h3 className="font-display text-base font-bold text-gray-900 mb-4">Order Summary</h3>
 
               {/* Cart Items */}
-              <div className="space-y-4 mb-6">
+              <div className="space-y-3 mb-5">
                 {items.map((item) => {
                   const itemStock = item.variantStock ?? item.productStock;
                   const isOOS = itemStock !== null && itemStock !== undefined && itemStock <= 0;
                   return (
-                  <div key={item.id} className={`flex gap-4 ${isOOS ? 'opacity-60' : ''}`}>
-                    <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                  <div key={item.id} className={`flex gap-3 ${isOOS ? 'opacity-60' : ''}`}>
+                    <div className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
                       {item.imageUrl ? (
                         <img loading="lazy" src={getImageUrl(item.imageUrl)} alt={item.name} className={`w-full h-full object-cover ${isOOS ? 'grayscale' : ''}`} />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl">{item.image || '👕'}</div>
+                        <div className="w-full h-full flex items-center justify-center text-2xl">{item.image || '👕'}</div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`font-medium text-sm line-clamp-1 ${isOOS ? 'text-gray-400' : 'text-black'}`}>{item.name}</p>
+                      <p className={`font-medium text-[13px] line-clamp-1 ${isOOS ? 'text-gray-400' : 'text-gray-900'}`}>{item.name}</p>
                       {(item.size || item.color) && (
-                        <p className="text-gray-500 text-xs mt-0.5">
+                        <p className="text-gray-400 text-[11px] mt-0.5">
                           {[item.size, item.color].filter(Boolean).join(' / ')}
                         </p>
                       )}
-                      <p className={`text-sm ${isOOS ? 'text-gray-400' : 'text-gray-500'}`}>Qty: {item.quantity}</p>
+                      <p className={`text-[12px] mt-0.5 ${isOOS ? 'text-gray-400' : 'text-gray-500'}`}>Qty: {item.quantity}</p>
                       {isOOS && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1 border border-red-200">
                           <AlertTriangle size={10} />
@@ -1166,7 +1166,7 @@ export default function CheckoutPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`font-semibold ${isOOS ? 'text-gray-400 line-through' : 'text-black'}`}>{formatCurrency(item.price * item.quantity)}</p>
+                    <p className={`text-[13px] font-semibold ${isOOS ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{formatCurrency(item.price * item.quantity)}</p>
                   </div>
                 );})}
               </div>
@@ -1216,7 +1216,7 @@ export default function CheckoutPage() {
                 <>
                   <div className="flex gap-2 mb-3">
                     <input
-                      className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm"
+                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-[13px] placeholder:text-gray-400 focus:outline-none focus:border-gray-400 transition-colors"
                       placeholder="Coupon code"
                       value={coupon}
                       onChange={(e) => {
@@ -1227,9 +1227,9 @@ export default function CheckoutPage() {
                     <button
                       onClick={() => handleApplyCoupon()}
                       disabled={couponLoading}
-                      className="px-4 py-2 text-sm font-medium text-black border border-gray-200 rounded-xl hover:border-black transition-colors disabled:opacity-50"
+                      className="px-4 py-2.5 text-[13px] font-semibold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
-                      {couponLoading ? 'Applying...' : 'Apply'}
+                      {couponLoading ? '...' : 'Apply'}
                     </button>
                   </div>
                   {!couponsLoading && availableCoupons.length > 0 && (
@@ -1277,37 +1277,37 @@ export default function CheckoutPage() {
               )}
 
               {/* Price Breakdown */}
-              <div className="space-y-3 border-t pt-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="text-black">{formatCurrency(availableSubtotal)}</span>
+              <div className="space-y-2.5 border-t border-gray-100 pt-4">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-gray-900 font-medium">{formatCurrency(availableSubtotal)}</span>
                 </div>
                 {autoDiscount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Store Offer Discount</span>
-                    <span className="text-gray-700">-{formatCurrency(autoDiscount)}</span>
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-gray-500">Store Offer</span>
+                    <span className="text-emerald-600 font-medium">-{formatCurrency(autoDiscount)}</span>
                   </div>
                 )}
                 {bundleDiscount > 0 && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-[13px]">
                     <span className="text-gray-500">Bundle Discount</span>
-                    <span className="text-emerald-600">-{formatCurrency(bundleDiscount)}</span>
+                    <span className="text-emerald-600 font-medium">-{formatCurrency(bundleDiscount)}</span>
                   </div>
                 )}
                 {discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Coupon Discount</span>
-                    <span className="text-green-600">-{formatCurrency(discount)}</span>
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-gray-500">Coupon</span>
+                    <span className="text-emerald-600 font-medium">-{formatCurrency(discount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Shipping</span>
-                  <span className="text-black">{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-500">Shipping</span>
+                  <span className={shippingCost === 0 ? 'text-emerald-600 font-semibold' : 'text-gray-900 font-medium'}>{shippingCost === 0 ? 'Free' : formatCurrency(shippingCost)}</span>
                 </div>
                 {tax > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tax ({taxRate}%)</span>
-                    <span className="text-black">{formatCurrency(tax)}</span>
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-gray-500">Tax ({taxRate}%)</span>
+                    <span className="text-gray-900 font-medium">{formatCurrency(tax)}</span>
                   </div>
                 )}
                 {items.some(item => {
@@ -1321,24 +1321,18 @@ export default function CheckoutPage() {
                     </p>
                   </div>
                 )}
-                <div className="flex justify-between text-lg font-bold pt-3 border-t">
-                  <span className="text-black">Total</span>
-                  <span className="text-black">{formatCurrency(total)}</span>
+                <div className="flex justify-between pt-3 border-t border-gray-100">
+                  <span className="font-bold text-gray-900">Total</span>
+                  <span className="font-bold text-gray-900 text-lg">{formatCurrency(total)}</span>
                 </div>
                 {taxCalculation === 'inclusive' && (
-                  <p className="text-[10px] text-gray-400 text-right">Inclusive of all taxes</p>
+                  <p className="text-[10px] text-gray-400 text-right -mt-1">Inclusive of all taxes</p>
                 )}
               </div>
 
               {/* Trust Badges */}
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-6 pt-4 border-t"
-              >
-                <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <div className="grid grid-cols-3 gap-3 text-center">
                   {[
                     { icon: ShieldCheck, label: 'Secure', sub: 'Payment' },
                     { icon: Truck, label: 'Free', sub: 'Shipping' },
@@ -1346,26 +1340,18 @@ export default function CheckoutPage() {
                   ].map((badge, i) => {
                     const IconComponent = badge.icon;
                     return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 8 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.4, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                        className="group"
-                      >
-                        <div className="relative w-10 h-10 rounded-full bg-gray-50 border border-gray-100/80 flex items-center justify-center mx-auto mb-1.5 md:group-hover:bg-white md:group-hover:border-gray-200 md:group-hover:shadow-md md:group-hover:shadow-gray-200/50 md:group-hover:scale-110 transition-all duration-500 ease-out overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-br from-gray-100/0 to-gray-100/0 md:group-hover:from-gray-100/30 md:group-hover:to-transparent transition-all duration-500" />
-                          <IconComponent className="relative w-[17px] h-[17px] text-black md:group-hover:scale-110 transition-all duration-500 ease-out" />
+                      <div key={i} className="flex flex-col items-center">
+                        <div className="w-9 h-9 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mb-1.5">
+                          <IconComponent className="w-4 h-4 text-gray-600" />
                         </div>
-                        <p className="text-[10px] text-gray-400 font-medium md:group-hover:text-gray-600 transition-colors duration-300">
+                        <p className="text-[10px] text-gray-400 font-medium leading-tight">
                           {badge.label}<br/>{badge.sub}
                         </p>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
-              </motion.div>
+              </div>
             </div>
           </div>
 

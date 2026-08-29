@@ -1,4 +1,4 @@
-import { Minus, Plus, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart } from 'lucide-react';
+import { Minus, Plus, AlertTriangle, RefreshCw, Zap, Trash2, ArrowRight, ArrowLeft, Heart, Lock, Truck } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -242,9 +242,9 @@ export default function CartPage() {
     const onFlashSale = isFlashSaleItem(item);
 
     return (
-      <div key={itemKey} className={`flex gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl sm:rounded-2xl ${isOOS ? 'border border-red-200 bg-red-50/30' : ''}`}>
+      <div key={itemKey} className={`flex gap-3 sm:gap-4 p-4 sm:p-5 bg-white border border-gray-100 rounded-2xl shadow-sm ${isOOS ? 'border-red-200 bg-red-50/30' : ''}`}>
         {/* Product Image */}
-        <Link to={`/products/${item.slug || slugify(item.name)}`} className="w-20 sm:w-24 h-20 sm:h-24 sm:w-28 sm:h-28 bg-white rounded-lg sm:rounded-xl overflow-hidden flex-shrink-0">
+        <Link to={`/products/${item.slug || slugify(item.name)}`} className="w-24 h-24 sm:w-28 sm:h-28 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100">
           {item.imageUrl ? (
             <img loading="lazy" src={getImageUrl(item.imageUrl)} alt={item.name} className={`w-full h-full object-cover hover:scale-110 transition-transform duration-500 ${isOOS ? 'grayscale opacity-60' : ''}`} />
           ) : (
@@ -254,29 +254,29 @@ export default function CartPage() {
 
         {/* Product Details */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex justify-between gap-4">
+          <div className="flex justify-between gap-3">
             <div className="min-w-0">
-              <Link to={`/products/${item.slug || slugify(item.name)}`} className="font-semibold text-black hover:text-gray-600 transition-colors line-clamp-2">
+              <Link to={`/products/${item.slug || slugify(item.name)}`} className="font-semibold text-gray-900 hover:text-black transition-colors line-clamp-2 text-[15px] leading-snug">
                 {item.name}
               </Link>
               {onFlashSale && !isOOS && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-gradient-to-r from-purple-50 to-pink-50 px-2.5 py-0.5 rounded-full mt-1 border border-purple-200">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 bg-gradient-to-r from-purple-50 to-pink-50 px-2.5 py-0.5 rounded-full mt-1.5 border border-purple-200">
                   <Zap size={12} />
                   {t('cart.flash_sale')}
                 </span>
               )}
               {(item.size || item.color) && (
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-[13px] text-gray-500 mt-1.5">
                   {[item.size && `Size: ${item.size}`, item.color && `Color: ${item.color}`].filter(Boolean).join(' · ')}
                 </p>
               )}
               {isOOS ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full mt-1.5 border border-red-200">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full mt-2 border border-red-200">
                   <AlertTriangle size={12} />
                   {t('cart.out_of_stock')}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 mt-1">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 mt-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   {t('cart.in_stock')}
                 </span>
@@ -284,30 +284,30 @@ export default function CartPage() {
             </div>
             <button
               onClick={() => handleRemove(item)}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all shrink-0"
               aria-label={`Remove ${item.name}`}
             >
               <Trash2 size={18} />
             </button>
           </div>
 
-          <div className="flex items-center justify-between mt-auto pt-2">
+          <div className="flex items-center justify-between mt-auto pt-3">
             {/* Quantity Controls - disabled for OOS */}
-            <div className={`flex items-center gap-1 bg-white rounded-lg border ${isOOS ? 'border-red-200 bg-red-50/50' : 'border-gray-200'}`}>
+            <div className={`flex items-center gap-0 bg-gray-50 rounded-xl border ${isOOS ? 'border-red-200 bg-red-50/50' : 'border-gray-200'}`}>
               <button
                 onClick={() => handleQuantityChange(item, item.quantity - 1)}
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-l-lg transition-colors disabled:opacity-30"
+                className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-l-xl transition-colors disabled:opacity-30"
                 disabled={item.quantity <= 1}
               >
-                <Minus size={16} />
+                <Minus size={16} className="text-gray-600" />
               </button>
-              <span className={`px-3 font-medium ${isOOS ? 'text-red-400' : ''}`}>{item.quantity}</span>
+              <span className={`w-10 text-center font-semibold text-[15px] ${isOOS ? 'text-red-400' : 'text-gray-900'}`}>{item.quantity}</span>
               <button
                 onClick={() => handleQuantityChange(item, item.quantity + 1)}
-                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-r-lg transition-colors"
+                className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-r-xl transition-colors"
                 disabled={item.quantity >= 10 || isOOS}
               >
-                <Plus size={16} />
+                <Plus size={16} className="text-gray-600" />
               </button>
             </div>
 
@@ -329,9 +329,9 @@ export default function CartPage() {
               )}
               <div className="text-right">
                 {item.oldPrice && item.oldPrice > item.price && (
-                  <p className="text-sm text-gray-400 line-through">{formatCurrency(item.oldPrice * item.quantity)}</p>
+                  <p className="text-[13px] text-gray-400 line-through">{formatCurrency(item.oldPrice * item.quantity)}</p>
                 )}
-                <p className={`text-lg font-bold ${isOOS ? 'text-gray-400' : onFlashSale ? 'text-purple-700' : 'text-black'}`}>
+                <p className={`text-base font-bold ${isOOS ? 'text-gray-400' : onFlashSale ? 'text-purple-700' : 'text-gray-900'}`}>
                   {formatCurrency(item.price * item.quantity)}
                 </p>
               </div>
@@ -388,8 +388,8 @@ export default function CartPage() {
           variant="light"
           className="mb-4 sm:mb-6"
         />
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8">
-          {t('cart.title')} ({items.length} {items.length === 1 ? t('cart.item') : t('cart.items')})
+        <h1 className="font-display text-xl sm:text-2xl font-bold text-gray-900 mb-5 sm:mb-6">
+          {t('cart.title')} <span className="text-gray-400 font-normal">({items.length} {items.length === 1 ? t('cart.item') : t('cart.items')})</span>
         </h1>
 
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
@@ -513,12 +513,21 @@ export default function CartPage() {
                   </div>
                 )}
                 {freeShippingThreshold > 0 && availableSubtotal > 0 && availableSubtotal < freeShippingThreshold && (
-                  <div>
-                    <p className="text-xs text-emerald-600 font-semibold">
-                      {t('cart.add_free_shipping', { amount: formatCurrency(shippingRemaining, currency) })}
-                    </p>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] font-bold text-emerald-700">
+                        {t('cart.add_free_shipping', { amount: formatCurrency(shippingRemaining, currency) })}
+                      </p>
+                      <Truck size={14} className="text-emerald-600" />
+                    </div>
+                    <div className="w-full bg-emerald-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, (availableSubtotal / freeShippingThreshold) * 100)}%` }}
+                      />
+                    </div>
                     {itemsNeededForShipping > 0 && (
-                      <p className="text-[10px] text-emerald-600/80 mt-0.5">
+                      <p className="text-[10px] text-emerald-600/70 mt-1.5">
                         {itemsNeededForShipping === 1
                           ? t('cart.drawer.free_shipping_one_item')
                           : t('cart.drawer.free_shipping_items', { count: itemsNeededForShipping })}
@@ -547,9 +556,7 @@ export default function CartPage() {
                 {taxCalculation === 'inclusive' && (
                   <p className="text-[10px] text-gray-400 text-right">{t('orders.detail.inclusive_tax')}</p>
                 )}
-              </div>
-
-              {/* Checkout Button */}
+              </div>              {/* Checkout Button */}
               <button
                 onClick={() => {
                   if (availableItems.length === 0) {
@@ -558,21 +565,23 @@ export default function CartPage() {
                   }
                   navigate('/checkout');
                 }}
-                className={`w-full py-4 rounded-xl font-semibold transition-colors mt-6 flex items-center justify-center gap-2 ${
+                className={`w-full py-4 rounded-2xl font-bold text-[15px] transition-all mt-6 flex items-center justify-center gap-2.5 ${
                   availableItems.length === 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
-              >                  {availableItems.length === 0 ? (
+                    : 'bg-gray-900 text-white hover:bg-black hover:shadow-lg hover:shadow-black/20 active:scale-[0.98]'
+                }`}>
+                  {availableItems.length === 0 ? (
                   <><AlertTriangle size={18} /> {t('cart.all_unavailable')}</>
                 ) : (
-                  <><ArrowRight size={20} /> {t('cart.proceed_checkout')}</>
+                  <><Lock size={16} /> {t('cart.proceed_checkout')}</>
                 )}
               </button>
 
               {/* Trust Info */}
-              <div className="mt-6 text-center text-xs text-gray-500">
-                <p>{t('cart.secure_checkout_text')} • {t('cart.free_delivery_text')} • {t('cart.easy_returns_text')}</p>
+              <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-gray-400">
+                <span className="flex items-center gap-1"><Lock size={11} /> {t('cart.secure_checkout_text')}</span>
+                <span className="flex items-center gap-1"><Truck size={11} /> {t('cart.free_delivery_text')}</span>
+                <span className="flex items-center gap-1"><RefreshCw size={11} /> {t('cart.easy_returns_text')}</span>
               </div>
             </div>
           </div>

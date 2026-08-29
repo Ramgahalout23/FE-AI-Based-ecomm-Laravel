@@ -6,7 +6,7 @@
 
 import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { formatTime } from '../../utils/formatters';
 import useChat from '../../hooks/useChat';
 import { chatAPI } from '../../api/tickets';
@@ -51,6 +51,9 @@ export default function LiveChatWidget() {
 
   const [proactiveNudge, setProactiveNudge] = useState(false);
   const [proactiveDismissed, setProactiveDismissed] = useState(false);
+  // Professional visibility: button fades in after delay, auto-hides nudge
+  const [buttonVisible, setButtonVisible] = useState(false);
+  const [nudgeVisible, setNudgeVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState(null); // { file, url, name }
@@ -118,26 +121,50 @@ export default function LiveChatWidget() {
     return () => observer.disconnect();
   }, []);
 
-  // ── Proactive Triggers ──
+  // ── Smart Visibility: Delay button, then show nudge smartly ──
 
-  // Timer trigger: show nudge after 30 seconds on site
+  const location = useLocation();
+  const isHomepage = location.pathname === '/';
+
+  // Show chat button: immediately on homepage, 8s delay on other pages
   useEffect(() => {
-    if (isOpen || proactiveDismissed) return;
-    const timer = setTimeout(() => {
-      setProactiveNudge(true);
-    }, 30000);
+    const delay = isHomepage ? 1000 : 8000;
+    const timer = setTimeout(() => setButtonVisible(true), delay);
     return () => clearTimeout(timer);
-  }, [isOpen, proactiveDismissed]);
+  }, [isHomepage]);
 
-  // Exit intent: show nudge when mouse leaves viewport top
+  // Show nudge 5 seconds AFTER button appears (so user notices button first)
   useEffect(() => {
-    if (isOpen || proactiveDismissed) return;
+    if (!buttonVisible || isOpen || proactiveDismissed) return;
+    const timer = setTimeout(() => {
+      setNudgeVisible(true);
+      setProactiveNudge(true);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [buttonVisible, isOpen, proactiveDismissed, isHomepage]);
+
+  // Auto-hide nudge after 8 seconds if not clicked
+  useEffect(() => {
+    if (!nudgeVisible || isOpen) return;
+    const timer = setTimeout(() => {
+      setNudgeVisible(false);
+      setProactiveNudge(false);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [nudgeVisible, isOpen]);
+
+  // Exit intent: show nudge only if button is visible and not dismissed
+  useEffect(() => {
+    if (!buttonVisible || isOpen || proactiveDismissed) return;
     const handleMouseLeave = (e) => {
-      if (e.clientY < 0) setProactiveNudge(true);
+      if (e.clientY < 0) {
+        setProactiveNudge(true);
+        setNudgeVisible(true);
+      }
     };
     document.addEventListener('mouseleave', handleMouseLeave);
     return () => document.removeEventListener('mouseleave', handleMouseLeave);
-  }, [isOpen, proactiveDismissed]);
+  }, [buttonVisible, isOpen, proactiveDismissed]);
 
 
 
@@ -304,9 +331,9 @@ export default function LiveChatWidget() {
           justifyContent: 'center',
           boxShadow: '0 4px 24px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, scale 0.25s ease',
-          opacity: (isReelActive || isMobileMenuActive) ? 0 : 1,
-          pointerEvents: (isReelActive || isMobileMenuActive) ? 'none' : 'auto',
-          scale: (isReelActive || isMobileMenuActive) ? 0.75 : 1,
+          opacity: (!buttonVisible || isReelActive || isMobileMenuActive) ? 0 : 1,
+          pointerEvents: (!buttonVisible || isReelActive || isMobileMenuActive) ? 'none' : 'auto',
+          scale: (!buttonVisible || isReelActive || isMobileMenuActive) ? 0.75 : 1,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.08)';
@@ -350,7 +377,7 @@ export default function LiveChatWidget() {
       </button>
 
       {/* ─── Nudge: speech bubble FROM the chat button ─── */}
-      {proactiveNudge && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
+      {proactiveNudge && nudgeVisible && buttonVisible && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
         <div
           className="cw-nudge"
           onClick={() => { setProactiveDismissed(false); setProactiveNudge(false); handleOpen(); }}
