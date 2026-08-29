@@ -527,7 +527,7 @@ export default function ReelsAdminPage() {
                         position: 'relative',
                       }}>
                         <video
-                          src={getVideoUrl(reel.videoUrl || reel.video_url)}
+                          src={reel.videoUrl || reel.video_url}
                           muted
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onMouseEnter={(e) => e.currentTarget.play()}
@@ -845,10 +845,10 @@ export default function ReelsAdminPage() {
                         </div>
                       ) : form.videoUrl ? (
                         <video
-                          src={getVideoUrl(form.videoUrl)}
+                          src={form.videoUrl.startsWith('http') ? form.videoUrl : form.videoUrl}
                           controls
                           muted
-                          style={{ width: '100%', maxHeight: 320, display: 'block' }}
+                          style={{ width: '100%', maxHeight: 320, display: 'block', background: '#000' }}
                         />
                       ) : (
                         <img

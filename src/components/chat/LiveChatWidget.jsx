@@ -291,7 +291,7 @@ export default function LiveChatWidget() {
         className="chat-float-btn"
         style={{
           position: 'fixed',
-          right: '24px',
+          right: '16px',
           zIndex: 9999,
           width: '56px',
           height: '56px',
@@ -356,10 +356,10 @@ export default function LiveChatWidget() {
           onClick={() => { setProactiveDismissed(false); setProactiveNudge(false); handleOpen(); }}
           style={{
             position: 'fixed', zIndex: 9998,
-            right: '88px', bottom: '96px',
-            display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer',
+            right: '16px', bottom: '152px',
+            display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
             background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
-            borderRadius: '16px 16px 16px 4px', padding: '8px 14px',
+            borderRadius: '16px', padding: '10px 16px',
             boxShadow: '0 6px 24px rgba(0,0,0,0.25)',
             border: '1px solid rgba(255,255,255,0.06)',
             whiteSpace: 'nowrap',
@@ -372,13 +372,13 @@ export default function LiveChatWidget() {
           <span style={{ fontSize: '13px', fontWeight: 600, color: 'white', lineHeight: 1.3 }}>
             Need help?
           </span>
-          {/* Tail pointing right to chat button */}
+          {/* Tail pointing down to chat button */}
           <div style={{
-            position: 'absolute', right: '-6px', top: '50%', transform: 'translateY(-50%)',
+            position: 'absolute', right: '16px', bottom: '-6px',
             width: 0, height: 0,
-            borderTop: '6px solid transparent',
-            borderBottom: '6px solid transparent',
-            borderLeft: '6px solid #1a1a1a',
+            borderLeft: '6px solid transparent',
+            borderRight: '6px solid transparent',
+            borderTop: '6px solid #1a1a1a',
           }} />
           {/* Dismiss X */}
           <button onClick={(e) => { e.stopPropagation(); setProactiveDismissed(true); }} style={{
@@ -399,13 +399,12 @@ export default function LiveChatWidget() {
         <div className="chat-float-window"
         style={{
           position: 'fixed',
-          right: '24px',
-          bottom: '92px',
+          right: '12px',
+          bottom: '156px',
           zIndex: 9999,
-          width: '360px',
-          maxWidth: 'calc(100vw - 48px)',
-          height: '520px',
-          maxHeight: 'calc(100dvh - 140px)',
+          width: 'calc(100vw - 24px)',
+          maxWidth: '380px',
+          height: 'min(520px, calc(100dvh - 180px))',
           background: '#ffffff',
           borderRadius: '16px',
           boxShadow: '0 8px 40px rgba(0,0,0,0.18), 0 2px 12px rgba(0,0,0,0.08)',
@@ -851,16 +850,7 @@ export default function LiveChatWidget() {
 
       <style>{`
         .chat-float-btn {
-          bottom: 88px;
-        }
-        .chat-float-window {
-          bottom: 156px !important;
-          height: min(520px, calc(100dvh - 140px)) !important;
-        }
-        @supports not (height: 100dvh) {
-          .chat-float-window {
-            height: min(520px, calc(100vh - 140px)) !important;
-          }
+          bottom: 90px;
         }
 
         @keyframes spin {
@@ -878,8 +868,17 @@ export default function LiveChatWidget() {
         @media (min-width: 1024px) {
           .chat-float-btn {
             bottom: 24px;
+            right: 24px;
           }
           .chat-float-window {
+            right: 24px !important;
+            bottom: 92px !important;
+            width: 380px !important;
+            height: 560px !important;
+            max-height: calc(100dvh - 120px) !important;
+          }
+          .cw-nudge {
+            right: 24px !important;
             bottom: 92px !important;
           }
         }

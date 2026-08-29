@@ -146,7 +146,7 @@ export default function ImageUploadZone({
             <div key={idx} className={`relative rounded-lg overflow-hidden border border-gray-200 group bg-white shadow-sm ${isVideo ? 'aspect-video' : 'aspect-square'}`}>
               {isVideo ? (
                 <video
-                  src={getVideoUrl(imgUrl)}
+                  src={imgUrl}
                   controls
                   playsInline
                   className="w-full h-full object-contain bg-black"

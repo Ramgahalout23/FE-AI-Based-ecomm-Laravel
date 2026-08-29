@@ -1,5 +1,6 @@
 import { Search, User, Menu, X, Heart, LogOut, Home, Info, Mail, Package, ArrowRight, LayoutDashboard, Truck, ShoppingCart } from 'lucide-react';
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -346,7 +347,8 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Menu — premium left-side drawer with glass-morphism (hidden on admin routes) */}
+        {/* Mobile Menu — rendered via Portal so backdrop-blur on sticky header doesn't trap it */}
+        {createPortal(
         <AnimatePresence>
           {isMobileMenuOpen && !location.pathname.startsWith('/admin') && (
             <>
@@ -671,7 +673,9 @@ export default function Navbar() {
               </motion.div>
             </>
           )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+        )}
       </nav>
 
       {/* Search Modal — lazily loaded; mounts on first open, then stays mounted
