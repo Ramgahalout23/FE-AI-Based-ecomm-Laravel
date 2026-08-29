@@ -48,6 +48,16 @@ export default memo(function CartDrawer() {
     [availableItems]
   );
 
+  // Set body attribute so chatbot hides when cart drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.setAttribute('data-cart-drawer', 'open');
+    } else {
+      document.body.removeAttribute('data-cart-drawer');
+    }
+    return () => document.body.removeAttribute('data-cart-drawer');
+  }, [isOpen]);
+
   // ── Buy More, Save More — per-line volume discount based on each line's quantity.
   // Only applies when activated in Admin → Settings; tiers are admin-configurable. ──
   const bundleOfferEnabled = isBundleOfferEnabled(getSetting);

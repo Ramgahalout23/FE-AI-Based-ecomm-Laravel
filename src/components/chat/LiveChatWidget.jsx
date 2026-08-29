@@ -47,6 +47,7 @@ export default function LiveChatWidget() {
   const [hasUnread, setHasUnread] = useState(false);
   const [isReelActive, setIsReelActive] = useState(false);
   const [isMobileMenuActive, setIsMobileMenuActive] = useState(false);
+  const [isCartDrawerActive, setIsCartDrawerActive] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
 
   const [proactiveNudge, setProactiveNudge] = useState(false);
@@ -118,6 +119,19 @@ export default function LiveChatWidget() {
     checkMenu();
     const observer = new MutationObserver(checkMenu);
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-mobile-menu'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Hide the chat icon while the cart drawer is open
+  useEffect(() => {
+    const checkCart = () => {
+      const active = document.body.getAttribute('data-cart-drawer') === 'open';
+      setIsCartDrawerActive(active);
+      if (active) setIsOpen(false);
+    };
+    checkCart();
+    const observer = new MutationObserver(checkCart);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-cart-drawer'] });
     return () => observer.disconnect();
   }, []);
 
@@ -333,9 +347,9 @@ export default function LiveChatWidget() {
           justifyContent: 'center',
           boxShadow: '0 4px 24px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, scale 0.25s ease',
-          opacity: (!buttonVisible || isReelActive || isMobileMenuActive) ? 0 : 1,
-          pointerEvents: (!buttonVisible || isReelActive || isMobileMenuActive) ? 'none' : 'auto',
-          scale: (!buttonVisible || isReelActive || isMobileMenuActive) ? 0.75 : 1,
+          opacity: (!buttonVisible || isReelActive || isMobileMenuActive || isCartDrawerActive) ? 0 : 1,
+          pointerEvents: (!buttonVisible || isReelActive || isMobileMenuActive || isCartDrawerActive) ? 'none' : 'auto',
+          scale: (!buttonVisible || isReelActive || isMobileMenuActive || isCartDrawerActive) ? 0.75 : 1,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'scale(1.08)';
@@ -379,7 +393,7 @@ export default function LiveChatWidget() {
       </button>
 
       {/* ─── Nudge: speech bubble FROM the chat button ─── */}
-      {proactiveNudge && nudgeVisible && buttonVisible && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && (
+      {proactiveNudge && nudgeVisible && buttonVisible && !isOpen && !proactiveDismissed && !isReelActive && !isMobileMenuActive && !isCartDrawerActive && (
         <div
           className="cw-nudge"
           onClick={() => { setProactiveDismissed(false); setProactiveNudge(false); handleOpen(); }}
