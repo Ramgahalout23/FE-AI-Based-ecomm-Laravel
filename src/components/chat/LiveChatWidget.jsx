@@ -330,7 +330,7 @@ export default function LiveChatWidget() {
     <>
       {/* ─── Floating Button ─── */}
       <button
-        onClick={handleOpen}
+        onClick={() => { if (isOpen) { setIsOpen(false); } else { handleOpen(); } }}
         className="chat-float-btn"
         style={{
           position: 'fixed',
@@ -359,7 +359,7 @@ export default function LiveChatWidget() {
           e.currentTarget.style.transform = 'scale(1)';
           e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.3)';
         }}
-        aria-label="Open live chat"
+        aria-label={isOpen ? 'Close live chat' : 'Open live chat'}
       >
         {isOpen ? (
           <X size={22} color="white" />
