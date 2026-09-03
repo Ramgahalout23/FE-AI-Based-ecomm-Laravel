@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { QueryClient } from '@tanstack/react-query';
@@ -496,7 +496,7 @@ function AppContent() {
   }, [isAuthenticated]);
 
   return (
-    <HashRouter>
+    <BrowserRouter>
       {/* Default title: last-mounted Helmet wins, so per-page SEOHead titles override this */}
       <Helmet>{appSettings.storeName ? <title>{appSettings.storeName}</title> : null}</Helmet>
       <ThemeInjector />
@@ -653,7 +653,7 @@ function AppContent() {
       </Routes>
       </MaintenanceWrapper>
       <PwaUpdatePrompt />
-    </HashRouter>
+    </BrowserRouter>
   );
 }
 
