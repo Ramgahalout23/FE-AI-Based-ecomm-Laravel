@@ -15,7 +15,6 @@ import useUIStore from '../../store/uiStore';
 import { useSettings } from '../../store/useSettings';
 import { useLogo } from '../../hooks/useLogo';
 import { useAppInit } from '../../contexts/AppInitContext';
-import { productsAPI } from '../../api/products';
 import { getImageUrl, getUserFullName } from '../../utils/formatters';
 import AnnouncementBar from './AnnouncementBar';
 import CurrencySwitcher from '../common/CurrencySwitcher';
@@ -102,20 +101,10 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        await productsAPI.search(searchQuery);
-      } catch (err) {
-        console.error('Search failed:', err);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  // Search submits via the navbar form (navigates to /products?q=…).
+  // No per-keystroke API call here: the old debounced productsAPI.search()
+  // discarded its result (SearchModal does its own querying), so every typed
+  // character was firing a DB-heavy LIKE query for nothing.
 
   // Hide the sticky navbar while the reel player is open — ReelPlayer sets
   // data-reel-player="active" on <body>, and the navbar (z-index 100) would
