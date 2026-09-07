@@ -497,6 +497,21 @@ export default function SettingsAdminPage() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    const recipient = String(settings.fromEmailAddress || settings.smtpUsername || '').trim();
+    if (!recipient) {
+      toast.error('Set a From Email Address before sending a test email');
+      return;
+    }
+
+    try {
+      await adminAPI.sendTestEmail({ to: recipient });
+      toast.success(`Test email sent to ${recipient}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send test email');
+    }
+  };
+
   // Dedicated quick-action handler that bypasses the async state timing issue
   const handleQuickToggleMaintenance = async (enabled) => {
     setLoading(true);
@@ -2412,7 +2427,7 @@ export default function SettingsAdminPage() {
             <div className="form-group form-full"><label>Order Confirmation Template</label><select value={settings.emailTemplate || 'default'} onChange={e => setSettings({ ...settings, emailTemplate: e.target.value })}><option value="default">Default Template</option><option value="custom">Custom Template (Raw HTML)</option></select></div>
           </div>
           <div className="form-actions">
-            <button className="btn-ghost btn-sm" onClick={() => toast.success('Test email sent')}>Send Test Email</button>
+            <button className="btn-ghost btn-sm" onClick={handleSendTestEmail}>Send Test Email</button>
             <button className="btn-dark btn-sm" onClick={handleSaveSettings} disabled={loading}>{loading ? 'Saving...' : 'Save Email Settings'}</button>
           </div>
         </div>
