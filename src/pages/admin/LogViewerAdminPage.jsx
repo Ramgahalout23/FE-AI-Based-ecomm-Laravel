@@ -19,6 +19,27 @@ function getLevelStyle(level) {
   return LEVEL_STYLES[level] || { color: 'var(--muted)', bg: 'var(--surface-grey)', label: level || 'UNKNOWN' };
 }
 
+function normalizeLogEntry(value) {
+  if (value && typeof value === 'object') {
+    return { ...value, level: String(value.level || '').toUpperCase() || 'UNKNOWN', raw: value.raw || value.message || JSON.stringify(value) };
+  }
+
+  const raw = String(value || '');
+  try {
+    const parsed = JSON.parse(raw);
+    return {
+      ...parsed,
+      level: String(parsed.level || parsed.level_name || parsed.severity || '').toUpperCase() || 'UNKNOWN',
+      timestamp: parsed.timestamp || parsed.time,
+      raw,
+    };
+  } catch {
+    const levelMatch = raw.match(/\b(EMERGENCY|ALERT|CRITICAL|ERROR|WARNING|WARN|NOTICE|INFO|DEBUG)\b/i);
+    const level = levelMatch?.[1]?.toUpperCase() === 'WARN' ? 'WARNING' : levelMatch?.[1]?.toUpperCase();
+    return { level: level || 'UNKNOWN', raw };
+  }
+}
+
 function formatBytes(bytes) {
   if (!bytes) return '—';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -162,7 +183,7 @@ export default function LogViewerAdminPage() {
       const r = await adminAPI.getLogs(params);
       const payload = r.data?.data || {};
 
-      setLines(Array.isArray(payload.lines) ? payload.lines : []);
+      setLines(Array.isArray(payload.lines) ? payload.lines.map(normalizeLogEntry) : []);
       setPagination({
         page: payload.page || p,
         per_page: payload.per_page || 100,
@@ -197,6 +218,25 @@ export default function LogViewerAdminPage() {
   const handleSearch = () => {
     setPage(1);
     fetchLogs(1, selectedFile);
+  };
+
+  const handleDownload = async (filename) => {
+    try {
+      const res = await adminAPI.downloadLog(filename);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setActionMessage({ type: 'success', text: `${filename} downloaded` });
+      setTimeout(() => setActionMessage(null), 3000);
+    } catch (e) {
+      setActionMessage({ type: 'error', text: e?.response?.data?.message || 'Download failed' });
+      setTimeout(() => setActionMessage(null), 4000);
+    }
   };
 
   const toggleExpand = (index) => {
@@ -322,7 +362,8 @@ export default function LogViewerAdminPage() {
       setArchivedLoading(true);
       const res = await adminAPI.getArchivedLogs();
       const data = res.data?.data;
-      setArchivedFiles(Array.isArray(data?.files) ? data.files : []);
+      const files = Array.isArray(data) ? data : (Array.isArray(data?.files) ? data.files : []);
+      setArchivedFiles(files);
       setArchivedTotalSize(data?.total_size_formatted || '');
     } catch {
       setArchivedFiles([]);
@@ -338,10 +379,13 @@ export default function LogViewerAdminPage() {
       setArchivedViewing({ filename, entries: [], totalLines: 0, size: '' });
       const res = await adminAPI.viewArchivedLog(filename);
       const data = res.data?.data;
+      const entries = Array.isArray(data?.entries)
+        ? data.entries.map(normalizeLogEntry)
+        : String(data?.content || '').split('\n').filter(Boolean).map(normalizeLogEntry);
       setArchivedViewing({
         filename: data?.filename || filename,
-        entries: Array.isArray(data?.entries) ? data.entries : [],
-        totalLines: data?.total_lines || 0,
+        entries,
+        totalLines: data?.total_lines || entries.length,
         size: data?.size_formatted || '',
       });
     } catch (e) {
@@ -599,6 +643,9 @@ export default function LogViewerAdminPage() {
                         <td style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{f.modified_at || '—'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="btn-ghost btn-xs"
+                              onClick={() => handleDownload(f.name)}
+                              style={{ fontSize: '0.68rem', padding: '3px 8px' }}>⬇️ Download</button>
                             <button className="btn-ghost btn-xs"
                               onClick={() => setActionModal({ file: f.name, action: 'archive' })}
                               style={{ fontSize: '0.68rem', padding: '3px 8px' }}>📦 Archive</button>
@@ -968,7 +1015,7 @@ export default function LogViewerAdminPage() {
                 <div className="empty-state-icon" style={{ fontSize: '2rem' }}>📭</div>
                 <h3>No archived logs</h3>
                 <p style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>
-                  Archived log files (.gz) in <code>storage/logs/archived/</code> will appear here.
+                  Archived log files in <code>logs/archived/</code> will appear here.
                   Use the <strong>Archive</strong> action on a log file in Browse mode to create one.
                 </p>
               </div>
