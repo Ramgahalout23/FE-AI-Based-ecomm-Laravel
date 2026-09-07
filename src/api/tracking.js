@@ -5,6 +5,7 @@ export const trackingAPI = {
   recordPageView: (data) => client.post('/tracking/pageview', data),
   createSession: (data) => client.post('/tracking/session', data),
   recordEvent: (data) => client.post('/tracking/event', data),
+  recordEvents: (events) => client.post('/tracking/events', { events }),
   endSession: (sessionId) => client.patch(`/tracking/session/${sessionId}/end`),
 
   // Admin endpoints (auth required)

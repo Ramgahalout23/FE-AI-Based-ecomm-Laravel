@@ -264,17 +264,18 @@ export default function CheckoutPage() {
     ? calcBundleDiscount(availableItems, bundleTiers)
     : 0;
 
-  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
-  // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
+  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax,
+  // which taxes the discounted subtotal): 'inclusive' → prices already include tax → 0 added;
+  // 'exclusive' → tax added on top of (subtotal − totalDiscount).
+  const totalDiscount = discount + autoDiscount + bundleDiscount;
   const taxCalculation = getSetting('taxCalculation', 'inclusive');
   const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
-  const tax = calcTax(availableSubtotal, taxCalculation, taxRate);
+  const tax = calcTax(Math.max(0, availableSubtotal - totalDiscount), taxCalculation, taxRate);
 
   // Shipping — same settings as the cart page (mirrors backend CheckoutService::getSummary)
   const freeShippingThreshold = Number(getSetting('freeShippingThreshold', '499'));
   const shippingFlatRate = Number(getSetting('shippingFlatRate', '50'));
   const shippingCost = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
-  const totalDiscount = discount + autoDiscount + bundleDiscount;
   // Whole-rupee total — discounts/tax are rounded to whole rupees at the source,
   // so this equals the sum of the displayed line items (and is what the payment
   // gateway charges, keeping display and charge in sync).

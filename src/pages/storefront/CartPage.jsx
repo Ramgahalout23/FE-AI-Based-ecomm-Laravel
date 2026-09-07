@@ -146,11 +146,12 @@ export default function CartPage() {
 
 
 
-  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax):
-  // 'inclusive' → prices already include tax → 0 added; 'exclusive' → tax added on top of subtotal.
+  // Tax — honors the admin's taxCalculation setting (mirrors backend CheckoutService::calculateTax,
+  // which taxes the discounted subtotal): 'inclusive' → prices already include tax → 0 added;
+  // 'exclusive' → tax added on top of (subtotal − autoDiscount − bundleDiscount).
   const taxCalculation = getSetting('taxCalculation', 'inclusive');
   const taxRate = Number(getSetting('taxRate', '18.0')) || 0;
-  const tax = calcTax(availableSubtotal, taxCalculation, taxRate);
+  const tax = calcTax(Math.max(0, availableSubtotal - autoDiscount - bundleDiscount), taxCalculation, taxRate);
 
   const shipping = availableSubtotal >= freeShippingThreshold ? 0 : shippingFlatRate;
   const afterDiscount = Math.max(0, availableSubtotal - autoDiscount - bundleDiscount);

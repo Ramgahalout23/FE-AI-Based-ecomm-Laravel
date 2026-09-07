@@ -84,11 +84,10 @@ function flushBatch() {
   if (eventBatch.length === 0) return;
   const batch = [...eventBatch];
   eventBatch = [];
-  // Send each event individually (POST /event handles one at a time)
-  batch.forEach((evt) => {
-    trackingAPI.recordEvent(evt).catch(() => {
-      // Silently fail - don't disrupt user experience
-    });
+  // Send the whole batch in ONE request (POST /tracking/events inserts via createMany)
+  // instead of one HTTP request per event — cuts load on shared hosting.
+  trackingAPI.recordEvents(batch).catch(() => {
+    // Silently fail - don't disrupt user experience
   });
 }
 

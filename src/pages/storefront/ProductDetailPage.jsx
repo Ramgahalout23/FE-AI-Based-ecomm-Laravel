@@ -154,7 +154,9 @@ export default function ProductDetailPage() {
       if (!prod) throw new Error('Product not found');
       return prod;
     },
-    staleTime: 0,
+    // 60s — back/forward + quick revisits serve the cache; the query is
+    // invalidated after order placement so stock/price stay fresh where it matters.
+    staleTime: 60000,
   });
 
   const queryClient = useQueryClient();

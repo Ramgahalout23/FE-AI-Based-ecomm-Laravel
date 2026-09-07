@@ -1689,7 +1689,7 @@ export default function HomePage() {
       const res = await homepageAPI.getAll();
       return res?.data?.data || {};
     },
-    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
+    staleTime: 60000, // 60s — within-session revisits serve the cache; invalidated after order placement
   });
 
   // Extract data from the core (always-on) payload. The below-the-fold
@@ -1737,25 +1737,25 @@ export default function HomePage() {
     queryKey: ['homepage', 'newArrivals'],
     queryFn: async () => (await homepageAPI.getNewArrivals())?.data?.data || [],
     enabled: newArrivalsInView,
-    staleTime: 0,
+    staleTime: 60000, // 60s — serve cache on quick revisits (invalidated on pull-to-refresh)
   });
   const { data: bestSellers = [], isLoading: bestSellersLoading } = useQuery({
     queryKey: ['homepage', 'bestSellers'],
     queryFn: async () => (await homepageAPI.getBestSellers())?.data?.data || [],
     enabled: bestSellersInView,
-    staleTime: 0,
+    staleTime: 60000, // 60s — serve cache on quick revisits (invalidated on pull-to-refresh)
   });
   const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
     queryKey: ['homepage', 'reviews'],
     queryFn: async () => (await homepageAPI.getReviews())?.data?.data || { reviews: [] },
     enabled: reviewsInView,
-    staleTime: 0,
+    staleTime: 60000, // 60s — serve cache on quick revisits (invalidated on pull-to-refresh)
   });
   const { data: reels = [], isLoading: reelsLoading } = useQuery({
     queryKey: ['homepage', 'reels'],
     queryFn: async () => (await homepageAPI.getReels())?.data?.data || [],
     enabled: reelsInView,
-    staleTime: 0,
+    staleTime: 60000, // 60s — serve cache on quick revisits (invalidated on pull-to-refresh)
   });
   const homepageReviews = reviewsData?.reviews || [];
 
@@ -1874,7 +1874,7 @@ export default function HomePage() {
       const res = await productsAPI.getById(newArrivalProductId);
       return res?.data?.data || res?.data || null;
     },
-    staleTime: 0, // Always refetch — ensures stock counts are fresh after order placement
+    staleTime: 60000, // 60s — within-session revisits serve the cache; invalidated after order placement
     enabled: !!newArrivalProductId && !isExpired,
   });
 
