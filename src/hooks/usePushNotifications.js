@@ -112,55 +112,51 @@ export default function usePushNotifications() {
     if (!supported || loading) return false;
     setLoading(true);
 
-    try {
+    // Enforce an absolute 10-second timeout so the UI CAN NEVER HANG
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 10000),
+    );
+
+    const performSubscription = async () => {
       // 1. Request browser permission
       const perm = await Notification.requestPermission();
       setPermission(perm);
       if (perm !== 'granted') {
-        setLoading(false);
         return false;
       }
 
-      // 2. Ensure Service Worker is registered and ACTUALLY active
-      let reg = await registerSW();
-      if (!reg || !reg.active) {
-        try {
-          reg = await navigator.serviceWorker.ready;
-        } catch { /* ignore */ }
+      // 2. Fetch VAPID key and ensure SW registration in parallel
+      const [vapidKey, regResult] = await Promise.all([
+        getVapidKey(),
+        registerSW(),
+      ]);
+
+      if (!vapidKey) {
+        console.warn('[Push] No VAPID public key available from server');
+        return false;
       }
 
-      // If active worker is still activating, wait for state to reach 'activated'
-      if (reg && !reg.active && (reg.installing || reg.waiting)) {
-        const worker = reg.installing || reg.waiting;
-        await new Promise((resolve) => {
-          if (!worker || worker.state === 'activated') return resolve();
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'activated') resolve();
-          });
-          setTimeout(resolve, 2500);
-        });
-      }
+      let reg = regResult || swRegistrationRef.current;
 
-      // Re-fetch ready registration to guarantee reg.active is non-null
+      // If no active worker yet, send skip-waiting and wait at most 2 seconds for activation
       if (!reg?.active) {
-        reg = await navigator.serviceWorker.ready;
+        if (reg?.waiting) {
+          try {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } catch { /* ignore */ }
+        }
+        const readyPromise = navigator.serviceWorker.ready;
+        const quickTimeout = new Promise((resolve) => setTimeout(resolve, 2000));
+        const readyReg = await Promise.race([readyPromise, quickTimeout]);
+        if (readyReg) reg = readyReg;
       }
 
       if (!reg || !reg.pushManager) {
-        console.warn('[Push] PushManager is not ready on Service Worker registration');
-        setLoading(false);
+        console.warn('[Push] PushManager not available on registration');
         return false;
       }
 
-      // 3. Fetch VAPID key from backend
-      const vapidKey = await getVapidKey();
-      if (!vapidKey) {
-        console.warn('[Push] No VAPID public key available from server');
-        setLoading(false);
-        return false;
-      }
-
-      // 4. Subscribe via PushManager
+      // 3. Subscribe via PushManager
       const appServerKey = urlBase64ToUint8Array(vapidKey);
       let subscription = await reg.pushManager.getSubscription();
 
@@ -171,18 +167,22 @@ export default function usePushNotifications() {
         });
       }
 
-      // 5. Save subscription to backend if user is authenticated
+      // 4. Save subscription to backend if user is authenticated
       if (isAuthenticated || localStorage.getItem('adminToken') || localStorage.getItem('authToken')) {
         await syncSubscriptionToBackend(subscription);
       }
 
       setIsSubscribed(true);
-      setLoading(false);
       return true;
+    };
+
+    try {
+      return await Promise.race([performSubscription(), timeoutPromise]);
     } catch (err) {
       console.error('[Push] Subscribe failed:', err);
-      setLoading(false);
       return false;
+    } finally {
+      setLoading(false);
     }
   }, [supported, loading, registerSW, getVapidKey, isAuthenticated, syncSubscriptionToBackend]);
 

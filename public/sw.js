@@ -19,6 +19,12 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Push event — display notification even when browser tab is closed
 self.addEventListener('push', (event) => {
   let payload = {};
