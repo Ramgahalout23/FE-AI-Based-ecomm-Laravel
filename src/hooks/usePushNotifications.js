@@ -121,12 +121,33 @@ export default function usePushNotifications() {
         return false;
       }
 
-      // 2. Ensure SW is registered and ready
+      // 2. Ensure Service Worker is registered and ACTUALLY active
       let reg = await registerSW();
-      if (!reg) {
+      if (!reg || !reg.active) {
+        try {
+          reg = await navigator.serviceWorker.ready;
+        } catch { /* ignore */ }
+      }
+
+      // If active worker is still activating, wait for state to reach 'activated'
+      if (reg && !reg.active && (reg.installing || reg.waiting)) {
+        const worker = reg.installing || reg.waiting;
+        await new Promise((resolve) => {
+          if (!worker || worker.state === 'activated') return resolve();
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'activated') resolve();
+          });
+          setTimeout(resolve, 2500);
+        });
+      }
+
+      // Re-fetch ready registration to guarantee reg.active is non-null
+      if (!reg?.active) {
         reg = await navigator.serviceWorker.ready;
       }
-      if (!reg) {
+
+      if (!reg || !reg.pushManager) {
+        console.warn('[Push] PushManager is not ready on Service Worker registration');
         setLoading(false);
         return false;
       }
