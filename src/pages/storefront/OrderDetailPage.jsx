@@ -103,6 +103,7 @@ export default function OrderDetailPage() {
     const activeStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'];
     if (!activeStatuses.includes(order.status)) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (!cancelledRef.current) fetchOrder();
     }, 10000);
     return () => clearInterval(interval);

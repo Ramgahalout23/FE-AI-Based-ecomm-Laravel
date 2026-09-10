@@ -8,19 +8,7 @@ import { MessageCircle, Send, RefreshCw, Bot, Headphones, X, CheckCircle, Search
 import { chatAPI } from '../../api/tickets';
 import { formatTime } from '../../utils/formatters';
 import toast from '../../utils/toast';
-import { io } from 'socket.io-client';
-
-// ── Socket singleton ──
-let adminSocket = null;
-function getAdminSocket() {
-  if (adminSocket?.connected) return adminSocket;
-  if (adminSocket?.connecting) return adminSocket;
-  const token = localStorage.getItem('adminToken');
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-  if (!token) return null;
-  adminSocket = io(socketUrl, { auth: { token }, transports: ['polling', 'websocket'], reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000 });
-  return adminSocket;
-}
+import { connectSocket, onSocketEvent } from '../../services/socketService';
 
 // ── Pure helpers (no re-renders) ──
 function getDisplayName(conv) {
@@ -257,7 +245,7 @@ export default function ChatPanel() {
 
   // ── Socket: ONE listener, ultra-lean handler — ZERO API calls from here ──
   useEffect(() => {
-    const socket = getAdminSocket();
+    const socket = connectSocket();
     if (!socket) return;
 
     const onConnect = () => setSocketConnected(true);
@@ -304,15 +292,15 @@ export default function ChatPanel() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    socket.on('chat:message', onChatMessage);
-    socket.on('chat:typing', onTyping);
+    const unsubChatMessage = onSocketEvent('chat:message', onChatMessage);
+    const unsubTyping = onSocketEvent('chat:typing', onTyping);
     if (socket.connected) setSocketConnected(true);
 
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
-      socket.off('chat:message', onChatMessage);
-      socket.off('chat:typing', onTyping);
+      unsubChatMessage();
+      unsubTyping();
     };
   }, []);
 

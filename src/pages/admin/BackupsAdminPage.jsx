@@ -149,6 +149,7 @@ export default function BackupsAdminPage() {
         // Start polling every 2s
         clearInterval(pollRef.current);
         pollRef.current = setInterval(() => {
+          if (typeof document !== 'undefined' && document.hidden) return;
           if (mountedRef.current) pollBackupStatus(backupId);
         }, 2000);
 

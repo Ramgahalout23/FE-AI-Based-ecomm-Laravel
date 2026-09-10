@@ -13,15 +13,15 @@ const TRANSLATIONS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
  */
 function getCachedTranslations(lang) {
   try {
-    const raw = localStorage.getItem(`${{TRANSLATIONS_CACHE_PREFIX}}${{lang}}`);
+    const raw = localStorage.getItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`);
     if (!raw) return null;
     const cached = JSON.parse(raw);
     if (cached.version !== TRANSLATIONS_CACHE_VERSION) {
-      localStorage.removeItem(`${{TRANSLATIONS_CACHE_PREFIX}}${{lang}}`);
+      localStorage.removeItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`);
       return null;
     }
     if (Date.now() - cached.timestamp > TRANSLATIONS_CACHE_TTL) {
-      localStorage.removeItem(`${{TRANSLATIONS_CACHE_PREFIX}}${{lang}}`);
+      localStorage.removeItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`);
       return null;
     }
     return cached.data;
@@ -35,7 +35,7 @@ function getCachedTranslations(lang) {
  */
 function setCachedTranslations(lang, data) {
   try {
-    localStorage.setItem(`${{TRANSLATIONS_CACHE_PREFIX}}${{lang}}`, JSON.stringify({
+    localStorage.setItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`, JSON.stringify({
       version: TRANSLATIONS_CACHE_VERSION,
       timestamp: Date.now(),
       data,

@@ -4,74 +4,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { chatAPI } from '../api/tickets';
-
-// ── Singleton store connection ──
-let storeSocket = null;
-let storeSocketListeners = {};
-
-function getStoreSocket() {
-  if (storeSocket?.connected) return storeSocket;
-  if (storeSocket?.connecting) return storeSocket;
-
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-  const sessionId = localStorage.getItem('chatSessionId') || `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  localStorage.setItem('chatSessionId', sessionId);
-
-  try {
-    storeSocket = io(socketUrl, {
-      auth: { sessionId },
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 5000,
-    });
-
-    storeSocket.on('connect', () => {
-      console.log('[Chat] Socket connected:', storeSocket.id);
-    });
-
-    storeSocket.on('disconnect', (reason) => {
-      console.log('[Chat] Socket disconnected:', reason);
-    });
-
-    storeSocket.on('connect_error', (err) => {
-      console.warn('[Chat] Socket connection error:', err.message);
-    });
-
-    // Re-register any pending listeners
-    Object.entries(storeSocketListeners).forEach(([event, handlers]) => {
-      handlers.forEach((handler) => {
-        storeSocket.off(event, handler);
-        storeSocket.on(event, handler);
-      });
-    });
-
-    return storeSocket;
-  } catch (error) {
-    console.warn('[Chat] Failed to create socket:', error);
-    return null;
-  }
-}
-
-function onChatEvent(event, handler) {
-  if (!storeSocketListeners[event]) storeSocketListeners[event] = [];
-  storeSocketListeners[event].push(handler);
-
-  if (storeSocket) {
-    storeSocket.on(event, handler);
-  }
-
-  return () => {
-    if (storeSocket) storeSocket.off(event, handler);
-    if (storeSocketListeners[event]) {
-      storeSocketListeners[event] = storeSocketListeners[event].filter((h) => h !== handler);
-    }
-  };
-}
+import { connectSocket, onSocketEvent } from '../services/socketService';
 
 function normalizeMsg(msg) {
   if (!msg) return msg;
@@ -221,7 +155,7 @@ export default function useChat() {
 
   /** Connect socket and subscribe to events — once */
   useEffect(() => {
-    const socket = getStoreSocket();
+    const socket = connectSocket();
     if (!socket) return;
 
     const onConnect = () => setSocketConnected(true);
@@ -231,9 +165,9 @@ export default function useChat() {
     socket.on('disconnect', onDisconnect);
     if (socket.connected) setSocketConnected(true);
 
-    const unsubMsg = onChatEvent('chat:message', handleIncomingMessage);
-    const unsubTyping = onChatEvent('chat:typing', handleTyping);
-    const unsubAdminTyping = onChatEvent('chat:admin:typing', handleTyping);
+    const unsubMsg = onSocketEvent('chat:message', handleIncomingMessage);
+    const unsubTyping = onSocketEvent('chat:typing', handleTyping);
+    const unsubAdminTyping = onSocketEvent('chat:admin:typing', handleTyping);
 
     return () => {
       socket.off('connect', onConnect);

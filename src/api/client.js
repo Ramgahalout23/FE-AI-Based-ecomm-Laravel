@@ -39,14 +39,18 @@ export async function refreshSharedToken() {
     // authToken avoids using a stale/revoked adminToken left behind by an
     // older session.
     const currentToken = localStorage.getItem('authToken') || localStorage.getItem('adminToken');
-    if (!currentToken) throw new Error('No auth token to refresh');
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!currentToken && !refreshToken) throw new Error('No auth token to refresh');
 
-    // Send the current Bearer token to Laravel's refresh-token endpoint
-    const { data } = await axios.post(`${API_BASE}/auth/refresh-token`, {}, {
-      headers: { Authorization: `Bearer ${currentToken}` },
+    // Send refreshToken in the request body as strictly required by AuthController.refreshToken
+    const { data } = await axios.post(`${API_BASE}/auth/refresh-token`, {
+      refreshToken: refreshToken || currentToken,
+    }, {
+      headers: currentToken ? { Authorization: `Bearer ${currentToken}` } : {},
     });
     const payload = data?.data || data || {};
     const newToken = payload?.token || payload?.accessToken;
+    const newRefreshToken = payload?.refreshToken;
 
     if (!newToken) throw new Error('No access token in refresh response');
 
@@ -54,6 +58,9 @@ export async function refreshSharedToken() {
     // never hold divergent tokens.
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('adminToken', newToken);
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    }
 
     // Record the refresh for the sidebar session indicator, and remember the
     // new token's expiry so the admin countdown banner can warn before it runs out.

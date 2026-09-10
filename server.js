@@ -25,18 +25,33 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  const cleanUrl = (req.url || '/').split('?')[0];
+  let filePath = path.join(__dirname, cleanUrl === '/' ? 'index.html' : cleanUrl);
+
+  // Check current directory, then check dist/ directory
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    const distPath = path.join(__dirname, 'dist', cleanUrl === '/' ? 'index.html' : cleanUrl);
+    if (fs.existsSync(distPath) && fs.statSync(distPath).isFile()) {
+      filePath = distPath;
+    }
+  }
+
   const ext = path.extname(filePath);
 
   // If the file exists, serve it
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      ...(ext === '.html' ? { 'Cache-Control': 'no-cache' } : { 'Cache-Control': 'public, max-age=31536000, immutable' }),
+    });
     fs.createReadStream(filePath).pipe(res);
   } else {
     // SPA fallback: serve index.html for all unknown routes
-    const indexPath = path.join(__dirname, 'index.html');
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    const indexPath = fs.existsSync(path.join(__dirname, 'dist', 'index.html'))
+      ? path.join(__dirname, 'dist', 'index.html')
+      : path.join(__dirname, 'index.html');
+    res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-cache' });
     fs.createReadStream(indexPath).pipe(res);
   }
 });

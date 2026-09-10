@@ -133,6 +133,7 @@ export default function SEODashboardPage() {
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       loadDashboardRef.current();
     }, 60000);
     return () => clearInterval(interval);

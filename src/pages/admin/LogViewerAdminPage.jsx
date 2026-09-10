@@ -211,7 +211,10 @@ export default function LogViewerAdminPage() {
   // Auto-refresh every 10 seconds (browse mode only)
   useEffect(() => {
     if (!autoRefresh || mode !== 'browse') return;
-    const interval = setInterval(() => fetchLogs(page, selectedFile), 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchLogs(page, selectedFile);
+    }, 10000);
     return () => clearInterval(interval);
   }, [autoRefresh, page, selectedFile, fetchLogs, mode]);
 
@@ -323,9 +326,12 @@ export default function LogViewerAdminPage() {
       }
     };
 
-    // Poll immediately, then every 2 seconds
+    // Poll immediately, then every 2 seconds (pause if tab is hidden)
     poll();
-    streamPollRef.current = setInterval(poll, 2000);
+    streamPollRef.current = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      poll();
+    }, 2000);
   }, [streamActive, streamPaused, streamLevelFilter]);
 
   const stopStreamPolling = useCallback(() => {

@@ -124,7 +124,10 @@ export default function QueueMonitorAdminPage() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(() => fetchJobs(page), 15000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchJobs(page);
+    }, 15000);
     return () => clearInterval(interval);
   }, [autoRefresh, page, fetchJobs]);
 

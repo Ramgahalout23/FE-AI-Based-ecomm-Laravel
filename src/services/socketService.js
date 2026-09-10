@@ -54,10 +54,10 @@ export function connectSocket() {
 
   try {
     // Suppress socket.io-client's internal debug logging
-    // Use polling first, then websocket — avoids raw WS error spam in console
+    // Use WebSocket only; polling is intentionally disabled.
     socket = io(SOCKET_URL, {
       auth: token ? { token } : { sessionId },
-      transports: ['polling', 'websocket'],
+      transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
       reconnectionDelay: 3000,
