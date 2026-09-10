@@ -13,7 +13,7 @@ import toast from '../../utils/toast';
 import { trackSignUp } from '../../services/tracker';
 import PasswordStrengthMeter from '../../components/admin/PasswordStrengthMeter';
 import { useAdminFormValidation, required } from '../../hooks/useAdminFormValidation';
-import { emailAddress, loginPassword } from '../../hooks/validationRules';
+import { emailAddress, customerPassword } from '../../hooks/validationRules';
 import './Auth.css';
 
 export default function RegisterPage() {
@@ -32,7 +32,7 @@ export default function RegisterPage() {
     firstName: required('First name is required'),
     lastName: required('Last name is required'),
     email: emailAddress(),
-    password: loginPassword(),
+    password: customerPassword(),
   });
   const adminEnabledGoogle = getSetting('googleLoginEnabled', 'true') !== 'false';
   const adminEnabledFacebook = getSetting('facebookLoginEnabled', 'true') !== 'false';
@@ -58,10 +58,17 @@ export default function RegisterPage() {
     if (!validation.validateForm(form)) return;
     setLoading(true);
     try {
-      await register(form);
+      const payload = await register(form);
       trackSignUp('email');
-      toast.success(t('auth.create_account'));
-      navigate('/');
+      // Registration now ends at the verification screen — the account only
+      // becomes active after the OTP / email code is confirmed.
+      const channel = payload?.verification?.channel;
+      const masked = payload?.verification?.maskedDestination;
+      const qs = new URLSearchParams({ email: form.email });
+      if (channel) qs.set('channel', channel);
+      if (masked) qs.set('destination', masked);
+      toast.success(t('auth.verification_needed'));
+      navigate(`/verify-account?${qs.toString()}`);
     } catch (err) {
       const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('auth.create_account');
       toast.error(msg);
@@ -315,7 +322,7 @@ export default function RegisterPage() {
                 <label htmlFor="reg-password" className="text-xs font-bold text-text-muted uppercase tracking-wider">{t('auth.password')} *</label>
                 <div className="auth-input-wrap">
                   <Lock size={16} className="auth-input-icon" />
-                  <input id="reg-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={handleChange('password')} required minLength={6} autoComplete="new-password" placeholder="Min. 8 characters" className="auth-input auth-input--pr" />
+                  <input id="reg-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={handleChange('password')} required minLength={6} autoComplete="new-password" placeholder="Min. 6 characters" className="auth-input auth-input--pr" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}

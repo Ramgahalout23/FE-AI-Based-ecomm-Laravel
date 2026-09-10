@@ -94,3 +94,12 @@ export const passwordPolicy = () =>
 /** Admin login password — required on top of the shared policy. */
 export const loginPassword = () =>
   composeValidators(required('Password is required'), passwordPolicy());
+
+/**
+ * Customer password — deliberately easy: any 6+ characters. Sign-up and reset
+ * should never block a real person on symbol rules; the strength meter stays
+ * on screen as guidance but the checklist no longer hard-requires uppercase
+ * or a number.
+ */
+export const customerPassword = () =>
+  composeValidators(required('Password is required'), minLength(6, 'Password must be at least 6 characters'));

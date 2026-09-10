@@ -92,6 +92,7 @@ const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+const VerifyAccountPage = lazy(() => import('./pages/auth/VerifyAccountPage'));
 
 // Admin pages
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
@@ -287,7 +288,7 @@ function StorefrontLayout() {
       <MobileNav />
       <PhoneLeadBanner />
       <EmailPopupBanner />
-      {deferChatWidgets && chatbotEnabled && !['/checkout', '/cart', '/login', '/register', '/forgot-password'].some(p => location.pathname.startsWith(p)) && (
+      {deferChatWidgets && chatbotEnabled && !['/checkout', '/cart', '/login', '/register', '/forgot-password', '/verify-account'].some(p => location.pathname.startsWith(p)) && (
         <Suspense fallback={null}>
           <ErrorBoundary title="Chat Error" description="The chat widget encountered an error.">
             <LiveChatWidget />
@@ -547,6 +548,7 @@ function AppContent() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-account" element={<VerifyAccountPage />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/section/:section" element={<SectionProductsPage />} />

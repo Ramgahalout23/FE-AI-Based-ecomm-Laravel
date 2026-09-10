@@ -97,23 +97,25 @@ export const positiveInteger = (message = 'Enter a positive whole number') =>
  * Live password strength analysis — used by PasswordStrengthMeter and the
  * password rules above.
  *
- * Returns { score (0-4), label, empty, checks: [{ key, label, met }] } where
- * the checks are the same three rules enforced by the validators, so the meter
- * and the inline errors always agree.
+ * `checks` are the requirements that are actually enforced (customer policy:
+ * any 6+ characters — uppercase/number are NOT required to pass), so the
+ * meter and inline errors always agree. The 0-4 `score`/`label` stay advisory:
+ * they nudge users toward stronger passwords without ever blocking them.
+ *
+ * Returns { score (0-4), label, empty, checks: [{ key, label, met }] }.
  */
 export const passwordStrength = (value) => {
   const v = String(value ?? '');
   const checks = [
-    { key: 'length', label: '8+ characters', met: v.length >= 8 },
-    { key: 'upper', label: 'Uppercase', met: /[A-Z]/.test(v) },
-    { key: 'number', label: 'Number', met: /\d/.test(v) },
+    { key: 'length', label: '6+ characters', met: v.length >= 6 },
   ];
 
   let score = 0;
+  if (v.length >= 6) score += 1;
   if (v.length >= 8) score += 1;
   if (/[A-Z]/.test(v)) score += 1;
   if (/\d/.test(v)) score += 1;
-  if (v.length >= 12) score += 1; // bonus tier for longer passphrases
+  if (v.length >= 12) score += 1; // extra credit for passphrases
   score = Math.min(4, Math.max(0, score));
 
   const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'];

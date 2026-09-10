@@ -263,7 +263,7 @@ describe('CheckoutPage', () => {
 
     // Password too short
     // showError passes { duration: 4000 } as second argument
-    expect(toast.error).toHaveBeenCalledWith('Password must be at least 8 characters', expect.any(Object));
+    expect(toast.error).toHaveBeenCalledWith('Password must be at least 6 characters', expect.any(Object));
   });
 
   it('should show error with missing required fields', () => {

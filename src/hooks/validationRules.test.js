@@ -11,6 +11,7 @@ import {
   localOrRemoteUrl,
   emailAddress,
   passwordPolicy,
+  customerPassword,
   loginPassword,
 } from './validationRules';
 
@@ -158,6 +159,16 @@ describe('validationRules registry', () => {
     it('loginPassword additionally requires a value', () => {
       expectError(loginPassword(), '');
       expectPass(loginPassword(), 'Abcdef1!');
+    });
+  });
+
+  describe('customerPassword', () => {
+    it('requires any 6+ characters — no uppercase or number needed', () => {
+      expectError(customerPassword(), '');
+      expectError(customerPassword(), 'Ab1'); // too short
+      expectPass(customerPassword(), 'abcdef'); // lowercase only
+      expectPass(customerPassword(), '123456'); // digits only
+      expectPass(customerPassword(), 'Abcdef1!'); // strong ones pass too
     });
   });
 });

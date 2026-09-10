@@ -51,6 +51,13 @@ export default function LoginPage() {
       toast.success(t('auth.welcome_back'));
       navigate('/');
     } catch (err) {
+      // Unverified registration → route to the verification screen instead of a dead-end error
+      if (err?.isAccountNotVerified || err.response?.data?.message === 'ACCOUNT_NOT_VERIFIED' || err.message === 'ACCOUNT_NOT_VERIFIED') {
+        const qs = new URLSearchParams({ email: form.email });
+        toast.info(t('auth.verify_first'));
+        navigate(`/verify-account?${qs.toString()}`);
+        return;
+      }
       const msg = err.response?.data?.error?.message || err.response?.data?.message || err.message || t('auth.sign_in');
       toast.error(msg);
     } finally { setLoading(false); }

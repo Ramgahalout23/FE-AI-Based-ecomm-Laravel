@@ -389,8 +389,9 @@ export default function CheckoutPage() {
         showError('Please enter your email to create an account');
         return;
       }
-      if (!password || password.length < 8) {
-        showError('Password must be at least 8 characters');
+      // Customer-friendly policy, same as registration: any 6+ characters
+      if (!password || password.length < 6) {
+        showError('Password must be at least 6 characters');
         return;
       }
     }
@@ -1099,7 +1100,7 @@ export default function CheckoutPage() {
                   }`}>
                     <div className="px-4 pb-4 border-t border-gray-200/50 mt-1 pt-3">
                       <label htmlFor="checkout-password" className="block text-sm font-medium text-gray-700 mb-1.5">
-                        Set a password <span className="text-gray-400 font-normal">(min. 8 chars)</span>
+                        Set a password <span className="text-gray-400 font-normal">(min. 6 chars)</span>
                       </label>
                       <div className="relative">
                         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

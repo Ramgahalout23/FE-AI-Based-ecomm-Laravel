@@ -11,6 +11,7 @@ const TEMPLATE_ICONS = {
   orderStatusUpdate: '🚚',
   passwordReset: '🔑',
   emailVerification: '✅',
+  accountVerification: '🛡️',
   welcomeEmail: '👋',
   abandonedCart: '🛒',
 };
@@ -20,6 +21,7 @@ const TEMPLATE_NAMES = {
   orderStatusUpdate: 'Order Status Update',
   passwordReset: 'Password Reset',
   emailVerification: 'Email Verification',
+  accountVerification: 'Account Verification (Registration)',
   welcomeEmail: 'Welcome Email',
   abandonedCart: 'Abandoned Cart',
 };

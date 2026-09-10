@@ -108,6 +108,13 @@ const useAuthStore = create((set, get) => ({
 
   login: async (credentials) => {
     const res = await authAPI.login(credentials);
+    // Backend flags unverified registrations with ACCOUNT_NOT_VERIFIED —
+    // surface it so LoginPage can route to the verification screen.
+    if (res?.data?.message === 'ACCOUNT_NOT_VERIFIED') {
+      const err = new Error('ACCOUNT_NOT_VERIFIED');
+      err.isAccountNotVerified = true;
+      throw err;
+    }
     const payload = unwrap(res);
     const token = pickToken(payload);
     const refresh = pickRefresh(payload);
@@ -144,33 +151,35 @@ const useAuthStore = create((set, get) => ({
   register: async (userData) => {
     const res = await authAPI.register(userData);
     const payload = unwrap(res);
+    // Registration does NOT log the user in — the backend issues no tokens
+    // until the verification challenge (OTP / email code) is solved on the
+    // verify screen. verifyRegistration() below is the single login point.
+    // Guard: never persist tokens even if an old backend still sends them.
+    const token = pickToken(payload);
+    if (token) {
+      console.warn('[auth] register response unexpectedly contained tokens — ignoring (account not verified)');
+    }
+    return payload;
+  },
+
+  /** Finalize the session after a successful registration verification. */
+  completeRegistration: (payload) => {
     const token = pickToken(payload);
     const refresh = pickRefresh(payload);
     if (token) {
       localStorage.setItem('authToken', token);
       if (refresh) localStorage.setItem('refreshToken', refresh);
       const user = pickUser(payload);
-      const isAdminUser = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
-      if (isAdminUser) {
-        localStorage.setItem('adminToken', token);
-      } else {
-        localStorage.removeItem('adminToken');
-      }
       set({
         user,
         isAuthenticated: true,
-        isAdmin: isAdminUser,
+        isAdmin: false,
         _tokenVersion: get()._tokenVersion + 1,
       });
-
       useSessionStore.getState().recordTokenRefresh();
       useSessionStore.getState().recordAuthCheck();
       useSessionStore.getState().setTokenExpiry(payload?.expires_at ?? null);
-
-      // Merge guest cart items into server cart after registration
-      await mergeGuestCart();
     }
-    return payload;
   },
 
   logout: async () => {

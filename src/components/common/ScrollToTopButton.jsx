@@ -16,6 +16,7 @@ const HIDDEN_PATHS = [
   '/register',
   '/forgot-password',
   '/reset-password',
+  '/verify-account',
   '/admin',
 ];
 
