@@ -46,7 +46,38 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options),
+    (async () => {
+      await self.registration.showNotification(title, options);
+      const matchedClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of matchedClients) {
+        client.postMessage({
+          type: 'PUSH_NOTIFICATION_RECEIVED',
+          payload: { title, body: options.body, url: options.data?.url || '/' },
+        });
+      }
+    })(),
+  );
+});
+
+// ── Push Subscription Renewal Handler ──
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const newSub = await self.registration.pushManager.subscribe(
+          event.oldSubscription ? event.oldSubscription.options : { userVisibleOnly: true }
+        );
+        const windowClients = await clients.matchAll({ type: 'window' });
+        for (const client of windowClients) {
+          client.postMessage({
+            type: 'PUSH_SUBSCRIPTION_CHANGED',
+            subscription: newSub.toJSON(),
+          });
+        }
+      } catch (err) {
+        console.error('[SW] Failed to renew push subscription:', err);
+      }
+    })()
   );
 });
 

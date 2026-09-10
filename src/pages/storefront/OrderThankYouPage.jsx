@@ -18,6 +18,7 @@ import { formatCurrency, formatDate, getImageUrl } from '../../utils/formatters'
 import { ORDER_STATUSES, SHIPPING_STATUSES, calcBundleDiscount, parseBundleTiers } from '../../utils/constants';
 import toast from '../../utils/toast';
 import { CUSTOM_TEE_PRODUCT_ID } from '../../utils/constants';
+import OrderPushNotificationOptIn from '../../components/common/OrderPushNotificationOptIn';
 
 /* ═══════════════ CONFETTI COMPONENT ═══════════════ */
 function Confetti() {
@@ -1350,6 +1351,16 @@ export default function OrderThankYouPage() {
             >
               <Mail size={14} />
               <span>{t('orders.detail.email_confirmation_notice')}</span>
+            </motion.div>
+
+            {/* Live Delivery Push Notification Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.5 }}
+              className="mt-4 max-w-md mx-auto"
+            >
+              <OrderPushNotificationOptIn orderId={id} />
             </motion.div>
           </div>
         </section>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
+import client from '../../api/client';
 import { NOTIFICATION_TYPES } from '../../utils/constants';
 import { formatDateTime, getUserFullName } from '../../utils/formatters';
 import Pagination from '../../components/admin/Pagination';
@@ -164,9 +165,23 @@ let _cachedAllUsers = null;
         title: form.title,
         message: form.message,
       });
+
+      // Broadcast directly via Web Push to all devices
+      if (form.targetAudience === 'ALL') {
+        try {
+          await client.post('/push/broadcast', {
+            title: form.title,
+            body: form.message,
+            url: form.type === 'PROMOTION' ? '/sales' : '/',
+          });
+        } catch (pushErr) {
+          console.warn('[Push Broadcast] Web push broadcast warning:', pushErr);
+        }
+      }
+
       setShowModal(false);
       setForm(EMPTY);
-      toast.success(`Notification sent to ${userIds.length} user(s)`);
+      toast.success(`Notification sent to ${userIds.length} user(s) + broadcasted via Push`);
       await load(currentPage);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to send';

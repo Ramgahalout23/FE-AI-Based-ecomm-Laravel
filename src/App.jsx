@@ -41,6 +41,13 @@ import EmailPopupBanner from './components/common/EmailPopupBanner';
 import CurrencyProvider from './components/common/CurrencyProvider';
 import useIdleTimer from './hooks/useIdleTimer';
 import { useAdminTableLabels } from './hooks/useAdminTableLabels';
+import useForegroundNotifications from './hooks/useForegroundNotifications';
+import AdminPushPromptBanner from './components/admin/AdminPushPromptBanner';
+
+function ForegroundNotificationHandler() {
+  useForegroundNotifications();
+  return null;
+}
 
 // ── Route-level Code Splitting (React.lazy) ──
 // Pages are loaded on-demand, reducing the initial JS bundle significantly.
@@ -377,6 +384,7 @@ function AdminLayout() {
       <div className="flex flex-col md:flex-row flex-1">
         <AdminSidebar />
         <main className="admin-panel-main flex-1 bg-cream p-4 md:p-8">
+          <AdminPushPromptBanner />
           {/* Suspense sits ABOVE the animated wrapper so a lazily-loaded route's
               chunk swaps in the RouteFallback spinner immediately instead of
               keeping the outgoing page mounted while the chunk downloads. */}
@@ -498,6 +506,7 @@ function AppContent() {
 
   return (
     <BrowserRouter>
+      <ForegroundNotificationHandler />
       {/* Default title: last-mounted Helmet wins, so per-page SEOHead titles override this */}
       <Helmet>{appSettings.storeName ? <title>{appSettings.storeName}</title> : null}</Helmet>
       <ThemeInjector />

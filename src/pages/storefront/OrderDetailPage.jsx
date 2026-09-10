@@ -14,6 +14,7 @@ import { useSettings } from '../../store/useSettings';
 import useAuthStore from '../../store/authStore';
 import toast from '../../utils/toast';
 import OrderDetailSkeleton from '../../components/ui/OrderDetailSkeleton';
+import OrderPushNotificationOptIn from '../../components/common/OrderPushNotificationOptIn';
 const ReviewFormModal = lazy(() => import('../../components/product/ReviewFormModal'));
 
 export default function OrderDetailPage() {
@@ -333,6 +334,11 @@ export default function OrderDetailPage() {
               <button className="btn-danger btn-sm" onClick={handleCancel}>{t('orders.detail.cancel_order')}</button>
             </div>
           )}
+        </div>
+
+        {/* ── Browser Push Notification Alert Opt-In ── */}
+        <div className="mt-6">
+          <OrderPushNotificationOptIn orderId={id} />
         </div>
 
         {/* ── Order Updates Subscription ── */}

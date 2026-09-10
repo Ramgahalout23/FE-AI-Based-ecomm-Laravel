@@ -4,11 +4,12 @@
  * Uses existing support ticket system for persistence and Socket.io for real-time messaging.
  */
 
-import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus } from 'lucide-react';
+import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus, Bell, BellRing } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { formatTime } from '../../utils/formatters';
 import useChat from '../../hooks/useChat';
+import usePushNotifications from '../../hooks/usePushNotifications';
 import { chatAPI } from '../../api/tickets';
 import toast from '../../utils/toast';
 
@@ -40,6 +41,8 @@ export default function LiveChatWidget() {
     initChat, newConversation, sendMessage, isSocketConnected,
     addMessage, replaceMessage, removeMessage,
   } = useChat();
+
+  const { supported: pushSupported, permission: pushPermission, isSubscribed: pushSubscribed, subscribe: subscribePush } = usePushNotifications();
 
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -506,6 +509,38 @@ export default function LiveChatWidget() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              {pushSupported && (
+                <button
+                  onClick={async () => {
+                    if (!pushSubscribed) {
+                      const ok = await subscribePush();
+                      if (ok) toast.success('🔔 Chat notifications enabled!');
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: pushSubscribed ? '#34d399' : 'rgba(255,255,255,0.6)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = pushSubscribed ? '#34d399' : 'rgba(255,255,255,0.6)';
+                    e.currentTarget.style.background = 'none';
+                  }}
+                  title={pushSubscribed ? 'Notifications Active' : 'Enable Reply Alerts'}
+                  aria-label="Toggle notifications"
+                >
+                  {pushSubscribed ? <BellRing size={16} /> : <Bell size={16} />}
+                </button>
+              )}
               <button
                 onClick={async () => {
                   if (window.confirm('Start a new conversation? Current chat will be closed.')) {
@@ -560,6 +595,33 @@ export default function LiveChatWidget() {
               </button>
             </div>
           </div>
+
+          {/* ── Live Mode Push Notification Banner ── */}
+          {chatMode === 'live' && pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
+            <div
+              onClick={async () => {
+                const ok = await subscribePush();
+                if (ok) toast.success('🔔 You will be alerted when our agent replies!');
+              }}
+              style={{
+                background: 'rgba(16, 185, 129, 0.12)',
+                borderBottom: '1px solid rgba(16, 185, 129, 0.2)',
+                padding: '7px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: '#065f46',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <BellRing size={13} />
+                <span>Notify me when an agent replies</span>
+              </span>
+              <span style={{ fontWeight: 700, textDecoration: 'underline' }}>Enable</span>
+            </div>
+          )}
 
           {/* ── Messages Area ── */}
           <div style={{
