@@ -370,4 +370,46 @@ export default function useForegroundNotifications() {
     handleChatMessage,
     handleNewNotification,
   ]);
+
+  // Service Worker Broadcast Listener — ensures audio chime and toasts fire
+  // even when WebSockets are offline or blocked by Hostinger CDN / proxy.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleSWMessage = (event) => {
+      if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
+        const { title, body, url } = event.data.payload || {};
+        playNotificationChime();
+        if (title) {
+          toast.custom(
+            (t) => (
+              <div
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  if (url) navigateRef.current(url);
+                }}
+                className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl cursor-pointer transition-all hover:scale-[1.02] max-w-sm"
+              >
+                <div className="w-9 h-9 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-600 font-bold shrink-0">
+                  🔔
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold text-text-primary dark:text-white truncate">
+                    {title}
+                  </p>
+                  <p className="text-xs text-text-secondary truncate">{body}</p>
+                </div>
+              </div>
+            ),
+            { duration: 5000 },
+          );
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+    };
+  }, []);
 }
