@@ -14,6 +14,17 @@ function getSocketOrigin() {
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       return 'http://localhost:3000';
     }
+    // Auto-detect from API Base URL if set
+    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+    if (apiBase) {
+      try {
+        return new URL(apiBase).origin;
+      } catch { /* ignore */ }
+    }
+    // Production default on threvolt.com
+    if (typeof window !== 'undefined' && window.location.hostname.includes('threvolt.com')) {
+      return 'https://api.threvolt.com';
+    }
     return null;
   }
   try {
@@ -53,8 +64,7 @@ export function connectSocket() {
   localStorage.setItem('chatSessionId', sessionId);
 
   try {
-    // Suppress socket.io-client's internal debug logging
-    // Use WebSocket only; polling is intentionally disabled.
+    // Use WebSocket only; polling is disabled to prevent resource/server strain
     socket = io(SOCKET_URL, {
       auth: token ? { token } : { sessionId },
       transports: ['websocket'],
