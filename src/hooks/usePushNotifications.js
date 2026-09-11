@@ -60,29 +60,37 @@ export default function usePushNotifications() {
     if (!('serviceWorker' in navigator)) return null;
 
     try {
-      // 1. Check existing registration
-      let reg = await navigator.serviceWorker.getRegistration();
+      // 1. Inspect all existing registrations and clean up stale/broken ones
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      let validReg = null;
 
-      // If dead registration exists without any worker, unregister it cleanly
-      if (reg && !reg.active && !reg.waiting && !reg.installing) {
-        try {
-          await reg.unregister();
-        } catch { /* ignore */ }
-        reg = null;
+      for (const r of registrations) {
+        if (r.active) {
+          validReg = r;
+        } else {
+          // If registration has no active worker (e.g. broken from old failed precaching),
+          // unregister it cleanly so it does not block future activations
+          try {
+            await r.unregister();
+          } catch { /* ignore */ }
+        }
       }
 
-      // If no registration, register /sw.js
-      if (!reg) {
-        reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      if (validReg) {
+        swRegistrationRef.current = validReg;
+        return validReg;
       }
 
-      // If already active, return immediately
+      // 2. Register clean /sw.js
+      let reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+      // If active already, return immediately
       if (reg.active) {
         swRegistrationRef.current = reg;
         return reg;
       }
 
-      // If a worker is waiting, post SKIP_WAITING to activate it immediately
+      // If a worker is waiting, prompt SKIP_WAITING to activate it immediately
       if (reg.waiting) {
         try {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -101,12 +109,11 @@ export default function usePushNotifications() {
         });
       }
 
-      // Wait on navigator.serviceWorker.ready (guaranteed by W3C spec to have active worker)
-      // with a 6-second timeout
+      // 3. Wait on navigator.serviceWorker.ready with a 10-second timeout
       const readyReg = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Service Worker activation timed out')), 6000),
+          setTimeout(() => reject(new Error('Service Worker activation timed out')), 10000),
         ),
       ]);
 
