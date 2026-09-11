@@ -1,12 +1,14 @@
 /**
- * ChatPanel — Modern, responsive live chat admin center.
- * Features:
- * - Real-time two-way messaging via ticket-scoped rooms
- * - Immediate sidebar update & audio chime on incoming customer messages
- * - Unrestricted admin messaging (never locked when AI mode is active)
- * - Canned quick replies toolbar
- * - Fully responsive with mobile view toggle (Back to chats)
- * - Performance optimized: zero redundant renders, pure helper functions
+ * ChatPanel — Luxury, High-Performance Admin Live Chat & Support Console.
+ * Designed with UI/UX Pro Max standards:
+ * - Fluid mobile-responsive layout (mobile view switching between list & chat)
+ * - Zero window-level scrolling or overflow clipping (100dvh precision)
+ * - Real-time O(1) socket room communication with audio chime alerts
+ * - Unrestricted admin reply capability (human takeover in 1 click)
+ * - Multi-criteria filter tabs: All, Active, Unread, Resolved
+ * - Collapsible Customer Context drawer with user info and ticket metadata (slide-over on mobile)
+ * - Canned quick response chips with icons
+ * - THREVOLT Luxe design tokens (Ink, Gold, Surface, Royal Blue, Emerald)
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
@@ -25,6 +27,14 @@ import {
   ArrowLeft,
   Zap,
   CheckCheck,
+  User,
+  Clock,
+  Tag,
+  ShieldCheck,
+  ChevronRight,
+  Filter,
+  Info,
+  ExternalLink,
 } from 'lucide-react';
 import { chatAPI } from '../../api/tickets';
 import { formatTime } from '../../utils/formatters';
@@ -32,15 +42,19 @@ import toast from '../../utils/toast';
 import { connectSocket, onSocketEvent } from '../../services/socketService';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
 
-// ── Pure helpers (zero re-renders) ──
+// ── Helpers ──
 function getDisplayName(conv) {
-  if (!conv) return 'Guest';
-  const first = conv.user?.firstName || '';
-  if (first.startsWith('Guest') && conv.user?.email?.includes('guest-')) {
-    const m = conv.user.email.match(/guest-(?:anon-)?[\d]+-(\w+)@/);
-    return m ? `Guest ${m[1]}` : `Guest ${first.split(' ')[1] || ''}`;
+  if (!conv) return 'Guest Customer';
+  const u = conv.user || conv.customer;
+  const first = u?.firstName || u?.first_name || '';
+  const last = u?.lastName || u?.last_name || '';
+
+  if (first.startsWith('Guest') && u?.email?.includes('guest-')) {
+    const m = u.email.match(/guest-(?:anon-)?[\d]+-(\w+)@/);
+    return m ? `Guest #${m[1]}` : `Guest ${first.split(' ')[1] || ''}`;
   }
-  return `${first} ${conv.user?.lastName || ''}`.trim() || 'Guest Customer';
+  const full = `${first} ${last}`.trim();
+  return full || u?.email?.split('@')[0] || conv.subject || 'Guest Customer';
 }
 
 function getInitials(name) {
@@ -52,7 +66,8 @@ function getInitials(name) {
 function stringToColor(str) {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-  return ['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#14b8a6', '#06b6d4'][Math.abs(h) % 8];
+  const palette = ['#2563EB', '#4F46E5', '#7C3AED', '#059669', '#0891B2', '#D97706', '#DC2626', '#1E293B'];
+  return palette[Math.abs(h) % palette.length];
 }
 
 function isHiddenMessage(msg) {
@@ -68,33 +83,40 @@ function isHiddenMessage(msg) {
   );
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    OPEN: { c: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/40', l: 'Active' },
-    IN_PROGRESS: { c: 'text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/40', l: 'In Progress' },
-    WAITING_CUSTOMER: { c: 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950/40', l: 'Waiting' },
-    RESOLVED: { c: 'text-zinc-600 bg-zinc-100 border-zinc-200 dark:text-zinc-400 dark:bg-zinc-800', l: 'Resolved' },
-    CLOSED: { c: 'text-zinc-500 bg-zinc-100 border-zinc-200 dark:text-zinc-500 dark:bg-zinc-900', l: 'Closed' },
+function StatusPill({ status }) {
+  const styles = {
+    OPEN: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    IN_PROGRESS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    WAITING_CUSTOMER: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    RESOLVED: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
+    CLOSED: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20',
   };
-  const s = map[status] || map.OPEN;
+  const labels = {
+    OPEN: 'Active',
+    IN_PROGRESS: 'In Progress',
+    WAITING_CUSTOMER: 'Waiting Customer',
+    RESOLVED: 'Resolved',
+    CLOSED: 'Closed',
+  };
+  const cls = styles[status] || styles.OPEN;
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.c}`}>
-      {s.l}
+    <span className={`px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-semibold border whitespace-nowrap ${cls}`}>
+      {labels[status] || status || 'Active'}
     </span>
   );
 }
 
-// ── Quick canned replies for fast admin workflow ──
 const QUICK_REPLIES = [
-  '👋 Hi! How can I help you today?',
-  '🔍 Let me check your order details right away.',
-  '📦 Your order is confirmed and will ship shortly.',
-  '✅ We have resolved this for you. Anything else?',
-  '🙏 Thank you for contacting THREVOLT support!',
+  { icon: '👋', text: 'Hello! How may I assist you today?' },
+  { icon: '🔍', text: 'Let me look up your order details right now.' },
+  { icon: '📦', text: 'Your package is confirmed and preparing for dispatch.' },
+  { icon: '🚚', text: 'Tracking shows delivery is scheduled in 2-3 business days.' },
+  { icon: '🔄', text: 'We accept hassle-free returns within 7 days of delivery.' },
+  { icon: '✅', text: 'I have marked this resolved for you. Have a great day!' },
 ];
 
-// ── Memoized conversation list item ──
-const ConversationItem = memo(function ConversationItem({
+// ── Memoized Conversation Card ──
+const ConversationCard = memo(function ConversationCard({
   conv,
   active,
   unread,
@@ -105,60 +127,108 @@ const ConversationItem = memo(function ConversationItem({
   onSelect,
   onDelete,
 }) {
-  const bg = stringToColor(name);
+  const avatarBg = stringToColor(name);
+  const u = conv.user || conv.customer;
+  const isGuest = u?.email?.includes('guest-') || !u?.lastName;
+
   return (
     <div
       onClick={() => onSelect(conv)}
-      className={`group relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-all border-l-4 ${
+      className={`group relative p-3 mx-2 my-1 rounded-xl cursor-pointer transition-all duration-150 border select-none ${
         active
-          ? 'bg-blue-50/80 dark:bg-zinc-800/80 border-blue-600'
-          : 'bg-transparent hover:bg-slate-50 dark:hover:bg-zinc-800/40 border-transparent'
+          ? 'bg-zinc-900 text-white border-zinc-900 shadow-md dark:bg-zinc-800 dark:border-zinc-700'
+          : 'bg-white hover:bg-slate-50 border-slate-200/80 text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800/60 dark:text-zinc-100'
       }`}
     >
-      <div className="relative flex-shrink-0">
-        <div
-          className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
-          style={{ backgroundColor: bg }}
-        >
-          {getInitials(name)}
+      <div className="flex items-start gap-2.5">
+        {/* Avatar with status indicator */}
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs"
+            style={{ backgroundColor: active ? '#2563EB' : avatarBg }}
+          >
+            {getInitials(name)}
+          </div>
+          {unread && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
+          )}
         </div>
-        {unread && (
-          <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
-        )}
-      </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-baseline mb-0.5">
-          <span className={`text-sm truncate ${unread ? 'font-bold text-zinc-900 dark:text-white' : 'font-semibold text-zinc-800 dark:text-zinc-200'}`}>
-            {name}
-          </span>
-          <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-            {unread && (
-              <span className="min-w-[18px] h-[18px] rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center px-1">
-                {unreadCount > 99 ? '99+' : unreadCount}
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1 mb-0.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`text-sm truncate ${unread ? 'font-bold' : 'font-semibold'}`}>
+                {name}
               </span>
-            )}
-            <span className="text-[11px] text-zinc-400 font-medium">
+              {isGuest && (
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded flex-shrink-0 ${
+                    active ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                  }`}
+                >
+                  GUEST
+                </span>
+              )}
+            </div>
+            <span
+              className={`text-[11px] flex-shrink-0 font-medium ${
+                active ? 'text-zinc-300' : 'text-zinc-400'
+              }`}
+            >
               {conv.updatedAt ? formatTime(conv.updatedAt) : ''}
             </span>
           </div>
-        </div>
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-          {typing ? (
-            <span className="text-indigo-600 dark:text-indigo-400 italic font-medium animate-pulse">typing...</span>
-          ) : (
-            lastMsg?.substring(0, 50) || conv.subject || 'New conversation'
-          )}
-        </div>
-      </div>
 
-      <button
-        onClick={(e) => onDelete(e, conv.id)}
-        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all flex-shrink-0"
-        title="Delete conversation"
-      >
-        <Trash2 size={14} />
-      </button>
+          <div
+            className={`text-xs truncate ${
+              active
+                ? 'text-zinc-300'
+                : unread
+                ? 'font-semibold text-zinc-900 dark:text-white'
+                : 'text-zinc-500 dark:text-zinc-400'
+            }`}
+          >
+            {typing ? (
+              <span className="text-blue-400 font-semibold italic animate-pulse">Customer is typing...</span>
+            ) : (
+              lastMsg || conv.subject || 'New conversation started'
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800/60">
+            <span
+              className={`text-[10px] font-mono ${
+                active ? 'text-zinc-400' : 'text-zinc-400'
+              }`}
+            >
+              #{conv.ticketNumber || conv.id?.slice(0, 8)}
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              {unread && unreadCount > 0 && (
+                <span className="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold shadow-xs">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              <StatusPill status={conv.status} />
+            </div>
+          </div>
+        </div>
+
+        {/* Delete action on desktop hover */}
+        <button
+          onClick={(e) => onDelete(e, conv.id)}
+          className={`hidden sm:block opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all ${
+            active
+              ? 'hover:bg-zinc-800 text-zinc-400 hover:text-rose-400'
+              : 'hover:bg-rose-50 text-zinc-400 hover:text-rose-600 dark:hover:bg-zinc-800'
+          }`}
+          title="Delete ticket"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
     </div>
   );
 });
@@ -178,14 +248,13 @@ export default function ChatPanel() {
   const [lastMessages, setLastMessages] = useState({});
   const [unreadCounts, setUnreadCounts] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState('ALL'); // 'ALL' | 'UNREAD' | 'ACTIVE' | 'RESOLVED'
+  const [showCustomerDrawer, setShowCustomerDrawer] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState(null);
   const [autoReply, setAutoReply] = useState({ enabled: true, timeout: 120, message: '' });
-  const [showAutoReplySettings, setShowAutoReplySettings] = useState(false);
+  const [showAutoReplyModal, setShowAutoReplyModal] = useState(false);
   const [savingAutoReply, setSavingAutoReply] = useState(false);
-
-  // Responsive state for mobile view
   const [mobileView, setMobileView] = useState('list'); // 'list' | 'chat'
 
   const messagesEndRef = useRef(null);
@@ -207,7 +276,7 @@ export default function ChatPanel() {
         const lm = {};
         items.forEach(c => {
           const vis = (c.ticketmessage || []).filter(m => !isHiddenMessage(m));
-          if (vis.length > 0) lm[c.id] = vis[0].content;
+          if (vis.length > 0) lm[c.id] = vis[vis.length - 1].content;
         });
         setLastMessages(lm);
       } else if (showSpinner) {
@@ -233,9 +302,9 @@ export default function ChatPanel() {
     try {
       await chatAPI.setChatMode(m);
       setChatMode(m);
-      toast.success(`Global chat mode: ${m === 'ai' ? 'AI Assistant' : 'Live Agent'}`);
+      toast.success(`Global chat mode set to: ${m === 'ai' ? '🤖 AI Assistant' : '🎧 Live Agent'}`);
     } catch {
-      toast.error('Failed to change mode');
+      toast.error('Failed to change chat mode');
     } finally {
       setModeLoading(false);
     }
@@ -252,10 +321,10 @@ export default function ChatPanel() {
     setSavingAutoReply(true);
     try {
       await chatAPI.updateAutoReplySettings(autoReply);
-      toast.success('Auto-reply settings updated');
-      setShowAutoReplySettings(false);
+      toast.success('Auto-reply configuration saved');
+      setShowAutoReplyModal(false);
     } catch {
-      toast.error('Failed to save settings');
+      toast.error('Failed to save auto-reply settings');
     } finally {
       setSavingAutoReply(false);
     }
@@ -265,7 +334,13 @@ export default function ChatPanel() {
     setMessagesLoading(true);
     try {
       const res = await chatAPI.adminGetMessages(id);
-      setMessages(res.data?.data?.messages || []);
+      const data = res.data?.data;
+      const msgs = data?.messages || (Array.isArray(data) ? data : []);
+      setMessages(msgs);
+      // If user profile is provided in response, enrich selectedChat
+      if (data?.user && selectedChatRef.current?.id === id) {
+        setSelectedChat(prev => (prev ? { ...prev, user: { ...prev.user, ...data.user } } : prev));
+      }
     } catch {
       setMessages([]);
     } finally {
@@ -287,25 +362,43 @@ export default function ChatPanel() {
       socket.emit('chat:join', conv.id);
     }
     await loadMessages(conv.id);
-    setTimeout(() => inputRef.current?.focus(), 150);
+
+    // On desktop, auto-focus input. On mobile, do not pop keyboard immediately so user can read first.
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+    }
   }, [loadMessages]);
 
   const handleDeleteChat = useCallback(async (e, convId) => {
     e.stopPropagation();
-    if (!window.confirm('Delete this chat permanently?')) return;
+    if (!window.confirm('Are you sure you want to permanently delete this chat ticket?')) return;
     try {
       await chatAPI.adminDeleteChat(convId);
-      toast.success('Chat deleted');
+      toast.success('Ticket deleted');
       if (selectedChat?.id === convId) {
         setSelectedChat(null);
         setMessages([]);
         setMobileView('list');
       }
-      loadConversations();
+      loadConversations(false);
     } catch {
-      toast.error('Failed to delete chat');
+      toast.error('Failed to delete ticket');
     }
   }, [selectedChat?.id, loadConversations]);
+
+  const handleStatusChange = async (newStatus) => {
+    if (!selectedChat) return;
+    try {
+      await chatAPI.updateChatStatus(selectedChat.id, newStatus);
+      setSelectedChat(prev => (prev ? { ...prev, status: newStatus } : null));
+      setConversations(prev =>
+        prev.map(c => (c.id === selectedChat.id ? { ...c, status: newStatus } : c))
+      );
+      toast.success(`Ticket marked ${newStatus}`);
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
 
   const handleSend = async (customText = null) => {
     const textToSend = typeof customText === 'string' ? customText : inputValue;
@@ -333,6 +426,10 @@ export default function ChatPanel() {
       if (d) {
         setMessages(p => p.map(m => (m.id === tempId ? { ...d, isFromAdmin: true } : m)));
         setLastMessages(prev => ({ ...prev, [selectedChat.id]: content }));
+        // Ensure conversation displays as active/in-progress
+        setConversations(prev =>
+          prev.map(c => (c.id === selectedChat.id ? { ...c, status: 'IN_PROGRESS', updatedAt: new Date().toISOString() } : c))
+        );
       } else {
         setMessages(p => p.filter(m => m.id !== tempId));
         setInputValue(content);
@@ -369,35 +466,13 @@ export default function ChatPanel() {
   const handleSendImage = async () => {
     if (!imagePreview || !selectedChat) return;
     setUploading(true);
-    setUploadProgress(0);
     try {
-      await new Promise((resolve, reject) => {
-        const fd = new FormData();
-        fd.append('file', imagePreview.file);
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/chat/${selectedChat.id}/upload-image`);
-        const token = localStorage.getItem('adminToken');
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error('Upload failed'));
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.send(fd);
-      });
-      setUploadProgress(100);
-      setTimeout(() => {
-        setImagePreview(null);
-        setUploadProgress(0);
-      }, 300);
+      await chatAPI.adminSendChatImage(selectedChat.id, imagePreview.file);
+      setImagePreview(null);
       loadMessages(selectedChat.id);
     } catch {
       toast.error('Failed to upload image');
       setImagePreview(null);
-      setUploadProgress(0);
     } finally {
       setUploading(false);
     }
@@ -406,12 +481,11 @@ export default function ChatPanel() {
   const handleCancelPreview = () => {
     if (imagePreview?.url) URL.revokeObjectURL(imagePreview.url);
     setImagePreview(null);
-    setUploadProgress(0);
   };
 
   const visibleMessages = useMemo(() => messages.filter(m => !isHiddenMessage(m)), [messages]);
 
-  // ── Socket listener: bulletproof message routing & real-time updates ──
+  // ── Socket listener ──
   useEffect(() => {
     const socket = connectSocket();
     if (!socket) return;
@@ -429,7 +503,6 @@ export default function ChatPanel() {
       const incoming = data?.message;
       if (!incoming) return;
 
-      // Play audio chime for incoming customer message
       if (!incoming.isFromAdmin) {
         playNotificationChime();
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -437,7 +510,7 @@ export default function ChatPanel() {
         }
       }
 
-      // 1. Add to open chat with deduplication
+      // Add to open conversation
       if (cur && data.ticketId === cur.id) {
         setMessages(p => {
           if (p.some(m => m.id === incoming.id)) return p;
@@ -447,12 +520,10 @@ export default function ChatPanel() {
         });
       }
 
-      // 2. Unread count for outside open chat
       if (!incoming.isFromAdmin && (!cur || data.ticketId !== cur.id)) {
         setUnreadCounts(p => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
       }
 
-      // 3. Update preview and ensure conversation is present in sidebar list
       setLastMessages(prev => ({ ...prev, [data.ticketId]: incoming.content }));
 
       setConversations(prev => {
@@ -461,10 +532,9 @@ export default function ChatPanel() {
           const updated = [...prev];
           const existing = updated[index];
           updated.splice(index, 1);
-          return [{ ...existing, updatedAt: incoming.createdAt || new Date().toISOString() }, ...updated];
+          return [{ ...existing, status: existing.status === 'RESOLVED' ? 'OPEN' : existing.status, updatedAt: incoming.createdAt || new Date().toISOString() }, ...updated];
         }
 
-        // New customer conversation: add immediately to sidebar!
         const newConv = {
           id: data.ticketId,
           ticketNumber: data.ticketNumber || `#${data.ticketId.slice(0, 8)}`,
@@ -518,7 +588,6 @@ export default function ChatPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [visibleMessages.length]);
 
-  // Clean stale typing indicators
   useEffect(() => {
     const i = setInterval(() => {
       setTypingUsers(p => {
@@ -537,518 +606,744 @@ export default function ChatPanel() {
     return () => clearInterval(i);
   }, []);
 
+  // Filtered conversations
   const filtered = useMemo(() => {
     return conversations.filter(c => {
+      if (filterTab === 'UNREAD' && !(unreadCounts[c.id] > 0)) return false;
+      if (filterTab === 'ACTIVE' && (c.status === 'RESOLVED' || c.status === 'CLOSED')) return false;
+      if (filterTab === 'RESOLVED' && c.status !== 'RESOLVED' && c.status !== 'CLOSED') return false;
+
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
         getDisplayName(c).toLowerCase().includes(q) ||
+        (c.user?.email || '').toLowerCase().includes(q) ||
         (lastMessages[c.id] || '').toLowerCase().includes(q) ||
         (c.ticketNumber || '').toLowerCase().includes(q)
       );
     });
-  }, [conversations, searchQuery, lastMessages]);
+  }, [conversations, filterTab, searchQuery, unreadCounts, lastMessages]);
 
-  const dName = selectedChat ? getDisplayName(selectedChat) : '';
-  const aBg = selectedChat ? stringToColor(dName) : '#6366f1';
+  const totalUnreadCount = useMemo(() => {
+    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+  }, [unreadCounts]);
+
+  const activeCustomerName = selectedChat ? getDisplayName(selectedChat) : '';
+  const activeCustomerBg = selectedChat ? stringToColor(activeCustomerName) : '#2563EB';
 
   return (
-    <div className="flex h-[calc(100vh-140px)] min-h-[580px] bg-slate-100 dark:bg-zinc-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-xl">
-      {/* ── Left: Conversations Sidebar ── */}
+    <div className="flex flex-col h-[calc(100dvh-115px)] md:h-[calc(100dvh-170px)] max-h-[calc(100dvh-115px)] md:max-h-[920px] w-full bg-white dark:bg-zinc-900 rounded-xl md:rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-xs overflow-hidden font-sans">
+      {/* ── Top Header Navigation (Hidden on mobile when actively in a chat) ── */}
       <div
         className={`${
           mobileView === 'chat' ? 'hidden md:flex' : 'flex'
-        } w-full md:w-80 lg:w-96 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 flex-col flex-shrink-0`}
+        } items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0`}
       >
-        {/* Sidebar Header */}
-        <div className="p-4 border-b border-slate-100 dark:border-zinc-800/80">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Live Chat</h2>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    socketConnected ? 'bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-950' : 'bg-rose-500'
-                  }`}
-                />
-                <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                  {socketConnected ? 'Real-time Connected' : 'Connecting...'}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-zinc-950 dark:bg-zinc-800 flex items-center justify-center text-white shadow-xs flex-shrink-0">
+            <MessageCircle size={16} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-sm md:text-base font-bold text-zinc-950 dark:text-white tracking-tight flex items-center gap-2 truncate">
+              Support Console
+              {totalUnreadCount > 0 && (
+                <span className="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold animate-pulse">
+                  {totalUnreadCount} unread
                 </span>
+              )}
+            </h1>
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${socketConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+              <span className="truncate">{socketConnected ? 'Realtime' : 'Reconnecting...'}</span>
+              <span>•</span>
+              <span className="truncate">{conversations.length} chats</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Chat Mode Toggle & Actions */}
+        <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
+          <div className="bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl flex items-center gap-1">
+            <button
+              onClick={handleSwitchMode}
+              disabled={modeLoading}
+              className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                chatMode === 'ai'
+                  ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              <Bot size={13} /> <span className="hidden xs:inline">AI</span><span className="hidden sm:inline"> Assistant</span>
+            </button>
+            <button
+              onClick={handleSwitchMode}
+              disabled={modeLoading}
+              className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                chatMode === 'live'
+                  ? 'bg-white dark:bg-zinc-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              }`}
+            >
+              <Headphones size={13} /> <span className="hidden xs:inline">Live</span><span className="hidden sm:inline"> Agent</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowAutoReplyModal(true)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+          >
+            <Zap size={13} className={autoReply.enabled ? 'text-amber-500' : 'text-zinc-400'} />
+            Auto-Reply {autoReply.enabled ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            onClick={() => loadConversations(true)}
+            className="p-1.5 md:p-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition flex-shrink-0"
+            title="Refresh conversations"
+          >
+            <RefreshCw size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main Workspace ── */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* ── Left Sidebar (Conversations) ── */}
+        <div
+          className={`${
+            mobileView === 'chat' ? 'hidden md:flex' : 'flex'
+          } w-full md:w-80 lg:w-96 flex-col border-r border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 overflow-hidden flex-shrink-0`}
+        >
+          {/* Search Bar */}
+          <div className="p-2.5 md:p-3 border-b border-slate-200/60 dark:border-zinc-800 flex-shrink-0">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search customer, ticket, email..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-blue-500 shadow-2xs transition"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-1 mt-2">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'ACTIVE', label: 'Active' },
+                { id: 'UNREAD', label: 'Unread' },
+                { id: 'RESOLVED', label: 'Resolved' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterTab(tab.id)}
+                  className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition ${
+                    filterTab === tab.id
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
+                      : 'text-zinc-500 hover:bg-slate-200/60 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.id === 'UNREAD' && totalUnreadCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px]">
+                      {totalUnreadCount}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Conversation List */}
+          <div className="flex-1 overflow-y-auto py-1 divide-y divide-slate-100/60 dark:divide-zinc-800/40">
+            {loading ? (
+              <div className="p-10 text-center text-zinc-400">
+                <RefreshCw size={22} className="animate-spin mx-auto mb-2 text-blue-600" />
+                <span className="text-xs font-medium">Syncing live conversations...</span>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-zinc-400">
+                <MessageCircle size={32} className="mx-auto mb-2 opacity-25" />
+                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">No chats found</p>
+                <p className="text-xs mt-1 text-zinc-500">
+                  {searchQuery ? 'Try changing your search terms.' : 'Incoming customer messages will appear here.'}
+                </p>
+              </div>
+            ) : (
+              filtered.map(conv => (
+                <ConversationCard
+                  key={conv.id}
+                  conv={conv}
+                  active={selectedChat?.id === conv.id}
+                  unread={unreadCounts[conv.id] > 0 && selectedChat?.id !== conv.id}
+                  typing={typingUsers[conv.id]}
+                  name={getDisplayName(conv)}
+                  lastMsg={lastMessages[conv.id]}
+                  unreadCount={unreadCounts[conv.id] || 0}
+                  onSelect={handleSelectChat}
+                  onDelete={handleDeleteChat}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── Right Chat Workspace ── */}
+        <div
+          className={`${
+            mobileView === 'list' ? 'hidden md:flex' : 'flex'
+          } flex-1 flex-col bg-white dark:bg-zinc-950 overflow-hidden min-w-0`}
+        >
+          {!selectedChat ? (
+            /* Empty State (Desktop) */
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/40 dark:bg-zinc-950">
+              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center mb-4 text-zinc-400">
+                <MessageCircle size={32} className="text-blue-600" />
+              </div>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">
+                Select a conversation to reply
+              </h2>
+              <p className="text-xs text-zinc-500 max-w-sm mb-6">
+                Pick an active customer conversation from the list to assist them, share order updates, or manage their support ticket.
+              </p>
+              <div className="grid grid-cols-2 gap-3 max-w-md w-full text-left">
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                    <Headphones size={15} className="text-emerald-500" /> Real-time Sync
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Direct websocket rooms ensure instantaneous delivery without page refreshing.
+                  </p>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                    <Bot size={15} className="text-indigo-500" /> Hybrid AI Handoff
+                  </div>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Reply at any time — sending a message smoothly claims the chat as human agent.
+                  </p>
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => loadConversations(true)}
-              className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
-              title="Refresh conversations"
-            >
-              <RefreshCw size={15} />
-            </button>
-          </div>
+          ) : (
+            <>
+              {/* Chat Header */}
+              <div className="px-3 md:px-5 py-2.5 md:py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <button
+                    onClick={() => {
+                      setMobileView('list');
+                    }}
+                    className="md:hidden p-2 -ml-1 rounded-xl text-zinc-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-center flex-shrink-0"
+                    title="Back to conversation list"
+                  >
+                    <ArrowLeft size={19} />
+                  </button>
 
-          {/* Mode Switcher */}
-          <div className="flex bg-slate-100 dark:bg-zinc-800/60 p-1 rounded-xl gap-1 mb-3">
-            <button
-              onClick={handleSwitchMode}
-              disabled={modeLoading}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                chatMode === 'ai'
-                  ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-300 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-              }`}
-            >
-              <Bot size={14} /> AI Assistant
-            </button>
-            <button
-              onClick={handleSwitchMode}
-              disabled={modeLoading}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                chatMode === 'live'
-                  ? 'bg-white dark:bg-zinc-700 text-emerald-600 dark:text-emerald-300 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-              }`}
-            >
-              <Headphones size={14} /> Live Agent
-            </button>
-          </div>
+                  <div
+                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs flex-shrink-0"
+                    style={{ backgroundColor: activeCustomerBg }}
+                  >
+                    {getInitials(activeCustomerName)}
+                  </div>
 
-          {/* Auto-reply quick toggle button */}
-          {chatMode === 'live' && (
-            <div className="mb-3">
-              <button
-                onClick={() => setShowAutoReplySettings(!showAutoReplySettings)}
-                className={`w-full px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-between transition ${
-                  autoReply.enabled
-                    ? 'bg-emerald-50/60 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400'
-                    : 'bg-slate-50 border-slate-200 text-zinc-500 dark:bg-zinc-800 dark:border-zinc-700'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Zap size={13} className={autoReply.enabled ? 'text-emerald-500' : 'text-zinc-400'} />
-                  Auto-reply {autoReply.enabled ? 'Enabled' : 'Disabled'}
-                </span>
-                <span className="text-[10px] text-zinc-400">{autoReply.timeout}s</span>
-              </button>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm font-bold text-zinc-950 dark:text-white truncate">
+                        {activeCustomerName}
+                      </span>
+                      <StatusPill status={selectedChat.status} />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-medium truncate">
+                      <span>#{selectedChat.ticketNumber || selectedChat.id?.slice(0, 8)}</span>
+                      <span>•</span>
+                      <span className="truncate">{selectedChat.user?.email || 'Anonymous'}</span>
+                    </div>
+                  </div>
+                </div>
 
-              {showAutoReplySettings && (
-                <div className="mt-2 p-3 bg-slate-50 dark:bg-zinc-800/80 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-2.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-zinc-700 dark:text-zinc-200">
-                    <input
-                      type="checkbox"
-                      checked={autoReply.enabled}
-                      onChange={e => setAutoReply(p => ({ ...p, enabled: e.target.checked }))}
-                      className="rounded accent-emerald-600"
-                    />
-                    Enable automated fallback reply
-                  </label>
-                  <div>
-                    <label className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 block mb-1">
-                      Response timeout
-                    </label>
-                    <div className="grid grid-cols-4 gap-1">
-                      {[60, 120, 180, 300].map(s => (
+                {/* Header Action Tools */}
+                <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                  <select
+                    value={selectedChat.status}
+                    onChange={e => handleStatusChange(e.target.value)}
+                    className="text-[11px] md:text-xs font-semibold px-2 md:px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer max-w-[105px] md:max-w-none"
+                  >
+                    <option value="OPEN">Active</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="WAITING_CUSTOMER">Waiting</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+
+                  <button
+                    onClick={() => setShowCustomerDrawer(!showCustomerDrawer)}
+                    className={`p-1.5 md:p-2 rounded-xl border transition ${
+                      showCustomerDrawer
+                        ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-zinc-800 dark:border-zinc-600'
+                        : 'border-slate-200 dark:border-zinc-700 text-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                    }`}
+                    title="Customer details"
+                  >
+                    <Info size={16} />
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Clear all messages from this ticket?')) return;
+                      try {
+                        await chatAPI.adminClearMessages(selectedChat.id);
+                        setMessages([]);
+                        toast.success('Messages cleared');
+                      } catch {
+                        toast.error('Failed to clear messages');
+                      }
+                    }}
+                    className="hidden sm:flex p-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+                    title="Clear chat thread"
+                  >
+                    <Eraser size={16} />
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      try {
+                        await chatAPI.updateChatStatus(selectedChat.id, 'RESOLVED');
+                        toast.success('Conversation resolved');
+                        loadConversations(false);
+                        setSelectedChat(null);
+                        setMobileView('list');
+                      } catch {
+                        toast.error('Failed to resolve');
+                      }
+                    }}
+                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition"
+                  >
+                    <CheckCircle size={14} /> Resolve
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedChat(null);
+                      setMobileView('list');
+                    }}
+                    className="p-1.5 md:p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    title="Close conversation"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Chat Thread + Drawer Area */}
+              <div className="flex flex-1 overflow-hidden relative">
+                {/* Message Stream */}
+                <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-zinc-950 min-w-0">
+                  <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3">
+                    {messagesLoading ? (
+                      <div className="h-full flex items-center justify-center text-zinc-400">
+                        <RefreshCw size={24} className="animate-spin text-blue-600" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-center my-1">
+                          <span className="px-3 py-0.5 rounded-full bg-white dark:bg-zinc-800 text-[10px] md:text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+
+                        {visibleMessages.map((msg, idx) => {
+                          const isAI = msg.senderId === 'ai-chatbot' || msg.senderName === 'AI Assistant';
+                          const isMe = msg.isFromAdmin && !isAI;
+
+                          return (
+                            <div
+                              key={`${msg.id || idx}`}
+                              className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
+                            >
+                              {!isMe && (
+                                <div
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-2xs"
+                                  style={{ backgroundColor: activeCustomerBg }}
+                                >
+                                  {getInitials(activeCustomerName)}
+                                </div>
+                              )}
+
+                              <div className="max-w-[88%] md:max-w-[72%]">
+                                {isAI && (
+                                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mb-1 pl-1 flex items-center gap-1">
+                                    <Bot size={13} /> AI Bot Assistant
+                                  </div>
+                                )}
+
+                                <div
+                                  className={`p-3 md:p-3.5 rounded-2xl text-[13px] md:text-[13.5px] leading-relaxed break-words shadow-2xs border ${
+                                    isMe
+                                      ? 'bg-zinc-950 text-white border-zinc-950 dark:bg-blue-600 dark:border-blue-600 rounded-br-xs'
+                                      : isAI
+                                      ? 'bg-indigo-50/90 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 border-indigo-200/70 dark:border-indigo-800 rounded-bl-xs'
+                                      : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-slate-200 dark:border-zinc-800 rounded-bl-xs'
+                                  }`}
+                                >
+                                  {(() => {
+                                    try {
+                                      const d = JSON.parse(msg.content);
+                                      if (d.type === 'image' && d.url) {
+                                        return (
+                                          <img
+                                            src={d.url}
+                                            alt="Attachment"
+                                            className="max-w-full max-h-56 rounded-xl cursor-pointer hover:opacity-95 object-contain"
+                                            loading="lazy"
+                                            onClick={() => window.open(d.url, '_blank')}
+                                          />
+                                        );
+                                      }
+                                      if (d.message) {
+                                        return (
+                                          <div className="space-y-2">
+                                            <div className="whitespace-pre-line">{d.message}</div>
+                                            {Array.isArray(d.products) && d.products.length > 0 && (
+                                              <div className="flex flex-wrap gap-2 pt-1 border-t border-indigo-200/50 dark:border-indigo-800/50">
+                                                {d.products.slice(0, 3).map((p, pIdx) => (
+                                                  <div key={pIdx} className="text-[11px] font-medium bg-white/80 dark:bg-zinc-800 px-2 py-1 rounded-lg border border-indigo-200/60 dark:border-zinc-700 flex items-center gap-1.5">
+                                                    <span>🛍️</span>
+                                                    <span className="truncate max-w-[140px]">{p.name || p.title}</span>
+                                                    {p.price && <span className="font-bold text-emerald-600">₹{p.price}</span>}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                    } catch {}
+                                    return <div className="whitespace-pre-line">{msg.content}</div>;
+                                  })()}
+                                </div>
+
+                                <div
+                                  className={`flex items-center gap-1 mt-1 text-[10px] font-medium text-zinc-400 ${
+                                    isMe ? 'justify-end pr-1' : 'justify-start pl-1'
+                                  }`}
+                                >
+                                  <span>{formatTime(msg.createdAt)}</span>
+                                  {isMe && <CheckCheck size={13} className="text-blue-500" />}
+                                </div>
+                              </div>
+
+                              {isMe && <div className="w-0.5" />}
+                            </div>
+                          );
+                        })}
+
+                        {typingUsers[selectedChat.id] && (
+                          <div className="flex items-end gap-2">
+                            <div
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-2xs"
+                              style={{ backgroundColor: activeCustomerBg }}
+                            >
+                              {getInitials(activeCustomerName)}
+                            </div>
+                            <div className="bg-white dark:bg-zinc-900 px-3 py-2 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xs flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]" />
+                              <span className="text-xs font-semibold text-zinc-500 ml-1">
+                                {activeCustomerName} is typing...
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Image Attachment Preview Bar */}
+                  {imagePreview && (
+                    <div className="p-3 bg-slate-100 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex-shrink-0">
+                      <div className="relative inline-block">
+                        <img
+                          src={imagePreview.url}
+                          alt="Preview"
+                          className="max-h-24 md:max-h-28 rounded-xl border border-slate-300 dark:border-zinc-700 shadow-xs"
+                        />
+                        {!uploading && (
+                          <button
+                            onClick={handleCancelPreview}
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-2">
                         <button
-                          key={s}
-                          type="button"
-                          onClick={() => setAutoReply(p => ({ ...p, timeout: s }))}
-                          className={`py-1 text-[11px] font-bold rounded-lg border transition ${
-                            autoReply.timeout === s
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-600'
-                          }`}
+                          onClick={handleCancelPreview}
+                          disabled={uploading}
+                          className="px-3 py-1 rounded-lg border border-slate-300 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                         >
-                          {s < 60 ? `${s}s` : `${s / 60}m`}
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSendImage}
+                          disabled={uploading}
+                          className="px-3.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+                        >
+                          {uploading ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+                          {uploading ? 'Uploading...' : 'Send Attachment'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Canned Responses Toolbar */}
+                  {!imagePreview && (
+                    <div className="px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-zinc-900 border-t border-slate-200/80 dark:border-zinc-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0 mr-1">
+                        <Zap size={11} className="text-amber-500" /> Quick:
+                      </span>
+                      {QUICK_REPLIES.map((reply, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setInputValue(reply.text);
+                            if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+                              inputRef.current?.focus();
+                            }
+                          }}
+                          className="text-[11px] md:text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 border border-transparent whitespace-nowrap transition-all font-medium flex-shrink-0"
+                        >
+                          <span className="mr-1">{reply.icon}</span> {reply.text}
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <textarea
-                    value={autoReply.message}
-                    onChange={e => setAutoReply(p => ({ ...p, message: e.target.value }))}
-                    rows={2}
-                    className="w-full text-xs p-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 outline-none"
-                    placeholder="Auto-reply message..."
-                  />
-                  <button
-                    onClick={saveAutoReplySettings}
-                    disabled={savingAutoReply}
-                    className="w-full py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
-                  >
-                    {savingAutoReply ? 'Saving...' : 'Save Settings'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  )}
 
-          {/* Search bar */}
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search chats by name or ID..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-zinc-900 dark:text-white placeholder-zinc-400 text-xs border border-transparent focus:border-blue-500 outline-none transition"
-            />
-          </div>
-        </div>
+                  {/* Message Input Box (Sticky at bottom) */}
+                  {!imagePreview && (
+                    <div className="p-2.5 md:p-3 bg-white dark:bg-zinc-900 border-t border-slate-200/80 dark:border-zinc-800 flex-shrink-0">
+                      <div className="flex items-end gap-1.5 md:gap-2 bg-slate-50 dark:bg-zinc-800/80 rounded-2xl p-1.5 md:p-2 border border-slate-200 dark:border-zinc-700 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleImageSelect}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading}
+                          className="p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-white rounded-xl transition flex-shrink-0"
+                          title="Attach image or screenshot"
+                        >
+                          <ImagePlus size={18} />
+                        </button>
 
-        {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-zinc-800/60">
-          {loading ? (
-            <div className="p-8 text-center text-zinc-400">
-              <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-zinc-300" />
-              <span className="text-xs">Loading conversations...</span>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-8 text-center text-zinc-400">
-              <MessageCircle size={36} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
-                {searchQuery ? 'No matching conversations' : 'No active chats'}
-              </p>
-              <p className="text-xs mt-1">Incoming customer messages will appear here in real-time.</p>
-            </div>
-          ) : (
-            filtered.map(conv => (
-              <ConversationItem
-                key={conv.id}
-                conv={conv}
-                active={selectedChat?.id === conv.id}
-                unread={unreadCounts[conv.id] > 0 && selectedChat?.id !== conv.id}
-                typing={typingUsers[conv.id]}
-                name={getDisplayName(conv)}
-                lastMsg={lastMessages[conv.id]}
-                unreadCount={unreadCounts[conv.id] || 0}
-                onSelect={handleSelectChat}
-                onDelete={handleDeleteChat}
-              />
-            ))
-          )}
-        </div>
-      </div>
+                        <textarea
+                          ref={inputRef}
+                          value={inputValue}
+                          onChange={e => setInputValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Type your response to the customer..."
+                          rows={1}
+                          className="flex-1 bg-transparent text-[13px] md:text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 resize-none outline-none py-1.5 px-2 max-h-32 leading-relaxed"
+                        />
 
-      {/* ── Right: Active Chat Pane ── */}
-      <div
-        className={`${
-          mobileView === 'list' ? 'hidden md:flex' : 'flex'
-        } flex-1 flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden`}
-      >
-        {!selectedChat ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 shadow-sm border border-slate-200 dark:border-zinc-800 flex items-center justify-center mb-4 text-zinc-400">
-              <MessageCircle size={32} />
-            </div>
-            <h3 className="text-base font-bold text-zinc-800 dark:text-zinc-200 mb-1">Select a Conversation</h3>
-            <p className="text-xs text-zinc-500 max-w-sm">
-              Choose a customer chat from the list on the left to review messages, assist customers, or send updates.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Chat Pane Header */}
-            <div className="px-4 py-3 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between shadow-xs">
-              <div className="flex items-center gap-3">
-                {/* Mobile Back Button */}
-                <button
-                  onClick={() => setMobileView('list')}
-                  className="md:hidden p-2 -ml-1 rounded-xl text-zinc-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
-                  aria-label="Back to conversations"
-                >
-                  <ArrowLeft size={18} />
-                </button>
-
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm"
-                  style={{ backgroundColor: aBg }}
-                >
-                  {getInitials(dName)}
+                        <button
+                          type="button"
+                          onClick={() => handleSend()}
+                          disabled={!inputValue.trim() || sending}
+                          className={`p-2.5 rounded-xl text-white transition shadow-xs flex-shrink-0 ${
+                            inputValue.trim() && !sending
+                              ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-blue-500/25'
+                              : 'bg-zinc-300 dark:bg-zinc-700 cursor-not-allowed opacity-60'
+                          }`}
+                        >
+                          {sending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div>
-                  <div className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                    {dName}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <StatusBadge status={selectedChat.status} />
-                    <span className="text-[11px] text-zinc-400 font-medium">
-                      Ticket #{selectedChat.ticketNumber || selectedChat.id?.slice(0, 8)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                {/* ── Customer Details Drawer (Slide-over on mobile, docked right pane on desktop) ── */}
+                {showCustomerDrawer && (
+                  <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs md:relative md:inset-auto md:bg-transparent md:z-auto">
+                    <div className="w-[85vw] max-w-sm md:w-72 h-full border-l border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-5 overflow-y-auto flex-shrink-0 shadow-2xl md:shadow-none animate-in slide-in-from-right duration-200">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                        <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Info size={14} className="text-blue-500" /> Customer Details
+                        </h3>
+                        <button
+                          onClick={() => setShowCustomerDrawer(false)}
+                          className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={async () => {
-                    if (!window.confirm('Clear all messages in this ticket?')) return;
-                    try {
-                      await chatAPI.adminClearMessages(selectedChat.id);
-                      setMessages([]);
-                      toast.success('Messages cleared');
-                    } catch {
-                      toast.error('Failed to clear messages');
-                    }
-                  }}
-                  title="Clear chat history"
-                  className="p-2 rounded-xl text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
-                >
-                  <Eraser size={16} />
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      await chatAPI.updateChatStatus(selectedChat.id, 'RESOLVED');
-                      toast.success('Conversation resolved');
-                      loadConversations();
-                      setSelectedChat(null);
-                      setMobileView('list');
-                    } catch {
-                      toast.error('Failed to resolve');
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-xl text-xs font-bold border border-emerald-200 dark:border-emerald-800 transition flex items-center gap-1.5"
-                >
-                  <CheckCircle size={14} /> Resolve
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedChat(null);
-                    setMobileView('list');
-                  }}
-                  className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-slate-100 dark:hover:bg-zinc-800 transition"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 bg-slate-50/60 dark:bg-zinc-950">
-              {messagesLoading ? (
-                <div className="h-full flex items-center justify-center text-zinc-400">
-                  <RefreshCw size={24} className="animate-spin" />
-                </div>
-              ) : (
-                <>
-                  <div className="text-center my-2">
-                    <span className="px-3 py-1 bg-white/80 dark:bg-zinc-800/80 rounded-full text-[11px] font-medium text-zinc-500 shadow-xs border border-slate-200/60 dark:border-zinc-700/60">
-                      {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-
-                  {visibleMessages.map((msg, idx) => {
-                    const isMe = msg.isFromAdmin;
-                    const isAI = msg.senderId === 'ai-chatbot';
-                    const prev = visibleMessages[idx - 1];
-                    const next = visibleMessages[idx + 1];
-                    const firstInGroup = !prev || prev.isFromAdmin !== msg.isFromAdmin;
-                    const lastInGroup = !next || next.isFromAdmin !== msg.isFromAdmin;
-
-                    return (
-                      <div
-                        key={`${msg.id || idx}`}
-                        className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
-                      >
-                        {!isMe && (
-                          <div
-                            className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-xs ${
-                              lastInGroup ? 'opacity-100' : 'opacity-0'
-                            }`}
-                            style={{ backgroundColor: aBg }}
-                          >
-                            {getInitials(dName)}
+                      <div className="space-y-4 mt-4">
+                        <div>
+                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Customer</div>
+                          <div className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {activeCustomerName}
                           </div>
-                        )}
-
-                        <div className="max-w-[80%] md:max-w-[70%]">
-                          {isAI && firstInGroup && (
-                            <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold mb-1 pl-1 flex items-center gap-1">
-                              <Bot size={12} /> AI Assistant Reply
-                            </div>
-                          )}
-
-                          <div
-                            className={`p-3 rounded-2xl text-sm leading-relaxed break-words shadow-xs border ${
-                              isMe
-                                ? 'bg-blue-600 text-white border-blue-600 rounded-br-xs'
-                                : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-slate-200 dark:border-zinc-800 rounded-bl-xs'
-                            }`}
-                          >
-                            {(() => {
-                              try {
-                                const d = JSON.parse(msg.content);
-                                if (d.type === 'image' && d.url) {
-                                  return (
-                                    <img
-                                      src={d.url}
-                                      alt="Attachment"
-                                      className="max-w-full max-h-60 rounded-lg cursor-pointer hover:opacity-95"
-                                      loading="lazy"
-                                      onClick={() => window.open(d.url, '_blank')}
-                                    />
-                                  );
-                                }
-                                if (d.message) {
-                                  return <div className="whitespace-pre-line">{d.message}</div>;
-                                }
-                              } catch {}
-                              return <div className="whitespace-pre-line">{msg.content}</div>;
-                            })()}
+                          <div className="text-xs text-zinc-500 truncate">
+                            {selectedChat.user?.email || 'No email attached'}
                           </div>
-
-                          {lastInGroup && (
-                            <div
-                              className={`flex items-center gap-1 mt-1 text-[10px] font-medium text-zinc-400 ${
-                                isMe ? 'justify-end' : 'justify-start pl-1'
-                              }`}
-                            >
-                              <span>{formatTime(msg.createdAt)}</span>
-                              {isMe && <CheckCheck size={13} className="text-blue-500" />}
-                            </div>
-                          )}
                         </div>
 
-                        {isMe && <div className="w-1" />}
-                      </div>
-                    );
-                  })}
+                        <div>
+                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Ticket Reference</div>
+                          <div className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">
+                            #{selectedChat.ticketNumber || selectedChat.id}
+                          </div>
+                          <div className="text-[11px] text-zinc-500 mt-0.5">
+                            Started {formatTime(selectedChat.createdAt)}
+                          </div>
+                        </div>
 
-                  {typingUsers[selectedChat.id] && (
-                    <div className="flex items-end gap-2">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                        style={{ backgroundColor: aBg }}
-                      >
-                        {getInitials(dName)}
-                      </div>
-                      <div className="bg-white dark:bg-zinc-900 px-3 py-2 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xs flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.2s]" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.4s]" />
-                        <span className="text-[11px] text-zinc-400 ml-1">{dName} is typing...</span>
+                        <div>
+                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Account Role</div>
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                            <ShieldCheck size={12} className="text-blue-500" />
+                            {selectedChat.user?.role || 'CUSTOMER'}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Status</div>
+                          <StatusPill status={selectedChat.status} />
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await chatAPI.updateChatStatus(selectedChat.id, 'RESOLVED');
+                                toast.success('Conversation resolved');
+                                loadConversations(false);
+                                setSelectedChat(null);
+                                setMobileView('list');
+                                setShowCustomerDrawer(false);
+                              } catch {
+                                toast.error('Failed to resolve');
+                              }
+                            }}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                          >
+                            <CheckCircle size={14} /> Close & Resolve Ticket
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
-              <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Auto-Reply Settings Modal ── */}
+      {showAutoReplyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-zinc-950 dark:text-white flex items-center gap-2">
+                <Zap size={18} className="text-amber-500" /> Live Chat Auto-Reply
+              </h3>
+              <button
+                onClick={() => setShowAutoReplyModal(false)}
+                className="text-zinc-400 hover:text-zinc-600"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {/* Image Preview Overlay */}
-            {imagePreview && (
-              <div className="p-4 bg-slate-100 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
-                <div className="relative inline-block max-w-full">
-                  <img
-                    src={imagePreview.url}
-                    alt="Preview"
-                    className="max-h-36 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm"
-                  />
-                  {!uploading && (
+            <p className="text-xs text-zinc-500 mb-4">
+              When live mode is active, automatically send a polite reassurance to customers if an admin does not respond within the timeout period.
+            </p>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-2.5 cursor-pointer text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={autoReply.enabled}
+                  onChange={e => setAutoReply(p => ({ ...p, enabled: e.target.checked }))}
+                  className="rounded accent-blue-600 w-4 h-4"
+                />
+                Enable automated fallback reply
+              </label>
+
+              <div>
+                <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block mb-1.5">
+                  Timeout before auto-reply triggers
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[60, 120, 180, 300].map(s => (
                     <button
-                      onClick={handleCancelPreview}
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700 transition"
+                      key={s}
+                      type="button"
+                      onClick={() => setAutoReply(p => ({ ...p, timeout: s }))}
+                      className={`py-2 text-xs font-bold rounded-xl border transition ${
+                        autoReply.timeout === s
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-slate-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700'
+                      }`}
                     >
-                      <X size={13} />
+                      {s < 60 ? `${s}s` : `${s / 60} min`}
                     </button>
-                  )}
-                  {uploading && (
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-blue-200 rounded-b-xl overflow-hidden">
-                      <div
-                        className="h-full bg-blue-600 transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button
-                    onClick={handleCancelPreview}
-                    disabled={uploading}
-                    className="px-4 py-1.5 rounded-xl border border-slate-300 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-slate-200/50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSendImage}
-                    disabled={uploading}
-                    className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5"
-                  >
-                    {uploading ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
-                    {uploading ? `Uploading ${uploadProgress}%` : 'Send Image'}
-                  </button>
+                  ))}
                 </div>
               </div>
-            )}
 
-            {/* Quick Canned Replies Bar */}
-            {!imagePreview && (
-              <div className="px-4 py-2 bg-white/90 dark:bg-zinc-900/90 border-t border-slate-200/80 dark:border-zinc-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0 mr-1">
-                  <Zap size={12} className="text-amber-500" /> Quick:
-                </span>
-                {QUICK_REPLIES.map((reply, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      setInputValue(reply);
-                      inputRef.current?.focus();
-                    }}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-zinc-700 whitespace-nowrap transition border border-transparent hover:border-blue-200"
-                  >
-                    {reply}
-                  </button>
-                ))}
+              <div>
+                <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block mb-1.5">
+                  Message content
+                </label>
+                <textarea
+                  value={autoReply.message}
+                  onChange={e => setAutoReply(p => ({ ...p, message: e.target.value }))}
+                  rows={3}
+                  className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-zinc-900 dark:text-white outline-none focus:border-blue-500"
+                  placeholder="Thank you for your patience! Our support team is currently busy..."
+                />
               </div>
-            )}
 
-            {/* Message Input Bar */}
-            {!imagePreview && (
-              <div className="p-3 md:p-4 bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
-                <div className="flex items-end gap-2 bg-slate-50 dark:bg-zinc-800/80 rounded-2xl p-2 border border-slate-200 dark:border-zinc-700/80 focus-within:border-blue-500 transition">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageSelect}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white rounded-xl hover:bg-white dark:hover:bg-zinc-700 transition"
-                    title="Attach image"
-                  >
-                    <ImagePlus size={18} />
-                  </button>
-
-                  <textarea
-                    ref={inputRef}
-                    value={inputValue}
-                    onChange={e => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type your message to the customer (Enter to send)..."
-                    rows={1}
-                    className="flex-1 bg-transparent text-sm text-zinc-900 dark:text-white placeholder-zinc-400 resize-none outline-none py-1.5 px-2 max-h-32"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => handleSend()}
-                    disabled={!inputValue.trim() || sending}
-                    className={`p-2.5 rounded-xl text-white transition shadow-sm ${
-                      inputValue.trim() && !sending
-                        ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-blue-500/20'
-                        : 'bg-zinc-300 dark:bg-zinc-700 cursor-not-allowed opacity-60'
-                    }`}
-                  >
-                    {sending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
-                  </button>
-                </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAutoReplyModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveAutoReplySettings}
+                  disabled={savingAutoReply}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition"
+                >
+                  {savingAutoReply ? 'Saving...' : 'Save Settings'}
+                </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
