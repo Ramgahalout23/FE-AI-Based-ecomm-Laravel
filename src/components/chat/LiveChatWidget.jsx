@@ -462,11 +462,11 @@ export default function LiveChatWidget() {
         style={{
           position: 'fixed',
           right: '12px',
-          bottom: '156px',
+          bottom: '84px',
           zIndex: 9999,
           width: 'calc(100vw - 24px)',
           maxWidth: '380px',
-          height: 'min(520px, calc(100dvh - 180px))',
+          height: 'min(540px, calc(100dvh - 100px))',
           background: '#ffffff',
           borderRadius: '16px',
           boxShadow: '0 8px 40px rgba(0,0,0,0.18), 0 2px 12px rgba(0,0,0,0.08)',
@@ -715,17 +715,56 @@ export default function LiveChatWidget() {
                 justifyContent: 'center',
                 height: '100%',
                 textAlign: 'center',
-                padding: '24px',
+                padding: '20px 16px',
                 gap: '12px',
               }}>
                 <div style={{ fontSize: '36px' }}>{chatMode === 'ai' ? '🤖' : '👋'}</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a1a1a' }}>
-                  {chatMode === 'ai' ? 'Ask me anything!' : 'How can we help you today?'}
+                  {chatMode === 'ai' ? 'Ask THREVOLT Assistant!' : 'How can we help you today?'}
                 </div>
-                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.4, maxWidth: '280px' }}>
                   {chatMode === 'ai'
-                    ? 'I can help with product recommendations, order tracking, sizing, and more.'
-                    : 'Send us a message and our team will get back to you shortly.'}
+                    ? 'Instant help with tracking, orders, sizing, and styling.'
+                    : 'Send us a message and our support team will reply shortly.'}
+                </div>
+
+                {/* Quick Starter Prompts */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', width: '100%', marginTop: '6px' }}>
+                  {[
+                    { label: '📦 Track Order', prompt: 'I want to track my order status.' },
+                    { label: '📏 Size Guide', prompt: 'Can you help me choose the right size?' },
+                    { label: '🔄 Returns Help', prompt: 'What is your return and exchange policy?' },
+                    { label: '👤 Live Agent', prompt: 'Can I speak with a human support agent?' },
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSend(chip.prompt)}
+                      style={{
+                        padding: '9px 10px',
+                        borderRadius: '10px',
+                        border: '1px solid #e5e7eb',
+                        background: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#374151',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#1a1a1a';
+                        e.currentTarget.style.background = '#f9fafb';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = '#e5e7eb';
+                        e.currentTarget.style.background = '#ffffff';
+                      }}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -746,11 +785,16 @@ export default function LiveChatWidget() {
                               color: msg.isFromAdmin ? '#1a1a1a' : 'white',
                               fontSize: '14px', lineHeight: 1.4, wordBreak: 'break-word',
                             }}>
-                              {msg.senderId === 'ai-chatbot' && (
+                              {msg.senderId === 'ai-chatbot' ? (
                                 <div style={{ fontSize: '10px', color: '#6366f1', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                   🤖 AI Assistant
                                 </div>
-                              )}
+                              ) : msg.isFromAdmin ? (
+                                <div style={{ fontSize: '10px', color: '#059669', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                  🎧 Support Agent
+                                </div>
+                              ) : null}
                               {/* Image message */}
                               {parsed.imageUrl ? (
                                 <div style={{ margin: parsed.text ? '0 0 4px' : 0 }}>
@@ -988,7 +1032,10 @@ export default function LiveChatWidget() {
 
       <style>{`
         .chat-float-btn {
-          bottom: 90px;
+          bottom: 84px;
+        }
+        .chat-float-window {
+          bottom: 84px;
         }
 
         @keyframes spin {

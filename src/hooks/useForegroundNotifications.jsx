@@ -278,7 +278,7 @@ export default function useForegroundNotifications() {
             <div
               onClick={() => {
                 toast.dismiss(t.id);
-                navigateRef.current('/admin/support');
+                navigateRef.current('/admin/chat');
               }}
               className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-primary/30 rounded-xl shadow-lift cursor-pointer hover:bg-primary/5 transition-colors"
             >
@@ -300,7 +300,7 @@ export default function useForegroundNotifications() {
         // Always show system/mobile notification for admin so support chat is never missed
         showBrowserNotification(`💬 Support: ${sender}`, {
           body: preview,
-          data: { url: '/admin/support' },
+          data: { url: '/admin/chat' },
         });
       }
 

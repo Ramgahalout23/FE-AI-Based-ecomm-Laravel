@@ -58,6 +58,10 @@ export default function useChat() {
       if (ticket?.chatMode) setChatMode(ticket.chatMode);
       const list = ticket?.messages || ticket?.ticketmessage || [];
       setMessages(Array.isArray(list) ? list.map(normalizeMsg) : []);
+      if (ticket?.id) {
+        const socket = connectSocket();
+        if (socket) socket.emit('chat:join', ticket.id);
+      }
       return ticket;
     } catch (err) {
       console.error('[Chat] initChat failed:', err.message);
@@ -109,8 +113,11 @@ export default function useChat() {
   const handleIncomingMessage = useCallback((data) => {
     const currentChatId = chatRef.current?.id;
     if (data.ticketId === currentChatId && data.message) {
+      const incoming = data.message;
+      if (incoming.isFromAdmin && incoming.senderId !== 'ai-chatbot') {
+        setChatMode('live');
+      }
       setMessages(prev => {
-        const incoming = data.message;
         // Dedup 1: exact ID match
         if (prev.some(m => m.id === incoming.id)) return prev;
         // Dedup 2: optimistic temp message with same content from same sender
@@ -158,12 +165,17 @@ export default function useChat() {
     const socket = connectSocket();
     if (!socket) return;
 
-    const onConnect = () => setSocketConnected(true);
+    const onConnect = () => {
+      setSocketConnected(true);
+      if (chatRef.current?.id) {
+        socket.emit('chat:join', chatRef.current.id);
+      }
+    };
     const onDisconnect = () => setSocketConnected(false);
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    if (socket.connected) setSocketConnected(true);
+    if (socket.connected) onConnect();
 
     const unsubMsg = onSocketEvent('chat:message', handleIncomingMessage);
     const unsubTyping = onSocketEvent('chat:typing', handleTyping);
@@ -197,6 +209,10 @@ export default function useChat() {
       setIsTyping(false);
       setIsAiTyping(false);
       setTypingName('');
+      if (ticket?.id) {
+        const socket = connectSocket();
+        if (socket) socket.emit('chat:join', ticket.id);
+      }
       return ticket;
     } catch (err) {
       console.error('[Chat] newConversation failed:', err.message);
