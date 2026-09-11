@@ -34,11 +34,12 @@ export default function CustomerPushPromptBanner() {
       setDismissed(true);
       sessionStorage.setItem('customer_push_banner_dismissed', 'true');
     } else {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-        toast.error('Notifications are blocked in your browser. Please allow them in site settings.');
+      const currentPerm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+      if (currentPerm === 'denied') {
+        toast.error('Notifications are blocked by your browser. Please click the 🔒 icon in your address bar and set Notifications to "Allow".');
         setDismissed(true);
       } else {
-        toast.error('Could not activate notifications. Please try again.');
+        toast.error('To enable alerts, please click the 🔒 or 🔔 icon in your address bar and choose "Allow".');
       }
     }
   };

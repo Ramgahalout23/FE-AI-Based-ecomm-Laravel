@@ -13,6 +13,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import useAuthStore from '../store/authStore';
 import api from '../api/client';
 
+// Default VAPID public key matching backend configuration for instant zero-latency fallback
+const DEFAULT_VAPID_PUBLIC_KEY =
+  'BJwTuU6u4ZvmUMETVNna1uhMvKvnc9xUVfAenAFEpti8l6UsfXIewYtcNBcrV0SkTokci9dl3oG22Nivdw2TZyU';
+
 // Helper to convert base64 VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -23,6 +27,62 @@ function urlBase64ToUint8Array(base64String) {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
+}
+
+/**
+ * Safely request notification permission:
+ * - Checks current Notification.permission first to avoid redundant/hanging calls
+ * - Races against a 6-second timeout to handle Chromium "Quiet notification requests"
+ * - Supports both callback and Promise-based browser APIs
+ */
+async function requestNotificationPermissionSafe() {
+  if (typeof window === 'undefined' || typeof Notification === 'undefined') {
+    return 'denied';
+  }
+
+  // 1. If permission is already granted, proceed immediately without calling requestPermission
+  if (Notification.permission === 'granted') {
+    return 'granted';
+  }
+
+  // 2. If permission is already denied, the browser will not prompt. Return immediately
+  if (Notification.permission === 'denied') {
+    return 'denied';
+  }
+
+  // 3. Permission is 'default' - race with a 6-second timeout and support both callback & promise
+  try {
+    const result = await Promise.race([
+      new Promise((resolve) => {
+        try {
+          let resolved = false;
+          const onPerm = (p) => {
+            if (!resolved && p) {
+              resolved = true;
+              resolve(p);
+            }
+          };
+          const prom = Notification.requestPermission(onPerm);
+          if (prom && typeof prom.then === 'function') {
+            prom.then(onPerm).catch(() => resolve(Notification.permission || 'default'));
+          }
+        } catch {
+          resolve(Notification.permission || 'default');
+        }
+      }),
+      new Promise((resolve) =>
+        setTimeout(() => {
+          console.warn('[Push] Notification permission prompt timed out (quiet prompt or ignored)');
+          resolve(Notification.permission || 'default');
+        }, 6000),
+      ),
+    ]);
+
+    return result || Notification.permission || 'default';
+  } catch (err) {
+    console.warn('[Push] Error requesting notification permission:', err);
+    return Notification.permission || 'default';
+  }
 }
 
 const SW_VERSION = 'v3';
@@ -91,15 +151,15 @@ export default function usePushNotifications() {
   }, [supported, getActiveRegistration]);
 
   /**
-   * Get the VAPID public key from backend
+   * Get the VAPID public key from backend with immediate fallback
    */
   const getVapidKey = useCallback(async () => {
     try {
       const res = await api.get('/push/vapid-public-key');
-      return res.data?.data?.publicKey || null;
+      return res.data?.data?.publicKey || DEFAULT_VAPID_PUBLIC_KEY;
     } catch (err) {
-      console.warn('[Push] Could not retrieve VAPID key:', err);
-      return null;
+      console.warn('[Push] Could not retrieve VAPID key from server, using fallback:', err);
+      return DEFAULT_VAPID_PUBLIC_KEY;
     }
   }, []);
 
@@ -137,35 +197,26 @@ export default function usePushNotifications() {
     setLoading(true);
 
     try {
-      console.log('[Push] Step 1: Requesting notification permission...');
-      const perm = await Notification.requestPermission();
+      console.log('[Push] Step 1: Checking & requesting notification permission...');
+      const perm = await requestNotificationPermissionSafe();
       setPermission(perm);
+
       if (perm !== 'granted') {
-        console.warn('[Push] Notification permission denied:', perm);
+        console.warn('[Push] Notification permission not granted:', perm);
         setLoading(false);
         return false;
       }
 
       console.log('[Push] Step 2: Fetching VAPID key and waiting for Service Worker...');
-      const [vapidKey, reg] = await Promise.all([
-        getVapidKey(),
-        (async () => {
-          let r = await navigator.serviceWorker.getRegistration();
-          if (!r) {
-            r = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-          }
-          return await Promise.race([
-            navigator.serviceWorker.ready,
-            new Promise((resolve) => setTimeout(() => resolve(r), 2000)),
-          ]);
-        })(),
+      const [vapidKeyResult, reg] = await Promise.all([
+        Promise.race([
+          getVapidKey(),
+          new Promise((resolve) => setTimeout(() => resolve(DEFAULT_VAPID_PUBLIC_KEY), 1500)),
+        ]),
+        getActiveRegistration(),
       ]);
 
-      if (!vapidKey) {
-        console.warn('[Push] No VAPID public key available from server');
-        setLoading(false);
-        return false;
-      }
+      const vapidKey = vapidKeyResult || DEFAULT_VAPID_PUBLIC_KEY;
 
       if (!reg?.pushManager) {
         console.warn('[Push] PushManager not available on registration');
@@ -185,10 +236,17 @@ export default function usePushNotifications() {
 
       if (subscription) {
         console.log('[Push] Existing subscription detected, syncing to backend...');
-        await syncSubscriptionToBackend(subscription);
-        setIsSubscribed(true);
-        setLoading(false);
-        return true;
+        const synced = await syncSubscriptionToBackend(subscription);
+        if (synced) {
+          setIsSubscribed(true);
+          setLoading(false);
+          return true;
+        }
+        console.warn('[Push] Existing subscription failed to sync, re-subscribing...');
+        try {
+          await subscription.unsubscribe();
+        } catch { /* ignore */ }
+        subscription = null;
       }
 
       console.log('[Push] Step 4: Registering new subscription with PushManager...');
@@ -199,7 +257,7 @@ export default function usePushNotifications() {
             applicationServerKey: appServerKey,
           }),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Browser push service (FCM) response timed out')), 10000),
+            setTimeout(() => reject(new Error('Push service (FCM) response timed out')), 8000),
           ),
         ]);
       } catch (subErr) {
@@ -209,19 +267,30 @@ export default function usePushNotifications() {
           if (oldSub) await oldSub.unsubscribe();
         } catch { /* ignore */ }
 
-        subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: appServerKey,
-        });
+        try {
+          subscription = await Promise.race([
+            reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: appServerKey,
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Push service retry timed out')), 6000),
+            ),
+          ]);
+        } catch (retryErr) {
+          console.error('[Push] Retry subscribe also failed:', retryErr);
+        }
       }
 
       if (subscription) {
         console.log('[Push] Step 5: Syncing new subscription with backend...');
-        await syncSubscriptionToBackend(subscription);
-        setIsSubscribed(true);
-        console.log('[Push] Push notifications activated successfully!');
-        setLoading(false);
-        return true;
+        const synced = await syncSubscriptionToBackend(subscription);
+        if (synced) {
+          setIsSubscribed(true);
+          console.log('[Push] Push notifications activated successfully!');
+          setLoading(false);
+          return true;
+        }
       }
 
       setLoading(false);
@@ -230,8 +299,10 @@ export default function usePushNotifications() {
       console.error('[Push] Subscribe failed:', err);
       setLoading(false);
       return false;
+    } finally {
+      setLoading(false);
     }
-  }, [supported, loading, getVapidKey, syncSubscriptionToBackend]);
+  }, [supported, loading, getVapidKey, getActiveRegistration, syncSubscriptionToBackend]);
 
   /**
    * Unsubscribe from push notifications
@@ -296,7 +367,7 @@ export default function usePushNotifications() {
 
     (async () => {
       try {
-        const reg = await navigator.serviceWorker.getRegistration();
+        const reg = await getActiveRegistration();
         if (!reg?.pushManager) return;
 
         const sub = await reg.pushManager.getSubscription();
@@ -307,7 +378,7 @@ export default function usePushNotifications() {
         setIsSubscribed(active);
 
         // Ensure active subscription is synced to backend with current token/session
-        if (active) {
+        if (active && sub) {
           syncSubscriptionToBackend(sub);
         }
       } catch {
@@ -318,7 +389,7 @@ export default function usePushNotifications() {
     return () => {
       isMounted = false;
     };
-  }, [supported, isAuthenticated, syncSubscriptionToBackend]);
+  }, [supported, isAuthenticated, getActiveRegistration, syncSubscriptionToBackend]);
 
   /**
    * Listen for messages from the service worker (renewals, broadcasts)

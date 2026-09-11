@@ -23,10 +23,11 @@ export default function AdminPushPromptBanner() {
     if (success) {
       toast.success('🔔 Push notifications enabled! You will now receive instant order & chat alerts.');
     } else {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-        toast.error('Notifications are blocked. Please enable them in your browser site settings.');
+      const currentPerm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+      if (currentPerm === 'denied') {
+        toast.error('Notifications are blocked by your browser. Please click the 🔒 icon in your address bar and set Notifications to "Allow".');
       } else {
-        toast.error('Could not enable notifications. Please refresh the page and try again.');
+        toast.error('To enable alerts, please click the 🔒 or 🔔 icon in your address bar and choose "Allow".');
       }
     }
   };
