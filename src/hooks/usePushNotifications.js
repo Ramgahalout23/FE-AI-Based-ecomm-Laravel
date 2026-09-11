@@ -55,9 +55,6 @@ export default function usePushNotifications() {
   /**
    * Helper to ensure an active service worker registration is available
    */
-  /**
-   * Helper to ensure an active service worker registration is available
-   */
   const getActiveRegistration = useCallback(async () => {
     if (!('serviceWorker' in navigator)) return null;
 
@@ -66,10 +63,42 @@ export default function usePushNotifications() {
         return swRegistrationRef.current;
       }
 
-      // 1. Check if we already have an active registration or register /sw.js
+      // Check for legacy/broken service worker that needs cleanup
+      const CLEANUP_KEY = 'threvolt_sw_v7_clean';
+      if (!localStorage.getItem(CLEANUP_KEY)) {
+        try {
+          const oldRegs = await navigator.serviceWorker.getRegistrations();
+          for (const r of oldRegs) {
+            await r.unregister();
+          }
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+              if (name.includes('workbox') || name.includes('precache') || name.includes('threvolt')) {
+                await caches.delete(name);
+              }
+            }
+          }
+          localStorage.setItem(CLEANUP_KEY, 'true');
+        } catch { /* ignore */ }
+      }
+
+      // 1. Get current registration or register /sw.js with updateViaCache: 'none'
       let reg = await navigator.serviceWorker.getRegistration();
+
+      // If existing registration is redundant or broken, unregister and re-register
+      if (reg && reg.installing && reg.installing.state === 'redundant') {
+        try {
+          await reg.unregister();
+          reg = null;
+        } catch { /* ignore */ }
+      }
+
       if (!reg) {
-        reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        reg = await navigator.serviceWorker.register('/sw.js?v=7', {
+          scope: '/',
+          updateViaCache: 'none',
+        });
       }
 
       // 2. If a worker is waiting, prompt SKIP_WAITING to activate it immediately
@@ -96,12 +125,12 @@ export default function usePushNotifications() {
         return reg;
       }
 
-      // 4. Brief polling wait (max 2 seconds) for active worker, never hanging
+      // 4. Brief wait (max 1.5s) for worker to become active
       await new Promise((resolve) => {
         let elapsed = 0;
         const interval = setInterval(() => {
           elapsed += 100;
-          if (reg.active || elapsed >= 2000) {
+          if (reg.active || elapsed >= 1500) {
             clearInterval(interval);
             resolve();
           }
@@ -176,9 +205,9 @@ export default function usePushNotifications() {
     if (!supported || loading) return false;
     setLoading(true);
 
-    // Enforce an absolute 15-second timeout so the UI CAN NEVER HANG
+    // Enforce an absolute 12-second timeout
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 15000),
+      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 12000),
     );
 
     const performSubscription = async () => {
@@ -201,21 +230,60 @@ export default function usePushNotifications() {
         return false;
       }
 
-      const targetReg = reg || (await navigator.serviceWorker.getRegistration());
-      if (!targetReg || !targetReg.pushManager) {
+      let targetReg = reg || (await navigator.serviceWorker.getRegistration());
+      if (!targetReg) {
+        targetReg = await navigator.serviceWorker.register('/sw.js?v=7', {
+          scope: '/',
+          updateViaCache: 'none',
+        });
+      }
+
+      if (!targetReg?.pushManager) {
         console.warn('[Push] PushManager not available on registration');
         return false;
       }
 
-      // 3. Subscribe via PushManager
+      // 3. Subscribe via PushManager with automatic recovery
       const appServerKey = urlBase64ToUint8Array(vapidKey);
-      let subscription = await targetReg.pushManager.getSubscription();
+      let subscription = null;
+
+      try {
+        subscription = await targetReg.pushManager.getSubscription();
+      } catch (subErr) {
+        console.warn('[Push] Error getting subscription:', subErr);
+      }
 
       if (!subscription) {
-        subscription = await targetReg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: appServerKey,
-        });
+        try {
+          subscription = await targetReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: appServerKey,
+          });
+        } catch (subErr) {
+          console.warn('[Push] Initial subscribe failed, wiping stale SW and retrying...', subErr);
+          // Auto-recovery: clean stale registrations & retry
+          try {
+            const oldRegs = await navigator.serviceWorker.getRegistrations();
+            for (const r of oldRegs) {
+              await r.unregister();
+            }
+          } catch { /* ignore */ }
+
+          const freshReg = await navigator.serviceWorker.register('/sw.js?v=7', {
+            scope: '/',
+            updateViaCache: 'none',
+          });
+
+          // Allow 800ms for fresh worker initialization
+          await new Promise((resolve) => setTimeout(resolve, 800));
+
+          subscription = await freshReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: appServerKey,
+          });
+          targetReg = freshReg;
+          swRegistrationRef.current = freshReg;
+        }
       }
 
       // 4. Save subscription to backend (supports both authenticated user and guest session)
