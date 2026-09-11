@@ -84,11 +84,16 @@ export default function CustomerPushPromptBanner() {
             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
           >
             {loading ? (
-              <span className="inline-block w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+              <>
+                <span className="inline-block w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                Allow in URL bar 🔒
+              </>
             ) : (
-              <Check size={14} className="stroke-[3]" />
+              <>
+                <Check size={14} className="stroke-[3]" />
+                Enable Alerts
+              </>
             )}
-            Enable Alerts
           </button>
 
           <button

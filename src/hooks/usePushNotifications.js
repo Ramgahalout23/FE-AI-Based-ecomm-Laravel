@@ -74,7 +74,7 @@ async function requestNotificationPermissionSafe() {
         setTimeout(() => {
           console.warn('[Push] Notification permission prompt timed out (quiet prompt or ignored)');
           resolve(Notification.permission || 'default');
-        }, 6000),
+        }, 12000),
       ),
     ]);
 
@@ -110,6 +110,37 @@ export default function usePushNotifications() {
     if (isSupported) {
       setPermission(Notification.permission);
     }
+  }, []);
+
+  // Automatically subscribe as soon as user changes permission in browser address bar (🔒 / 🔔)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+
+    let permStatus = null;
+    const handleChange = () => {
+      if (typeof Notification !== 'undefined') {
+        const newPerm = Notification.permission;
+        setPermission(newPerm);
+        if (newPerm === 'granted') {
+          console.log('[Push] Permission changed to granted via browser settings, auto-subscribing...');
+          subscribe();
+        }
+      }
+    };
+
+    navigator.permissions
+      .query({ name: 'notifications' })
+      .then((status) => {
+        permStatus = status;
+        permStatus.addEventListener('change', handleChange);
+      })
+      .catch(() => {});
+
+    return () => {
+      if (permStatus) {
+        permStatus.removeEventListener('change', handleChange);
+      }
+    };
   }, []);
 
   /**
