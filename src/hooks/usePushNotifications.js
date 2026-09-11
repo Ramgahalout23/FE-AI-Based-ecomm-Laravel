@@ -63,91 +63,22 @@ export default function usePushNotifications() {
         return swRegistrationRef.current;
       }
 
-      // Check for legacy/broken service worker that needs cleanup
-      const CLEANUP_KEY = 'threvolt_sw_v7_clean';
-      if (!localStorage.getItem(CLEANUP_KEY)) {
-        try {
-          const oldRegs = await navigator.serviceWorker.getRegistrations();
-          for (const r of oldRegs) {
-            await r.unregister();
-          }
-          if ('caches' in window) {
-            const cacheNames = await caches.keys();
-            for (const name of cacheNames) {
-              if (name.includes('workbox') || name.includes('precache') || name.includes('threvolt')) {
-                await caches.delete(name);
-              }
-            }
-          }
-          localStorage.setItem(CLEANUP_KEY, 'true');
-        } catch { /* ignore */ }
-      }
-
-      // 1. Get current registration or register /sw.js with updateViaCache: 'none'
+      // 1. Get current registration or register /sw.js
       let reg = await navigator.serviceWorker.getRegistration();
-
-      // If existing registration is redundant or broken, unregister and re-register
-      if (reg && reg.installing && reg.installing.state === 'redundant') {
-        try {
-          await reg.unregister();
-          reg = null;
-        } catch { /* ignore */ }
-      }
-
       if (!reg) {
-        reg = await navigator.serviceWorker.register('/sw.js?v=7', {
-          scope: '/',
-          updateViaCache: 'none',
-        });
+        reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       }
 
-      // 2. If a worker is waiting, prompt SKIP_WAITING to activate it immediately
-      if (reg.waiting) {
-        try {
-          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        } catch { /* ignore */ }
-      }
+      // 2. Await ready state with fallback
+      const readyReg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(() => resolve(reg), 1500)),
+      ]);
 
-      // 3. If a worker is installing, listen for its activation
-      if (reg.installing) {
-        const sw = reg.installing;
-        sw.addEventListener('statechange', () => {
-          if (sw.state === 'installed' || sw.state === 'activated') {
-            try {
-              sw.postMessage({ type: 'SKIP_WAITING' });
-            } catch { /* ignore */ }
-          }
-        });
-      }
-
-      if (reg.active) {
-        swRegistrationRef.current = reg;
-        return reg;
-      }
-
-      // 4. Brief wait (max 1.5s) for worker to become active
-      await new Promise((resolve) => {
-        let elapsed = 0;
-        const interval = setInterval(() => {
-          elapsed += 100;
-          if (reg.active || elapsed >= 1500) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 100);
-      });
-
-      swRegistrationRef.current = reg;
-      return reg;
+      swRegistrationRef.current = readyReg || reg;
+      return readyReg || reg;
     } catch (err) {
       console.warn('[Push] Registration check warning:', err);
-      try {
-        const fallbackReg = await navigator.serviceWorker.getRegistration();
-        if (fallbackReg) {
-          swRegistrationRef.current = fallbackReg;
-          return fallbackReg;
-        }
-      } catch { /* ignore */ }
       return null;
     }
   }, []);
@@ -205,103 +136,102 @@ export default function usePushNotifications() {
     if (!supported || loading) return false;
     setLoading(true);
 
-    // Enforce an absolute 12-second timeout
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 12000),
-    );
-
-    const performSubscription = async () => {
-      // 1. Request browser permission
+    try {
+      console.log('[Push] Step 1: Requesting notification permission...');
       const perm = await Notification.requestPermission();
       setPermission(perm);
       if (perm !== 'granted') {
-        console.warn('[Push] Notification permission not granted:', perm);
+        console.warn('[Push] Notification permission denied:', perm);
+        setLoading(false);
         return false;
       }
 
-      // 2. Fetch VAPID key and ensure registration in parallel
+      console.log('[Push] Step 2: Fetching VAPID key and waiting for Service Worker...');
       const [vapidKey, reg] = await Promise.all([
         getVapidKey(),
-        getActiveRegistration(),
+        (async () => {
+          let r = await navigator.serviceWorker.getRegistration();
+          if (!r) {
+            r = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          }
+          return await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((resolve) => setTimeout(() => resolve(r), 2000)),
+          ]);
+        })(),
       ]);
 
       if (!vapidKey) {
         console.warn('[Push] No VAPID public key available from server');
+        setLoading(false);
         return false;
       }
 
-      let targetReg = reg || (await navigator.serviceWorker.getRegistration());
-      if (!targetReg) {
-        targetReg = await navigator.serviceWorker.register('/sw.js?v=7', {
-          scope: '/',
-          updateViaCache: 'none',
-        });
-      }
-
-      if (!targetReg?.pushManager) {
+      if (!reg?.pushManager) {
         console.warn('[Push] PushManager not available on registration');
+        setLoading(false);
         return false;
       }
 
-      // 3. Subscribe via PushManager with automatic recovery
+      console.log('[Push] Step 3: Checking existing device push subscription...');
       const appServerKey = urlBase64ToUint8Array(vapidKey);
       let subscription = null;
 
       try {
-        subscription = await targetReg.pushManager.getSubscription();
+        subscription = await reg.pushManager.getSubscription();
       } catch (subErr) {
-        console.warn('[Push] Error getting subscription:', subErr);
+        console.warn('[Push] Could not read existing subscription:', subErr);
       }
 
-      if (!subscription) {
+      if (subscription) {
+        console.log('[Push] Existing subscription detected, syncing to backend...');
+        await syncSubscriptionToBackend(subscription);
+        setIsSubscribed(true);
+        setLoading(false);
+        return true;
+      }
+
+      console.log('[Push] Step 4: Registering new subscription with PushManager...');
+      try {
+        subscription = await Promise.race([
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: appServerKey,
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Browser push service (FCM) response timed out')), 10000),
+          ),
+        ]);
+      } catch (subErr) {
+        console.warn('[Push] Primary subscribe failed, clearing orphaned subscription and retrying...', subErr);
         try {
-          subscription = await targetReg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: appServerKey,
-          });
-        } catch (subErr) {
-          console.warn('[Push] Initial subscribe failed, wiping stale SW and retrying...', subErr);
-          // Auto-recovery: clean stale registrations & retry
-          try {
-            const oldRegs = await navigator.serviceWorker.getRegistrations();
-            for (const r of oldRegs) {
-              await r.unregister();
-            }
-          } catch { /* ignore */ }
+          const oldSub = await reg.pushManager.getSubscription();
+          if (oldSub) await oldSub.unsubscribe();
+        } catch { /* ignore */ }
 
-          const freshReg = await navigator.serviceWorker.register('/sw.js?v=7', {
-            scope: '/',
-            updateViaCache: 'none',
-          });
-
-          // Allow 800ms for fresh worker initialization
-          await new Promise((resolve) => setTimeout(resolve, 800));
-
-          subscription = await freshReg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: appServerKey,
-          });
-          targetReg = freshReg;
-          swRegistrationRef.current = freshReg;
-        }
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: appServerKey,
+        });
       }
 
-      // 4. Save subscription to backend (supports both authenticated user and guest session)
-      await syncSubscriptionToBackend(subscription);
+      if (subscription) {
+        console.log('[Push] Step 5: Syncing new subscription with backend...');
+        await syncSubscriptionToBackend(subscription);
+        setIsSubscribed(true);
+        console.log('[Push] Push notifications activated successfully!');
+        setLoading(false);
+        return true;
+      }
 
-      setIsSubscribed(true);
-      return true;
-    };
-
-    try {
-      return await Promise.race([performSubscription(), timeoutPromise]);
+      setLoading(false);
+      return false;
     } catch (err) {
       console.error('[Push] Subscribe failed:', err);
-      return false;
-    } finally {
       setLoading(false);
+      return false;
     }
-  }, [supported, loading, getActiveRegistration, getVapidKey, syncSubscriptionToBackend]);
+  }, [supported, loading, getVapidKey, syncSubscriptionToBackend]);
 
   /**
    * Unsubscribe from push notifications
