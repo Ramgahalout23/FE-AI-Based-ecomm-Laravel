@@ -10,6 +10,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { formatTime } from '../../utils/formatters';
 import useChat from '../../hooks/useChat';
 import usePushNotifications from '../../hooks/usePushNotifications';
+import { playNotificationChime } from '../../hooks/useForegroundNotifications';
 import { chatAPI } from '../../api/tickets';
 import toast from '../../utils/toast';
 
@@ -81,6 +82,17 @@ export default function LiveChatWidget() {
     }
   }, [messages, isOpen]);
 
+  // Listen for open-live-chat custom events from foreground toast clicks
+  useEffect(() => {
+    const handleOpenEvent = () => {
+      setIsOpen(true);
+      setHasUnread(false);
+      unreadCountRef.current = 0;
+    };
+    window.addEventListener('open-live-chat', handleOpenEvent);
+    return () => window.removeEventListener('open-live-chat', handleOpenEvent);
+  }, []);
+
   // Track unread messages when widget is minimized — count + sound + vibration
   useEffect(() => {
     const prevCount = lastMessageCountRef.current;
@@ -93,6 +105,10 @@ export default function LiveChatWidget() {
         if (!isOpen) {
           unreadCountRef.current += newUnread;
           setHasUnread(true);
+          playNotificationChime();
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+          }
         }
       }
     }

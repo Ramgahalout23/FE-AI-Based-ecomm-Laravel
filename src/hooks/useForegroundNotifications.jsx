@@ -18,11 +18,17 @@ import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import toast from '../utils/toast';
 
+let lastChimeTime = 0;
+
 /**
  * Play a notification chime synthesized via Web Audio API.
- * Clean, pleasant two-tone melodic chime (C5 -> E5 -> G5).
+ * Clean, pleasant melodic chime (C5 -> E5 -> G5).
  */
-function playNotificationChime() {
+export function playNotificationChime() {
+  const now = Date.now();
+  if (now - lastChimeTime < 800) return; // Debounce rapid triggers
+  lastChimeTime = now;
+
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
@@ -32,11 +38,11 @@ function playNotificationChime() {
       ctx.resume().catch(() => {});
     }
 
-    const now = ctx.currentTime;
+    const nowTime = ctx.currentTime;
     const notes = [
-      { freq: 523.25, time: now },        // C5
-      { freq: 659.25, time: now + 0.08 }, // E5
-      { freq: 783.99, time: now + 0.16 }, // G5
+      { freq: 523.25, time: nowTime },        // C5
+      { freq: 659.25, time: nowTime + 0.08 }, // E5
+      { freq: 783.99, time: nowTime + 0.16 }, // G5
     ];
 
     notes.forEach(({ freq, time }) => {
@@ -47,7 +53,7 @@ function playNotificationChime() {
       osc.frequency.setValueAtTime(freq, time);
 
       gain.gain.setValueAtTime(0, time);
-      gain.gain.linearRampToValueAtTime(0.18, time + 0.02);
+      gain.gain.linearRampToValueAtTime(0.25, time + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, time + 0.28);
 
       osc.connect(gain);
@@ -301,45 +307,46 @@ export default function useForegroundNotifications() {
 
       // When customer receives message from admin
       if (!isAdmin && isFromAdmin) {
-        const isForMe = !data.userId || data.userId === currentUserId || (sessionId && data.sessionId === sessionId);
-        if (isForMe) {
-          playNotificationChime();
-          const preview = msg.content?.slice(0, 70) || 'New response';
+        playNotificationChime();
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
+        const preview = msg.content?.slice(0, 70) || 'New response';
+        const sender = msg.senderName || 'Support Team';
 
-          toast.custom(
-            (t) => (
-              <div
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  navigateRef.current('/support');
-                }}
-                className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-primary/30 rounded-xl shadow-lift cursor-pointer hover:bg-primary/5 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-base font-bold">
-                  💬
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary dark:text-white">
-                    Support Team Replied
-                  </p>
-                  <p className="text-xs text-text-secondary truncate">{preview}</p>
-                </div>
-                <span className="text-xs font-semibold text-primary">Open</span>
+        toast.custom(
+          (t) => (
+            <div
+              onClick={() => {
+                toast.dismiss(t.id);
+                window.dispatchEvent(new CustomEvent('open-live-chat'));
+              }}
+              className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-emerald-500/40 rounded-xl shadow-lift cursor-pointer hover:bg-emerald-50/40 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 text-base font-bold">
+                💬
               </div>
-            ),
-            { duration: 5000 },
-          );
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-primary dark:text-white">
+                  {sender} Replied
+                </p>
+                <p className="text-xs text-text-secondary truncate">{preview}</p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-600">Open Chat</span>
+            </div>
+          ),
+          { duration: 6000 },
+        );
 
-          if (document.hidden) {
-            showBrowserNotification('💬 Support Team Replied', {
-              body: preview,
-              data: { url: '/support' },
-            });
-          }
+        if (document.hidden || !document.hasFocus()) {
+          showBrowserNotification(`💬 ${sender} Replied`, {
+            body: preview,
+            data: { url: '/' },
+          });
         }
       }
     },
-    [isAdmin, currentUserId, sessionId],
+    [isAdmin],
   );
 
   const handleNewNotification = useCallback(
