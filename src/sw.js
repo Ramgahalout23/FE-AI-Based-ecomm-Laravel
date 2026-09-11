@@ -33,30 +33,59 @@ self.addEventListener('message', (event) => {
 // ── Push Event Handler ──
 // This is what shows notifications on the lock screen and notification bar
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  let data;
+  let data = {};
   try {
-    data = event.data.json();
+    if (event.data) {
+      data = event.data.json();
+    }
   } catch {
-    data = {
-      title: 'Notification',
-      body: event.data.text(),
-    };
+    try {
+      data = {
+        title: 'THREVOLT',
+        body: event.data ? event.data.text() : 'You have a new update.',
+      };
+    } catch {
+      data = {};
+    }
   }
 
   const title = data.title || 'THREVOLT';
+  const targetUrl = data.url || data.data?.url || '/';
+
+  const isChat = data.data?.type === 'chat' || data.data?.type === 'new_chat' || Boolean(data.data?.ticketId);
+  const isOrder = Boolean(data.data?.orderId) || data.data?.type === 'order_status' || data.data?.type === 'new_order';
+
   const options = {
-    body: data.body || '',
-    icon: data.icon || '/icons.svg',
-    badge: data.badge || '/icons.svg',
-    vibrate: [100, 50, 100],
-    data: data.data || {},
-    tag: data.data?.orderId || data.tag || 'general',
+    body: data.body || 'You have a new update.',
+    icon: data.icon || '/logo.png',
+    badge: data.badge || '/logo.png',
+    vibrate: [200, 100, 200, 100, 200],
+    data: {
+      url: targetUrl,
+      ...(data.data || {}),
+      timestamp: Date.now(),
+    },
+    tag: data.data?.orderId
+      ? `order-${data.data.orderId}`
+      : data.data?.ticketId
+      ? `chat-${data.data.ticketId}`
+      : 'threvolt-general',
     renotify: true,
-    requireInteraction: false,
-    actions: data.actions || [],
-    // Show on lock screen
+    requireInteraction: true,
+    actions: isChat
+      ? [
+          { action: 'reply', title: '💬 View & Reply' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ]
+      : isOrder
+      ? [
+          { action: 'track', title: '📦 Track Order' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ]
+      : [
+          { action: 'open', title: 'View' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
     silent: false,
   };
 
@@ -67,7 +96,7 @@ self.addEventListener('push', (event) => {
       for (const client of matchedClients) {
         client.postMessage({
           type: 'PUSH_NOTIFICATION_RECEIVED',
-          payload: { title, body: options.body, url: options.data?.url || '/' },
+          payload: { title, body: options.body, url: targetUrl, data: options.data },
         });
       }
     })(),
@@ -101,30 +130,28 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
-  const orderId = event.notification.data?.orderId;
-
-  // Build the full URL
-  let targetUrl = urlToOpen;
-  if (orderId && !urlToOpen.includes(orderId)) {
-    targetUrl = `/orders/${orderId}`;
+  if (event.action === 'dismiss') {
+    return;
   }
 
+  const rawUrl = event.notification.data?.url || '/';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
+
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if the app is already open
+    (async () => {
+      const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          client.navigate(targetUrl);
-          return;
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          if ('navigate' in client) {
+            await client.navigate(targetUrl);
+          }
+          return client.focus();
         }
       }
-      // Open new window
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
-    }),
+    })(),
   );
 });
 

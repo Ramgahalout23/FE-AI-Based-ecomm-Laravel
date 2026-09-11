@@ -55,59 +55,31 @@ export default function usePushNotifications() {
   /**
    * Helper to ensure an active service worker registration is available
    */
+  /**
+   * Helper to ensure an active service worker registration is available
+   */
   const getActiveRegistration = useCallback(async () => {
     if (!('serviceWorker' in navigator)) return null;
 
     try {
-      // 1. Force one-time cleanup of any legacy/broken service workers (e.g. old workbox precache errors)
-      const installedVersion = localStorage.getItem('threvolt_sw_v');
-      if (installedVersion !== SW_VERSION) {
-        console.log('[Push] Migrating Service Worker to', SW_VERSION);
-        try {
-          const oldRegs = await navigator.serviceWorker.getRegistrations();
-          for (const r of oldRegs) {
-            await r.unregister();
-          }
-          if ('caches' in window) {
-            const cacheKeys = await caches.keys();
-            for (const key of cacheKeys) {
-              if (key.includes('workbox') || key.includes('precache') || key.includes('threvolt')) {
-                await caches.delete(key);
-              }
-            }
-          }
-        } catch { /* ignore */ }
-        localStorage.setItem('threvolt_sw_v', SW_VERSION);
-        swRegistrationRef.current = null;
+      if (swRegistrationRef.current?.active) {
+        return swRegistrationRef.current;
       }
 
-      // 2. Check if we already have an active registration
+      // 1. Check if we already have an active registration or register /sw.js
       let reg = await navigator.serviceWorker.getRegistration();
-
-      // If existing registration has an active worker, return it
-      if (reg?.active) {
-        swRegistrationRef.current = reg;
-        return reg;
-      }
-
-      // If no registration exists, register /sw.js
       if (!reg) {
         reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       }
 
-      if (reg.active) {
-        swRegistrationRef.current = reg;
-        return reg;
-      }
-
-      // If a worker is waiting, prompt SKIP_WAITING to activate it immediately
+      // 2. If a worker is waiting, prompt SKIP_WAITING to activate it immediately
       if (reg.waiting) {
         try {
           reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         } catch { /* ignore */ }
       }
 
-      // If a worker is installing, listen for its activation
+      // 3. If a worker is installing, listen for its activation
       if (reg.installing) {
         const sw = reg.installing;
         sw.addEventListener('statechange', () => {
@@ -119,26 +91,30 @@ export default function usePushNotifications() {
         });
       }
 
-      // 3. Wait on navigator.serviceWorker.ready with a 10-second timeout
-      const readyReg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Service Worker activation timed out')), 10000),
-        ),
-      ]);
-
-      if (readyReg?.active) {
-        swRegistrationRef.current = readyReg;
-        return readyReg;
+      if (reg.active) {
+        swRegistrationRef.current = reg;
+        return reg;
       }
+
+      // 4. Brief polling wait (max 2 seconds) for active worker, never hanging
+      await new Promise((resolve) => {
+        let elapsed = 0;
+        const interval = setInterval(() => {
+          elapsed += 100;
+          if (reg.active || elapsed >= 2000) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
 
       swRegistrationRef.current = reg;
       return reg;
     } catch (err) {
       console.warn('[Push] Registration check warning:', err);
       try {
-        const fallbackReg = await navigator.serviceWorker.ready;
-        if (fallbackReg?.active) {
+        const fallbackReg = await navigator.serviceWorker.getRegistration();
+        if (fallbackReg) {
           swRegistrationRef.current = fallbackReg;
           return fallbackReg;
         }
@@ -200,9 +176,9 @@ export default function usePushNotifications() {
     if (!supported || loading) return false;
     setLoading(true);
 
-    // Enforce an absolute 12-second timeout so the UI CAN NEVER HANG
+    // Enforce an absolute 15-second timeout so the UI CAN NEVER HANG
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 12000),
+      setTimeout(() => reject(new Error('Subscription request timed out. Please try again.')), 15000),
     );
 
     const performSubscription = async () => {
@@ -214,7 +190,7 @@ export default function usePushNotifications() {
         return false;
       }
 
-      // 2. Fetch VAPID key and ensure active SW registration in parallel
+      // 2. Fetch VAPID key and ensure registration in parallel
       const [vapidKey, reg] = await Promise.all([
         getVapidKey(),
         getActiveRegistration(),
@@ -225,22 +201,9 @@ export default function usePushNotifications() {
         return false;
       }
 
-      // Ensure registration has an active service worker before PushManager subscribe
-      let targetReg = reg;
-      if (!targetReg?.active) {
-        try {
-          const readyReg = await navigator.serviceWorker.ready;
-          if (readyReg?.active) targetReg = readyReg;
-        } catch { /* ignore */ }
-      }
-
+      const targetReg = reg || (await navigator.serviceWorker.getRegistration());
       if (!targetReg || !targetReg.pushManager) {
         console.warn('[Push] PushManager not available on registration');
-        return false;
-      }
-
-      if (!targetReg.active) {
-        console.warn('[Push] Cannot subscribe to push: Service Worker is not active yet');
         return false;
       }
 
@@ -280,7 +243,13 @@ export default function usePushNotifications() {
     setLoading(true);
 
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg?.pushManager) {
+        setIsSubscribed(false);
+        setLoading(false);
+        return true;
+      }
+
       const subscription = await reg.pushManager.getSubscription();
 
       if (subscription) {
@@ -329,7 +298,9 @@ export default function usePushNotifications() {
 
     (async () => {
       try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg?.pushManager) return;
+
         const sub = await reg.pushManager.getSubscription();
 
         if (!isMounted) return;
