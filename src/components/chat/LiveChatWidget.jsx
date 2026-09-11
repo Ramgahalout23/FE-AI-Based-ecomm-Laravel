@@ -596,12 +596,12 @@ export default function LiveChatWidget() {
             </div>
           </div>
 
-          {/* ── Live Mode Push Notification Banner ── */}
-          {chatMode === 'live' && pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
+          {/* ── Push Notification Banner ── */}
+          {pushSupported && !pushSubscribed && pushPermission !== 'denied' && (
             <div
               onClick={async () => {
                 const ok = await subscribePush();
-                if (ok) toast.success('🔔 You will be alerted when our agent replies!');
+                if (ok) toast.success('🔔 You will be alerted on your lock screen when support replies!');
               }}
               style={{
                 background: 'rgba(16, 185, 129, 0.12)',

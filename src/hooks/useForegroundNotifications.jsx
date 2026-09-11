@@ -74,9 +74,9 @@ async function showBrowserNotification(title, options = {}) {
   }
 
   const defaultOptions = {
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
-    vibrate: [100, 50, 100],
+    icon: '/logo.png',
+    badge: '/logo.png',
+    vibrate: [200, 100, 200, 100, 200],
     ...options,
   };
 
@@ -104,6 +104,7 @@ export default function useForegroundNotifications() {
     isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' || localStorage.getItem('adminToken')),
   );
   const currentUserId = user?.id;
+  const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
 
   const handleOrderCreated = useCallback(
     (data) => {
@@ -146,29 +147,39 @@ export default function useForegroundNotifications() {
             data: { url: `/admin/orders/${data.orderId}` },
           });
         }
-      } else if (currentUserId && data.userId === currentUserId) {
-        playNotificationChime();
-        const orderNum = data.orderNumber || '';
+      } else {
+        const isMyOrder = (currentUserId && data.userId === currentUserId) ||
+          (sessionId && data.sessionId === sessionId) ||
+          (typeof window !== 'undefined' && localStorage.getItem('last_order_id') === data.orderId);
 
-        toast.success(`🛍️ Order #${orderNum} placed successfully!`, {
-          duration: 5000,
-        });
+        if (isMyOrder) {
+          playNotificationChime();
+          const orderNum = data.orderNumber || '';
 
-        if (document.hidden) {
-          showBrowserNotification('🛍️ Order Confirmed!', {
-            body: `Your order #${orderNum} has been confirmed.`,
-            data: { url: `/orders/${data.orderId}` },
+          toast.success(`🛍️ Order #${orderNum} placed successfully!`, {
+            duration: 5000,
           });
+
+          if (document.hidden) {
+            showBrowserNotification('🛍️ Order Confirmed!', {
+              body: `Your order #${orderNum} has been confirmed.`,
+              data: { url: `/orders/${data.orderId}` },
+            });
+          }
         }
       }
     },
-    [isAdmin, currentUserId],
+    [isAdmin, currentUserId, sessionId],
   );
 
   const handleOrderStatusUpdated = useCallback(
     (data) => {
       if (!data) return;
-      if (currentUserId && data.userId === currentUserId) {
+      const isMyOrder = (currentUserId && data.userId === currentUserId) ||
+        (sessionId && data.sessionId === sessionId) ||
+        (typeof window !== 'undefined' && localStorage.getItem('last_order_id') === data.orderId);
+
+      if (isMyOrder) {
         playNotificationChime();
         const orderNum = data.orderNumber || '';
         const status = data.status || 'Updated';
@@ -207,16 +218,16 @@ export default function useForegroundNotifications() {
         }
       }
     },
-    [currentUserId],
+    [currentUserId, sessionId],
   );
 
   const handleOrderCancelled = useCallback(
     (data) => {
       if (!data) return;
-      playNotificationChime();
       const orderNum = data.orderNumber || '';
 
       if (isAdmin) {
+        playNotificationChime();
         toast.error(`Order #${orderNum} was cancelled.`);
         if (document.hidden) {
           showBrowserNotification('❌ Order Cancelled', {
@@ -224,17 +235,24 @@ export default function useForegroundNotifications() {
             data: { url: `/admin/orders/${data.orderId}` },
           });
         }
-      } else if (currentUserId && data.userId === currentUserId) {
-        toast.error(`Your order #${orderNum} was cancelled.`);
-        if (document.hidden) {
-          showBrowserNotification('❌ Order Cancelled', {
-            body: `Your order #${orderNum} has been cancelled.`,
-            data: { url: `/orders/${data.orderId}` },
-          });
+      } else {
+        const isMyOrder = (currentUserId && data.userId === currentUserId) ||
+          (sessionId && data.sessionId === sessionId) ||
+          (typeof window !== 'undefined' && localStorage.getItem('last_order_id') === data.orderId);
+
+        if (isMyOrder) {
+          playNotificationChime();
+          toast.error(`Your order #${orderNum} was cancelled.`);
+          if (document.hidden) {
+            showBrowserNotification('❌ Order Cancelled', {
+              body: `Your order #${orderNum} has been cancelled.`,
+              data: { url: `/orders/${data.orderId}` },
+            });
+          }
         }
       }
     },
-    [isAdmin, currentUserId],
+    [isAdmin, currentUserId, sessionId],
   );
 
   const handleChatMessage = useCallback(
@@ -283,42 +301,45 @@ export default function useForegroundNotifications() {
 
       // When customer receives message from admin
       if (!isAdmin && isFromAdmin) {
-        playNotificationChime();
-        const preview = msg.content?.slice(0, 70) || 'New response';
+        const isForMe = !data.userId || data.userId === currentUserId || (sessionId && data.sessionId === sessionId);
+        if (isForMe) {
+          playNotificationChime();
+          const preview = msg.content?.slice(0, 70) || 'New response';
 
-        toast.custom(
-          (t) => (
-            <div
-              onClick={() => {
-                toast.dismiss(t.id);
-                navigateRef.current('/support');
-              }}
-              className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-primary/30 rounded-xl shadow-lift cursor-pointer hover:bg-primary/5 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-base font-bold">
-                💬
+          toast.custom(
+            (t) => (
+              <div
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  navigateRef.current('/support');
+                }}
+                className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-primary/30 rounded-xl shadow-lift cursor-pointer hover:bg-primary/5 transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-base font-bold">
+                  💬
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-text-primary dark:text-white">
+                    Support Team Replied
+                  </p>
+                  <p className="text-xs text-text-secondary truncate">{preview}</p>
+                </div>
+                <span className="text-xs font-semibold text-primary">Open</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-primary dark:text-white">
-                  Support Team Replied
-                </p>
-                <p className="text-xs text-text-secondary truncate">{preview}</p>
-              </div>
-              <span className="text-xs font-semibold text-primary">Open</span>
-            </div>
-          ),
-          { duration: 5000 },
-        );
+            ),
+            { duration: 5000 },
+          );
 
-        if (document.hidden) {
-          showBrowserNotification('💬 Support Team Replied', {
-            body: preview,
-            data: { url: '/support' },
-          });
+          if (document.hidden) {
+            showBrowserNotification('💬 Support Team Replied', {
+              body: preview,
+              data: { url: '/support' },
+            });
+          }
         }
       }
     },
-    [isAdmin],
+    [isAdmin, currentUserId, sessionId],
   );
 
   const handleNewNotification = useCallback(
@@ -341,7 +362,6 @@ export default function useForegroundNotifications() {
   );
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     let unsubs = [];
     let cancelled = false;
 
@@ -363,7 +383,6 @@ export default function useForegroundNotifications() {
       unsubs.forEach((fn) => typeof fn === 'function' && fn());
     };
   }, [
-    isAuthenticated,
     handleOrderCreated,
     handleOrderStatusUpdated,
     handleOrderCancelled,

@@ -43,6 +43,7 @@ import useIdleTimer from './hooks/useIdleTimer';
 import { useAdminTableLabels } from './hooks/useAdminTableLabels';
 import useForegroundNotifications from './hooks/useForegroundNotifications';
 import AdminPushPromptBanner from './components/admin/AdminPushPromptBanner';
+import CustomerPushPromptBanner from './components/common/CustomerPushPromptBanner';
 
 function ForegroundNotificationHandler() {
   useForegroundNotifications();
@@ -275,6 +276,7 @@ function StorefrontLayout() {
   return (
     <div className="flex flex-col min-h-[100dvh]">
       <Navbar />
+      <CustomerPushPromptBanner />
       <Suspense fallback={null}>
         {(isCartOpen || cartEverOpened) && <CartDrawer />}
       </Suspense>
@@ -482,9 +484,8 @@ function AppContent() {
       disconnectFn = mod.disconnectSocket;
     };
 
-    if (isAuthenticated || localStorage.getItem('authToken')) {
-      connect();
-    }
+    // Connect WebSocket for real-time notifications, chat, and order tracking
+    connect();
 
     return () => {
       cancelled = true;

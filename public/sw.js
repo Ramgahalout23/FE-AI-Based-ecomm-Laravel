@@ -44,11 +44,15 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'THREVOLT';
   const targetUrl = payload.url || payload.data?.url || '/';
 
+  const isChat = payload.data?.type === 'chat' || payload.data?.type === 'new_chat' || Boolean(payload.data?.ticketId);
+  const isOrder = Boolean(payload.data?.orderId) || payload.data?.type === 'order_status' || payload.data?.type === 'new_order';
+
   const notificationOptions = {
     body: payload.body || 'You have a new update.',
-    icon: payload.icon || '/favicon.svg',
-    badge: payload.badge || '/favicon.svg',
-    vibrate: [150, 80, 150],
+    icon: payload.icon || '/logo.png',
+    badge: payload.badge || '/logo.png',
+    vibrate: [200, 100, 200, 100, 200],
+    requireInteraction: true,
     data: {
       url: targetUrl,
       ...(payload.data || {}),
@@ -60,6 +64,20 @@ self.addEventListener('push', (event) => {
       ? `chat-${payload.data.ticketId}`
       : 'threvolt-general',
     renotify: true,
+    actions: isChat
+      ? [
+          { action: 'reply', title: '💬 View & Reply' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ]
+      : isOrder
+      ? [
+          { action: 'track', title: '📦 Track Order' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ]
+      : [
+          { action: 'open', title: 'View' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
   };
 
   event.waitUntil(
@@ -91,6 +109,11 @@ self.addEventListener('push', (event) => {
 // Notification click event — focus active window or open new window
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  // If user clicked the "dismiss" action, take no further action
+  if (event.action === 'dismiss') {
+    return;
+  }
 
   const rawUrl = event.notification.data?.url || '/';
   const targetUrl = new URL(rawUrl, self.location.origin).href;

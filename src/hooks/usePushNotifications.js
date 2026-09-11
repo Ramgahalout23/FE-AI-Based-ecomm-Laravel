@@ -173,10 +173,18 @@ export default function usePushNotifications() {
   const syncSubscriptionToBackend = useCallback(async (subscription) => {
     try {
       const subJson = subscription.toJSON();
+      const sessionId = typeof window !== 'undefined'
+        ? localStorage.getItem('chatSessionId') || `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        : null;
+      if (sessionId && typeof window !== 'undefined') {
+        localStorage.setItem('chatSessionId', sessionId);
+      }
+
       await api.post('/push/subscribe', {
         endpoint: subJson.endpoint,
         p256dh: subJson.keys?.p256dh,
         auth: subJson.keys?.auth,
+        sessionId,
       });
       return true;
     } catch (err) {
@@ -247,10 +255,8 @@ export default function usePushNotifications() {
         });
       }
 
-      // 4. Save subscription to backend if user is authenticated
-      if (isAuthenticated || localStorage.getItem('adminToken') || localStorage.getItem('authToken')) {
-        await syncSubscriptionToBackend(subscription);
-      }
+      // 4. Save subscription to backend (supports both authenticated user and guest session)
+      await syncSubscriptionToBackend(subscription);
 
       setIsSubscribed(true);
       return true;
@@ -264,7 +270,7 @@ export default function usePushNotifications() {
     } finally {
       setLoading(false);
     }
-  }, [supported, loading, getActiveRegistration, getVapidKey, isAuthenticated, syncSubscriptionToBackend]);
+  }, [supported, loading, getActiveRegistration, getVapidKey, syncSubscriptionToBackend]);
 
   /**
    * Unsubscribe from push notifications
@@ -279,8 +285,9 @@ export default function usePushNotifications() {
 
       if (subscription) {
         try {
+          const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
           await api.delete('/push/unsubscribe', {
-            data: { endpoint: subscription.endpoint },
+            data: { endpoint: subscription.endpoint, sessionId },
           });
         } catch {
           // Backend deletion failed, still remove locally
@@ -303,7 +310,8 @@ export default function usePushNotifications() {
    */
   const sendTest = useCallback(async () => {
     try {
-      const res = await api.post('/push/test');
+      const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
+      const res = await api.post('/push/test', { sessionId });
       return res.data;
     } catch (err) {
       console.error('[Push] Test notification failed:', err);
@@ -329,8 +337,8 @@ export default function usePushNotifications() {
         const active = Boolean(sub);
         setIsSubscribed(active);
 
-        // If user is logged in and subscription exists, ensure backend has it registered
-        if (active && (isAuthenticated || localStorage.getItem('adminToken') || localStorage.getItem('authToken'))) {
+        // Ensure active subscription is synced to backend with current token/session
+        if (active) {
           syncSubscriptionToBackend(sub);
         }
       } catch {
@@ -351,10 +359,12 @@ export default function usePushNotifications() {
 
     const handleMessage = (event) => {
       if (event.data?.type === 'PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
+        const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
         api.post('/push/subscribe', {
           endpoint: event.data.subscription.endpoint,
           p256dh: event.data.subscription.keys?.p256dh,
           auth: event.data.subscription.keys?.auth,
+          sessionId,
         }).catch(() => {});
       }
     };
