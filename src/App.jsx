@@ -345,30 +345,45 @@ function AdminLayout() {
     (async () => {
       try {
         const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        if (sub) return; // Already subscribed
-        // Auto-subscribe admin
-        const res = await import('./api/client').then(m => m.default.get('/push/vapid-public-key'));
-        const vapidKey = res.data?.data?.publicKey;
-        if (!vapidKey) return;
-        const urlBase64ToUint8Array = (base64String) => {
-          const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-          const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-          const rawData = window.atob(base64);
-          const outputArray = new Uint8Array(rawData.length);
-          for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-          return outputArray;
-        };
-        const newSub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
-        });
-        const subJson = newSub.toJSON();
+        let sub = await reg.pushManager.getSubscription();
         const api = (await import('./api/client')).default;
-        await api.post('/push/subscribe', { endpoint: subJson.endpoint, p256dh: subJson.keys.p256dh, auth: subJson.keys.auth });
-        console.log('[Push] Admin auto-subscribed for notifications');
+
+        if (!sub) {
+          // Auto-subscribe admin
+          const res = await api.get('/push/vapid-public-key');
+          const vapidKey = res.data?.data?.publicKey;
+          if (!vapidKey) return;
+          const urlBase64ToUint8Array = (base64String) => {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+            return outputArray;
+          };
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          });
+        }
+
+        if (sub) {
+          const subJson = sub.toJSON();
+          const currentUser = useAuthStore.getState().user;
+          const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
+          await api.post('/push/subscribe', {
+            endpoint: subJson.endpoint,
+            p256dh: subJson.keys?.p256dh,
+            auth: subJson.keys?.auth,
+            sessionId,
+            userId: currentUser?.id,
+            userEmail: currentUser?.email,
+            userRole: 'ADMIN',
+          });
+          console.log('[Push] Admin push subscription synced to admin account');
+        }
       } catch (err) {
-        console.warn('[Push] Admin auto-subscribe failed:', err);
+        console.warn('[Push] Admin auto-subscribe/sync failed:', err);
       }
     })();
   }, []);

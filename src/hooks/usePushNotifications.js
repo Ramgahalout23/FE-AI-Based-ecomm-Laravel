@@ -95,7 +95,7 @@ export default function usePushNotifications() {
   const [loading, setLoading] = useState(false);
   const [supported, setSupported] = useState(false);
   const swRegistrationRef = useRef(null);
-  const { isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAdmin } = useAuthStore();
 
   // Check support on mount
   useEffect(() => {
@@ -212,13 +212,16 @@ export default function usePushNotifications() {
         p256dh: subJson.keys?.p256dh,
         auth: subJson.keys?.auth,
         sessionId,
+        userId: user?.id,
+        userEmail: user?.email,
+        userRole: user?.role || (isAdmin ? 'ADMIN' : undefined),
       });
       return true;
     } catch (err) {
       console.warn('[Push] Failed to sync subscription to backend:', err);
       return false;
     }
-  }, []);
+  }, [user, isAdmin]);
 
   /**
    * Subscribe to Web Push notifications
@@ -411,6 +414,10 @@ export default function usePushNotifications() {
         // Ensure active subscription is synced to backend with current token/session
         if (active && sub) {
           syncSubscriptionToBackend(sub);
+        } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          // If browser notification permission is already granted, auto-subscribe device immediately
+          // so mobile/desktop browsers don't miss admin or customer push alerts
+          subscribe();
         }
       } catch {
         // SW not ready or permission denied
@@ -420,7 +427,7 @@ export default function usePushNotifications() {
     return () => {
       isMounted = false;
     };
-  }, [supported, isAuthenticated, getActiveRegistration, syncSubscriptionToBackend]);
+  }, [supported, isAuthenticated, getActiveRegistration, syncSubscriptionToBackend, subscribe]);
 
   /**
    * Listen for messages from the service worker (renewals, broadcasts)

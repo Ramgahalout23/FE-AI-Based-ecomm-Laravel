@@ -88,7 +88,10 @@ async function showBrowserNotification(title, options = {}) {
 
   try {
     if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+      ]);
       if (reg?.showNotification) {
         await reg.showNotification(title, defaultOptions);
         return;
@@ -147,12 +150,11 @@ export default function useForegroundNotifications() {
           { duration: 6000 },
         );
 
-        if (document.hidden) {
-          showBrowserNotification('🛒 New Order Received!', {
-            body: `Order #${orderNum}${total}`,
-            data: { url: `/admin/orders/${data.orderId}` },
-          });
-        }
+        // Always show browser system notification so it appears in Windows Action Center / Android notification shade
+        showBrowserNotification('🛒 New Order Received!', {
+          body: `Order #${orderNum}${total}`,
+          data: { url: `/admin/orders/${data.orderId}` },
+        });
       } else {
         const isMyOrder = (currentUserId && data.userId === currentUserId) ||
           (sessionId && data.sessionId === sessionId) ||
@@ -235,12 +237,10 @@ export default function useForegroundNotifications() {
       if (isAdmin) {
         playNotificationChime();
         toast.error(`Order #${orderNum} was cancelled.`);
-        if (document.hidden) {
-          showBrowserNotification('❌ Order Cancelled', {
-            body: `Order #${orderNum} was cancelled.`,
-            data: { url: `/admin/orders/${data.orderId}` },
-          });
-        }
+        showBrowserNotification('❌ Order Cancelled', {
+          body: `Order #${orderNum} was cancelled.`,
+          data: { url: `/admin/orders/${data.orderId}` },
+        });
       } else {
         const isMyOrder = (currentUserId && data.userId === currentUserId) ||
           (sessionId && data.sessionId === sessionId) ||
@@ -297,12 +297,11 @@ export default function useForegroundNotifications() {
           { duration: 5000 },
         );
 
-        if (document.hidden) {
-          showBrowserNotification(`💬 Support: ${sender}`, {
-            body: preview,
-            data: { url: '/admin/support' },
-          });
-        }
+        // Always show system/mobile notification for admin so support chat is never missed
+        showBrowserNotification(`💬 Support: ${sender}`, {
+          body: preview,
+          data: { url: '/admin/support' },
+        });
       }
 
       // When customer receives message from admin
@@ -358,14 +357,12 @@ export default function useForegroundNotifications() {
       const title = data.title || 'Notification';
       const message = data.message || '';
 
-      if (document.hidden) {
-        showBrowserNotification(title, {
-          body: message,
-          data: { url: '/notifications' },
-        });
-      }
+      showBrowserNotification(title, {
+        body: message,
+        data: { url: isAdmin ? '/admin/notifications' : '/notifications' },
+      });
     },
-    [currentUserId],
+    [isAdmin, currentUserId],
   );
 
   useEffect(() => {
