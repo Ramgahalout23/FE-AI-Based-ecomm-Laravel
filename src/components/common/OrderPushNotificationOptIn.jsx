@@ -16,7 +16,11 @@ export default function OrderPushNotificationOptIn({ orderId }) {
     if (success) {
       toast.success('🔔 Delivery alerts enabled! You will be notified when your order ships.');
     } else {
-      toast.error('Could not enable notifications. Please allow notifications in your browser settings.');
+      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+        toast.error('Notifications are blocked. Please enable them in your browser site settings.');
+      } else {
+        toast.error('Could not enable notifications. Please refresh the page and try again.');
+      }
     }
   };
 

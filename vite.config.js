@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
       // the service worker itself is disabled via devOptions so it
       // doesn't intercept external requests.
       VitePWA({
+            strategies: 'injectManifest',
             registerType: 'autoUpdate',
             devOptions: {
               enabled: false, // Don't register SW in dev — just make the virtual module available
@@ -43,74 +44,9 @@ export default defineConfig(({ mode }) => {
                 },
               ],
             },
-            workbox: {
+            injectManifest: {
               maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
-              globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-              // Serve index.html for SPA navigations EXCEPT /api/ paths.
-              // Without this denylist, the service worker intercepts the Google
-              // OAuth callback navigation (…/api/v1/auth/google/callback) and
-              // returns the SPA shell instead of letting it reach the API,
-              // breaking social login with a React 404 page.
-              navigateFallback: 'index.html',
-              navigateFallbackDenylist: [/^\/api\//],
-              runtimeCaching: [
-                // Admin API — NEVER cache (network only). Admin data must always
-                // come fresh from the server; a stale cached 403/500 causes confusing
-                // blank pages when the token is refreshed but old errors persist.
-                {
-                  urlPattern: ({ url, request }) =>
-                    url.pathname.startsWith('/api/v1/admin/') &&
-                    request.method === 'GET' &&
-                    request.mode !== 'navigate',
-                  handler: 'NetworkOnly',
-                },
-                // Public storefront API — cache-first with background revalidation
-                {
-                  urlPattern: ({ url, request }) =>
-                    url.pathname.startsWith('/api/') &&
-                    request.method === 'GET' &&
-                    request.mode !== 'navigate',
-                  handler: 'StaleWhileRevalidate',
-                  options: {
-                    cacheName: 'api-cache',
-                    expiration: {
-                      maxEntries: 50,
-                      maxAgeSeconds: 120,
-                    },
-                    cacheableResponse: {
-                      statuses: [0, 200],
-                    },
-                  },
-                },
-                {
-                  urlPattern: /^\/(uploads|storage)\/.*/i,
-                  handler: 'StaleWhileRevalidate',
-                  options: {
-                    cacheName: 'image-cache',
-                    expiration: {
-                      maxEntries: 100,
-                      maxAgeSeconds: 24 * 60 * 60,
-                    },
-                    cacheableResponse: {
-                      statuses: [0, 200],
-                    },
-                  },
-                },
-                {
-                  urlPattern: /^https?:\/\/fonts\.googleapis\.com\/.*/i,
-                  handler: 'CacheFirst',
-                  options: {
-                    cacheName: 'google-fonts-cache',
-                    expiration: {
-                      maxEntries: 10,
-                      maxAgeSeconds: 30 * 24 * 60 * 60,
-                    },
-                    cacheableResponse: {
-                      statuses: [0, 200],
-                    },
-                  },
-                },
-              ],
+              globPatterns: ['favicon.svg', 'icons.svg'],
             },
           }),
     ],
