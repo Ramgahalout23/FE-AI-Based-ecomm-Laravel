@@ -25,6 +25,8 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+const SW_VERSION = 'v3';
+
 export default function usePushNotifications() {
   const [permission, setPermission] = useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'default',
@@ -51,40 +53,48 @@ export default function usePushNotifications() {
   }, []);
 
   /**
-   * Register service worker (/sw.js)
-   */
-  /**
    * Helper to ensure an active service worker registration is available
    */
   const getActiveRegistration = useCallback(async () => {
     if (!('serviceWorker' in navigator)) return null;
 
     try {
-      // 1. Inspect all existing registrations and clean up stale/broken ones
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      let validReg = null;
-
-      for (const r of registrations) {
-        if (r.active) {
-          validReg = r;
-        } else {
-          // If registration has no active worker (e.g. broken from old failed precaching),
-          // unregister it cleanly so it does not block future activations
-          try {
+      // 1. Force one-time cleanup of any legacy/broken service workers (e.g. old workbox precache errors)
+      const installedVersion = localStorage.getItem('threvolt_sw_v');
+      if (installedVersion !== SW_VERSION) {
+        console.log('[Push] Migrating Service Worker to', SW_VERSION);
+        try {
+          const oldRegs = await navigator.serviceWorker.getRegistrations();
+          for (const r of oldRegs) {
             await r.unregister();
-          } catch { /* ignore */ }
-        }
+          }
+          if ('caches' in window) {
+            const cacheKeys = await caches.keys();
+            for (const key of cacheKeys) {
+              if (key.includes('workbox') || key.includes('precache') || key.includes('threvolt')) {
+                await caches.delete(key);
+              }
+            }
+          }
+        } catch { /* ignore */ }
+        localStorage.setItem('threvolt_sw_v', SW_VERSION);
+        swRegistrationRef.current = null;
       }
 
-      if (validReg) {
-        swRegistrationRef.current = validReg;
-        return validReg;
+      // 2. Check if we already have an active registration
+      let reg = await navigator.serviceWorker.getRegistration();
+
+      // If existing registration has an active worker, return it
+      if (reg?.active) {
+        swRegistrationRef.current = reg;
+        return reg;
       }
 
-      // 2. Register clean /sw.js
-      let reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      // If no registration exists, register /sw.js
+      if (!reg) {
+        reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      }
 
-      // If active already, return immediately
       if (reg.active) {
         swRegistrationRef.current = reg;
         return reg;
