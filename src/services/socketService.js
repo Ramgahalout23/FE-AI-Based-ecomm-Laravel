@@ -5,68 +5,85 @@
 
 import { io } from 'socket.io-client';
 
-// Extract just the origin (protocol + host + port) to avoid path-based namespace issues
-// Note: Only connect if VITE_SOCKET_URL is explicitly set (Laravel-only mode doesn't run socket.io)
+// Extract just the origin (protocol + host + port)
 function getSocketOrigin() {
+  // Production default on threvolt.com — always target the Hostinger Node.js API backend
+  if (typeof window !== 'undefined' && window.location.hostname.includes('threvolt.com')) {
+    return 'https://api.threvolt.com';
+  }
+
   const raw = import.meta.env.VITE_SOCKET_URL;
-  if (!raw) {
-    // Auto-detect from current page URL for local dev
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      return 'http://localhost:3000';
+  if (raw && !raw.includes('onrender.com')) {
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return raw;
     }
-    // Auto-detect from API Base URL if set
-    const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-    if (apiBase) {
-      try {
-        return new URL(apiBase).origin;
-      } catch { /* ignore */ }
-    }
-    // Production default on threvolt.com
-    if (typeof window !== 'undefined' && window.location.hostname.includes('threvolt.com')) {
-      return 'https://api.threvolt.com';
-    }
-    return null;
   }
-  try {
-    const url = new URL(raw);
-    return url.origin;
-  } catch {
-    return raw;
+
+  // Auto-detect from current page URL for local dev
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:3000';
   }
+
+  const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (apiBase) {
+    try {
+      return new URL(apiBase).origin;
+    } catch { /* ignore */ }
+  }
+
+  return 'http://localhost:3000';
 }
 
 const SOCKET_URL = getSocketOrigin();
 
 let socket = null;
+let lastUsedToken = undefined;
 let listeners = {};
 
 /**
  * Get auth token from localStorage (handles both admin and user tokens)
  */
 function getToken() {
-  return localStorage.getItem('adminToken') || localStorage.getItem('authToken');
+  const token = localStorage.getItem('adminToken') || localStorage.getItem('authToken');
+  // Filter out non-JWT placeholder strings like 'logged-in'
+  if (token && token !== 'logged-in' && token.includes('.')) {
+    return token;
+  }
+  return null;
 }
 
 /**
- * Initialize the socket connection with JWT authentication.
- * Call this once when the app loads (or when user logs in).
+ * Initialize or re-sync the socket connection with JWT authentication.
  */
-export function connectSocket() {
-  // Don't reconnect if already connected or connecting
-  if (socket?.connected) return socket;
-  if (socket?.connecting) return socket;
-
-  // No socket.io server configured — silently skip
+export function connectSocket(force = false) {
   if (!SOCKET_URL) return null;
 
   const token = getToken();
+
+  // If already connected with the same token and not forced, reuse existing connection
+  if (socket && !force && (socket.connected || socket.connecting) && lastUsedToken === token) {
+    return socket;
+  }
+
+  // If token changed or forced, disconnect old socket so we can re-authenticate
+  if (socket && (lastUsedToken !== token || force)) {
+    try {
+      socket.disconnect();
+    } catch { /* ignore */ }
+    socket = null;
+  }
+
+  lastUsedToken = token;
+
   const sessionId = localStorage.getItem('chatSessionId') || `anon-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   localStorage.setItem('chatSessionId', sessionId);
 
   try {
-    // Use WebSocket only; polling is disabled to prevent resource/server strain
+    // Send both token (for admin/auth) and sessionId (for guest chat fallback)
     socket = io(SOCKET_URL, {
-      auth: token ? { token } : { sessionId },
+      auth: token ? { token, sessionId } : { sessionId },
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 3,
@@ -76,24 +93,24 @@ export function connectSocket() {
     });
 
     socket.on('connect', () => {
-      console.debug('[Socket] Connected:', socket.id);
+      console.log('[Socket] Connected successfully to', SOCKET_URL, 'socketId:', socket.id);
     });
 
     socket.on('disconnect', (reason) => {
       if (reason !== 'transport close') {
-        console.debug('[Socket] Disconnected:', reason);
+        console.log('[Socket] Disconnected:', reason);
       }
     });
 
-    socket.on('connect_error', () => {
-      // Silently handled — no console noise
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] Connection warning:', err?.message || err);
     });
 
     socket.on('reconnect', (attempt) => {
-      console.debug('[Socket] Reconnected after', attempt, 'attempts');
+      console.log('[Socket] Reconnected after', attempt, 'attempts');
     });
 
-    // Register any pending listeners
+    // Re-attach all registered listeners to the new socket instance
     Object.entries(listeners).forEach(([event, handlers]) => {
       handlers.forEach((handler) => {
         socket.off(event, handler);
@@ -102,21 +119,21 @@ export function connectSocket() {
     });
 
     return socket;
-  } catch (error) {
-    console.warn('[Socket] Failed to create connection:', error);
+  } catch (err) {
+    console.warn('[Socket] Failed to initialize socket connection:', err);
     return null;
   }
 }
 
 /**
- * Disconnect the socket connection.
+ * Disconnect the socket connection (retains registered event handlers for future connects).
  */
 export function disconnectSocket() {
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();
     socket = null;
-    listeners = {};
+    lastUsedToken = undefined;
   }
 }
 
