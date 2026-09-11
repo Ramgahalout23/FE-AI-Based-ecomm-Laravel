@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellRing, X, Sparkles, Check } from 'lucide-react';
+import { Bell, BellRing, X, Sparkles, Check, Share } from 'lucide-react';
 import usePushNotifications from '../../hooks/usePushNotifications';
 import toast from '../../utils/toast';
 
 export default function AdminPushPromptBanner() {
   const { supported, permission, isSubscribed, loading, subscribe } = usePushNotifications();
   const [dismissed, setDismissed] = useState(false);
+
+  const isIOS =
+    typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  const isStandalone =
+    typeof window !== 'undefined' &&
+    (window.navigator?.standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 
   useEffect(() => {
     const isDismissed = sessionStorage.getItem('admin_push_banner_dismissed') === 'true';
@@ -14,7 +22,48 @@ export default function AdminPushPromptBanner() {
     }
   }, []);
 
-  if (!supported || isSubscribed || permission === 'denied' || dismissed) {
+  if (dismissed) {
+    return null;
+  }
+
+  // iOS Safari/Chrome regular tabs do not support Push API until added to Home Screen
+  if (isIOS && !isStandalone) {
+    return (
+      <div className="relative mb-4 bg-gradient-to-r from-blue-950/90 via-zinc-900 to-zinc-950 text-white p-3.5 sm:p-4 rounded-2xl border border-blue-500/30 shadow-lift flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 overflow-hidden">
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center flex-shrink-0 text-blue-400">
+            <Share size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-white tracking-wide">
+                Enable iPhone Lock-Screen Alerts
+              </h4>
+              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-blue-500/20 text-blue-300 rounded border border-blue-500/30 uppercase tracking-wider">
+                Apple iOS
+              </span>
+            </div>
+            <p className="text-xs text-zinc-300 mt-0.5">
+              Apple requires THREVOLT on your Home Screen: Tap <strong>Share (⎋ / ↑)</strong> → <strong>Add to Home Screen</strong>, then open the app from your home screen.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setDismissed(true);
+            sessionStorage.setItem('admin_push_banner_dismissed', 'true');
+          }}
+          className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer self-end sm:self-auto"
+          title="Dismiss"
+          aria-label="Dismiss banner"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    );
+  }
+
+  if (!supported || isSubscribed || permission === 'denied') {
     return null;
   }
 
