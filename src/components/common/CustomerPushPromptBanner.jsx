@@ -1,28 +1,39 @@
 import { useState, useEffect } from 'react';
-import { BellRing, Bell, Check, X, ShieldCheck } from 'lucide-react';
+import { Bell, Check, X, ShieldCheck } from 'lucide-react';
 import usePushNotifications from '../../hooks/usePushNotifications';
 import toast from '../../utils/toast';
 
+/**
+ * CustomerPushPromptBanner — Luxury Monochrome Floating Micro-Prompt.
+ * Styled in pure luxury black & white (THREVOLT Luxe design system):
+ * - Non-intrusive floating position at bottom-right (desktop) and above mobile nav (mobile)
+ * - Never pushes the page content or navbar down
+ * - High-contrast black/white luxury pill design (Zara / Apple / SSENSE style)
+ * - Delayed appearance (6s) so page loading is completely unimpeded
+ * - Remembers dismissal in localStorage so it never pesters the user again
+ */
 export default function CustomerPushPromptBanner() {
   const { supported, permission, isSubscribed, loading, subscribe } = usePushNotifications();
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
-    // Only show after a small initial delay (3s) so the initial page paint is instantaneous
+    // Check persistent opt-out or previous dismissal
     const isDismissed =
       typeof window !== 'undefined' &&
-      (sessionStorage.getItem('customer_push_banner_dismissed') === 'true' ||
+      (localStorage.getItem('customer_push_dismissed_v2') === 'true' ||
+       sessionStorage.getItem('customer_push_banner_dismissed') === 'true' ||
        localStorage.getItem('customer_push_opt_out') === 'true');
 
     if (!isDismissed) {
+      // 6-second delay: lets the visitor explore the products first without distraction
       const timer = setTimeout(() => {
         setDismissed(false);
-      }, 3000);
+      }, 6000);
       return () => clearTimeout(timer);
     }
   }, []);
 
-  // Do not display if not supported, already subscribed, blocked by browser, or dismissed
+  // Do not display if unsupported, already subscribed, blocked by browser, or dismissed
   if (!supported || isSubscribed || permission === 'denied' || dismissed) {
     return null;
   }
@@ -30,79 +41,90 @@ export default function CustomerPushPromptBanner() {
   const handleEnable = async () => {
     const success = await subscribe();
     if (success) {
-      toast.success('🔔 Alerts enabled! You will now receive lock-screen order tracking & chat replies.');
+      toast.success('Alerts enabled! You will now receive lock-screen order tracking & chat replies.');
       setDismissed(true);
-      sessionStorage.setItem('customer_push_banner_dismissed', 'true');
+      localStorage.setItem('customer_push_dismissed_v2', 'true');
     } else {
       const currentPerm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
       if (currentPerm === 'denied') {
         toast.error('Notifications are blocked by your browser. Please click the 🔒 icon in your address bar and set Notifications to "Allow".');
         setDismissed(true);
+        localStorage.setItem('customer_push_dismissed_v2', 'true');
       } else {
-        toast.error('To enable alerts, please click the 🔒 or 🔔 icon in your address bar and choose "Allow".');
+        toast.error('To enable alerts, please click the 🔒 icon in your address bar and choose "Allow".');
       }
     }
   };
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem('customer_push_banner_dismissed', 'true');
+    localStorage.setItem('customer_push_dismissed_v2', 'true');
   };
 
   return (
     <aside
-      aria-label="Order & Support Push Notifications"
-      className="relative z-40 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-2 pb-1"
+      aria-label="Order and support push notifications"
+      className="fixed z-50 bottom-20 left-4 right-4 sm:bottom-6 sm:right-6 sm:left-auto sm:max-w-sm pointer-events-auto"
     >
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-zinc-900 via-neutral-900 to-zinc-950 text-white p-3 sm:p-4 border border-emerald-500/20 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
-        {/* Ambient subtle glow */}
-        <div className="absolute -top-10 -right-10 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center flex-shrink-0 text-emerald-400">
-            <BellRing size={20} className="animate-pulse" />
+      <div className="relative overflow-hidden rounded-2xl bg-black text-white p-4 border border-white/15 shadow-2xl backdrop-blur-xl animate-in slide-in-from-bottom-4 duration-300">
+        <div className="flex items-start gap-3.5">
+          {/* Refined minimalist bell icon in monochrome box */}
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center flex-shrink-0 text-white">
+            <Bell size={18} className="stroke-[1.75]" />
           </div>
-          <div>
+
+          <div className="flex-1 min-w-0 pr-5">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white tracking-wide">
-                Live Delivery & Support Alerts
-              </h3>
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30">
-                <ShieldCheck size={11} /> Real-time
+              <h4 className="text-sm font-semibold text-white tracking-tight">
+                Delivery & VIP Updates
+              </h4>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold bg-white/10 text-white/80 rounded tracking-wider uppercase">
+                Alerts
               </span>
             </div>
-            <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
-              Receive lock-screen updates when your order ships, arrives, or when support replies to you.
+            <p className="text-xs text-white/70 mt-1 leading-relaxed">
+              Instant lock-screen updates for your parcels, dispatch tracking, and customer support replies.
             </p>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2.5 mt-3.5">
+              <button
+                type="button"
+                onClick={handleEnable}
+                disabled={loading}
+                className="px-4 py-1.5 bg-white hover:bg-neutral-100 active:scale-95 text-black font-semibold text-xs rounded-full transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <span className="inline-block w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    Allowing...
+                  </>
+                ) : (
+                  <>
+                    <Check size={13} className="stroke-[2.5]" />
+                    Enable Alerts
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="text-xs font-medium text-white/50 hover:text-white px-2 py-1 transition-colors cursor-pointer"
+              >
+                Not now
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto relative z-10 w-full sm:w-auto justify-end">
+          {/* Quick Close Button */}
           <button
-            onClick={handleEnable}
-            disabled={loading}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-          >
-            {loading ? (
-              <>
-                <span className="inline-block w-3.5 h-3.5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                Allow in URL bar 🔒
-              </>
-            ) : (
-              <>
-                <Check size={14} className="stroke-[3]" />
-                Enable Alerts
-              </>
-            )}
-          </button>
-
-          <button
+            type="button"
             onClick={handleDismiss}
-            className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-            title="Dismiss notification prompt"
-            aria-label="Dismiss banner"
+            aria-label="Dismiss alert prompt"
+            className="absolute top-3.5 right-3.5 p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
       </div>
