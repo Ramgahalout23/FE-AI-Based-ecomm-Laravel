@@ -90,12 +90,44 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      await self.registration.showNotification(title, options);
       const matchedClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+      // If user is currently focused on the live chat tab, they already see messages via Socket.IO.
+      // Suppress duplicate OS lockscreen banner while in-focus, but always show if screen is locked or app is in background.
+      const isFocusedOnLiveChat = matchedClients.some((c) => {
+        if (!c.focused || c.visibilityState !== 'visible') return false;
+        if (isChat) {
+          const url = c.url || '';
+          const hasTicketMatch = Boolean(data.data?.ticketId && url.includes(data.data.ticketId));
+          return url.includes('/admin/chat') || url.includes('/support') || hasTicketMatch;
+        }
+        return false;
+      });
+
+      if (!isFocusedOnLiveChat) {
+        try {
+          await self.registration.showNotification(title, options);
+        } catch (err) {
+          // iOS Safari fallback: iOS rejects complex actions and vibrate arrays
+          try {
+            await self.registration.showNotification(title, {
+              body: options.body,
+              icon: options.icon || '/logo.png',
+              badge: options.badge || '/logo.png',
+              tag: options.tag,
+              data: options.data,
+              renotify: true,
+            });
+          } catch (fallbackErr) {
+            console.warn('[SW] Push showNotification failed:', fallbackErr);
+          }
+        }
+      }
+
       for (const client of matchedClients) {
         client.postMessage({
           type: 'PUSH_NOTIFICATION_RECEIVED',
-          payload: { title, body: options.body, url: targetUrl, data: options.data },
+          payload: { title, body: options.body, url: targetUrl, data: options.data, inFocus: isFocusedOnLiveChat },
         });
       }
     })(),

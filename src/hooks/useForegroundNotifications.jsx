@@ -269,6 +269,15 @@ export default function useForegroundNotifications() {
 
       // When admin receives message from customer
       if (isAdmin && !isFromAdmin) {
+        const isViewingAdminChat =
+          typeof window !== 'undefined' &&
+          window.location.pathname.startsWith('/admin/chat') &&
+          !document.hidden &&
+          document.hasFocus();
+
+        // If admin is actively on the chat screen, socket streams messages live without annoying popups
+        if (isViewingAdminChat) return;
+
         playNotificationChime();
         const sender = msg.senderName || 'Customer';
         const preview = msg.content?.slice(0, 70) || 'New message';
@@ -297,15 +306,25 @@ export default function useForegroundNotifications() {
           { duration: 5000 },
         );
 
-        // Always show system/mobile notification for admin so support chat is never missed
-        showBrowserNotification(`💬 Support: ${sender}`, {
-          body: preview,
-          data: { url: '/admin/chat' },
-        });
+        // Show browser OS notification ONLY when tab is in background or unfocused
+        if (document.hidden || !document.hasFocus()) {
+          showBrowserNotification(`💬 Support: ${sender}`, {
+            body: preview,
+            data: { url: '/admin/chat' },
+          });
+        }
       }
 
       // When customer receives message from admin
       if (!isAdmin && isFromAdmin) {
+        const isLiveChatWidgetOpen =
+          !document.hidden &&
+          document.hasFocus() &&
+          Boolean(document.querySelector('.chat-preview-window, [data-chat-open="true"], .chat-open'));
+
+        // If customer is actively viewing the chat window, socket streams messages live
+        if (isLiveChatWidgetOpen) return;
+
         playNotificationChime();
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           navigator.vibrate([200, 100, 200]);
@@ -401,7 +420,10 @@ export default function useForegroundNotifications() {
 
     const handleSWMessage = (event) => {
       if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
-        const { title, body, url } = event.data.payload || {};
+        const { title, body, url, inFocus } = event.data.payload || {};
+        // If client was already focused on the active live chat, suppress duplicate chime and toast
+        if (inFocus) return;
+
         playNotificationChime();
         if (title) {
           toast.custom(
