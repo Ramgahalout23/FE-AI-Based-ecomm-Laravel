@@ -170,7 +170,8 @@ function IconButton({ label, onClick, children, variant = 'default', size = 'md'
     default:
       'border border-stone-200 text-stone-600 hover:bg-stone-100 hover:text-stone-900 bg-white',
     ghost: 'border border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-900',
-    danger: 'border border-stone-200 text-stone-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200',
+    danger:
+      'border border-rose-200 text-rose-600 hover:bg-rose-100 hover:text-rose-700 hover:border-rose-300 bg-rose-50',
     solid: 'bg-stone-900 text-white hover:bg-black border border-stone-900',
   };
   return (
@@ -303,7 +304,7 @@ const ConversationCard = memo(function ConversationCard({
             onSelect(conv);
           }
         }}
-        className={`group relative w-full text-left p-3 pr-9 rounded-lg cursor-pointer transition-colors border select-none ${FOCUS} ${
+        className={`group relative w-full text-left p-3 pr-12 rounded-lg cursor-pointer transition-colors border select-none ${FOCUS} ${
           active
             ? 'bg-stone-900 border-stone-900 text-white'
             : 'bg-white border-stone-200 hover:bg-stone-50 text-stone-900'
@@ -377,24 +378,26 @@ const ConversationCard = memo(function ConversationCard({
         </div>
       </div>
 
-      {/* Always tappable on touch; revealed on hover/focus for pointer users. */}
+      {/* Delete button — clearly visible on both mobile and desktop */}
       <button
         type="button"
         onClick={(e) => onDelete(e, conv.id)}
         aria-label={`Delete conversation with ${name}`}
-        title="Delete conversation"
-        className={`absolute top-3 right-3 inline-flex items-center justify-center h-8 w-8 rounded-md transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 ${FOCUS} ${
-          active ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-stone-400 hover:text-rose-600 hover:bg-rose-50'
+        title="Delete conversation permanently"
+        className={`absolute top-3 right-3.5 inline-flex items-center justify-center h-8 w-8 rounded-lg transition-all shadow-xs ${FOCUS} ${
+          active
+            ? 'text-rose-200 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 hover:border-rose-400'
+            : 'text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 hover:border-rose-300'
         }`}
       >
-        <Trash2 size={14} />
+        <Trash2 size={15} strokeWidth={2.2} />
       </button>
     </div>
   );
 });
 
 // ── Customer details body (shared by the docked desktop pane and the mobile slide-over) ──
-function CustomerDetailsBody({ selectedChat, customerName, onResolve, onClose }) {
+function CustomerDetailsBody({ selectedChat, customerName, onResolve, onDelete, onClose }) {
   const u = selectedChat.user || selectedChat.customer;
   const guest = isGuestConversation(selectedChat);
 
@@ -470,6 +473,15 @@ function CustomerDetailsBody({ selectedChat, customerName, onResolve, onClose })
           >
             <CheckCircle size={14} /> Close &amp; resolve ticket
           </button>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => onDelete(e, selectedChat.id)}
+              className={`w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-xs font-bold text-rose-700 hover:text-rose-800 transition-colors shadow-xs ${FOCUS}`}
+            >
+              <Trash2 size={15} strokeWidth={2.2} className="text-rose-600" /> Delete conversation permanently
+            </button>
+          )}
         </div>
       </div>
     </>
@@ -571,16 +583,14 @@ export default function ChatPanel() {
     try {
       const res = await chatAPI.getAdminConversations({ page: 1, limit: 50 });
       const items = res.data?.data?.items || res.data?.data || [];
-      if (Array.isArray(items) && items.length > 0) {
+      if (Array.isArray(items)) {
         setConversations(items);
         const lm = {};
         items.forEach((c) => {
           const vis = (c.ticketmessage || []).filter((m) => !isHiddenMessage(m));
           if (vis.length > 0) lm[c.id] = vis[vis.length - 1].content;
         });
-        setLastMessages(lm);
-      } else if (showSpinner) {
-        setConversations([]);
+        setLastMessages((prev) => ({ ...prev, ...lm }));
       }
     } catch (err) {
       console.warn('[ChatPanel] loadConversations failed:', err?.message);
@@ -1306,9 +1316,10 @@ export default function ChatPanel() {
                   </IconButton>
 
                   <IconButton
-                    label="Clear chat thread"
+                    label="Clear messages from thread"
                     variant="danger"
-                    className="hidden sm:inline-flex"
+                    className="hidden sm:inline-flex bg-amber-50/80 border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300"
+                    title="Clear all messages in thread (keep ticket open)"
                     onClick={async () => {
                       const ok = confirm
                         ? await confirm({
@@ -1330,6 +1341,18 @@ export default function ChatPanel() {
                   >
                     <Eraser size={16} />
                   </IconButton>
+
+                  {/* Prominent, clearly visible Delete conversation button */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteChat(e, selectedChat.id)}
+                    title="Delete conversation permanently"
+                    aria-label="Delete conversation permanently"
+                    className={`inline-flex items-center justify-center gap-1.5 h-10 md:h-9 px-2.5 sm:px-3 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-200 hover:border-rose-300 text-xs font-bold transition-all shadow-xs flex-shrink-0 ${FOCUS}`}
+                  >
+                    <Trash2 size={16} className="text-rose-600 flex-shrink-0" strokeWidth={2.2} />
+                    <span className="hidden sm:inline">Delete Chat</span>
+                  </button>
 
                   <button
                     type="button"
@@ -1612,6 +1635,7 @@ export default function ChatPanel() {
                       selectedChat={selectedChat}
                       customerName={activeCustomerName}
                       onResolve={handleResolve}
+                      onDelete={handleDeleteChat}
                       onClose={() => setShowCustomerDrawer(false)}
                     />
                   </aside>
@@ -1643,6 +1667,7 @@ export default function ChatPanel() {
                 selectedChat={selectedChat}
                 customerName={activeCustomerName}
                 onResolve={handleResolve}
+                onDelete={handleDeleteChat}
                 onClose={() => setShowCustomerDrawer(false)}
               />
             </div>

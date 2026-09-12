@@ -142,7 +142,7 @@ export default function AdminSidebar() {
           adminAPI.getProducts({ limit: 1 }).catch(() => ({ data: null })),
           adminAPI.getAbandonedCarts().catch(() => ({ data: null })),
           notificationsAPI.getUnread().catch(() => ({ data: null })),
-          import('../../api/tickets').then(m => m.chatAPI.getAdminConversations({ page: 1, limit: 1 })).catch(() => ({ data: null })),
+          import('../../api/tickets').then(m => m.chatAPI.getAdminConversations({ page: 1, limit: 1, status: 'ACTIVE' })).catch(() => ({ data: null })),
         ]);
         if (!active) return;
         const metrics = metricsRes.data?.data || metricsRes.data || {};
