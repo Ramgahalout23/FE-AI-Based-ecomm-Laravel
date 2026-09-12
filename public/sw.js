@@ -47,12 +47,13 @@ self.addEventListener('push', (event) => {
   const isChat = payload.data?.type === 'chat' || payload.data?.type === 'new_chat' || Boolean(payload.data?.ticketId);
   const isOrder = Boolean(payload.data?.orderId) || payload.data?.type === 'order_status' || payload.data?.type === 'new_order';
 
+  // Detect iOS Safari / WebKit (which rejects 'actions', 'vibrate', and 'requireInteraction')
+  const isIOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '');
+
   const notificationOptions = {
     body: payload.body || 'You have a new update.',
     icon: payload.icon || '/logo.png',
     badge: payload.badge || '/logo.png',
-    vibrate: [200, 100, 200, 100, 200],
-    requireInteraction: true,
     data: {
       url: targetUrl,
       ...(payload.data || {}),
@@ -64,21 +65,29 @@ self.addEventListener('push', (event) => {
       ? `chat-${payload.data.ticketId}`
       : 'threvolt-general',
     renotify: true,
-    actions: isChat
-      ? [
-          { action: 'reply', title: '💬 View & Reply' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ]
-      : isOrder
-      ? [
-          { action: 'track', title: '📦 Track Order' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ]
-      : [
-          { action: 'open', title: 'View' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ],
+    silent: false,
   };
+
+  if (!isIOS) {
+    notificationOptions.vibrate = [200, 100, 200, 100, 200];
+    notificationOptions.requireInteraction = true;
+    if (isChat) {
+      notificationOptions.actions = [
+        { action: 'reply', title: '💬 View & Reply' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    } else if (isOrder) {
+      notificationOptions.actions = [
+        { action: 'track', title: '📦 Track Order' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    } else {
+      notificationOptions.actions = [
+        { action: 'open', title: 'View' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    }
+  }
 
   event.waitUntil(
     (async () => {
@@ -91,7 +100,7 @@ self.addEventListener('push', (event) => {
         if (isChat) {
           const url = c.url || '';
           const hasTicketMatch = Boolean(payload.data?.ticketId && url.includes(payload.data.ticketId));
-          return url.includes('/admin/chat') || url.includes('/support') || hasTicketMatch;
+          return url.includes('/admin/chat') || url.includes('/support') || url.includes('openChat') || hasTicketMatch;
         }
         return false;
       });
@@ -100,7 +109,7 @@ self.addEventListener('push', (event) => {
         try {
           await self.registration.showNotification(title, notificationOptions);
         } catch (err) {
-          // iOS Safari fallback: iOS rejects complex actions and vibrate arrays
+          // Fallback if platform rejects any specific option
           try {
             await self.registration.showNotification(title, {
               body: notificationOptions.body,
@@ -154,9 +163,12 @@ self.addEventListener('notificationclick', (event) => {
       // If an existing tab is open on our origin, navigate and focus it
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          if ('navigate' in client) {
-            await client.navigate(targetUrl);
-          }
+          try {
+            if ('navigate' in client) {
+              await client.navigate(targetUrl);
+            }
+          } catch {}
+          client.postMessage({ type: 'OPEN_LIVE_CHAT', targetUrl });
           return client.focus();
         }
       }

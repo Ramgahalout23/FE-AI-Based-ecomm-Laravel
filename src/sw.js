@@ -54,11 +54,13 @@ self.addEventListener('push', (event) => {
   const isChat = data.data?.type === 'chat' || data.data?.type === 'new_chat' || Boolean(data.data?.ticketId);
   const isOrder = Boolean(data.data?.orderId) || data.data?.type === 'order_status' || data.data?.type === 'new_order';
 
+  // Detect iOS Safari / WebKit (which rejects 'actions', 'vibrate', and 'requireInteraction')
+  const isIOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '');
+
   const options = {
     body: data.body || 'You have a new update.',
     icon: data.icon || '/logo.png',
     badge: data.badge || '/logo.png',
-    vibrate: [200, 100, 200, 100, 200],
     data: {
       url: targetUrl,
       ...(data.data || {}),
@@ -70,23 +72,30 @@ self.addEventListener('push', (event) => {
       ? `chat-${data.data.ticketId}`
       : 'threvolt-general',
     renotify: true,
-    requireInteraction: true,
-    actions: isChat
-      ? [
-          { action: 'reply', title: '💬 View & Reply' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ]
-      : isOrder
-      ? [
-          { action: 'track', title: '📦 Track Order' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ]
-      : [
-          { action: 'open', title: 'View' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ],
     silent: false,
   };
+
+  // Add rich interactions only on non-iOS platforms (Android, Windows, macOS Chrome/Edge)
+  if (!isIOS) {
+    options.vibrate = [200, 100, 200, 100, 200];
+    options.requireInteraction = true;
+    if (isChat) {
+      options.actions = [
+        { action: 'reply', title: '💬 View & Reply' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    } else if (isOrder) {
+      options.actions = [
+        { action: 'track', title: '📦 Track Order' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    } else {
+      options.actions = [
+        { action: 'open', title: 'View' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ];
+    }
+  }
 
   event.waitUntil(
     (async () => {
@@ -99,7 +108,7 @@ self.addEventListener('push', (event) => {
         if (isChat) {
           const url = c.url || '';
           const hasTicketMatch = Boolean(data.data?.ticketId && url.includes(data.data.ticketId));
-          return url.includes('/admin/chat') || url.includes('/support') || hasTicketMatch;
+          return url.includes('/admin/chat') || url.includes('/support') || url.includes('openChat') || hasTicketMatch;
         }
         return false;
       });
@@ -108,7 +117,7 @@ self.addEventListener('push', (event) => {
         try {
           await self.registration.showNotification(title, options);
         } catch (err) {
-          // iOS Safari fallback: iOS rejects complex actions and vibrate arrays
+          // Fallback if platform rejects any specific option
           try {
             await self.registration.showNotification(title, {
               body: options.body,
@@ -173,9 +182,12 @@ self.addEventListener('notificationclick', (event) => {
       const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          if ('navigate' in client) {
-            await client.navigate(targetUrl);
-          }
+          try {
+            if ('navigate' in client) {
+              await client.navigate(targetUrl);
+            }
+          } catch {}
+          client.postMessage({ type: 'OPEN_LIVE_CHAT', targetUrl });
           return client.focus();
         }
       }

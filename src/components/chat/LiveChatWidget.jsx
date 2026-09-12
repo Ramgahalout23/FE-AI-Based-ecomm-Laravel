@@ -82,15 +82,41 @@ export default function LiveChatWidget() {
     }
   }, [messages, isOpen]);
 
-  // Listen for open-live-chat custom events from foreground toast clicks
+  // Listen for open-live-chat custom events, SW notification clicks, and ?openChat=true URL param
   useEffect(() => {
-    const handleOpenEvent = () => {
+    const handleOpen = () => {
       setIsOpen(true);
       setHasUnread(false);
       unreadCountRef.current = 0;
     };
-    window.addEventListener('open-live-chat', handleOpenEvent);
-    return () => window.removeEventListener('open-live-chat', handleOpenEvent);
+
+    // 1. Auto-open if launched from notification click URL (e.g. /?openChat=true or #chat)
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('openChat') === 'true' || window.location.hash === '#chat') {
+        handleOpen();
+      }
+    }
+
+    // 2. DOM CustomEvent from foreground toast clicks
+    window.addEventListener('open-live-chat', handleOpen);
+
+    // 3. Service Worker message from notificationclick on mobile lockscreen / desktop
+    const handleSWMessage = (event) => {
+      if (event.data?.type === 'OPEN_LIVE_CHAT') {
+        handleOpen();
+      }
+    };
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    }
+
+    return () => {
+      window.removeEventListener('open-live-chat', handleOpen);
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      }
+    };
   }, []);
 
   // Track unread messages when widget is minimized — count + sound + vibration
