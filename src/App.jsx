@@ -154,6 +154,7 @@ const SmsAdminPage = lazy(() => import('./pages/admin/SmsAdminPage'));
 const WebhooksAdminPage = lazy(() => import('./pages/admin/WebhooksAdminPage'));
 const QueueMonitorAdminPage = lazy(() => import('./pages/admin/QueueMonitorAdminPage'));
 const BackupsAdminPage = lazy(() => import('./pages/admin/BackupsAdminPage'));
+const SecurityCenterAdminPage = lazy(() => import('./pages/admin/SecurityCenterAdminPage'));
 
 // ── Route Loading Fallback ──
 function RouteFallback() {
@@ -673,6 +674,7 @@ function AppContent() {
           <Route path="/admin/audit-logs" element={<AuditLogAdminPage />} />
           <Route path="/admin/logs" element={<LogViewerAdminPage />} />
           <Route path="/admin/delivery-partners" element={<DeliveryPartnersAdminPage />} />
+          <Route path="/admin/security" element={<SecurityCenterAdminPage />} />
         </Route>
 
         {/* 404 Catch-all */}

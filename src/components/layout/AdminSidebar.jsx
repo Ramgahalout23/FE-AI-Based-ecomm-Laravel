@@ -1,4 +1,4 @@
-import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, BellPlus, Grid, Languages, Terminal, ShieldCheck, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode, Percent, Menu, X } from 'lucide-react';
+import { BarChart3, Globe, Upload, ShoppingBag, Users, Star, Megaphone, TrendingUp, DollarSign, Settings, Smartphone, Download, Eye, Package, Tag, CreditCard, RotateCcw, Truck, MessageCircle, Bell, FileText, Image, Video, Layout, Mail, LogOut, Store, ClipboardList, Palette, Ticket, BellPlus, Grid, Languages, Terminal, ShieldCheck, ShieldAlert, Clock, Link, Target, History, ShoppingCart, Sparkles, BookOpen, SearchCode, Percent, Menu, X } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import useUIStore from '../../store/uiStore';
 import { motion } from 'framer-motion';
@@ -84,6 +84,7 @@ const sections = [
     section: 'System',
     icon: Settings,
     items: [
+      { to: '/admin/security', icon: ShieldAlert, label: 'Security Center' },
       { to: '/admin/notification-templates', icon: BellPlus, label: 'Notif. Templates' },
       { to: '/admin/campaign-templates', icon: Grid, label: 'Campaign Templates' },
       { to: '/admin/email-templates', icon: Mail, label: 'Email Templates' },
