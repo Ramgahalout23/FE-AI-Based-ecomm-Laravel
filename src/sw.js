@@ -208,18 +208,37 @@ self.addEventListener('notificationclose', (_event) => {
   // Optional: track notification dismissals
 });
 
-// Orders API — Network only (never cache orders offline)
+// Dynamic user & mutable APIs — Network only (never serve stale user data from offline cache)
+const userDynamicPrefixes = [
+  '/api/v1/orders',
+  '/api/v1/user',
+  '/api/v1/user-profile',
+  '/api/v1/cart',
+  '/api/v1/chat',
+  '/api/v1/auth',
+  '/api/v1/wishlist',
+  '/api/v1/notifications',
+  '/api/v1/admin',
+];
+
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/v1/orders'),
+  ({ url }) => userDynamicPrefixes.some((prefix) => url.pathname.startsWith(prefix)),
   new NetworkOnly(),
 );
 
-// Cache API responses for offline
+// Cache safe public catalog / settings API responses for offline
+const publicCacheablePrefixes = [
+  '/api/v1/products',
+  '/api/v1/categories',
+  '/api/v1/settings',
+  '/api/v1/promotions',
+  '/api/v1/brands',
+];
+
 registerRoute(
   ({ url, request }) =>
-    url.pathname.startsWith('/api/') &&
     request.method === 'GET' &&
-    !url.pathname.startsWith('/api/v1/admin/'),
+    publicCacheablePrefixes.some((prefix) => url.pathname.startsWith(prefix)),
   new StaleWhileRevalidate({
     cacheName: 'api-cache',
     expiration: new ExpirationPlugin({

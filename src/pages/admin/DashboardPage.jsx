@@ -951,7 +951,7 @@ export default function DashboardPage() {
         <SectionReveal className="flex flex-wrap gap-4 p-5 bg-charcoal text-white rounded-2xl shadow-lg mb-4">
           {[
             { label: 'Database', value: health.databaseConnection ? 'Connected' : 'Disconnected', color: health.databaseConnection ? 'bg-accent-green' : 'bg-danger', status: health.databaseConnection ? 'Healthy' : 'Unhealthy' },
-            { label: 'Cache', value: health.cacheConnection ? 'Connected' : 'Disconnected', color: health.cacheConnection ? 'bg-accent-green' : 'bg-warning', status: health.cacheConnection ? 'Healthy' : 'Degraded' },
+            { label: 'Cache', value: health.cacheDriver || (health.cacheConnection ? 'Connected' : 'In-Memory'), color: health.cacheConnection ? 'bg-accent-green' : 'bg-warning', status: health.cacheConnection ? 'Healthy' : 'Degraded' },
             { label: 'Disk Space', value: health.diskSpace || 'Available', color: 'bg-accent-green', status: 'Healthy' },
             { label: 'Uptime', value: health.uptime ? String(health.uptime) + 'h' : 'N/A', color: 'bg-accent-green', status: 'Running' },
           ].map((item, i) => (
