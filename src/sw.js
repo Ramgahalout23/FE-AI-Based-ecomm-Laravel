@@ -90,7 +90,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      const matchedClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const matchedClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
       // If user is currently focused on the live chat tab, they already see messages via Socket.IO.
       // Suppress duplicate OS lockscreen banner while in-focus, but always show if screen is locked or app is in background.
@@ -142,7 +142,7 @@ self.addEventListener('pushsubscriptionchange', (event) => {
         const newSub = await self.registration.pushManager.subscribe(
           event.oldSubscription ? event.oldSubscription.options : { userVisibleOnly: true }
         );
-        const windowClients = await clients.matchAll({ type: 'window' });
+        const windowClients = await self.clients.matchAll({ type: 'window' });
         for (const client of windowClients) {
           client.postMessage({
             type: 'PUSH_SUBSCRIPTION_CHANGED',
@@ -170,7 +170,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
           if ('navigate' in client) {
@@ -179,8 +179,8 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
       }
     })(),
   );
