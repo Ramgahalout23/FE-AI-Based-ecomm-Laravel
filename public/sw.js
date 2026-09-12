@@ -48,7 +48,10 @@ self.addEventListener('push', (event) => {
   const isOrder = Boolean(payload.data?.orderId) || payload.data?.type === 'order_status' || payload.data?.type === 'new_order';
 
   // Detect iOS Safari / WebKit (which rejects 'actions', 'vibrate', and 'requireInteraction')
-  const isIOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '');
+  const ua = self.navigator?.userAgent || '';
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (self.navigator?.platform === 'MacIntel' && self.navigator?.maxTouchPoints > 1);
 
   const notificationOptions = {
     body: payload.body || 'You have a new update.',
@@ -93,14 +96,12 @@ self.addEventListener('push', (event) => {
     (async () => {
       const matchedClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
-      // If user is currently focused on the live chat tab, they already see messages via Socket.IO.
-      // Suppress duplicate OS lockscreen banner while in-focus, but always show if screen is locked or app is in background.
+      // Only suppress background banner if user is actively focused on this exact chat ticket in an active window
       const isFocusedOnLiveChat = matchedClients.some((c) => {
         if (!c.focused || c.visibilityState !== 'visible') return false;
-        if (isChat) {
+        if (isChat && payload.data?.ticketId) {
           const url = c.url || '';
-          const hasTicketMatch = Boolean(payload.data?.ticketId && url.includes(payload.data.ticketId));
-          return url.includes('/admin/chat') || url.includes('/support') || url.includes('openChat') || hasTicketMatch;
+          return url.includes(payload.data.ticketId);
         }
         return false;
       });

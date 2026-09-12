@@ -280,14 +280,16 @@ export default function useForegroundNotifications() {
 
       // When admin receives message from customer
       if (isAdmin && !isFromAdmin) {
-        const isViewingAdminChat =
+        const isViewingThisTicket =
           typeof window !== 'undefined' &&
           window.location.pathname.startsWith('/admin/chat') &&
+          data.ticketId &&
+          window.location.href.includes(data.ticketId) &&
           !document.hidden &&
           document.hasFocus();
 
-        // If admin is actively on the chat screen, socket streams messages live without annoying popups
-        if (isViewingAdminChat) return;
+        // If admin is actively on this specific ticket screen, socket streams messages live
+        if (isViewingThisTicket) return;
 
         playNotificationChime();
         const sender = msg.senderName || 'Customer';
@@ -298,7 +300,7 @@ export default function useForegroundNotifications() {
             <div
               onClick={() => {
                 toast.dismiss(t.id);
-                navigateRef.current('/admin/chat');
+                navigateRef.current(`/admin/chat?ticketId=${data.ticketId || ''}`);
               }}
               className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-900 border border-primary/30 rounded-xl shadow-lift cursor-pointer hover:bg-primary/5 transition-colors"
             >
@@ -317,15 +319,12 @@ export default function useForegroundNotifications() {
           { duration: 5000 },
         );
 
-        // Web Push Service Worker (sw.js) handles OS lockscreen/desktop banners.
-        // Foreground fallback ONLY if Web Push is not active and tab is hidden/unfocused.
-        if (document.hidden || !document.hasFocus()) {
-          showBrowserNotification(`💬 Support: ${sender}`, {
-            body: preview,
-            tag: data.ticketId ? `chat-${data.ticketId}` : 'threvolt-chat',
-            data: { ticketId: data.ticketId, url: '/admin/chat' },
-          });
-        }
+        // Always trigger OS screen notification banner when admin is not actively chatting inside this ticket
+        showBrowserNotification(`💬 Support: ${sender}`, {
+          body: preview,
+          tag: data.ticketId ? `chat-${data.ticketId}` : 'threvolt-chat',
+          data: { ticketId: data.ticketId, url: `/admin/chat?ticketId=${data.ticketId || ''}` },
+        });
       }
 
       // When customer receives message from admin
