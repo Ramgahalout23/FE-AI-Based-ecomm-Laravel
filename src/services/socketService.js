@@ -33,7 +33,7 @@ function getSocketOrigin() {
     } catch { /* ignore */ }
   }
 
-  return 'http://localhost:3000';
+  return 'https://api.threvolt.com';
 }
 
 const SOCKET_URL = getSocketOrigin();
@@ -86,10 +86,10 @@ export function connectSocket(force = false) {
       auth: token ? { token, sessionId } : { sessionId },
       transports: ['websocket'],
       reconnection: true,
-      reconnectionAttempts: 3,
-      reconnectionDelay: 3000,
-      reconnectionDelayMax: 10000,
-      timeout: 5000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
     });
 
     socket.on('connect', () => {

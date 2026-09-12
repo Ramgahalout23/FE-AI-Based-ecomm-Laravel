@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onRealtimeEvent, connectRealtime, isRealtimeConnected } from '../services/realtimeService';
+import { isConnected as isSocketConnected, onSocketEvent, connectSocket } from '../services/socketService';
 
 /**
  * Subscribe to a socket event and call the handler when it fires.
@@ -73,18 +74,30 @@ export function useReviewCreated(onCreated, deps = []) {
  * Returns true when connected, false otherwise.
  */
 export function useSocketConnection() {
+  const checkStatus = useCallback(() => {
+    return isSocketConnected() || isRealtimeConnected();
+  }, []);
+
   const [connected, setConnected] = useState(() => {
-    connectRealtime();
-    return isRealtimeConnected();
+    connectSocket();
+    return checkStatus();
   });
 
   useEffect(() => {
-    connectRealtime();
+    connectSocket();
+    const unsubConnect = onSocketEvent('connect', () => setConnected(true));
+    const unsubDisconnect = onSocketEvent('disconnect', () => setConnected(checkStatus()));
+
     const interval = setInterval(() => {
-      setConnected(isRealtimeConnected());
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+      setConnected(checkStatus());
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      if (typeof unsubConnect === 'function') unsubConnect();
+      if (typeof unsubDisconnect === 'function') unsubDisconnect();
+    };
+  }, [checkStatus]);
 
   return connected;
 }
