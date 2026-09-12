@@ -73,27 +73,12 @@ export function playNotificationChime() {
 }
 
 /**
- * Trigger browser system notification ONLY when Web Push is NOT active.
- * When Web Push is active, the Service Worker (sw.js) handles OS alerts to prevent duplicate banners.
+ * Trigger browser system notification using Service Worker or Notification API.
+ * Automatically deduplicated across windows via W3C notification tag.
  */
 async function showBrowserNotification(title, options = {}) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return;
-  }
-
-  // If Service Worker + Web Push is active, the Service Worker (sw.js) handles OS alerts.
-  // Suppress foreground duplicate to avoid showing 2 notifications on Windows/macOS/mobile.
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      const sub = await reg?.pushManager?.getSubscription();
-      if (sub) {
-        // Active Web Push subscription exists; SW will display the native OS banner!
-        return;
-      }
-    } catch {
-      // Fall through to local notification if push check fails
-    }
   }
 
   const defaultOptions = {
@@ -388,7 +373,7 @@ export default function useForegroundNotifications() {
           showBrowserNotification(`💬 ${sender} Replied`, {
             body: preview,
             tag: data.ticketId ? `chat-${data.ticketId}` : 'threvolt-chat',
-            data: { ticketId: data.ticketId, url: '/' },
+            data: { ticketId: data.ticketId, url: `/?openChat=true&ticketId=${data.ticketId || ''}` },
           });
         }
       }
