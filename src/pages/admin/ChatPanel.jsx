@@ -24,7 +24,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   MessageCircle,
   Send,
@@ -522,6 +522,17 @@ export default function ChatPanel() {
   const fileInputRef = useRef(null);
   const selectedChatRef = useRef(null);
   const conversationsRef = useRef([]);
+  const hasAutoSelectedRef = useRef(false);
+
+  const location = useLocation();
+  const queryTicketId = useMemo(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      return params.get('ticketId') || params.get('ticket') || params.get('id');
+    } catch {
+      return null;
+    }
+  }, [location.search]);
 
   useEffect(() => {
     selectedChatRef.current = selectedChat;
@@ -922,6 +933,10 @@ export default function ChatPanel() {
     socket.on('disconnect', onDisconnect);
     const unsubChatMessage = onSocketEvent('chat:message', onChatMessage);
     const unsubTyping = onSocketEvent('chat:typing', onTyping);
+    const unsubChatMode = onSocketEvent('chat:mode', (d) => {
+      const mode = d?.mode || d?.chatMode;
+      if (mode) setChatMode(mode);
+    });
     if (socket.connected) onConnect();
 
     return () => {
@@ -929,6 +944,7 @@ export default function ChatPanel() {
       socket.off('disconnect', onDisconnect);
       unsubChatMessage();
       unsubTyping();
+      unsubChatMode();
     };
   }, []);
 
@@ -937,6 +953,33 @@ export default function ChatPanel() {
     loadChatMode();
     loadAutoReplySettings();
   }, [loadConversations, loadChatMode, loadAutoReplySettings]);
+
+  // Auto-select conversation based on URL param (?ticketId=...) or desktop default
+  useEffect(() => {
+    if (loading || conversations.length === 0) return;
+
+    if (queryTicketId) {
+      if (selectedChatRef.current?.id === queryTicketId) return;
+
+      const found = conversations.find((c) => c.id === queryTicketId);
+      if (found) {
+        handleSelectChat(found);
+      } else {
+        chatAPI.adminGetMessages(queryTicketId).then((res) => {
+          const d = res.data?.data;
+          if (d) {
+            const conv = { id: queryTicketId, ...(d.user ? { user: d.user } : {}) };
+            handleSelectChat(conv);
+          }
+        }).catch(() => {});
+      }
+    } else if (!hasAutoSelectedRef.current && !selectedChatRef.current) {
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        hasAutoSelectedRef.current = true;
+        handleSelectChat(conversations[0]);
+      }
+    }
+  }, [loading, conversations, queryTicketId, handleSelectChat]);
 
   // Auto-scroll only while the operator is already reading the newest messages —
   // otherwise an incoming reply yanks them out of the history they're reading.

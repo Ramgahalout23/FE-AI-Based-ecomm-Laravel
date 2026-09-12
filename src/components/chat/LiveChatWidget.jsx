@@ -84,27 +84,29 @@ export default function LiveChatWidget() {
 
   // Listen for open-live-chat custom events, SW notification clicks, and ?openChat=true URL param
   useEffect(() => {
-    const handleOpen = () => {
+    const triggerOpen = () => {
       setIsOpen(true);
       setHasUnread(false);
       unreadCountRef.current = 0;
+      setProactiveNudge(false);
+      setNudgeVisible(false);
     };
 
     // 1. Auto-open if launched from notification click URL (e.g. /?openChat=true or #chat)
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('openChat') === 'true' || window.location.hash === '#chat') {
-        handleOpen();
+        triggerOpen();
       }
     }
 
     // 2. DOM CustomEvent from foreground toast clicks
-    window.addEventListener('open-live-chat', handleOpen);
+    window.addEventListener('open-live-chat', triggerOpen);
 
     // 3. Service Worker message from notificationclick on mobile lockscreen / desktop
     const handleSWMessage = (event) => {
       if (event.data?.type === 'OPEN_LIVE_CHAT') {
-        handleOpen();
+        triggerOpen();
       }
     };
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
@@ -112,12 +114,20 @@ export default function LiveChatWidget() {
     }
 
     return () => {
-      window.removeEventListener('open-live-chat', handleOpen);
+      window.removeEventListener('open-live-chat', triggerOpen);
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleSWMessage);
       }
     };
   }, []);
+
+  // Reactive auto-initialization: Whenever widget opens and chat is not yet loaded, load it immediately
+  useEffect(() => {
+    if (isOpen && !chat && !chatLoading) {
+      setChatLoading(true);
+      initChat().finally(() => setChatLoading(false));
+    }
+  }, [isOpen, chat, chatLoading, initChat]);
 
   // Track unread messages when widget is minimized — count + sound + vibration
   useEffect(() => {

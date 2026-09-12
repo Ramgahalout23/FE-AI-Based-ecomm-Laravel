@@ -25,7 +25,13 @@ export default function useChat() {
   const [typingName, setTypingName] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
-  const [chatMode, setChatMode] = useState('ai');
+  const [chatMode, setChatMode] = useState(() => {
+    try {
+      return localStorage.getItem('chatMode') || 'live';
+    } catch {
+      return 'live';
+    }
+  });
   const typingTimeoutRef = useRef(null);
 
   const sessionIdRef = useRef(
@@ -35,6 +41,20 @@ export default function useChat() {
   // Persist session ID
   useEffect(() => {
     localStorage.setItem('chatSessionId', sessionIdRef.current);
+  }, []);
+
+  // Sync initial global chat mode from backend on mount
+  useEffect(() => {
+    let mounted = true;
+    chatAPI.getChatMode().then((res) => {
+      if (!mounted) return;
+      const mode = res.data?.data?.mode || res.data?.data?.chatMode || res.data?.mode;
+      if (mode) {
+        setChatMode(mode);
+        try { localStorage.setItem('chatMode', mode); } catch {}
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
   }, []);
 
   // Stable refs for callbacks — always up-to-date without re-creating callbacks
@@ -55,7 +75,10 @@ export default function useChat() {
       console.log('[Chat] initChat response:', ticket?.id, 'chatMode:', ticket?.chatMode);
       setChat(ticket);
       chatRef.current = ticket;
-      if (ticket?.chatMode) setChatMode(ticket.chatMode);
+      if (ticket?.chatMode) {
+        setChatMode(ticket.chatMode);
+        try { localStorage.setItem('chatMode', ticket.chatMode); } catch {}
+      }
       const list = ticket?.messages || ticket?.ticketmessage || [];
       setMessages(Array.isArray(list) ? list.map(normalizeMsg) : []);
       if (ticket?.id) {
@@ -180,6 +203,13 @@ export default function useChat() {
     const unsubMsg = onSocketEvent('chat:message', handleIncomingMessage);
     const unsubTyping = onSocketEvent('chat:typing', handleTyping);
     const unsubAdminTyping = onSocketEvent('chat:admin:typing', handleTyping);
+    const unsubChatMode = onSocketEvent('chat:mode', (data) => {
+      const mode = data?.mode || data?.chatMode;
+      if (mode) {
+        setChatMode(mode);
+        try { localStorage.setItem('chatMode', mode); } catch {}
+      }
+    });
 
     return () => {
       socket.off('connect', onConnect);
@@ -187,6 +217,7 @@ export default function useChat() {
       unsubMsg();
       unsubTyping();
       unsubAdminTyping();
+      unsubChatMode();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
@@ -203,7 +234,10 @@ export default function useChat() {
       console.log('[Chat] New conversation:', ticket?.id);
       setChat(ticket);
       chatRef.current = ticket;
-      if (ticket?.chatMode) setChatMode(ticket.chatMode);
+      if (ticket?.chatMode) {
+        setChatMode(ticket.chatMode);
+        try { localStorage.setItem('chatMode', ticket.chatMode); } catch {}
+      }
       const list = ticket?.messages || ticket?.ticketmessage || [];
       setMessages(Array.isArray(list) ? list.map(normalizeMsg) : []);
       setIsTyping(false);
