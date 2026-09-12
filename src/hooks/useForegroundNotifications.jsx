@@ -17,8 +17,25 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import toast from '../utils/toast';
+import { onSocketEvent } from '../services/socketService';
 
 let lastChimeTime = 0;
+const seenMessageIds = new Map();
+
+/**
+ * Deduplicate socket and push events across multiple listeners / tabs.
+ * Retains seen IDs for 30 seconds to prevent double/triple chimes and toasts.
+ */
+function isDuplicateMessage(msgId, ticketId, content) {
+  const now = Date.now();
+  for (const [key, timestamp] of seenMessageIds.entries()) {
+    if (now - timestamp > 30000) seenMessageIds.delete(key);
+  }
+  const key = msgId || `${ticketId}_${content}`;
+  if (seenMessageIds.has(key)) return true;
+  seenMessageIds.set(key, now);
+  return false;
+}
 
 /**
  * Play a notification chime synthesized via Web Audio API.
@@ -74,19 +91,25 @@ export function playNotificationChime() {
 
 /**
  * Trigger browser system notification using Service Worker or Notification API.
- * Automatically deduplicated across windows via W3C notification tag.
+ * Uses absolute URLs so OS background daemons (Windows Action Center, Android, macOS)
+ * display the banner reliably without silent drops.
  */
 async function showBrowserNotification(title, options = {}) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return;
   }
 
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://threvolt.com';
+  const iconUrl = new URL('/logo.png', origin).href;
+
   const defaultOptions = {
-    icon: '/logo.png',
-    badge: '/logo.png',
+    icon: iconUrl,
+    badge: iconUrl,
     vibrate: [200, 100, 200, 100, 200],
     tag: options.tag || (options.data?.ticketId ? `chat-${options.data.ticketId}` : options.data?.orderId ? `order-${options.data.orderId}` : 'threvolt-notification'),
     renotify: true,
+    requireInteraction: true,
+    silent: false,
     ...options,
   };
 
@@ -101,7 +124,9 @@ async function showBrowserNotification(title, options = {}) {
         return;
       }
     }
-    new Notification(title, defaultOptions);
+    // Fallback for non-persistent window Notification (exclude vibrate/actions to prevent TypeError)
+    const { actions, vibrate, ...cleanOptions } = defaultOptions;
+    new Notification(title, cleanOptions);
   } catch (err) {
     console.warn('[Foreground Notification] Failed to display browser alert:', err);
   }
@@ -278,6 +303,11 @@ export default function useForegroundNotifications() {
         (mySessionId && (msg.sessionId === mySessionId || data.sessionId === mySessionId));
       if (isMyOwnMessage) return;
 
+      // Deduplication: strictly drop any duplicate events for the same message across socket/SW
+      if (isDuplicateMessage(msg.id, data.ticketId, msg.content)) {
+        return;
+      }
+
       // When admin receives message from customer
       if (isAdmin && !isFromAdmin) {
         const isViewingThisTicket =
@@ -399,24 +429,15 @@ export default function useForegroundNotifications() {
   );
 
   useEffect(() => {
-    let unsubs = [];
-    let cancelled = false;
-
-    import('../services/socketService').then(({ onSocketEvent }) => {
-      if (cancelled || !onSocketEvent) return;
-      unsubs = [
-        onSocketEvent('order:created', handleOrderCreated),
-        onSocketEvent('order:statusUpdated', handleOrderStatusUpdated),
-        onSocketEvent('order:cancelled', handleOrderCancelled),
-        onSocketEvent('chat:message', handleChatMessage),
-        onSocketEvent('notification:new', handleNewNotification),
-      ];
-    }).catch((err) => {
-      console.warn('[ForegroundNotifications] Socket service unavailable:', err);
-    });
+    const unsubs = [
+      onSocketEvent('order:created', handleOrderCreated),
+      onSocketEvent('order:statusUpdated', handleOrderStatusUpdated),
+      onSocketEvent('order:cancelled', handleOrderCancelled),
+      onSocketEvent('chat:message', handleChatMessage),
+      onSocketEvent('notification:new', handleNewNotification),
+    ];
 
     return () => {
-      cancelled = true;
       unsubs.forEach((fn) => typeof fn === 'function' && fn());
     };
   }, [

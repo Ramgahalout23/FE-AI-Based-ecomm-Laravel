@@ -145,10 +145,11 @@ export function onSocketEvent(event, handler) {
   if (!listeners[event]) {
     listeners[event] = [];
   }
-  listeners[event].push(handler);
-
-  if (socket) {
-    socket.on(event, handler);
+  if (!listeners[event].includes(handler)) {
+    listeners[event].push(handler);
+    if (socket) {
+      socket.on(event, handler);
+    }
   }
 
   // Return unsubscribe function

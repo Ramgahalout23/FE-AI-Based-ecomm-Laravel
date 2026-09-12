@@ -207,6 +207,15 @@ export default function usePushNotifications() {
         localStorage.setItem('chatSessionId', sessionId);
       }
 
+      const hasAdminToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('adminToken'));
+      const isCurrentlyAdmin = Boolean(
+        isAdmin ||
+        user?.role === 'ADMIN' ||
+        user?.role === 'SUPER_ADMIN' ||
+        hasAdminToken ||
+        (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'))
+      );
+
       await api.post('/push/subscribe', {
         endpoint: subJson.endpoint,
         p256dh: subJson.keys?.p256dh,
@@ -214,7 +223,8 @@ export default function usePushNotifications() {
         sessionId,
         userId: user?.id,
         userEmail: user?.email,
-        userRole: user?.role || (isAdmin ? 'ADMIN' : undefined),
+        userRole: isCurrentlyAdmin ? 'ADMIN' : (user?.role || 'CUSTOMER'),
+        isAdmin: isCurrentlyAdmin,
       });
       return true;
     } catch (err) {
@@ -383,13 +393,28 @@ export default function usePushNotifications() {
   const sendTest = useCallback(async () => {
     try {
       const sessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
-      const res = await api.post('/push/test', { sessionId });
+      const hasAdminToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('adminToken'));
+      const isCurrentlyAdmin = Boolean(
+        isAdmin ||
+        user?.role === 'ADMIN' ||
+        user?.role === 'SUPER_ADMIN' ||
+        hasAdminToken ||
+        (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'))
+      );
+
+      const res = await api.post('/push/test', {
+        sessionId,
+        userId: user?.id,
+        userEmail: user?.email,
+        userRole: isCurrentlyAdmin ? 'ADMIN' : (user?.role || 'CUSTOMER'),
+        isAdmin: isCurrentlyAdmin,
+      });
       return res.data;
     } catch (err) {
       console.error('[Push] Test notification failed:', err);
       throw err;
     }
-  }, []);
+  }, [user, isAdmin]);
 
   /**
    * Check subscription status on mount and on auth change

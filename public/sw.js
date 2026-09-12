@@ -53,10 +53,14 @@ self.addEventListener('push', (event) => {
     /iPad|iPhone|iPod/.test(ua) ||
     (self.navigator?.platform === 'MacIntel' && self.navigator?.maxTouchPoints > 1);
 
+  const origin = self.location?.origin || 'https://threvolt.com';
+  const iconUrl = payload.icon ? (payload.icon.startsWith('http') ? payload.icon : new URL(payload.icon, origin).href) : new URL('/logo.png', origin).href;
+  const badgeUrl = payload.badge ? (payload.badge.startsWith('http') ? payload.badge : new URL(payload.badge, origin).href) : new URL('/logo.png', origin).href;
+
   const notificationOptions = {
     body: payload.body || 'You have a new update.',
-    icon: payload.icon || '/logo.png',
-    badge: payload.badge || '/logo.png',
+    icon: iconUrl,
+    badge: badgeUrl,
     data: {
       url: targetUrl,
       ...(payload.data || {}),
