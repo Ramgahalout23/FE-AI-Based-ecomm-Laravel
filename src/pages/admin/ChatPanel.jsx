@@ -558,9 +558,10 @@ export default function ChatPanel() {
   }, [conversations]);
 
   // ── Fit the panel to the real admin canvas ──
-  // The old hard-coded `calc(100dvh - 170px)` guessed the surrounding chrome
-  // (navbar + canvas padding + banners) and was wrong on both ends: a dead cream
-  // strip on desktop, a composer pushed below the fold on mobile.
+  // Calculate dynamic height to fill available viewport space with proper minimums:
+  // On desktop, support console requires generous height (minimum 780px) so the message thread
+  // and conversation list are fully visible and readable without being cramped.
+  // On mobile, keep it fitted to the viewport so the composer is never pushed below the fold.
   useEffect(() => {
     const el = panelRef.current;
     if (!el) return;
@@ -568,13 +569,30 @@ export default function ChatPanel() {
     let frame = 0;
 
     const measure = () => {
+      const isDesktop = window.innerWidth >= 768;
       const rect = el.getBoundingClientRect();
-      const top = rect.top + window.scrollY;
-      // Read the real canvas gutter instead of guessing the breakpoint: the admin
-      // shell wraps this page in `p-4 md:p-8`, and banners above it can change too.
-      const gutter = parseFloat(window.getComputedStyle(el.parentElement).paddingBottom) || 16;
-      const room = Math.round(window.innerHeight - top - gutter);
-      const next = Math.max(460, room);
+      // Calculate document-relative top position independent of current scroll
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop || window.scrollY || 0;
+      const docTop = rect.top + scrollY;
+
+      // Read the real canvas gutter from admin-panel-main (p-4 md:p-8)
+      const mainEl = el.closest('.admin-panel-main') || el.parentElement;
+      const gutter = mainEl
+        ? parseFloat(window.getComputedStyle(mainEl).paddingBottom) || (isDesktop ? 32 : 16)
+        : (isDesktop ? 32 : 16);
+
+      // Remaining viewport room from panel top to viewport bottom when scrolled to top
+      const room = Math.round(window.innerHeight - docTop - gutter);
+
+      // Support agents on desktop need generous height (at least 780px) for messages & conversation list.
+      // On wide screens (1080p/1440p), expand up to 960px or room. On mobile, keep min 480px.
+      const minHeight = isDesktop ? 780 : 480;
+      const maxHeight = isDesktop ? 960 : undefined;
+      let next = Math.max(minHeight, room);
+      if (maxHeight && next > maxHeight) {
+        next = maxHeight;
+      }
+
       setPanelHeight((prev) => (prev !== null && Math.abs(prev - next) < 2 ? prev : next));
     };
     // Both an animation frame (earliest correct layout) and a debounced timeout —
@@ -1108,7 +1126,7 @@ export default function ChatPanel() {
     <div
       ref={panelRef}
       style={panelStyle}
-      className="flex flex-col w-full min-h-0 h-[calc(100dvh-6.5rem)] md:h-[calc(100dvh-9rem)] bg-white rounded-2xl border border-stone-200 shadow-soft overflow-hidden font-sans"
+      className="flex flex-col w-full min-h-0 min-h-[480px] md:min-h-[780px] md:max-h-[960px] h-[calc(100dvh-6.5rem)] md:h-[calc(100dvh-9rem)] bg-white rounded-2xl border border-stone-200 shadow-soft overflow-hidden font-sans"
     >
       {/* ── Console bar (hidden on mobile while a conversation is open) ── */}
       <header
