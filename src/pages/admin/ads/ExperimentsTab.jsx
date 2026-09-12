@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   GitBranch, Plus, Trash2, Play, Trophy, CheckCircle2,
-  FlaskConical, Target, MousePointerClick, TrendingUp
+  FlaskConical, Target, MousePointerClick, TrendingUp,
+  Sparkles, Activity, Award, RefreshCw, BarChart2
 } from 'lucide-react';
 import toast from '../../../utils/toast';
 import { useConfirm } from '../../../contexts/ConfirmContext';
@@ -25,7 +26,21 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
   const [form, setForm] = useState({ name: '', campaign_id: '', objective: 'CONVERSION', variant_campaign_ids: [] });
   const [saving, setSaving] = useState(false);
   const [declaring, setDeclaring] = useState(null);
+  const [significanceData, setSignificanceData] = useState({});
+  const [loadingSignificance, setLoadingSignificance] = useState({});
   const confirm = useConfirm();
+
+  const fetchSignificance = async (expId) => {
+    setLoadingSignificance(prev => ({ ...prev, [expId]: true }));
+    try {
+      const res = await adsAPI.getExperimentSignificance(expId);
+      const data = res.data?.data || res.data || {};
+      setSignificanceData(prev => ({ ...prev, [expId]: data }));
+    } catch {
+      toast.error('Failed to calculate statistical significance');
+    }
+    setLoadingSignificance(prev => ({ ...prev, [expId]: false }));
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -185,7 +200,12 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
           {experiments.map((exp) => {
             const ObjIcon = OBJ_META[exp.objective]?.icon || Target;
             const variants = exp.variants || [];
-            const metrics = exp.variant_metrics || [];
+            const metrics = exp.variant_metrics || exp.variantMetrics || [];
+            const campaignId = exp.campaign_id || exp.campaignId;
+            const startedAt = exp.started_at || exp.startedAt;
+            const winnerVariantId = exp.winner_variant_id || exp.winnerVariantId;
+            const winnerReason = exp.winner_reason || exp.winnerReason;
+
             return (
               <div key={exp.id} className="bg-white rounded-2xl border border-border shadow-soft p-5">
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
@@ -197,8 +217,8 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
                     </div>
                     <div className="text-xs text-text-muted mt-1 flex items-center gap-1.5 flex-wrap">
                       <ObjIcon size={11} /> Objective: {OBJ_META[exp.objective]?.label}
-                      {exp.campaign_id && <><span>·</span><span>Control: {campaignName(exp.campaign_id)}</span></>}
-                      {exp.started_at && <><span>·</span><span>Started {new Date(exp.started_at).toLocaleDateString()}</span></>}
+                      {campaignId && <><span>·</span><span>Control: {campaignName(campaignId)}</span></>}
+                      {startedAt && <><span>·</span><span>Started {new Date(startedAt).toLocaleDateString()}</span></>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -223,8 +243,11 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
                 {/* Variant comparison */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {variants.map((v) => {
-                    const m = metrics.find(x => x.variant_id === v.id);
-                    const isWinner = exp.winner_variant_id === v.id;
+                    const m = metrics.find(x => (x.variant_id || x.variantId) === v.id);
+                    const isWinner = winnerVariantId === v.id;
+                    const isControl = v.is_control ?? v.isControl;
+                    const vCampaignId = v.campaign_id ?? v.campaignId;
+
                     return (
                       <div key={v.id} className={'rounded-xl border p-3 relative ' + (isWinner ? 'border-green-400 bg-green-50' : 'border-gray-100 bg-gray-50')}>
                         {isWinner && (
@@ -233,9 +256,9 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
                           </span>
                         )}
                         <div className="text-[10px] font-bold uppercase tracking-wide text-text-muted flex items-center gap-1">
-                          {v.is_control ? <CheckCircle2 size={10} /> : <FlaskConical size={10} />} {v.label}
+                          {isControl ? <CheckCircle2 size={10} /> : <FlaskConical size={10} />} {v.label}
                         </div>
-                        <div className="text-[11px] text-text-muted truncate mt-0.5">{v.campaign?.name || campaignName(v.campaign_id)}</div>
+                        <div className="text-[11px] text-text-muted truncate mt-0.5">{v.campaign?.name || campaignName(vCampaignId)}</div>
                         <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
                           <div>CTR <span className="font-bold">{m?.metrics?.ctr ?? '—'}%</span></div>
                           <div>Conv <span className="font-bold">{m?.metrics?.conversionRate ?? '—'}%</span></div>
@@ -247,9 +270,79 @@ export default function ExperimentsTab({ adsAPI, campaigns }) {
                   })}
                 </div>
 
-                {exp.winner_reason && (
+                {/* Statistical Significance Section */}
+                {significanceData[exp.id] ? (
+                  <div className="mt-3 bg-gray-900 text-white rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Activity size={15} className="text-indigo-400" />
+                        <span className="text-xs font-bold text-gray-100">A/B Testing Statistical Significance</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          significanceData[exp.id].isSignificant
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}>
+                          {significanceData[exp.id].isSignificant ? 'Statistically Significant (p < 0.05)' : 'Inconclusive / More Data Needed'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">Confidence:</span>
+                        <span className={`text-sm font-bold ${significanceData[exp.id].confidenceLevel >= 95 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {significanceData[exp.id].confidenceLevel}%
+                        </span>
+                        <button
+                          onClick={() => fetchSignificance(exp.id)}
+                          className="p-1 hover:text-white text-gray-400 transition-colors ml-1"
+                          title="Recalculate"
+                        >
+                          <RefreshCw size={12} className={loadingSignificance[exp.id] ? 'animate-spin' : ''} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Uplift and power bar */}
+                    <div className="bg-gray-800/80 rounded-lg p-3 text-xs space-y-2">
+                      <div className="text-gray-300 font-medium leading-relaxed">
+                        {significanceData[exp.id].recommendation}
+                      </div>
+
+                      {significanceData[exp.id].comparisons?.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {significanceData[exp.id].comparisons.map((c) => (
+                            <div key={c.variantId} className="bg-gray-900/60 rounded-lg p-2 flex items-center justify-between text-[11px]">
+                              <div>
+                                <span className="font-semibold text-gray-200">{c.variantName}</span>
+                                <span className="text-gray-400 ml-1.5">(z={c.zScore}, p={c.pValue})</span>
+                              </div>
+                              <span className={`font-bold ${c.uplift >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {c.uplift >= 0 ? `+${c.uplift}%` : `${c.uplift}%`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-3.5 py-2.5">
+                    <div className="flex items-center gap-2 text-xs text-text-muted">
+                      <Sparkles size={14} className="text-indigo-600" />
+                      <span>Compute 2-sample z-test, p-value, and confidence interval for this experiment.</span>
+                    </div>
+                    <button
+                      onClick={() => fetchSignificance(exp.id)}
+                      disabled={loadingSignificance[exp.id]}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                      <Activity size={12} className={loadingSignificance[exp.id] ? 'animate-spin' : ''} />
+                      {loadingSignificance[exp.id] ? 'Calculating…' : 'Analyze Significance'}
+                    </button>
+                  </div>
+                )}
+
+                {winnerReason && (
                   <div className="mt-3 text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                    {exp.winner_reason}
+                    {winnerReason}
                   </div>
                 )}
               </div>

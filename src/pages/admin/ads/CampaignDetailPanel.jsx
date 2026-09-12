@@ -246,7 +246,7 @@ export default function CampaignDetailPanel({ campaign, loading, onClose, onEdit
                   <div className="text-[10px] font-semibold text-text-muted uppercase mb-2">Impressions · last {dailyStats.length} days</div>
                   <div className="flex items-end gap-1 h-20">
                     {dailyStats.map((d, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${d.stat_date}: ${d.impressions || 0} impr, ${d.clicks || 0} clicks`}>
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${d.stat_date || d.statDate}: ${d.impressions || 0} impr, ${d.clicks || 0} clicks`}>
                         <div className="w-full rounded-t bg-gradient-to-t from-indigo-600 to-purple-500 transition-all hover:from-indigo-500"
                           style={{ height: Math.max(4, ((Number(d.impressions || 0)) / maxImp) * 72) + 'px' }} />
                       </div>
@@ -260,13 +260,19 @@ export default function CampaignDetailPanel({ campaign, loading, onClose, onEdit
                 <div>
                   <div className="text-[10px] font-semibold text-text-muted uppercase mb-2">Recent events</div>
                   <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                    {c.recentEvents.map((e, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-                        <span className={'font-bold px-2 py-0.5 rounded-full ' + (EVENT_COLORS[e.event_type] || 'bg-gray-100')}>{e.event_type}</span>
-                        <span className="text-text-muted">{e.device || '—'}{e.utm_source ? ' · ' + e.utm_source : ''}</span>
-                        <span className="text-text-muted">{new Date(e.occurred_at).toLocaleString()}</span>
-                      </div>
-                    ))}
+                    {c.recentEvents.map((e, i) => {
+                      const eventType = e.event_type || e.eventType || 'EVENT';
+                      const occurredAt = e.occurred_at || e.occurredAt;
+                      const utmSource = e.utm_source || e.utmSource;
+
+                      return (
+                        <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                          <span className={'font-bold px-2 py-0.5 rounded-full ' + (EVENT_COLORS[eventType] || 'bg-gray-100')}>{eventType}</span>
+                          <span className="text-text-muted">{e.device || '—'}{utmSource ? ' · ' + utmSource : ''}</span>
+                          <span className="text-text-muted">{occurredAt ? new Date(occurredAt).toLocaleString() : '—'}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

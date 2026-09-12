@@ -109,9 +109,14 @@ export default function useAdCampaigns(search) {
 
   const openEdit = (c) => {
     setEditing(c);
-    let carouselUrls = [];
-    if (c.creativeType === 'CAROUSEL' && c.creativeUrl) {
-      try { carouselUrls = JSON.parse(c.creativeUrl); } catch { carouselUrls = c.creativeUrl ? [c.creativeUrl] : []; }
+    let carouselUrls = Array.isArray(c.carouselImages) && c.carouselImages.length > 0 ? c.carouselImages : [];
+    if (carouselUrls.length === 0 && c.creativeType === 'CAROUSEL' && c.creativeUrl) {
+      try {
+        const parsed = JSON.parse(c.creativeUrl);
+        carouselUrls = Array.isArray(parsed) ? parsed : [c.creativeUrl];
+      } catch {
+        carouselUrls = c.creativeUrl ? [c.creativeUrl] : [];
+      }
     }
     setForm({
       name: c.name || '',
@@ -128,8 +133,8 @@ export default function useAdCampaigns(search) {
       creativeFileSize: c.creativeFileSize || 0,
       carouselUrls,
       // ── Advanced targeting ──
-      ageMin: c.ageMin ?? '', ageMax: c.ageMax ?? '', gender: c.gender || 'ALL',
-      locations: c.locations || [], interests: c.interests || [],
+      ageMin: c.ageMin ?? '', ageMax: c.ageMax ?? '', gender: c.gender || c.targetGender || 'ALL',
+      locations: c.locations || c.targetLocations || [], interests: c.interests || c.targetInterests || [],
       keywords: c.keywords || [], devices: c.devices || [], placements: c.placements || [],
       // ── Budget & bidding ──
       budgetType: c.budgetType || 'TOTAL', dailyBudget: c.dailyBudget ?? '',
@@ -154,18 +159,24 @@ export default function useAdCampaigns(search) {
     if (!form.name) { toast.error('Campaign name is required'); return; }
     setModalLoading(true);
     try {
+      const carouselImages = Array.isArray(form.carouselUrls) && form.carouselUrls.length > 0
+        ? form.carouselUrls.map(c => (typeof c === 'string' ? c : c?.url)).filter(Boolean)
+        : [];
+
       const payload = {
         ...form,
         budget: form.budget ? parseFloat(form.budget) : null,
         startDate: form.startDate ? new Date(form.startDate).toISOString() : null,
         endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
-        // Serialize carousel URLs into creativeUrl for the backend
-        creativeUrl: form.creativeType === 'CAROUSEL' && form.carouselUrls?.length
-          ? JSON.stringify(form.carouselUrls)
+        carouselImages: carouselImages.length > 0 ? carouselImages : undefined,
+        creativeUrl: form.creativeType === 'CAROUSEL' && carouselImages.length > 0
+          ? carouselImages[0]
           : form.creativeUrl,
-        // Don't send carouselUrls as-is to the backend
         carouselUrls: undefined,
-        // Normalize advanced fields for the backend
+        targetLocations: form.locations,
+        targetInterests: form.interests,
+        targetGender: form.gender,
+        targetAgeRange: form.ageMin || form.ageMax ? `${form.ageMin || 18}-${form.ageMax || 65}` : undefined,
         ageMin: form.ageMin ? Number(form.ageMin) : null,
         ageMax: form.ageMax ? Number(form.ageMax) : null,
         dailyBudget: form.dailyBudget ? Number(form.dailyBudget) : null,

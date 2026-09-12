@@ -94,7 +94,7 @@ export default function CreativeLibraryTab({ adsAPI, campaigns }) {
     setApplying(false);
   };
 
-  const totals = dashboard?.totals || {};
+  const totals = dashboard?.totals || dashboard || {};
 
   return (
     <div className="space-y-5">
@@ -242,40 +242,46 @@ export default function CreativeLibraryTab({ adsAPI, campaigns }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {creatives.map((c) => {
-            const Icon = MEDIA_ICONS[c.media_type] || FileText;
+            const mediaType = c.media_type || c.mediaType || 'IMAGE';
+            const mediaUrl = c.media_url || c.mediaUrl || '';
+            const primaryText = c.primary_text || c.primaryText || '';
+            const callToAction = c.call_to_action || c.callToAction || 'SHOP_NOW';
+            const isArchived = !!(c.is_archived ?? c.isArchived);
+            const Icon = MEDIA_ICONS[mediaType] || FileText;
+
             return (
               <div key={c.id} className="bg-white rounded-2xl border border-border shadow-soft overflow-hidden flex flex-col">
                 <div className="h-28 bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 flex items-center justify-center text-white relative">
-                  {c.media_url ? (
-                    c.media_type === 'VIDEO' ? (
-                      <video src={c.media_url} className="w-full h-full object-cover" />
+                  {mediaUrl ? (
+                    mediaType === 'VIDEO' ? (
+                      <video src={mediaUrl} className="w-full h-full object-cover" />
                     ) : (
-                      <img src={c.media_url} alt={c.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                      <img src={mediaUrl} alt={c.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                     )
                   ) : (
                     <Icon size={36} className="opacity-80" />
                   )}
-                  <span className="absolute top-2 left-2 bg-black/50 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{c.media_type}</span>
-                  {c.is_archived
-                    ? <span className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">ARCHIVED</span>
-                    : <span className="absolute top-2 right-2 bg-gray-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">ACTIVE</span>}
+                  <span className="absolute top-2 left-2 bg-black/50 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{mediaType}</span>
+                  {isArchived
+                    ? <span className="absolute top-2 right-2 bg-gray-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">ARCHIVED</span>
+                    : <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">ACTIVE</span>}
                 </div>
                 <div className="p-4 flex-1 flex flex-col">
                   <div className="font-bold text-sm truncate">{c.name}</div>
                   {c.headline && <div className="text-xs font-semibold text-purple-700 mt-1 truncate">{c.headline}</div>}
-                  {c.primary_text && <p className="text-xs text-text-muted mt-1 line-clamp-2">{c.primary_text}</p>}
+                  {primaryText && <p className="text-xs text-text-muted mt-1 line-clamp-2">{primaryText}</p>}
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                    <span className="text-[10px] font-bold text-brand-black bg-gray-100 px-2 py-0.5 rounded-full">{c.call_to_action || '—'}</span>
+                    <span className="text-[10px] font-bold text-brand-black bg-gray-100 px-2 py-0.5 rounded-full">{callToAction}</span>
                     <div className="flex items-center gap-1">
                       <button onClick={() => setApplyTo({ creativeId: c.id, campaignId: campaigns[0]?.id || '' })}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg text-[11px] font-semibold hover:bg-purple-700 transition-colors">
                         <Link2 size={11} /> Apply
                       </button>
                       <button onClick={() => { setEditing(c); setForm({
-                        name: c.name, headline: c.headline || '', primary_text: c.primary_text || '',
-                        description: c.description || '', media_type: c.media_type || 'IMAGE',
-                        media_url: c.media_url || '', call_to_action: c.call_to_action || 'SHOP_NOW',
-                        is_archived: !!c.is_archived,
+                        name: c.name, headline: c.headline || '', primary_text: primaryText,
+                        description: c.description || '', media_type: mediaType,
+                        media_url: mediaUrl, call_to_action: callToAction,
+                        is_archived: isArchived,
                       }); setShowForm(true); }}
                         className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-xs font-semibold">Edit</button>
                       <button onClick={() => remove(c)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">

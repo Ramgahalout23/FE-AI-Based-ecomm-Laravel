@@ -82,9 +82,10 @@ export default function AutomationTab({ adsAPI, campaigns }) {
   };
 
   const toggle = async (rule) => {
+    const isCurrentlyEnabled = !!(rule.is_enabled ?? rule.isEnabled);
     try {
-      await adsAPI.updateAutomationRule(rule.id, { is_enabled: !rule.is_enabled });
-      toast.success(rule.is_enabled ? 'Rule disabled' : 'Rule enabled');
+      await adsAPI.updateAutomationRule(rule.id, { is_enabled: !isCurrentlyEnabled });
+      toast.success(isCurrentlyEnabled ? 'Rule disabled' : 'Rule enabled');
       load();
     } catch { toast.error('Failed to update'); }
   };
@@ -234,39 +235,47 @@ export default function AutomationTab({ adsAPI, campaigns }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {rules.map((rule) => (
-            <div key={rule.id} className="bg-white rounded-2xl border border-border shadow-soft p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm truncate">{rule.name}</span>
-                  <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (rule.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
-                    {rule.is_enabled ? 'ON' : 'OFF'}
-                  </span>
-                  <span className="text-[10px] text-text-muted">fired {rule.times_triggered || 0}×</span>
+          {rules.map((rule) => {
+            const isEnabled = !!(rule.is_enabled ?? rule.isEnabled);
+            const campaignId = rule.campaign_id ?? rule.campaignId ?? '';
+            const timesTriggered = rule.times_triggered ?? rule.timesTriggered ?? 0;
+            const windowDays = rule.window_days ?? rule.windowDays ?? 7;
+            const scalePercent = rule.scale_percent ?? rule.scalePercent ?? 20;
+
+            return (
+              <div key={rule.id} className="bg-white rounded-2xl border border-border shadow-soft p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm truncate">{rule.name}</span>
+                    <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (isEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
+                      {isEnabled ? 'ON' : 'OFF'}
+                    </span>
+                    <span className="text-[10px] text-text-muted">fired {timesTriggered}×</span>
+                  </div>
+                  <div className="text-xs text-text-muted mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-text-primary">{campaignName(campaignId)}</span>
+                    <span>·</span>
+                    <span className="flex items-center gap-1">
+                      <ActionIcon action={rule.action} />
+                      When {rule.metric} {OPERATORS[rule.operator]} {rule.threshold}{(rule.action === 'SCALE_BUDGET_UP' || rule.action === 'SCALE_BUDGET_DOWN') ? ` → scale budget ${scalePercent}% ${rule.action.includes('UP') ? 'up' : 'down'}` : ` → ${rule.action.replace(/_/g, ' ')}`}
+                    </span>
+                    <span>· last {windowDays}d window</span>
+                  </div>
                 </div>
-                <div className="text-xs text-text-muted mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-text-primary">{campaignName(rule.campaign_id)}</span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <ActionIcon action={rule.action} />
-                    When {rule.metric} {OPERATORS[rule.operator]} {rule.threshold}{(rule.action === 'SCALE_BUDGET_UP' || rule.action === 'SCALE_BUDGET_DOWN') ? ` → scale budget ${rule.scale_percent}% ${rule.action.includes('UP') ? 'up' : 'down'}` : ` → ${rule.action.replace(/_/g, ' ')}`}
-                  </span>
-                  <span>· last {rule.window_days}d window</span>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => toggle(rule)} title="Toggle"
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                    {isEnabled ? <ToggleRight size={17} className="text-green-600" /> : <ToggleLeft size={17} className="text-gray-400" />}
+                  </button>
+                  <button onClick={() => { setEditing(rule); setForm({ ...EMPTY, ...rule, campaign_id: campaignId, operator: OPERATORS[rule.operator] ? rule.operator : 'LT', threshold: rule.threshold, window_days: windowDays, scale_percent: scalePercent, is_enabled: isEnabled }); setShowForm(true); }}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-semibold">Edit</button>
+                  <button onClick={() => remove(rule)} className="p-2 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={16} className="text-red-500" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={() => toggle(rule)} title="Toggle"
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                  {rule.is_enabled ? <ToggleRight size={17} className="text-green-600" /> : <ToggleLeft size={17} className="text-gray-400" />}
-                </button>
-                <button onClick={() => { setEditing(rule); setForm({ ...EMPTY, ...rule, operator: OPERATORS[rule.operator] ? rule.operator : 'LT', threshold: rule.threshold, window_days: rule.window_days, scale_percent: rule.scale_percent }); setShowForm(true); }}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-semibold">Edit</button>
-                <button onClick={() => remove(rule)} className="p-2 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={16} className="text-red-500" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

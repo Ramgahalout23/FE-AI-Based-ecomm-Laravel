@@ -35,8 +35,11 @@ export const adsAPI = {
   getAdTemplates: () => adminClient.get('/admin/ads/analytics/templates'),
 
   // Platform Connections
+  getPlatformConnections: () => adminClient.get('/admin/ads/platforms/status'),
+  configurePlatformCredentials: (data) => adminClient.post('/admin/ads/platforms/configure', data),
   testMetaConnection: () => adminClient.post('/admin/ads/test-meta-connection'),
   testGoogleAdsConnection: () => adminClient.post('/admin/ads/test-google-connection'),
+  testWhatsAppConnection: () => adminClient.post('/admin/ads/test-whatsapp-connection'),
 
   // WhatsApp
   getWhatsAppRecipients: (params) => adminClient.get('/admin/ads/whatsapp-recipients', { params }),
@@ -66,6 +69,7 @@ export const adsAPI = {
   // ── Audience Manager ──
   getAudienceDashboard: () => adminClient.get('/admin/ads/audiences/dashboard'),
   getAudiences: (params) => adminClient.get('/admin/ads/audiences', { params }),
+  estimateAudienceSize: (data) => adminClient.post('/admin/ads/audiences/estimate-size', data),
   createAudience: (data) => adminClient.post('/admin/ads/audiences', data),
   updateAudience: (id, data) => adminClient.put(`/admin/ads/audiences/${id}`, data),
   deleteAudience: (id) => adminClient.delete(`/admin/ads/audiences/${id}`),
@@ -83,6 +87,7 @@ export const adsAPI = {
   // ── A/B Experiments ──
   getExperiments: () => adminClient.get('/admin/ads/experiments'),
   createExperiment: (data) => adminClient.post('/admin/ads/experiments', data),
+  getExperimentSignificance: (id) => adminClient.get(`/admin/ads/experiments/${id}/significance`),
   startExperiment: (id) => adminClient.post(`/admin/ads/experiments/${id}/start`),
   declareExperimentWinner: (id) => adminClient.post(`/admin/ads/experiments/${id}/declare-winner`),
   deleteExperiment: (id) => adminClient.delete(`/admin/ads/experiments/${id}`),
@@ -95,4 +100,6 @@ export const adsAPI = {
   sendReportNow: (id) => adminClient.post(`/admin/ads/reports/scheduled/${id}/send-now`),
   exportCsv: (kind, params) => adminClient.get(`/admin/ads/export/${kind}`, { params, responseType: 'blob' }),
 
+  // ── Platform Webhooks ──
+  getWebhookStatus: () => adminClient.get('/webhooks/ads/status'),
 };

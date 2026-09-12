@@ -24,6 +24,8 @@ export default function AudienceTab({ adsAPI }) {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [estimating, setEstimating] = useState(false);
+  const [estimateResult, setEstimateResult] = useState(null);
   const confirm = useConfirm();
 
   const load = useCallback(async () => {
@@ -41,6 +43,33 @@ export default function AudienceTab({ adsAPI }) {
   }, [adsAPI]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleEstimate = async () => {
+    setEstimating(true);
+    try {
+      const payload = {
+        type: form.type,
+        platform: form.platform,
+        source_events: form.type === 'RETARGETING' ? form.source_events : null,
+        lookback_days: form.type === 'RETARGETING' ? Number(form.lookback_days) : 30,
+        criteria: form.type === 'SAVED' ? {
+          age_min: Number(form.age_min || 18),
+          age_max: Number(form.age_max || 65),
+          gender: form.gender,
+          locations: form.locations,
+          interests: form.interests,
+          devices: form.devices,
+        } : null,
+      };
+      const res = await adsAPI.estimateAudienceSize(payload);
+      const data = res.data?.data || res.data || {};
+      setEstimateResult(data);
+      toast.success(`Estimated Reach: ~${Number(data.estimatedReach || 0).toLocaleString()} users`);
+    } catch {
+      toast.error('Failed to calculate audience estimate');
+    }
+    setEstimating(false);
+  };
 
   const save = async () => {
     if (!form.name) { toast.error('Audience name is required'); return; }
@@ -255,8 +284,45 @@ export default function AudienceTab({ adsAPI }) {
             </div>
           </div>
 
+          {/* Reach Estimator Preview Card */}
+          <div className="bg-gradient-to-r from-indigo-50/70 to-purple-50/70 border border-indigo-100 rounded-xl p-3.5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <Users size={18} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-900">
+                    {estimateResult ? `~${Number(estimateResult.estimatedReach || 0).toLocaleString()} Addressable Users` : 'Live Reach Estimator'}
+                  </span>
+                  {estimateResult?.reachTier && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200/60 text-indigo-800">
+                      {estimateResult.reachTier}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  {estimateResult ? (
+                    `Suggested Budget: ₹${Number(estimateResult.suggestedDailyBudget || 500).toLocaleString()}/day • Matched ${estimateResult.matchedVisitors || estimateResult.matchedCustomers || 0} user records`
+                  ) : (
+                    'Calculate potential audience size based on database users & recent visitor tracking events'
+                  )}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleEstimate}
+              disabled={estimating}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <RefreshCw size={12} className={estimating ? 'animate-spin' : ''} />
+              {estimating ? 'Calculating…' : 'Estimate Reach'}
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-text-muted hover:bg-gray-100 transition-colors">Cancel</button>
+            <button onClick={() => { setShowForm(false); setEstimateResult(null); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-text-muted hover:bg-gray-100 transition-colors">Cancel</button>
             <button onClick={save} disabled={saving}
               className="px-4 py-2 bg-brand-black text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">
               {saving ? 'Saving…' : (editing ? 'Update audience' : 'Create audience')}
@@ -280,59 +346,67 @@ export default function AudienceTab({ adsAPI }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {audiences.map((a) => (
-            <div key={a.id} className="bg-white rounded-2xl border border-border shadow-soft p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  {a.type === 'RETARGETING' ? <Repeat size={14} className="text-purple-600" /> : <UserRound size={14} className="text-indigo-600" />}
-                  <span className="font-bold text-sm truncate">{a.name}</span>
-                  <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (a.type === 'RETARGETING' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700')}>
-                    {a.type}
-                  </span>
-                  <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (a.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
-                    {a.is_enabled ? 'ON' : 'OFF'}
-                  </span>
+          {audiences.map((a) => {
+            const isEnabled = !!(a.is_enabled ?? a.isEnabled);
+            const memberCount = Number(a.member_count ?? a.memberCount ?? 0);
+            const sourceEvents = Array.isArray(a.source_events) ? a.source_events : (Array.isArray(a.sourceEvents) ? a.sourceEvents : ['CLICK']);
+            const lookbackDays = a.lookback_days ?? a.lookbackDays ?? 30;
+            const criteria = a.criteria || {};
+
+            return (
+              <div key={a.id} className="bg-white rounded-2xl border border-border shadow-soft p-4 flex items-center justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    {a.type === 'RETARGETING' ? <Repeat size={14} className="text-purple-600" /> : <UserRound size={14} className="text-indigo-600" />}
+                    <span className="font-bold text-sm truncate">{a.name}</span>
+                    <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (a.type === 'RETARGETING' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700')}>
+                      {a.type}
+                    </span>
+                    <span className={'text-[10px] font-bold px-2 py-0.5 rounded-full ' + (isEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
+                      {isEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-text-muted mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-1"><Eye size={11} /> {memberCount.toLocaleString()} members</span>
+                    <span>·</span>
+                    <span>{a.platform || 'ALL'}</span>
+                    {a.type === 'RETARGETING' ? (
+                      <><span>·</span><span>{sourceEvents.join(', ') || '—'} · {lookbackDays}d lookback</span></>
+                    ) : (
+                      <>
+                        {criteria && <><span>·</span><span>age {criteria.age_min || criteria.ageMin || 18}-{criteria.age_max || criteria.ageMax || 65}</span></>}
+                        {(criteria.locations || []).length > 0 && <><span>·</span><span>{criteria.locations.join(', ')}</span></>}
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-text-muted mt-1 flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1"><Eye size={11} /> {(a.member_count || 0).toLocaleString()} members</span>
-                  <span>·</span>
-                  <span>{a.platform || 'ALL'}</span>
-                  {a.type === 'RETARGETING' ? (
-                    <><span>·</span><span>{a.source_events?.join(', ') || '—'} · {a.lookback_days}d lookback</span></>
-                  ) : (
-                    <>
-                      {a.criteria && <><span>·</span><span>age {a.criteria.age_min || 18}-{a.criteria.age_max || 65}</span></>}
-                      {a.criteria?.locations?.length > 0 && <><span>·</span><span>{a.criteria.locations.join(', ')}</span></>}
-                    </>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  <button onClick={async () => {
+                    try {
+                      await adsAPI.refreshAudienceCount(a.id);
+                      toast.success('Count refreshed');
+                      load();
+                    } catch { toast.error('Refresh failed'); }
+                  }} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Refresh count">
+                    <RefreshCw size={15} className="text-text-muted" />
+                  </button>
+                  <button onClick={() => { setEditing(a); setForm({
+                    ...EMPTY,
+                    name: a.name, description: a.description || '', type: a.type, platform: a.platform,
+                    source_events: sourceEvents, lookback_days: lookbackDays,
+                    age_min: criteria.age_min || criteria.ageMin || 18, age_max: criteria.age_max || criteria.ageMax || 65,
+                    gender: criteria.gender || 'ALL',
+                    locations: criteria.locations || [], interests: criteria.interests || [],
+                    devices: criteria.devices || [], is_enabled: isEnabled,
+                  }); setShowForm(true); }}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-semibold">Edit</button>
+                  <button onClick={() => remove(a)} className="p-2 rounded-lg hover:bg-red-50 transition-colors">
+                    <Trash2 size={15} className="text-red-500" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button onClick={async () => {
-                  try {
-                    await adsAPI.refreshAudienceCount(a.id);
-                    toast.success('Count refreshed');
-                    load();
-                  } catch { toast.error('Refresh failed'); }
-                }} className="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Refresh count">
-                  <RefreshCw size={15} className="text-text-muted" />
-                </button>
-                <button onClick={() => { setEditing(a); setForm({
-                  ...EMPTY,
-                  name: a.name, description: a.description, type: a.type, platform: a.platform,
-                  source_events: a.source_events || ['CLICK'], lookback_days: a.lookback_days || 30,
-                  age_min: a.criteria?.age_min || 18, age_max: a.criteria?.age_max || 65,
-                  gender: a.criteria?.gender || 'ALL',
-                  locations: a.criteria?.locations || [], interests: a.criteria?.interests || [],
-                  devices: a.criteria?.devices || [], is_enabled: a.is_enabled,
-                }); setShowForm(true); }}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-sm font-semibold">Edit</button>
-                <button onClick={() => remove(a)} className="p-2 rounded-lg hover:bg-red-50 transition-colors">
-                  <Trash2 size={15} className="text-red-500" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

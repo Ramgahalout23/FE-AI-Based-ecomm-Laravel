@@ -25,6 +25,20 @@ const EMPTY = {
   is_enabled: true,
 };
 
+function getArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [val];
+    } catch {
+      return [val];
+    }
+  }
+  return [];
+}
+
 export default function ReportsTab({ adsAPI }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +95,7 @@ export default function ReportsTab({ adsAPI }) {
   };
 
   const remove = async (r) => {
-    if (!(await confirm({ title: 'Delete scheduled report?', message: `"${r.name}" will stop sending.`, confirmLabel: 'Delete' }))) return;
+    if (!(await confirm({ title: 'Delete scheduled report?', message: `"${r.name}" will be removed.`, confirmLabel: 'Delete' }))) return;
     try {
       await adsAPI.deleteScheduledReport(r.id);
       toast.success('Report deleted');
@@ -92,35 +106,40 @@ export default function ReportsTab({ adsAPI }) {
   const sendNow = async (r) => {
     setSending(r.id);
     try {
-      await adsAPI.sendReportNow(r.id);
-      toast.success('Report sent');
+      const res = await adsAPI.sendReportNow(r.id);
+      const data = res.data?.data || {};
+      toast.success(`Digest sent to ${data.recipientsCount || 1} recipient${data.recipientsCount > 1 ? 's' : ''}!`);
       load();
-    } catch { toast.error('Failed to send — check email config'); }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send — check email config');
+    }
     setSending(null);
   };
 
   const doExport = async (kind) => {
     setExporting(kind);
     try {
-      const r = await adsAPI.exportCsv(kind, {});
-      const blob = r.data;
-      const url = URL.createObjectURL(blob);
+      const r = await adsAPI.exportCsv(kind);
+      const blob = new Blob([r.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ad_${kind}_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `${kind}_export_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success('CSV downloaded');
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export downloaded');
     } catch { toast.error('Export failed'); }
     setExporting(null);
   };
 
   const frequencyLabel = (r) => {
+    const dow = r.day_of_week ?? r.dayOfWeek ?? 1;
+    const dom = r.day_of_month ?? r.dayOfMonth ?? 1;
     if (r.frequency === 'DAILY') return 'Daily';
-    if (r.frequency === 'WEEKLY') return 'Weekly · ' + ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][(r.day_of_week || 1) - 1];
-    return 'Monthly · day ' + (r.day_of_month || 1);
+    if (r.frequency === 'WEEKLY') return 'Weekly · ' + (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][dow - 1] || 'Mon');
+    return 'Monthly · day ' + dom;
   };
 
   return (

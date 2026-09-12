@@ -2,10 +2,11 @@ import { useState } from 'react';
 import {
   Edit2, Trash2, Eye, Plus, RefreshCw, AlertTriangle, Search,
   BarChart3, Target, MessageCircle, Play, LayoutDashboard, Image as ImageIcon,
-  LayoutGrid
+  LayoutGrid, Shield
 } from 'lucide-react';
 import AdPreviewMockup from '../../../components/admin/ads/AdPreviewMockup';
 import AdPreviewCompare from '../../../components/admin/ads/AdPreviewCompare';
+import PlatformSettingsModal from './PlatformSettingsModal';
 import toast from '../../../utils/toast';
 
 const PLATFORMS = [
@@ -63,14 +64,24 @@ export default function CampaignListTab({
   const [syncingCampaigns, setSyncingCampaigns] = useState({});
   const [previewCampaign, setPreviewCampaign] = useState(null);
   const [compareCampaign, setCompareCampaign] = useState(null);
+  const [whatsappModal, setWhatsappModal] = useState(null);
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const handlePushToPlatform = async (campaign) => {
+    if (campaign.platform === 'WHATSAPP') {
+      setWhatsappModal({
+        campaign,
+        recipients: '',
+        templateName: 'hello_world',
+      });
+      return;
+    }
+
     setPushingCampaigns(prev => ({ ...prev, [campaign.id]: true }));
     try {
       if (campaign.platform === 'GOOGLE') {
         await adsAPI.pushToGoogle(campaign.id);
-      } else if (campaign.platform === 'WHATSAPP') {
-        await adsAPI.pushToWhatsApp(campaign.id);
       } else {
         await adsAPI.pushToMeta(campaign.id);
       }
@@ -81,6 +92,39 @@ export default function CampaignListTab({
       toast.error(err?.response?.data?.message || `Failed to push to ${campaign.platform}`);
     }
     setPushingCampaigns(prev => ({ ...prev, [campaign.id]: false }));
+  };
+
+  const handleSendWhatsAppBroadcast = async () => {
+    if (!whatsappModal) return;
+    const phoneList = whatsappModal.recipients
+      .split(/[\n,]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (phoneList.length === 0) {
+      toast.error('Please enter at least one recipient phone number');
+      return;
+    }
+    if (!whatsappModal.templateName.trim()) {
+      toast.error('Please enter a template name');
+      return;
+    }
+
+    setSendingBroadcast(true);
+    try {
+      await adsAPI.pushToWhatsApp(whatsappModal.campaign.id, {
+        recipients: phoneList,
+        templateName: whatsappModal.templateName.trim(),
+        templateParams: {},
+      });
+      toast.success(`WhatsApp broadcast sent to ${phoneList.length} recipient(s)`);
+      setWhatsappModal(null);
+      loadCampaigns(pagination.page, platformFilter);
+      loadStats();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to send WhatsApp broadcast');
+    }
+    setSendingBroadcast(false);
   };
 
   const handleSyncStats = async (campaign) => {
@@ -115,9 +159,17 @@ export default function CampaignListTab({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className="btn-dark flex items-center gap-2" onClick={openNew}>
-          <Plus size={16} /> New Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors border border-gray-200 shadow-sm"
+          >
+            <Shield size={14} className="text-indigo-600" /> Platform Connections
+          </button>
+          <button className="btn-dark flex items-center gap-2" onClick={openNew}>
+            <Plus size={16} /> New Campaign
+          </button>
+        </div>
       </div>
 
       {/* Platform Filters */}
@@ -368,6 +420,74 @@ export default function CampaignListTab({
           onClose={() => setCompareCampaign(null)}
         />
       )}
+
+      {/* WhatsApp Broadcast Modal */}
+      {whatsappModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !sendingBroadcast) setWhatsappModal(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-green-100 text-green-700">
+                <MessageCircle size={20} />
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-text-primary">Send WhatsApp Broadcast</h4>
+                <p className="text-xs text-text-muted">{whatsappModal.campaign.name}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-muted block mb-1">Approved Template Name *</label>
+              <input
+                type="text"
+                value={whatsappModal.templateName}
+                onChange={(e) => setWhatsappModal({ ...whatsappModal, templateName: e.target.value })}
+                placeholder="e.g. hello_world"
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
+              />
+              <p className="text-[11px] text-text-muted mt-1">Must be approved in Meta WhatsApp Business Manager.</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-text-muted block mb-1">Recipients (Phone numbers with country code) *</label>
+              <textarea
+                rows={4}
+                value={whatsappModal.recipients}
+                onChange={(e) => setWhatsappModal({ ...whatsappModal, recipients: e.target.value })}
+                placeholder={"+1234567890\n+919876543210"}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black resize-none font-mono text-xs"
+              />
+              <p className="text-[11px] text-text-muted mt-1">Separate multiple numbers with commas or new lines.</p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                disabled={sendingBroadcast}
+                onClick={() => setWhatsappModal(null)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-text-muted hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={sendingBroadcast}
+                onClick={handleSendWhatsAppBroadcast}
+                className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {sendingBroadcast ? 'Sending…' : 'Send Broadcast'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Platform Settings Modal */}
+      <PlatformSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        adsAPI={adsAPI}
+      />
     </div>
   );
 }
