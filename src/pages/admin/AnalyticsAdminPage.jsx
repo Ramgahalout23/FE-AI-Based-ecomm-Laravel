@@ -105,7 +105,47 @@ export default function AnalyticsAdminPage() {
 
     const fetched = { ...ANALYTICS_DEFAULTS };
 
-    // ── Fire ALL API calls in parallel using Promise.allSettled ──
+    // ── PRIMARY: Try consolidated endpoint (1 API call instead of 14) ──
+    try {
+      const fullRes = await analyticsAPI.getFullAnalytics(dateParams);
+      const full = fullRes.data?.data || fullRes.data;
+      if (full && (full.sales || full.revenue)) {
+        if (full.sales) fetched.sales = full.sales;
+        if (full.revenue) fetched.revenue = Array.isArray(full.revenue) ? full.revenue : (full.revenue.trends || full.revenue.data || []);
+        if (full.categories) fetched.categories = Array.isArray(full.categories) ? full.categories : (full.categories.categories || full.categories.data || []);
+        if (full.orders) {
+          const orderData = Array.isArray(full.orders) ? full.orders : (full.orders.statusCounts || full.orders.data || []);
+          const total = orderData.reduce((a, b) => a + Number(b.value || b.count || 0), 0);
+          fetched.orderStatus = total > 0
+            ? orderData.map(s => ({ name: s.name, value: Math.round((Number(s.value || s.count || 0) / total) * 100) }))
+            : [{ name: 'No Orders', value: 100 }];
+        }
+        if (full.topCustomers) fetched.topCustomers = Array.isArray(full.topCustomers) ? full.topCustomers : (full.topCustomers.customers || []);
+        if (full.dashboardSummary) fetched.dashboardSummary = full.dashboardSummary;
+        if (Array.isArray(full.dailySales)) fetched.dailySales = full.dailySales;
+        if (Array.isArray(full.hourlyData || full.hourlyDistribution)) {
+          const hData = full.hourlyData || full.hourlyDistribution;
+          fetched.hourlyData = hData.map(h => ({ hour: (h.hour ?? '') + ':00', orders: h.orders, revenue: h.revenue }));
+        }
+        if (full.revenueComparison) fetched.revenueComparison = full.revenueComparison;
+        if (Array.isArray(full.customerGrowth)) fetched.customerGrowth = full.customerGrowth;
+        if (full.conversionMetrics) fetched.conversionMetrics = full.conversionMetrics;
+        if (Array.isArray(full.paymentMethodTrends)) fetched.paymentMethodTrends = full.paymentMethodTrends;
+        if (Array.isArray(full.topProducts || full.products)) fetched.topProducts = full.topProducts || full.products;
+        if (full.userAnalytics || full.users) fetched.userAnalytics = full.userAnalytics || full.users;
+
+        fetchingRef.current = false;
+        cache.set(range, fetched);
+        dispatch({ type: 'SET_MULTIPLE', payload: fetched });
+        setLastRefreshed(new Date());
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Fallback to parallel requests if consolidated endpoint fails
+    }
+
+    // ── FALLBACK: Fire individual API calls in parallel using Promise.allSettled ──
     const [
       salesRes,
       revenueTrendsRes,

@@ -307,10 +307,12 @@ function TrafficSourcesTab({ chartsReady }) {
     trackingAPI.getTrafficSources?.(params)
       .then(r => {
         if (!mounted) return;
-        const data = r.data?.data || r.data || {};
+        const raw = r.data?.data || r.data;
+        const sources = Array.isArray(raw) ? raw : (raw?.sources || []);
+        const utmCampaigns = Array.isArray(raw) ? [] : (raw?.utmCampaigns || raw?.utm_campaigns || []);
         setTrafficData({
-          sources: data.sources || [],
-          utmCampaigns: data.utm_campaigns || [],
+          sources,
+          utmCampaigns,
         });
       })
       .catch(() => {
