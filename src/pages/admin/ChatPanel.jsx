@@ -1,17 +1,30 @@
 /**
- * ChatPanel — Luxury, High-Performance Admin Live Chat & Support Console.
- * Designed with UI/UX Pro Max standards:
- * - Fluid mobile-responsive layout (mobile view switching between list & chat)
- * - Zero window-level scrolling or overflow clipping (100dvh precision)
- * - Real-time O(1) socket room communication with audio chime alerts
- * - Unrestricted admin reply capability (human takeover in 1 click)
- * - Multi-criteria filter tabs: All, Active, Unread, Resolved
- * - Collapsible Customer Context drawer with user info and ticket metadata (slide-over on mobile)
- * - Canned quick response chips with icons
- * - THREVOLT Luxe design tokens (Ink, Gold, Surface, Royal Blue, Emerald)
+ * ChatPanel — admin live chat & support console.
+ *
+ * Layout contract
+ * - The panel fills the admin canvas exactly: its height is measured against the
+ *   real available space (panel top → viewport bottom − canvas gutter) instead of
+ *   the old hard-coded `calc(100dvh - 170px)`, which left a dead cream strip on
+ *   desktop and pushed the composer below the fold on mobile.
+ * - Panes scroll internally (min-h-0 on every flex level); the page never scrolls.
+ *
+ * Design contract (matches the rest of the admin panel)
+ * - Warm neutrals (stone) + ink primary + gold accent, cream-compatible surfaces.
+ * - Semantic colours are reserved for status/unread only.
+ * - The panel is intentionally light-only: every other admin surface is light, and
+ *   `dark:` variants here were media-based, so the console turned into a dark slab
+ *   inside the light admin canvas whenever the OS was in dark mode.
+ *
+ * Interaction contract
+ * - Overlays are portalled to <body> so the sticky navbar (z-100) cannot sit on top
+ *   of them and the panel's `overflow-hidden`/route transform cannot clip them.
+ * - Destructive actions use the shared in-app confirm dialog, not window.confirm.
+ * - Every icon-only control has an accessible name and a visible focus ring.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import {
   MessageCircle,
   Send,
@@ -25,36 +38,56 @@ import {
   Eraser,
   ImagePlus,
   ArrowLeft,
+  ArrowDown,
   Zap,
   CheckCheck,
   User,
   Clock,
   Tag,
   ShieldCheck,
-  ChevronRight,
-  Filter,
   Info,
   ExternalLink,
+  Hand,
+  Package,
+  Truck,
+  RotateCcw,
 } from 'lucide-react';
 import { chatAPI } from '../../api/tickets';
 import { formatTime } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import { connectSocket, onSocketEvent } from '../../services/socketService';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
+import { useConfirm } from '../../contexts/ConfirmContext';
+
+// ── Shared class fragments ──
+const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900';
+const FOCUS_ON_DARK = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
 
 // ── Helpers ──
+
+/** Friendly customer label — never shows the raw "Guest 1234" seed or an empty string. */
 function getDisplayName(conv) {
-  if (!conv) return 'Guest Customer';
+  if (!conv) return 'Guest customer';
   const u = conv.user || conv.customer;
   const first = u?.firstName || u?.first_name || '';
   const last = u?.lastName || u?.last_name || '';
 
   if (first.startsWith('Guest') && u?.email?.includes('guest-')) {
     const m = u.email.match(/guest-(?:anon-)?[\d]+-(\w+)@/);
-    return m ? `Guest #${m[1]}` : `Guest ${first.split(' ')[1] || ''}`;
+    if (m) return `Guest #${m[1]}`;
+    const suffix = first.split(' ')[1];
+    if (suffix) return `Guest #${suffix}`;
   }
   const full = `${first} ${last}`.trim();
-  return full || u?.email?.split('@')[0] || conv.subject || 'Guest Customer';
+  return full || u?.email?.split('@')[0] || conv.ticketNumber || 'Guest customer';
+}
+
+function isGuestConversation(conv) {
+  const u = conv?.user || conv?.customer;
+  if (!u) return true;
+  if (u.email?.includes('guest-')) return true;
+  const name = getDisplayName(conv);
+  return name.startsWith('Guest') || u.role === 'GUEST';
 }
 
 function getInitials(name) {
@@ -66,7 +99,8 @@ function getInitials(name) {
 function stringToColor(str) {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
-  const palette = ['#2563EB', '#4F46E5', '#7C3AED', '#059669', '#0891B2', '#D97706', '#DC2626', '#1E293B'];
+  // Muted, warm-leaning set so avatar chips sit inside the ink/gold admin palette.
+  const palette = ['#8C6239', '#7A5C46', '#5F6B62', '#4C5B6B', '#6B5B7B', '#8A5A5A', '#4F6B6B', '#3F3F46'];
   return palette[Math.abs(h) % palette.length];
 }
 
@@ -83,39 +117,163 @@ function isHiddenMessage(msg) {
   );
 }
 
+/** Conversation-list preview: never render raw JSON payloads as the last message. */
+function getPreviewText(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (s.startsWith('{')) {
+    try {
+      const d = JSON.parse(s);
+      if (d.type === 'image') return 'Photo attachment';
+      if (d.type === 'csat') return '';
+      if (d.message) return String(d.message).replace(/\s+/g, ' ');
+    } catch {
+      /* plain text that happens to start with "{" */
+    }
+  }
+  if (s.startsWith('csat:')) return '';
+  return s.replace(/\s+/g, ' ');
+}
+
+const STATUS_PILL_STYLES = {
+  OPEN: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  IN_PROGRESS: 'bg-sky-50 text-sky-700 border-sky-200',
+  WAITING_CUSTOMER: 'bg-amber-50 text-amber-700 border-amber-200',
+  RESOLVED: 'bg-stone-100 text-stone-600 border-stone-200',
+  CLOSED: 'bg-stone-100 text-stone-500 border-stone-200',
+};
+
+const STATUS_LABELS = {
+  OPEN: 'Active',
+  IN_PROGRESS: 'In progress',
+  WAITING_CUSTOMER: 'Waiting',
+  RESOLVED: 'Resolved',
+  CLOSED: 'Closed',
+};
+
 function StatusPill({ status }) {
-  const styles = {
-    OPEN: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-    IN_PROGRESS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-    WAITING_CUSTOMER: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    RESOLVED: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
-    CLOSED: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20',
-  };
-  const labels = {
-    OPEN: 'Active',
-    IN_PROGRESS: 'In Progress',
-    WAITING_CUSTOMER: 'Waiting Customer',
-    RESOLVED: 'Resolved',
-    CLOSED: 'Closed',
-  };
-  const cls = styles[status] || styles.OPEN;
+  const cls = STATUS_PILL_STYLES[status] || STATUS_PILL_STYLES.OPEN;
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-semibold border whitespace-nowrap ${cls}`}>
-      {labels[status] || status || 'Active'}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${cls}`}>
+      {STATUS_LABELS[status] || status || 'Active'}
     </span>
   );
 }
 
+/** Icon-only control with an accessible name, a tooltip and a visible focus ring. */
+function IconButton({ label, onClick, children, variant = 'default', size = 'md', className = '', ...rest }) {
+  const sizes = {
+    md: 'h-10 w-10 md:h-9 md:w-9',
+    sm: 'h-9 w-9 md:h-8 md:w-8',
+  };
+  const variants = {
+    default:
+      'border border-stone-200 text-stone-600 hover:bg-stone-100 hover:text-stone-900 bg-white',
+    ghost: 'border border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-900',
+    danger: 'border border-stone-200 text-stone-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200',
+    solid: 'bg-stone-900 text-white hover:bg-black border border-stone-900',
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`inline-flex items-center justify-center rounded-md transition-colors flex-shrink-0 ${sizes[size]} ${variants[variant]} ${FOCUS} ${className}`}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
 const QUICK_REPLIES = [
-  { icon: '👋', text: 'Hello! How may I assist you today?' },
-  { icon: '🔍', text: 'Let me look up your order details right now.' },
-  { icon: '📦', text: 'Your package is confirmed and preparing for dispatch.' },
-  { icon: '🚚', text: 'Tracking shows delivery is scheduled in 2-3 business days.' },
-  { icon: '🔄', text: 'We accept hassle-free returns within 7 days of delivery.' },
-  { icon: '✅', text: 'I have marked this resolved for you. Have a great day!' },
+  { icon: Hand, label: 'Greeting', text: 'Hello! How may I assist you today?' },
+  { icon: Search, label: 'Look up order', text: 'Let me look up your order details right now.' },
+  { icon: Package, label: 'Dispatch', text: 'Your package is confirmed and preparing for dispatch.' },
+  { icon: Truck, label: 'Delivery ETA', text: 'Tracking shows delivery is scheduled in 2-3 business days.' },
+  { icon: RotateCcw, label: 'Returns', text: 'We accept hassle-free returns within 7 days of delivery.' },
+  { icon: CheckCircle, label: 'Resolve', text: 'I have marked this resolved for you. Have a great day!' },
 ];
 
-// ── Memoized Conversation Card ──
+/** "Today" / "Yesterday" / "Mon, 4 Aug" separator, derived from real message dates. */
+function dayLabel(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const today = new Date();
+  const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(today) - startOfDay(d)) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}),
+  });
+}
+
+const dayKey = (iso) => {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
+
+const isImageBubble = (msg) => parsePayload(msg.content)?.type === 'image';
+
+/** Structured payloads are stored as JSON strings in message content. */
+function parsePayload(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s.startsWith('{')) return null;
+  try {
+    const d = JSON.parse(s);
+    return d && typeof d === 'object' ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+function MessageBody({ msg }) {
+  const d = parsePayload(msg.content);
+
+  if (d?.type === 'image' && d.url) {
+    return (
+      <a href={d.url} target="_blank" rel="noopener noreferrer" className={`block rounded-lg ${FOCUS}`}>
+        <img
+          src={d.url}
+          alt={msg.isFromAdmin ? 'Attachment sent by support' : 'Attachment sent by the customer'}
+          className="max-w-full max-h-56 md:max-h-64 rounded-lg object-contain"
+          loading="lazy"
+        />
+      </a>
+    );
+  }
+
+  if (d?.message) {
+    return (
+      <div className="space-y-2">
+        <div className="whitespace-pre-line">{d.message}</div>
+        {Array.isArray(d.products) && d.products.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-200">
+            {d.products.slice(0, 3).map((p, pIdx) => (
+              <div
+                key={pIdx}
+                className="text-[11px] font-medium bg-white px-2 py-1 rounded-md border border-stone-200 flex items-center gap-1.5 min-w-0"
+              >
+                <Package size={12} className="text-stone-400" />
+                <span className="truncate max-w-[9rem]">{p.name || p.title}</span>
+                {p.price && <span className="font-bold text-emerald-700">₹{p.price}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <div className="whitespace-pre-line">{msg.content}</div>;
+}
+
+// ── Memoized conversation card ──
 const ConversationCard = memo(function ConversationCard({
   conv,
   active,
@@ -128,112 +286,199 @@ const ConversationCard = memo(function ConversationCard({
   onDelete,
 }) {
   const avatarBg = stringToColor(name);
-  const u = conv.user || conv.customer;
-  const isGuest = u?.email?.includes('guest-') || !u?.lastName;
+  const guest = isGuestConversation(conv);
+  const preview = getPreviewText(lastMsg) || conv.subject || 'New conversation started';
 
   return (
-    <div
-      onClick={() => onSelect(conv)}
-      className={`group relative p-3 mx-2 my-1 rounded-xl cursor-pointer transition-all duration-150 border select-none ${
-        active
-          ? 'bg-zinc-900 text-white border-zinc-900 shadow-md dark:bg-zinc-800 dark:border-zinc-700'
-          : 'bg-white hover:bg-slate-50 border-slate-200/80 text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:bg-zinc-800/60 dark:text-zinc-100'
-      }`}
-    >
-      <div className="flex items-start gap-2.5">
-        {/* Avatar with status indicator */}
-        <div className="relative flex-shrink-0">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs"
-            style={{ backgroundColor: active ? '#2563EB' : avatarBg }}
-          >
-            {getInitials(name)}
-          </div>
-          {unread && (
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1 mb-0.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className={`text-sm truncate ${unread ? 'font-bold' : 'font-semibold'}`}>
-                {name}
-              </span>
-              {isGuest && (
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded flex-shrink-0 ${
-                    active ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
-                  }`}
-                >
-                  GUEST
-                </span>
-              )}
-            </div>
-            <span
-              className={`text-[11px] flex-shrink-0 font-medium ${
-                active ? 'text-zinc-300' : 'text-zinc-400'
-              }`}
+    <div className="relative px-2 py-1">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`Open conversation with ${name}${unread ? ', unread' : ''}`}
+        aria-current={active ? 'true' : undefined}
+        onClick={() => onSelect(conv)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect(conv);
+          }
+        }}
+        className={`group relative w-full text-left p-3 pr-9 rounded-lg cursor-pointer transition-colors border select-none ${FOCUS} ${
+          active
+            ? 'bg-stone-900 border-stone-900 text-white'
+            : 'bg-white border-stone-200 hover:bg-stone-50 text-stone-900'
+        }`}
+      >
+        <div className="flex items-start gap-2.5">
+          <div className="relative flex-shrink-0">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm ${active ? 'ring-1 ring-white/25' : ''}`}
+              style={{ backgroundColor: avatarBg }}
             >
-              {conv.updatedAt ? formatTime(conv.updatedAt) : ''}
-            </span>
-          </div>
-
-          <div
-            className={`text-xs truncate ${
-              active
-                ? 'text-zinc-300'
-                : unread
-                ? 'font-semibold text-zinc-900 dark:text-white'
-                : 'text-zinc-500 dark:text-zinc-400'
-            }`}
-          >
-            {typing ? (
-              <span className="text-blue-400 font-semibold italic animate-pulse">Customer is typing...</span>
-            ) : (
-              lastMsg || conv.subject || 'New conversation started'
+              {getInitials(name)}
+            </div>
+            {unread && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-rose-500 ring-2 ring-white motion-safe:animate-pulse" />
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-zinc-800/60">
-            <span
-              className={`text-[10px] font-mono ${
-                active ? 'text-zinc-400' : 'text-zinc-400'
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className={`text-sm truncate ${unread ? 'font-bold' : 'font-semibold'}`}>{name}</span>
+                {guest && (
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                      active ? 'bg-white/15 text-white/80' : 'bg-stone-100 text-stone-500'
+                    }`}
+                  >
+                    GUEST
+                  </span>
+                )}
+              </div>
+              <span className={`text-[11px] flex-shrink-0 font-medium ${active ? 'text-white/60' : 'text-stone-500'}`}>
+                {conv.updatedAt ? formatTime(conv.updatedAt) : ''}
+              </span>
+            </div>
+
+            <div
+              className={`text-xs truncate ${
+                active ? 'text-white/70' : unread ? 'font-semibold text-stone-900' : 'text-stone-500'
               }`}
             >
-              #{conv.ticketNumber || conv.id?.slice(0, 8)}
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              {unread && unreadCount > 0 && (
-                <span className="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold shadow-xs">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+              {typing ? (
+                <span className={`font-semibold italic motion-safe:animate-pulse ${active ? 'text-white' : 'text-sky-700'}`}>
+                  Customer is typing…
                 </span>
+              ) : (
+                preview
               )}
-              <StatusPill status={conv.status} />
+            </div>
+
+            <div
+              className={`flex items-center justify-between gap-2 mt-2 pt-1.5 border-t ${
+                active ? 'border-white/10' : 'border-stone-100'
+              }`}
+            >
+              <span className={`text-[11px] font-mono truncate ${active ? 'text-white/50' : 'text-stone-500'}`}>
+                #{conv.ticketNumber || conv.id?.slice(0, 8)}
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                {unread && unreadCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+                <StatusPill status={conv.status} />
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Delete action on desktop hover */}
-        <button
-          onClick={(e) => onDelete(e, conv.id)}
-          className={`hidden sm:block opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all ${
-            active
-              ? 'hover:bg-zinc-800 text-zinc-400 hover:text-rose-400'
-              : 'hover:bg-rose-50 text-zinc-400 hover:text-rose-600 dark:hover:bg-zinc-800'
-          }`}
-          title="Delete ticket"
-        >
-          <Trash2 size={13} />
-        </button>
       </div>
+
+      {/* Always tappable on touch; revealed on hover/focus for pointer users. */}
+      <button
+        type="button"
+        onClick={(e) => onDelete(e, conv.id)}
+        aria-label={`Delete conversation with ${name}`}
+        title="Delete conversation"
+        className={`absolute top-3 right-3 inline-flex items-center justify-center h-8 w-8 rounded-md transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 ${FOCUS} ${
+          active ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-stone-400 hover:text-rose-600 hover:bg-rose-50'
+        }`}
+      >
+        <Trash2 size={14} />
+      </button>
     </div>
   );
 });
 
+// ── Customer details body (shared by the docked desktop pane and the mobile slide-over) ──
+function CustomerDetailsBody({ selectedChat, customerName, onResolve, onClose }) {
+  const u = selectedChat.user || selectedChat.customer;
+  const guest = isGuestConversation(selectedChat);
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-stone-200">
+        <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+          <Info size={14} className="text-gold-dark" /> Customer details
+        </h3>
+        <IconButton label="Close customer details" variant="ghost" size="sm" onClick={onClose}>
+          <X size={16} />
+        </IconButton>
+      </div>
+
+      <div className="space-y-5 mt-4">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+            style={{ backgroundColor: stringToColor(customerName) }}
+          >
+            {getInitials(customerName)}
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-stone-900 truncate">{customerName}</div>
+            <div className="text-xs text-stone-500 truncate">{u?.email || 'No email attached'}</div>
+          </div>
+        </div>
+
+        <dl className="space-y-3.5">
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1 flex items-center gap-1">
+              <Tag size={11} /> Ticket reference
+            </dt>
+            <dd className="text-xs font-mono font-semibold text-stone-800 break-all">
+              #{selectedChat.ticketNumber || selectedChat.id}
+            </dd>
+            <dd className="text-[11px] text-stone-500 mt-0.5 flex items-center gap-1">
+              <Clock size={11} /> Started {formatTime(selectedChat.createdAt)}
+            </dd>
+          </div>
+
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1 flex items-center gap-1">
+              <User size={11} /> Account
+            </dt>
+            <dd className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100 text-xs font-semibold text-stone-700">
+              <ShieldCheck size={12} className="text-emerald-600" />
+              {guest ? 'GUEST' : u?.role || 'CUSTOMER'}
+            </dd>
+          </div>
+
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 mb-1">Status</dt>
+            <dd>
+              <StatusPill status={selectedChat.status} />
+            </dd>
+          </div>
+        </dl>
+
+        <div className="pt-4 border-t border-stone-200 space-y-2">
+          {!guest && u?.id && (
+            <Link
+              to={`/admin/users/${u.id}`}
+              className={`w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-lg border border-stone-200 bg-white text-xs font-semibold text-stone-700 hover:bg-stone-50 transition-colors ${FOCUS}`}
+            >
+              <ExternalLink size={14} /> Open customer profile
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={onResolve}
+            className={`w-full inline-flex items-center justify-center gap-1.5 h-11 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors ${FOCUS_ON_DARK}`}
+          >
+            <CheckCircle size={14} /> Close &amp; resolve ticket
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ChatPanel() {
+  const confirm = useConfirm();
+
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [chatMode, setChatMode] = useState('ai');
@@ -256,15 +501,70 @@ export default function ChatPanel() {
   const [showAutoReplyModal, setShowAutoReplyModal] = useState(false);
   const [savingAutoReply, setSavingAutoReply] = useState(false);
   const [mobileView, setMobileView] = useState('list'); // 'list' | 'chat'
+  const [panelHeight, setPanelHeight] = useState(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
-  const messagesEndRef = useRef(null);
+  const panelRef = useRef(null);
+  const threadRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const selectedChatRef = useRef(null);
   const conversationsRef = useRef([]);
 
-  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
-  useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  // ── Fit the panel to the real admin canvas ──
+  // The old hard-coded `calc(100dvh - 170px)` guessed the surrounding chrome
+  // (navbar + canvas padding + banners) and was wrong on both ends: a dead cream
+  // strip on desktop, a composer pushed below the fold on mobile.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    let timer = 0;
+    let frame = 0;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const top = rect.top + window.scrollY;
+      // Read the real canvas gutter instead of guessing the breakpoint: the admin
+      // shell wraps this page in `p-4 md:p-8`, and banners above it can change too.
+      const gutter = parseFloat(window.getComputedStyle(el.parentElement).paddingBottom) || 16;
+      const room = Math.round(window.innerHeight - top - gutter);
+      const next = Math.max(460, room);
+      setPanelHeight((prev) => (prev !== null && Math.abs(prev - next) < 2 ? prev : next));
+    };
+    // Both an animation frame (earliest correct layout) and a debounced timeout —
+    // rAF is throttled in background tabs and some embedded/offscreen contexts,
+    // and the panel must never keep a stale height (it would push the composer
+    // below the fold). `measure` is idempotent, so running it twice is free.
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(measure, 30);
+      cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measure);
+    };
+
+    schedule();
+    // Re-measure after the route transition settles, fonts swap in, and any
+    // banner above the panel mounts — all of which move the panel's top edge.
+    const timers = [120, 420, 1000].map((ms) => setTimeout(schedule, ms));
+    window.addEventListener('resize', schedule);
+    window.visualViewport?.addEventListener('resize', schedule);
+    document.fonts?.ready?.then(schedule).catch(() => {});
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', schedule);
+      window.visualViewport?.removeEventListener('resize', schedule);
+    };
+  }, []);
 
   const loadConversations = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true);
@@ -274,8 +574,8 @@ export default function ChatPanel() {
       if (Array.isArray(items) && items.length > 0) {
         setConversations(items);
         const lm = {};
-        items.forEach(c => {
-          const vis = (c.ticketmessage || []).filter(m => !isHiddenMessage(m));
+        items.forEach((c) => {
+          const vis = (c.ticketmessage || []).filter((m) => !isHiddenMessage(m));
           if (vis.length > 0) lm[c.id] = vis[vis.length - 1].content;
         });
         setLastMessages(lm);
@@ -293,18 +593,20 @@ export default function ChatPanel() {
     try {
       const res = await chatAPI.getChatStats();
       setChatMode(res.data?.data?.chatMode || 'ai');
-    } catch {}
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
-  const handleSwitchMode = async () => {
-    const m = chatMode === 'ai' ? 'live' : 'ai';
+  const handleModeChange = async (mode) => {
+    if (modeLoading || mode === chatMode) return;
     setModeLoading(true);
     try {
-      await chatAPI.setChatMode(m);
-      setChatMode(m);
-      toast.success(`Global chat mode set to: ${m === 'ai' ? '🤖 AI Assistant' : '🎧 Live Agent'}`);
+      await chatAPI.setChatMode(mode);
+      setChatMode(mode);
+      toast.success(`Chat mode set to ${mode === 'ai' ? 'AI assistant' : 'live agent'}`);
     } catch {
-      toast.error('Failed to change chat mode');
+      toast.error('Could not change the chat mode');
     } finally {
       setModeLoading(false);
     }
@@ -314,17 +616,19 @@ export default function ChatPanel() {
     try {
       const res = await chatAPI.getAutoReplySettings();
       if (res.data?.data) setAutoReply(res.data.data);
-    } catch {}
+    } catch {
+      /* non-critical */
+    }
   }, []);
 
   const saveAutoReplySettings = async () => {
     setSavingAutoReply(true);
     try {
       await chatAPI.updateAutoReplySettings(autoReply);
-      toast.success('Auto-reply configuration saved');
+      toast.success('Auto-reply settings saved');
       setShowAutoReplyModal(false);
     } catch {
-      toast.error('Failed to save auto-reply settings');
+      toast.error('Could not save auto-reply settings');
     } finally {
       setSavingAutoReply(false);
     }
@@ -337,9 +641,8 @@ export default function ChatPanel() {
       const data = res.data?.data;
       const msgs = data?.messages || (Array.isArray(data) ? data : []);
       setMessages(msgs);
-      // If user profile is provided in response, enrich selectedChat
       if (data?.user && selectedChatRef.current?.id === id) {
-        setSelectedChat(prev => (prev ? { ...prev, user: { ...prev.user, ...data.user } } : prev));
+        setSelectedChat((prev) => (prev ? { ...prev, user: { ...prev.user, ...data.user } } : prev));
       }
     } catch {
       setMessages([]);
@@ -348,57 +651,92 @@ export default function ChatPanel() {
     }
   }, []);
 
-  const handleSelectChat = useCallback(async (conv) => {
-    const socket = connectSocket();
-    if (socket && selectedChatRef.current?.id && selectedChatRef.current.id !== conv.id) {
-      socket.emit('chat:leave', selectedChatRef.current.id);
-    }
-
-    setSelectedChat(conv);
-    setMobileView('chat');
-    setUnreadCounts(p => { const n = { ...p }; delete n[conv.id]; return n; });
-
-    if (socket && conv.id) {
-      socket.emit('chat:join', conv.id);
-    }
-    await loadMessages(conv.id);
-
-    // On desktop, auto-focus input. On mobile, do not pop keyboard immediately so user can read first.
-    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-      setTimeout(() => inputRef.current?.focus(), 150);
-    }
-  }, [loadMessages]);
-
-  const handleDeleteChat = useCallback(async (e, convId) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to permanently delete this chat ticket?')) return;
-    try {
-      await chatAPI.adminDeleteChat(convId);
-      toast.success('Ticket deleted');
-      if (selectedChat?.id === convId) {
-        setSelectedChat(null);
-        setMessages([]);
-        setMobileView('list');
+  const handleSelectChat = useCallback(
+    async (conv) => {
+      const socket = connectSocket();
+      if (socket && selectedChatRef.current?.id && selectedChatRef.current.id !== conv.id) {
+        socket.emit('chat:leave', selectedChatRef.current.id);
       }
-      loadConversations(false);
-    } catch {
-      toast.error('Failed to delete ticket');
-    }
-  }, [selectedChat?.id, loadConversations]);
+
+      setSelectedChat(conv);
+      setMobileView('chat');
+      setIsAtBottom(true);
+      setUnreadCounts((p) => {
+        const n = { ...p };
+        delete n[conv.id];
+        return n;
+      });
+
+      if (socket && conv.id) socket.emit('chat:join', conv.id);
+      await loadMessages(conv.id);
+
+      // Split-pane layouts: focus straight away. Single-pane: don't pop the
+      // keyboard with the pane transition still running.
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        setTimeout(() => inputRef.current?.focus(), 150);
+      }
+    },
+    [loadMessages]
+  );
+
+  const handleDeleteChat = useCallback(
+    async (e, convId) => {
+      e.stopPropagation();
+      const target = conversationsRef.current.find((c) => c.id === convId);
+      const label = target ? getDisplayName(target) : 'this conversation';
+      const ok = confirm
+        ? await confirm({
+            title: 'Delete conversation?',
+            message: `The full message history with ${label} will be permanently removed. This cannot be undone.`,
+            confirmLabel: 'Delete',
+            danger: true,
+          })
+        : window.confirm('Permanently delete this conversation?');
+      if (!ok) return;
+
+      try {
+        await chatAPI.adminDeleteChat(convId);
+        toast.success('Conversation deleted');
+        if (selectedChatRef.current?.id === convId) {
+          setSelectedChat(null);
+          setMessages([]);
+          setMobileView('list');
+        }
+        loadConversations(false);
+      } catch {
+        toast.error('Could not delete the conversation');
+      }
+    },
+    [confirm, loadConversations]
+  );
 
   const handleStatusChange = async (newStatus) => {
-    if (!selectedChat) return;
+    const conv = selectedChatRef.current;
+    if (!conv) return;
     try {
-      await chatAPI.updateChatStatus(selectedChat.id, newStatus);
-      setSelectedChat(prev => (prev ? { ...prev, status: newStatus } : null));
-      setConversations(prev =>
-        prev.map(c => (c.id === selectedChat.id ? { ...c, status: newStatus } : c))
-      );
-      toast.success(`Ticket marked ${newStatus}`);
+      await chatAPI.updateChatStatus(conv.id, newStatus);
+      setSelectedChat((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, status: newStatus } : c)));
+      toast.success(`Ticket marked ${(STATUS_LABELS[newStatus] || newStatus).toLowerCase()}`);
     } catch {
-      toast.error('Failed to update status');
+      toast.error('Could not update the ticket status');
     }
   };
+
+  const handleResolve = useCallback(async () => {
+    const conv = selectedChatRef.current;
+    if (!conv) return;
+    try {
+      await chatAPI.updateChatStatus(conv.id, 'RESOLVED');
+      toast.success('Conversation resolved');
+      loadConversations(false);
+      setSelectedChat(null);
+      setShowCustomerDrawer(false);
+      setMobileView('list');
+    } catch {
+      toast.error('Could not resolve the conversation');
+    }
+  }, [loadConversations]);
 
   const handleSend = async (customText = null) => {
     const textToSend = typeof customText === 'string' ? customText : inputValue;
@@ -408,37 +746,31 @@ export default function ChatPanel() {
     setSending(true);
 
     const tempId = `admin-temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setMessages(p => [
+    setMessages((p) => [
       ...p,
-      {
-        id: tempId,
-        content,
-        isFromAdmin: true,
-        senderId: 'admin',
-        senderName: 'You',
-        createdAt: new Date().toISOString(),
-      },
+      { id: tempId, content, isFromAdmin: true, senderId: 'admin', senderName: 'You', createdAt: new Date().toISOString() },
     ]);
 
     try {
       const res = await chatAPI.adminSendMessage(selectedChat.id, content);
       const d = res.data?.data;
       if (d) {
-        setMessages(p => p.map(m => (m.id === tempId ? { ...d, isFromAdmin: true } : m)));
-        setLastMessages(prev => ({ ...prev, [selectedChat.id]: content }));
-        // Ensure conversation displays as active/in-progress
-        setConversations(prev =>
-          prev.map(c => (c.id === selectedChat.id ? { ...c, status: 'IN_PROGRESS', updatedAt: new Date().toISOString() } : c))
+        setMessages((p) => p.map((m) => (m.id === tempId ? { ...d, isFromAdmin: true } : m)));
+        setLastMessages((prev) => ({ ...prev, [selectedChat.id]: content }));
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedChat.id ? { ...c, status: 'IN_PROGRESS', updatedAt: new Date().toISOString() } : c
+          )
         );
       } else {
-        setMessages(p => p.filter(m => m.id !== tempId));
+        setMessages((p) => p.filter((m) => m.id !== tempId));
         setInputValue(content);
-        toast.error('Failed to deliver message');
+        toast.error('Message was not delivered — try again');
       }
     } catch {
-      setMessages(p => p.filter(m => m.id !== tempId));
+      setMessages((p) => p.filter((m) => m.id !== tempId));
       setInputValue(content);
-      toast.error('Failed to send message');
+      toast.error('Could not send the message');
     } finally {
       setSending(false);
     }
@@ -455,7 +787,7 @@ export default function ChatPanel() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be under 5MB');
+      toast.error('Image must be under 5 MB');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -471,7 +803,7 @@ export default function ChatPanel() {
       setImagePreview(null);
       loadMessages(selectedChat.id);
     } catch {
-      toast.error('Failed to upload image');
+      toast.error('Could not upload the image');
       setImagePreview(null);
     } finally {
       setUploading(false);
@@ -483,7 +815,7 @@ export default function ChatPanel() {
     setImagePreview(null);
   };
 
-  const visibleMessages = useMemo(() => messages.filter(m => !isHiddenMessage(m)), [messages]);
+  const visibleMessages = useMemo(() => messages.filter((m) => !isHiddenMessage(m)), [messages]);
 
   // ── Socket listener ──
   useEffect(() => {
@@ -492,9 +824,7 @@ export default function ChatPanel() {
 
     const onConnect = () => {
       setSocketConnected(true);
-      if (selectedChatRef.current?.id) {
-        socket.emit('chat:join', selectedChatRef.current.id);
-      }
+      if (selectedChatRef.current?.id) socket.emit('chat:join', selectedChatRef.current.id);
     };
     const onDisconnect = () => setSocketConnected(false);
 
@@ -505,41 +835,55 @@ export default function ChatPanel() {
 
       if (!incoming.isFromAdmin) {
         playNotificationChime();
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
-        }
+        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([200, 100, 200]);
       }
 
-      // Add to open conversation
       if (cur && data.ticketId === cur.id) {
-        setMessages(p => {
-          if (p.some(m => m.id === incoming.id)) return p;
-          if (incoming.isFromAdmin && p.some(m => m.isFromAdmin && m.content === incoming.content)) return p;
-          if (!incoming.isFromAdmin && p.some(m => !m.isFromAdmin && m.senderId === incoming.senderId && m.content === incoming.content && Math.abs(new Date(m.createdAt).getTime() - new Date(incoming.createdAt).getTime()) < 2000)) return p;
+        setMessages((p) => {
+          if (p.some((m) => m.id === incoming.id)) return p;
+          if (incoming.isFromAdmin && p.some((m) => m.isFromAdmin && m.content === incoming.content)) return p;
+          if (
+            !incoming.isFromAdmin &&
+            p.some(
+              (m) =>
+                !m.isFromAdmin &&
+                m.senderId === incoming.senderId &&
+                m.content === incoming.content &&
+                Math.abs(new Date(m.createdAt).getTime() - new Date(incoming.createdAt).getTime()) < 2000
+            )
+          )
+            return p;
           return [...p, incoming];
         });
       }
 
       if (!incoming.isFromAdmin && (!cur || data.ticketId !== cur.id)) {
-        setUnreadCounts(p => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
+        setUnreadCounts((p) => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
       }
 
-      setLastMessages(prev => ({ ...prev, [data.ticketId]: incoming.content }));
+      setLastMessages((prev) => ({ ...prev, [data.ticketId]: incoming.content }));
 
-      setConversations(prev => {
-        const index = prev.findIndex(c => c.id === data.ticketId);
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.id === data.ticketId);
         if (index !== -1) {
           const updated = [...prev];
           const existing = updated[index];
           updated.splice(index, 1);
-          return [{ ...existing, status: existing.status === 'RESOLVED' ? 'OPEN' : existing.status, updatedAt: incoming.createdAt || new Date().toISOString() }, ...updated];
+          return [
+            {
+              ...existing,
+              status: existing.status === 'RESOLVED' ? 'OPEN' : existing.status,
+              updatedAt: incoming.createdAt || new Date().toISOString(),
+            },
+            ...updated,
+          ];
         }
 
         const newConv = {
           id: data.ticketId,
           ticketNumber: data.ticketNumber || `#${data.ticketId.slice(0, 8)}`,
           status: 'OPEN',
-          subject: 'Live Chat Support',
+          subject: 'Live chat support',
           user: data.customer || {
             id: data.userId,
             firstName: incoming.senderName || 'Customer',
@@ -556,7 +900,7 @@ export default function ChatPanel() {
 
     const onTyping = (d) => {
       if (d.isAdmin) return;
-      setTypingUsers(p => {
+      setTypingUsers((p) => {
         const n = { ...p };
         if (d.isTyping) n[d.ticketId] = { name: d.senderName, t: Date.now() };
         else delete n[d.ticketId];
@@ -584,13 +928,20 @@ export default function ChatPanel() {
     loadAutoReplySettings();
   }, [loadConversations, loadChatMode, loadAutoReplySettings]);
 
+  // Auto-scroll only while the operator is already reading the newest messages —
+  // otherwise an incoming reply yanks them out of the history they're reading.
+  // Instant, not smooth: a smooth scroll fires intermediate onScroll events that
+  // recompute `isAtBottom` mid-flight and can strand the view above the newest
+  // message (with the "Latest" pill permanently visible).
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [visibleMessages.length]);
+    const el = threadRef.current;
+    if (!el || !isAtBottom) return;
+    el.scrollTop = el.scrollHeight;
+  }, [visibleMessages.length, isAtBottom, selectedChat?.id]);
 
   useEffect(() => {
     const i = setInterval(() => {
-      setTypingUsers(p => {
+      setTypingUsers((p) => {
         const now = Date.now();
         let changed = false;
         const n = { ...p };
@@ -606,9 +957,29 @@ export default function ChatPanel() {
     return () => clearInterval(i);
   }, []);
 
-  // Filtered conversations
+  // Auto-grow the composer instead of scrolling inside a one-line textarea.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 152)}px`;
+  }, [inputValue, selectedChat?.id]);
+
+  // Esc closes whichever overlay is open.
+  const anyOverlayOpen = showCustomerDrawer || showAutoReplyModal;
+  useEffect(() => {
+    if (!anyOverlayOpen) return;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      setShowCustomerDrawer(false);
+      setShowAutoReplyModal(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [anyOverlayOpen]);
+
   const filtered = useMemo(() => {
-    return conversations.filter(c => {
+    return conversations.filter((c) => {
       if (filterTab === 'UNREAD' && !(unreadCounts[c.id] > 0)) return false;
       if (filterTab === 'ACTIVE' && (c.status === 'RESOLVED' || c.status === 'CLOSED')) return false;
       if (filterTab === 'RESOLVED' && c.status !== 'RESOLVED' && c.status !== 'CLOSED') return false;
@@ -624,167 +995,213 @@ export default function ChatPanel() {
     });
   }, [conversations, filterTab, searchQuery, unreadCounts, lastMessages]);
 
-  const totalUnreadCount = useMemo(() => {
-    return Object.values(unreadCounts).reduce((a, b) => a + b, 0);
-  }, [unreadCounts]);
+  const totalUnreadCount = useMemo(
+    () => Object.values(unreadCounts).reduce((a, b) => a + b, 0),
+    [unreadCounts]
+  );
+
+  const tabCounts = useMemo(
+    () => ({
+      ALL: conversations.length,
+      ACTIVE: conversations.filter((c) => c.status !== 'RESOLVED' && c.status !== 'CLOSED').length,
+      UNREAD: conversations.filter((c) => unreadCounts[c.id] > 0).length,
+      RESOLVED: conversations.filter((c) => c.status === 'RESOLVED' || c.status === 'CLOSED').length,
+    }),
+    [conversations, unreadCounts]
+  );
 
   const activeCustomerName = selectedChat ? getDisplayName(selectedChat) : '';
-  const activeCustomerBg = selectedChat ? stringToColor(activeCustomerName) : '#2563EB';
+  const activeCustomerBg = selectedChat ? stringToColor(activeCustomerName) : '#1c1917';
+  const listVisible = mobileView !== 'chat';
+  const threadVisible = mobileView !== 'list';
+
+  const panelStyle = panelHeight ? { height: `${panelHeight}px` } : undefined;
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-115px)] md:h-[calc(100dvh-170px)] max-h-[calc(100dvh-115px)] md:max-h-[920px] w-full bg-white dark:bg-zinc-900 rounded-xl md:rounded-2xl border border-slate-200/90 dark:border-zinc-800 shadow-xs overflow-hidden font-sans">
-      {/* ── Top Header Navigation (Hidden on mobile when actively in a chat) ── */}
-      <div
-        className={`${
-          mobileView === 'chat' ? 'hidden md:flex' : 'flex'
-        } items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex-shrink-0`}
+    <div
+      ref={panelRef}
+      style={panelStyle}
+      className="flex flex-col w-full min-h-0 h-[calc(100dvh-6.5rem)] md:h-[calc(100dvh-9rem)] bg-white rounded-2xl border border-stone-200 shadow-soft overflow-hidden font-sans"
+    >
+      {/* ── Console bar (hidden on mobile while a conversation is open) ── */}
+      <header
+        className={`${listVisible ? 'flex' : 'hidden lg:flex'} flex-wrap items-center gap-x-3 gap-y-2 px-3 md:px-5 py-2.5 md:py-3 border-b border-stone-200 bg-white flex-shrink-0`}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-zinc-950 dark:bg-zinc-800 flex items-center justify-center text-white shadow-xs flex-shrink-0">
-            <MessageCircle size={16} />
-          </div>
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <span className="hidden xs:flex w-9 h-9 rounded-xl bg-stone-900 text-white items-center justify-center flex-shrink-0">
+            <MessageCircle size={17} />
+          </span>
           <div className="min-w-0">
-            <h1 className="text-sm md:text-base font-bold text-zinc-950 dark:text-white tracking-tight flex items-center gap-2 truncate">
-              Support Console
+            <h1 className="text-sm md:text-[15px] font-bold text-stone-900 tracking-tight flex items-center gap-2 min-w-0">
+              <span className="truncate">Support console</span>
               {totalUnreadCount > 0 && (
-                <span className="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-extrabold animate-pulse">
-                  {totalUnreadCount} unread
+                <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex-shrink-0">
+                  {totalUnreadCount} new
                 </span>
               )}
             </h1>
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${socketConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-              <span className="truncate">{socketConnected ? 'Realtime' : 'Reconnecting...'}</span>
-              <span>•</span>
-              <span className="truncate">{conversations.length} chats</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium min-w-0">
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0 ${socketConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                aria-hidden="true"
+              />
+              <span className="truncate">{socketConnected ? 'Realtime' : 'Reconnecting…'}</span>
+              <span aria-hidden="true">·</span>
+              <span className="truncate">
+                {conversations.length} chat{conversations.length === 1 ? '' : 's'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Global Chat Mode Toggle & Actions */}
-        <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0">
-          <div className="bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl flex items-center gap-1">
+        <div className="flex items-center gap-1.5 md:gap-2 ml-auto">
+          {/* Chat mode — a real segmented control: clicking the active segment is a no-op. */}
+          <div
+            role="group"
+            aria-label="Chat mode"
+            className="bg-stone-100 p-0.5 rounded-md flex items-center gap-0.5"
+          >
             <button
-              onClick={handleSwitchMode}
+              type="button"
+              onClick={() => handleModeChange('ai')}
               disabled={modeLoading}
-              className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                chatMode === 'ai'
-                  ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              aria-pressed={chatMode === 'ai'}
+              className={`inline-flex items-center gap-1.5 h-9 px-2.5 md:px-3 rounded text-xs font-bold transition-colors disabled:opacity-60 ${FOCUS} ${
+                chatMode === 'ai' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              <Bot size={13} /> <span className="hidden xs:inline">AI</span><span className="hidden sm:inline"> Assistant</span>
+              <Bot size={14} />
+              <span className="hidden xs:inline">AI</span>
+              <span className="hidden lg:inline">assistant</span>
             </button>
             <button
-              onClick={handleSwitchMode}
+              type="button"
+              onClick={() => handleModeChange('live')}
               disabled={modeLoading}
-              className={`px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                chatMode === 'live'
-                  ? 'bg-white dark:bg-zinc-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
-                  : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
+              aria-pressed={chatMode === 'live'}
+              className={`inline-flex items-center gap-1.5 h-9 px-2.5 md:px-3 rounded text-xs font-bold transition-colors disabled:opacity-60 ${FOCUS} ${
+                chatMode === 'live' ? 'bg-white text-emerald-700 shadow-sm' : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              <Headphones size={13} /> <span className="hidden xs:inline">Live</span><span className="hidden sm:inline"> Agent</span>
+              <Headphones size={14} />
+              <span className="hidden xs:inline">Live</span>
+              <span className="hidden lg:inline">agent</span>
             </button>
           </div>
 
           <button
+            type="button"
             onClick={() => setShowAutoReplyModal(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
+            aria-label={`Auto-reply settings — currently ${autoReply.enabled ? 'on' : 'off'}`}
+            title="Auto-reply settings"
+            className={`inline-flex items-center gap-1.5 h-10 md:h-9 px-2.5 rounded-md border text-xs font-semibold transition-colors ${FOCUS} ${
+              autoReply.enabled
+                ? 'border-gold/40 bg-gold/10 text-stone-800 hover:bg-gold/20'
+                : 'border-stone-200 text-stone-600 hover:bg-stone-50'
+            }`}
           >
-            <Zap size={13} className={autoReply.enabled ? 'text-amber-500' : 'text-zinc-400'} />
-            Auto-Reply {autoReply.enabled ? 'ON' : 'OFF'}
+            <Zap size={14} className={autoReply.enabled ? 'text-gold-dark' : 'text-stone-400'} />
+            <span className="hidden lg:inline">Auto-reply {autoReply.enabled ? 'on' : 'off'}</span>
           </button>
 
-          <button
-            onClick={() => loadConversations(true)}
-            className="p-1.5 md:p-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition flex-shrink-0"
-            title="Refresh conversations"
-          >
-            <RefreshCw size={15} />
-          </button>
+          <IconButton label="Refresh conversations" onClick={() => loadConversations(true)}>
+            <RefreshCw size={16} className={loading ? 'motion-safe:animate-spin' : ''} />
+          </IconButton>
         </div>
-      </div>
+      </header>
 
-      {/* ── Main Workspace ── */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* ── Left Sidebar (Conversations) ── */}
-        <div
-          className={`${
-            mobileView === 'chat' ? 'hidden md:flex' : 'flex'
-          } w-full md:w-80 lg:w-96 flex-col border-r border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 overflow-hidden flex-shrink-0`}
+      {/* ── Workspace ── */}
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+        {/* ── Conversation list ── */}
+        <aside
+          aria-label="Conversations"
+          className={`${listVisible ? 'flex' : 'hidden lg:flex'} w-full lg:w-80 xl:w-96 flex-col border-r border-stone-200 bg-white overflow-hidden flex-shrink-0 min-h-0`}
         >
-          {/* Search Bar */}
-          <div className="p-2.5 md:p-3 border-b border-slate-200/60 dark:border-zinc-800 flex-shrink-0">
+          <div className="p-3 border-b border-stone-200 flex-shrink-0">
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden="true" />
               <input
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search customer, ticket, email..."
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200/80 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-blue-500 shadow-2xs transition"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                type="text"
+                role="searchbox"
+                aria-label="Search conversations"
+                placeholder="Search customer, ticket, email…"
+                className="w-full h-10 pl-9 pr-9 rounded-md bg-stone-50 border border-stone-200 text-sm text-stone-900 placeholder-stone-400 outline-none transition focus:border-stone-500 focus:bg-white focus:ring-4 focus:ring-stone-900/5"
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  aria-label="Clear search"
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-8 w-8 rounded text-stone-400 hover:text-stone-700 hover:bg-stone-100 ${FOCUS}`}
                 >
-                  <X size={13} />
+                  <X size={14} />
                 </button>
               )}
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex gap-1 mt-2">
+            <div className="flex gap-1 mt-2.5" role="tablist" aria-label="Filter conversations">
               {[
                 { id: 'ALL', label: 'All' },
                 { id: 'ACTIVE', label: 'Active' },
                 { id: 'UNREAD', label: 'Unread' },
                 { id: 'RESOLVED', label: 'Resolved' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setFilterTab(tab.id)}
-                  className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition ${
-                    filterTab === tab.id
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-2xs'
-                      : 'text-zinc-500 hover:bg-slate-200/60 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.id === 'UNREAD' && totalUnreadCount > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px]">
-                      {totalUnreadCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+              ].map((tab) => {
+                const selected = filterTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setFilterTab(tab.id)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1 h-8 rounded text-[11px] font-bold transition-colors ${FOCUS} ${
+                      selected
+                        ? 'bg-stone-900 text-white'
+                        : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
+                    }`}
+                  >
+                    {tab.label}
+                    {tabCounts[tab.id] > 0 && (
+                      <span
+                        className={`text-[10px] font-extrabold ${selected ? 'text-white/70' : 'text-stone-400'}`}
+                      >
+                        {tabCounts[tab.id]}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto py-1 divide-y divide-slate-100/60 dark:divide-zinc-800/40">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
-              <div className="p-10 text-center text-zinc-400">
-                <RefreshCw size={22} className="animate-spin mx-auto mb-2 text-blue-600" />
-                <span className="text-xs font-medium">Syncing live conversations...</span>
+              <div className="p-10 text-center text-stone-400">
+                <RefreshCw size={22} className="motion-safe:animate-spin mx-auto mb-2 text-stone-400" />
+                <span className="text-xs font-medium">Syncing live conversations…</span>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="p-8 text-center text-zinc-400">
-                <MessageCircle size={32} className="mx-auto mb-2 opacity-25" />
-                <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">No chats found</p>
-                <p className="text-xs mt-1 text-zinc-500">
-                  {searchQuery ? 'Try changing your search terms.' : 'Incoming customer messages will appear here.'}
+              <div className="p-8 text-center">
+                <MessageCircle size={30} className="mx-auto mb-2 text-stone-300" />
+                <p className="text-sm font-bold text-stone-700">
+                  {searchQuery ? 'No matching conversations' : 'No conversations here yet'}
+                </p>
+                <p className="text-xs mt-1 text-stone-500 max-w-[15rem] mx-auto">
+                  {searchQuery
+                    ? 'Try a different name, ticket number or email.'
+                    : 'Incoming customer messages appear here the moment they arrive.'}
                 </p>
               </div>
             ) : (
-              filtered.map(conv => (
+              filtered.map((conv) => (
                 <ConversationCard
                   key={conv.id}
                   conv={conv}
                   active={selectedChat?.id === conv.id}
                   unread={unreadCounts[conv.id] > 0 && selectedChat?.id !== conv.id}
-                  typing={typingUsers[conv.id]}
+                  typing={Boolean(typingUsers[conv.id])}
                   name={getDisplayName(conv)}
                   lastMsg={lastMessages[conv.id]}
                   unreadCount={unreadCounts[conv.id] || 0}
@@ -794,556 +1211,541 @@ export default function ChatPanel() {
               ))
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* ── Right Chat Workspace ── */}
-        <div
-          className={`${
-            mobileView === 'list' ? 'hidden md:flex' : 'flex'
-          } flex-1 flex-col bg-white dark:bg-zinc-950 overflow-hidden min-w-0`}
+        {/* ── Thread ── */}
+        <section
+          aria-label="Conversation"
+          className={`${threadVisible ? 'flex' : 'hidden lg:flex'} flex-1 min-w-0 min-h-0 flex-col bg-white overflow-hidden`}
         >
           {!selectedChat ? (
-            /* Empty State (Desktop) */
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/40 dark:bg-zinc-950">
-              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-center mb-4 text-zinc-400">
-                <MessageCircle size={32} className="text-blue-600" />
+            <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-8 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-center mb-4">
+                <MessageCircle size={26} className="text-stone-400" />
               </div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white mb-1">
-                Select a conversation to reply
-              </h2>
-              <p className="text-xs text-zinc-500 max-w-sm mb-6">
-                Pick an active customer conversation from the list to assist them, share order updates, or manage their support ticket.
+              <h2 className="text-base md:text-lg font-bold text-stone-900">Select a conversation</h2>
+              <p className="text-sm text-stone-500 max-w-sm mt-1">
+                Pick a customer from the list to reply, share order updates, or close their ticket.
               </p>
-              <div className="grid grid-cols-2 gap-3 max-w-md w-full text-left">
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                    <Headphones size={15} className="text-emerald-500" /> Real-time Sync
-                  </div>
-                  <p className="text-[11px] text-zinc-500 mt-1">
-                    Direct websocket rooms ensure instantaneous delivery without page refreshing.
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                    <Bot size={15} className="text-indigo-500" /> Hybrid AI Handoff
-                  </div>
-                  <p className="text-[11px] text-zinc-500 mt-1">
-                    Reply at any time — sending a message smoothly claims the chat as human agent.
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-5 text-xs text-stone-500">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true" /> {tabCounts.ACTIVE} active
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" aria-hidden="true" /> {totalUnreadCount} unread
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-stone-300" aria-hidden="true" /> {tabCounts.RESOLVED} resolved
+                </span>
               </div>
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="px-3 md:px-5 py-2.5 md:py-3 border-b border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <button
-                    onClick={() => {
-                      setMobileView('list');
-                    }}
-                    className="md:hidden p-2 -ml-1 rounded-xl text-zinc-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-center flex-shrink-0"
-                    title="Back to conversation list"
+              {/* Thread header */}
+              <div className="px-2.5 md:px-5 py-2 md:py-3 border-b border-stone-200 bg-white flex items-center justify-between gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <IconButton
+                    label="Back to conversations"
+                    variant="ghost"
+                    onClick={() => setMobileView('list')}
+                    className="lg:hidden"
                   >
-                    <ArrowLeft size={19} />
-                  </button>
+                    <ArrowLeft size={20} />
+                  </IconButton>
 
+                  {/* Hidden on the narrowest phones so the customer name keeps its room. */}
                   <div
-                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-xs flex-shrink-0"
+                    className="hidden sm:flex w-10 h-10 rounded-xl items-center justify-center text-white font-bold text-sm flex-shrink-0"
                     style={{ backgroundColor: activeCustomerBg }}
+                    aria-hidden="true"
                   >
                     {getInitials(activeCustomerName)}
                   </div>
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-sm font-bold text-zinc-950 dark:text-white truncate">
-                        {activeCustomerName}
+                      <span className="text-sm font-bold text-stone-900 truncate">{activeCustomerName}</span>
+                      <span className="hidden sm:inline-flex">
+                        <StatusPill status={selectedChat.status} />
                       </span>
-                      <StatusPill status={selectedChat.status} />
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-medium truncate">
-                      <span>#{selectedChat.ticketNumber || selectedChat.id?.slice(0, 8)}</span>
-                      <span>•</span>
-                      <span className="truncate">{selectedChat.user?.email || 'Anonymous'}</span>
+                    <div className="flex items-center gap-1.5 text-[11px] text-stone-500 font-medium min-w-0">
+                      <span className="font-mono flex-shrink-0">
+                        #{selectedChat.ticketNumber || selectedChat.id?.slice(0, 8)}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="truncate">{selectedChat.user?.email || 'Anonymous visitor'}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Header Action Tools */}
-                <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <label className="sr-only" htmlFor="ticket-status">
+                    Ticket status
+                  </label>
                   <select
+                    id="ticket-status"
                     value={selectedChat.status}
-                    onChange={e => handleStatusChange(e.target.value)}
-                    className="text-[11px] md:text-xs font-semibold px-2 md:px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 outline-none cursor-pointer max-w-[105px] md:max-w-none"
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="h-10 md:h-9 max-w-[7.5rem] md:max-w-none rounded-md border border-stone-200 bg-white px-2 text-xs font-semibold text-stone-800 outline-none cursor-pointer transition focus:border-stone-500 focus:ring-4 focus:ring-stone-900/5"
                   >
                     <option value="OPEN">Active</option>
-                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="IN_PROGRESS">In progress</option>
                     <option value="WAITING_CUSTOMER">Waiting</option>
                     <option value="RESOLVED">Resolved</option>
                     <option value="CLOSED">Closed</option>
                   </select>
 
-                  <button
-                    onClick={() => setShowCustomerDrawer(!showCustomerDrawer)}
-                    className={`p-1.5 md:p-2 rounded-xl border transition ${
-                      showCustomerDrawer
-                        ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-zinc-800 dark:border-zinc-600'
-                        : 'border-slate-200 dark:border-zinc-700 text-zinc-500 hover:bg-slate-50 dark:hover:bg-zinc-800'
-                    }`}
-                    title="Customer details"
+                  <IconButton
+                    label="Customer details"
+                    variant={showCustomerDrawer ? 'solid' : 'default'}
+                    aria-pressed={showCustomerDrawer}
+                    onClick={() => setShowCustomerDrawer((v) => !v)}
                   >
                     <Info size={16} />
-                  </button>
+                  </IconButton>
 
-                  <button
+                  <IconButton
+                    label="Clear chat thread"
+                    variant="danger"
+                    className="hidden sm:inline-flex"
                     onClick={async () => {
-                      if (!window.confirm('Clear all messages from this ticket?')) return;
+                      const ok = confirm
+                        ? await confirm({
+                            title: 'Clear this thread?',
+                            message: 'Every message in this conversation will be deleted. The ticket itself stays open.',
+                            confirmLabel: 'Clear messages',
+                            danger: true,
+                          })
+                        : window.confirm('Clear all messages from this ticket?');
+                      if (!ok) return;
                       try {
                         await chatAPI.adminClearMessages(selectedChat.id);
                         setMessages([]);
                         toast.success('Messages cleared');
                       } catch {
-                        toast.error('Failed to clear messages');
+                        toast.error('Could not clear the messages');
                       }
                     }}
-                    className="hidden sm:flex p-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
-                    title="Clear chat thread"
                   >
                     <Eraser size={16} />
-                  </button>
+                  </IconButton>
 
                   <button
-                    onClick={async () => {
-                      try {
-                        await chatAPI.updateChatStatus(selectedChat.id, 'RESOLVED');
-                        toast.success('Conversation resolved');
-                        loadConversations(false);
-                        setSelectedChat(null);
-                        setMobileView('list');
-                      } catch {
-                        toast.error('Failed to resolve');
-                      }
-                    }}
-                    className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition"
+                    type="button"
+                    onClick={handleResolve}
+                    className={`hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors ${FOCUS_ON_DARK}`}
                   >
                     <CheckCircle size={14} /> Resolve
                   </button>
 
-                  <button
+                  <IconButton
+                    label="Close conversation"
+                    variant="ghost"
+                    className="hidden sm:inline-flex"
                     onClick={() => {
                       setSelectedChat(null);
                       setMobileView('list');
                     }}
-                    className="p-1.5 md:p-2 rounded-xl text-zinc-400 hover:text-zinc-600 hover:bg-slate-100 dark:hover:bg-zinc-800"
-                    title="Close conversation"
                   >
                     <X size={16} />
-                  </button>
+                  </IconButton>
                 </div>
               </div>
 
-              {/* Chat Thread + Drawer Area */}
-              <div className="flex flex-1 overflow-hidden relative">
-                {/* Message Stream */}
-                <div className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-zinc-950 min-w-0">
-                  <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3">
+              {/* Thread + details */}
+              <div className="flex flex-1 min-h-0 overflow-hidden relative">
+                <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-stone-50/70">
+                  <div
+                    ref={threadRef}
+                    onScroll={() => {
+                      const el = threadRef.current;
+                      if (!el) return;
+                      setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 96);
+                    }}
+                    aria-live="polite"
+                    aria-relevant="additions"
+                    className="flex-1 min-h-0 overflow-y-auto px-3 md:px-6 py-4 space-y-1"
+                  >
                     {messagesLoading ? (
-                      <div className="h-full flex items-center justify-center text-zinc-400">
-                        <RefreshCw size={24} className="animate-spin text-blue-600" />
+                      <div className="h-full flex items-center justify-center">
+                        <RefreshCw size={22} className="motion-safe:animate-spin text-stone-400" />
                       </div>
                     ) : (
                       <>
-                        <div className="text-center my-1">
-                          <span className="px-3 py-0.5 rounded-full bg-white dark:bg-zinc-800 text-[10px] md:text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 border border-slate-200/80 dark:border-zinc-700 shadow-2xs">
-                            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-
                         {visibleMessages.map((msg, idx) => {
                           const isAI = msg.senderId === 'ai-chatbot' || msg.senderName === 'AI Assistant';
                           const isMe = msg.isFromAdmin && !isAI;
+                          const prev = visibleMessages[idx - 1];
+                          const showDay = !prev || dayKey(prev.createdAt) !== dayKey(msg.createdAt);
 
                           return (
-                            <div
-                              key={`${msg.id || idx}`}
-                              className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
-                            >
-                              {!isMe && (
-                                <div
-                                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-2xs"
-                                  style={{ backgroundColor: activeCustomerBg }}
-                                >
-                                  {getInitials(activeCustomerName)}
+                            <div key={msg.id || idx}>
+                              {showDay && (
+                                <div className="text-center py-3">
+                                  <span className="px-3 py-0.5 rounded-full bg-white text-[11px] font-semibold text-stone-500 border border-stone-200">
+                                    {dayLabel(msg.createdAt)}
+                                  </span>
                                 </div>
                               )}
 
-                              <div className="max-w-[88%] md:max-w-[72%]">
-                                {isAI && (
-                                  <div className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mb-1 pl-1 flex items-center gap-1">
-                                    <Bot size={13} /> AI Bot Assistant
+                              <div className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                {!isMe && (
+                                  <div
+                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 ${
+                                      isAI ? 'bg-gold' : ''
+                                    }`}
+                                    style={isAI ? undefined : { backgroundColor: activeCustomerBg }}
+                                    aria-hidden="true"
+                                  >
+                                    {isAI ? <Bot size={15} /> : getInitials(activeCustomerName)}
                                   </div>
                                 )}
 
-                                <div
-                                  className={`p-3 md:p-3.5 rounded-2xl text-[13px] md:text-[13.5px] leading-relaxed break-words shadow-2xs border ${
-                                    isMe
-                                      ? 'bg-zinc-950 text-white border-zinc-950 dark:bg-blue-600 dark:border-blue-600 rounded-br-xs'
-                                      : isAI
-                                      ? 'bg-indigo-50/90 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-100 border-indigo-200/70 dark:border-indigo-800 rounded-bl-xs'
-                                      : 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 border-slate-200 dark:border-zinc-800 rounded-bl-xs'
-                                  }`}
-                                >
-                                  {(() => {
-                                    try {
-                                      const d = JSON.parse(msg.content);
-                                      if (d.type === 'image' && d.url) {
-                                        return (
-                                          <img
-                                            src={d.url}
-                                            alt="Attachment"
-                                            className="max-w-full max-h-56 rounded-xl cursor-pointer hover:opacity-95 object-contain"
-                                            loading="lazy"
-                                            onClick={() => window.open(d.url, '_blank')}
-                                          />
-                                        );
-                                      }
-                                      if (d.message) {
-                                        return (
-                                          <div className="space-y-2">
-                                            <div className="whitespace-pre-line">{d.message}</div>
-                                            {Array.isArray(d.products) && d.products.length > 0 && (
-                                              <div className="flex flex-wrap gap-2 pt-1 border-t border-indigo-200/50 dark:border-indigo-800/50">
-                                                {d.products.slice(0, 3).map((p, pIdx) => (
-                                                  <div key={pIdx} className="text-[11px] font-medium bg-white/80 dark:bg-zinc-800 px-2 py-1 rounded-lg border border-indigo-200/60 dark:border-zinc-700 flex items-center gap-1.5">
-                                                    <span>🛍️</span>
-                                                    <span className="truncate max-w-[140px]">{p.name || p.title}</span>
-                                                    {p.price && <span className="font-bold text-emerald-600">₹{p.price}</span>}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      }
-                                    } catch {}
-                                    return <div className="whitespace-pre-line">{msg.content}</div>;
-                                  })()}
-                                </div>
+                                <div className="max-w-[85%] md:max-w-[70%]">
+                                  {isAI && (
+                                    <div className="text-[11px] font-bold text-gold-dark mb-1 pl-1 flex items-center gap-1">
+                                      <Bot size={13} /> AI assistant
+                                    </div>
+                                  )}
 
-                                <div
-                                  className={`flex items-center gap-1 mt-1 text-[10px] font-medium text-zinc-400 ${
-                                    isMe ? 'justify-end pr-1' : 'justify-start pl-1'
-                                  }`}
-                                >
-                                  <span>{formatTime(msg.createdAt)}</span>
-                                  {isMe && <CheckCheck size={13} className="text-blue-500" />}
+                                  {/* `overflow-wrap: anywhere` (not just break-words) so a pasted
+                                      URL cannot inflate the panel's intrinsic width and push the
+                                      whole admin page into horizontal scroll. */}
+                                  <div
+                                    className={`text-sm leading-relaxed [overflow-wrap:anywhere] rounded-2xl border ${
+                                      isImageBubble(msg)
+                                        ? `p-1 bg-white border-stone-200 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`
+                                        : `px-3.5 py-2.5 ${
+                                            isMe
+                                              ? 'bg-stone-900 text-white border-stone-900 rounded-br-md'
+                                              : isAI
+                                              ? 'bg-gold/10 text-stone-900 border-gold/30 rounded-bl-md'
+                                              : 'bg-white text-stone-900 border-stone-200 rounded-bl-md'
+                                          }`
+                                    }`}
+                                  >
+                                    <MessageBody msg={msg} />
+                                  </div>
+
+                                  <div
+                                    className={`flex items-center gap-1 mt-1 text-[11px] font-medium text-stone-500 ${
+                                      isMe ? 'justify-end pr-1' : 'justify-start pl-1'
+                                    }`}
+                                  >
+                                    <span>{formatTime(msg.createdAt)}</span>
+                                    {isMe && <CheckCheck size={13} className="text-emerald-600" />}
+                                  </div>
                                 </div>
                               </div>
-
-                              {isMe && <div className="w-0.5" />}
                             </div>
                           );
                         })}
 
                         {typingUsers[selectedChat.id] && (
-                          <div className="flex items-end gap-2">
+                          <div className="flex items-end gap-2 pt-2">
                             <div
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 shadow-2xs"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
                               style={{ backgroundColor: activeCustomerBg }}
+                              aria-hidden="true"
                             >
                               {getInitials(activeCustomerName)}
                             </div>
-                            <div className="bg-white dark:bg-zinc-900 px-3 py-2 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xs flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" />
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]" />
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]" />
-                              <span className="text-xs font-semibold text-zinc-500 ml-1">
-                                {activeCustomerName} is typing...
+                            <div className="bg-white px-3 py-2.5 rounded-2xl rounded-bl-md border border-stone-200 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-stone-400 motion-safe:animate-bounce" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-stone-400 motion-safe:animate-bounce [animation-delay:0.2s]" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-stone-400 motion-safe:animate-bounce [animation-delay:0.4s]" />
+                              <span className="text-xs font-semibold text-stone-500 ml-1">
+                                {activeCustomerName} is typing…
                               </span>
                             </div>
                           </div>
                         )}
                       </>
                     )}
-                    <div ref={messagesEndRef} />
                   </div>
 
-                  {/* Image Attachment Preview Bar */}
+                  {/* Jump-to-latest affordance when new messages land while reading history */}
+                  {!isAtBottom && visibleMessages.length > 0 && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = threadRef.current;
+                          setIsAtBottom(true);
+                          if (el) el.scrollTop = el.scrollHeight;
+                        }}
+                        className={`absolute -top-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-stone-900 text-white text-xs font-semibold shadow-lift hover:bg-black ${FOCUS_ON_DARK}`}
+                      >
+                        <ArrowDown size={14} /> Latest
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Attachment preview */}
                   {imagePreview && (
-                    <div className="p-3 bg-slate-100 dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 flex-shrink-0">
-                      <div className="relative inline-block">
-                        <img
-                          src={imagePreview.url}
-                          alt="Preview"
-                          className="max-h-24 md:max-h-28 rounded-xl border border-slate-300 dark:border-zinc-700 shadow-xs"
-                        />
-                        {!uploading && (
-                          <button
-                            onClick={handleCancelPreview}
-                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-md hover:bg-rose-700"
-                          >
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={handleCancelPreview}
-                          disabled={uploading}
-                          className="px-3 py-1 rounded-lg border border-slate-300 dark:border-zinc-700 text-xs font-semibold text-zinc-600 dark:text-zinc-300"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSendImage}
-                          disabled={uploading}
-                          className="px-3.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
-                        >
-                          {uploading ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
-                          {uploading ? 'Uploading...' : 'Send Attachment'}
-                        </button>
+                    <div className="px-3 md:px-4 py-3 bg-white border-t border-stone-200 flex-shrink-0">
+                      <div className="flex items-start gap-3">
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={imagePreview.url}
+                            alt="Attachment preview"
+                            className="max-h-24 rounded-lg border border-stone-200"
+                          />
+                          {!uploading && (
+                            <button
+                              type="button"
+                              onClick={handleCancelPreview}
+                              aria-label="Remove attachment"
+                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm hover:bg-rose-700"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-stone-800 truncate">{imagePreview.name}</p>
+                          <p className="text-[11px] text-stone-500 mb-2">Ready to send</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCancelPreview}
+                              disabled={uploading}
+                              className={`px-3 h-9 rounded-md border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50 disabled:opacity-50 ${FOCUS}`}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSendImage}
+                              disabled={uploading}
+                              className={`inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-stone-900 hover:bg-black text-white text-xs font-bold disabled:opacity-60 ${FOCUS_ON_DARK}`}
+                            >
+                              {uploading ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
+                              {uploading ? 'Uploading…' : 'Send'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Canned Responses Toolbar */}
+                  {/* Quick replies */}
                   {!imagePreview && (
-                    <div className="px-3 md:px-4 py-1.5 md:py-2 bg-white dark:bg-zinc-900 border-t border-slate-200/80 dark:border-zinc-800 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
-                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0 mr-1">
-                        <Zap size={11} className="text-amber-500" /> Quick:
+                    <div className="px-3 md:px-4 py-2 bg-white border-t border-stone-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
+                      <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0 mr-0.5">
+                        <Zap size={12} className="text-gold-dark" /> Quick
                       </span>
-                      {QUICK_REPLIES.map((reply, i) => (
+                      {QUICK_REPLIES.map((reply) => (
                         <button
-                          key={i}
+                          key={reply.label}
+                          type="button"
+                          title={reply.text}
                           onClick={() => {
                             setInputValue(reply.text);
-                            if (typeof window !== 'undefined' && window.innerWidth >= 768) {
-                              inputRef.current?.focus();
-                            }
+                            if (window.innerWidth >= 768) inputRef.current?.focus();
                           }}
-                          className="text-[11px] md:text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-300 border border-transparent whitespace-nowrap transition-all font-medium flex-shrink-0"
+                          className={`inline-flex items-center gap-1.5 h-9 px-2.5 rounded-full border border-stone-200 bg-white hover:border-stone-400 hover:bg-stone-50 text-xs font-medium text-stone-700 whitespace-nowrap flex-shrink-0 transition-colors ${FOCUS}`}
                         >
-                          <span className="mr-1">{reply.icon}</span> {reply.text}
+                          <reply.icon size={13} className="text-stone-500" />
+                          {reply.label}
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {/* Message Input Box (Sticky at bottom) */}
+                  {/* Composer */}
                   {!imagePreview && (
-                    <div className="p-2.5 md:p-3 bg-white dark:bg-zinc-900 border-t border-slate-200/80 dark:border-zinc-800 flex-shrink-0">
-                      <div className="flex items-end gap-1.5 md:gap-2 bg-slate-50 dark:bg-zinc-800/80 rounded-2xl p-1.5 md:p-2 border border-slate-200 dark:border-zinc-700 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition">
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleImageSelect}
-                          accept="image/*"
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
+                    <div className="px-2.5 md:px-3 py-2.5 bg-white border-t border-stone-200 flex-shrink-0">
+                      <div className="flex items-end gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 transition focus-within:border-stone-400 focus-within:bg-white">
+                        <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
+                        <IconButton
+                          label="Attach an image"
+                          variant="ghost"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={uploading}
-                          className="p-2 text-zinc-400 hover:text-zinc-800 dark:hover:text-white rounded-xl transition flex-shrink-0"
-                          title="Attach image or screenshot"
+                          className="h-11 w-11 md:h-9 md:w-9"
                         >
                           <ImagePlus size={18} />
-                        </button>
+                        </IconButton>
 
+                        <label htmlFor="chat-composer" className="sr-only">
+                          Reply to {activeCustomerName}
+                        </label>
                         <textarea
+                          id="chat-composer"
                           ref={inputRef}
                           value={inputValue}
-                          onChange={e => setInputValue(e.target.value)}
+                          onChange={(e) => setInputValue(e.target.value)}
                           onKeyDown={handleKeyDown}
-                          placeholder="Type your response to the customer..."
+                          placeholder="Write a reply…"
                           rows={1}
-                          className="flex-1 bg-transparent text-[13px] md:text-[13.5px] text-zinc-900 dark:text-white placeholder-zinc-400 resize-none outline-none py-1.5 px-2 max-h-32 leading-relaxed"
+                          className="flex-1 bg-transparent text-sm text-stone-900 placeholder-stone-400 resize-none outline-none py-2.5 px-1 max-h-40 leading-relaxed"
                         />
 
                         <button
                           type="button"
                           onClick={() => handleSend()}
                           disabled={!inputValue.trim() || sending}
-                          className={`p-2.5 rounded-xl text-white transition shadow-xs flex-shrink-0 ${
+                          aria-label="Send reply"
+                          title="Send reply"
+                          className={`inline-flex items-center justify-center h-11 w-11 md:h-9 md:w-9 rounded-lg flex-shrink-0 transition-colors ${FOCUS} ${
                             inputValue.trim() && !sending
-                              ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-blue-500/25'
-                              : 'bg-zinc-300 dark:bg-zinc-700 cursor-not-allowed opacity-60'
+                              ? 'bg-stone-900 text-white hover:bg-black'
+                              : 'bg-stone-200 text-stone-400 cursor-not-allowed'
                           }`}
                         >
-                          {sending ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+                          {sending ? <RefreshCw size={17} className="animate-spin" /> : <Send size={17} />}
                         </button>
                       </div>
+                      <p className="hidden md:block text-[11px] text-stone-400 mt-1.5 pl-1">
+                        Enter sends · Shift + Enter adds a line break
+                      </p>
                     </div>
                   )}
                 </div>
 
-                {/* ── Customer Details Drawer (Slide-over on mobile, docked right pane on desktop) ── */}
+                {/* Customer details — docked pane on desktop */}
                 {showCustomerDrawer && (
-                  <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs md:relative md:inset-auto md:bg-transparent md:z-auto">
-                    <div className="w-[85vw] max-w-sm md:w-72 h-full border-l border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-5 overflow-y-auto flex-shrink-0 shadow-2xl md:shadow-none animate-in slide-in-from-right duration-200">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
-                        <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                          <Info size={14} className="text-blue-500" /> Customer Details
-                        </h3>
-                        <button
-                          onClick={() => setShowCustomerDrawer(false)}
-                          className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-
-                      <div className="space-y-4 mt-4">
-                        <div>
-                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Customer</div>
-                          <div className="text-sm font-bold text-zinc-900 dark:text-white">
-                            {activeCustomerName}
-                          </div>
-                          <div className="text-xs text-zinc-500 truncate">
-                            {selectedChat.user?.email || 'No email attached'}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Ticket Reference</div>
-                          <div className="text-xs font-mono font-bold text-zinc-800 dark:text-zinc-200">
-                            #{selectedChat.ticketNumber || selectedChat.id}
-                          </div>
-                          <div className="text-[11px] text-zinc-500 mt-0.5">
-                            Started {formatTime(selectedChat.createdAt)}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Account Role</div>
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                            <ShieldCheck size={12} className="text-blue-500" />
-                            {selectedChat.user?.role || 'CUSTOMER'}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-[11px] font-semibold text-zinc-400 mb-1">Status</div>
-                          <StatusPill status={selectedChat.status} />
-                        </div>
-
-                        <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await chatAPI.updateChatStatus(selectedChat.id, 'RESOLVED');
-                                toast.success('Conversation resolved');
-                                loadConversations(false);
-                                setSelectedChat(null);
-                                setMobileView('list');
-                                setShowCustomerDrawer(false);
-                              } catch {
-                                toast.error('Failed to resolve');
-                              }
-                            }}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
-                          >
-                            <CheckCircle size={14} /> Close & Resolve Ticket
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <aside className="hidden xl:block w-72 2xl:w-80 border-l border-stone-200 bg-white p-5 overflow-y-auto flex-shrink-0">
+                    <CustomerDetailsBody
+                      selectedChat={selectedChat}
+                      customerName={activeCustomerName}
+                      onResolve={handleResolve}
+                      onClose={() => setShowCustomerDrawer(false)}
+                    />
+                  </aside>
                 )}
               </div>
             </>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* ── Auto-Reply Settings Modal ── */}
-      {showAutoReplyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-zinc-950 dark:text-white flex items-center gap-2">
-                <Zap size={18} className="text-amber-500" /> Live Chat Auto-Reply
-              </h3>
-              <button
-                onClick={() => setShowAutoReplyModal(false)}
-                className="text-zinc-400 hover:text-zinc-600"
-              >
-                <X size={18} />
-              </button>
+      {/* ── Customer details — mobile slide-over (portalled so the panel's
+             overflow-hidden and the route transition cannot clip it) ── */}
+      {showCustomerDrawer &&
+        selectedChat &&
+        createPortal(
+          <div className="xl:hidden fixed inset-0 z-overlay flex justify-end">
+            <div
+              className="absolute inset-0 bg-stone-900/50 motion-safe:animate-fade-in"
+              onClick={() => setShowCustomerDrawer(false)}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Customer details"
+              className="relative w-[86vw] max-w-sm h-full bg-white border-l border-stone-200 p-4 overflow-y-auto shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))] motion-safe:animate-slide-in-right"
+            >
+              <CustomerDetailsBody
+                selectedChat={selectedChat}
+                customerName={activeCustomerName}
+                onResolve={handleResolve}
+                onClose={() => setShowCustomerDrawer(false)}
+              />
             </div>
+          </div>,
+          document.body
+        )}
 
-            <p className="text-xs text-zinc-500 mb-4">
-              When live mode is active, automatically send a polite reassurance to customers if an admin does not respond within the timeout period.
-            </p>
+      {/* ── Auto-reply settings modal ── */}
+      {showAutoReplyModal &&
+        createPortal(
+          <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-stone-900/50 motion-safe:animate-fade-in"
+              onClick={() => setShowAutoReplyModal(false)}
+              aria-hidden="true"
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="auto-reply-title"
+              className="relative w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-2xl p-5 md:p-6 motion-safe:animate-slide-up"
+            >
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 id="auto-reply-title" className="text-base font-bold text-stone-900 flex items-center gap-2">
+                  <Zap size={18} className="text-gold-dark" /> Live chat auto-reply
+                </h3>
+                <IconButton label="Close auto-reply settings" variant="ghost" size="sm" onClick={() => setShowAutoReplyModal(false)}>
+                  <X size={18} />
+                </IconButton>
+              </div>
 
-            <div className="space-y-4">
-              <label className="flex items-center gap-2.5 cursor-pointer text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                <input
-                  type="checkbox"
-                  checked={autoReply.enabled}
-                  onChange={e => setAutoReply(p => ({ ...p, enabled: e.target.checked }))}
-                  className="rounded accent-blue-600 w-4 h-4"
-                />
-                Enable automated fallback reply
-              </label>
+              <p className="text-xs text-stone-500 mb-5">
+                In live mode, a reassurance message goes out if no agent replies within the timeout below.
+              </p>
 
-              <div>
-                <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block mb-1.5">
-                  Timeout before auto-reply triggers
+              <div className="space-y-5">
+                <label className="flex items-start gap-2.5 cursor-pointer text-sm font-semibold text-stone-800">
+                  <input
+                    type="checkbox"
+                    checked={autoReply.enabled}
+                    onChange={(e) => setAutoReply((p) => ({ ...p, enabled: e.target.checked }))}
+                    className="mt-0.5 w-4 h-4 rounded accent-stone-900"
+                  />
+                  Enable the fallback reply
                 </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[60, 120, 180, 300].map(s => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setAutoReply(p => ({ ...p, timeout: s }))}
-                      className={`py-2 text-xs font-bold rounded-xl border transition ${
-                        autoReply.timeout === s
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-slate-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700'
-                      }`}
-                    >
-                      {s < 60 ? `${s}s` : `${s / 60} min`}
-                    </button>
-                  ))}
+
+                <fieldset>
+                  <legend className="text-xs font-bold text-stone-600 mb-2">Send it after</legend>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[60, 120, 180, 300].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        aria-pressed={autoReply.timeout === s}
+                        onClick={() => setAutoReply((p) => ({ ...p, timeout: s }))}
+                        className={`h-10 text-xs font-bold rounded-md border transition-colors ${FOCUS} ${
+                          autoReply.timeout === s
+                            ? 'bg-stone-900 text-white border-stone-900'
+                            : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                        }`}
+                      >
+                        {s < 60 ? `${s}s` : `${s / 60} min`}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <div>
+                  <label htmlFor="auto-reply-message" className="text-xs font-bold text-stone-600 block mb-1.5">
+                    Message
+                  </label>
+                  <textarea
+                    id="auto-reply-message"
+                    value={autoReply.message}
+                    onChange={(e) => setAutoReply((p) => ({ ...p, message: e.target.value }))}
+                    rows={3}
+                    className="w-full text-sm p-3 rounded-md border border-stone-200 bg-stone-50 text-stone-900 placeholder-stone-400 outline-none resize-y transition focus:border-stone-500 focus:bg-white focus:ring-4 focus:ring-stone-900/5"
+                    placeholder="Thanks for your patience! Our team is with another customer and will reply in a moment."
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAutoReplyModal(false)}
+                    className={`flex-1 h-11 rounded-md border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 ${FOCUS}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveAutoReplySettings}
+                    disabled={savingAutoReply}
+                    className={`flex-1 h-11 rounded-md bg-stone-900 hover:bg-black text-white text-xs font-bold disabled:opacity-60 ${FOCUS_ON_DARK}`}
+                  >
+                    {savingAutoReply ? 'Saving…' : 'Save settings'}
+                  </button>
                 </div>
               </div>
-
-              <div>
-                <label className="text-xs font-bold text-zinc-600 dark:text-zinc-300 block mb-1.5">
-                  Message content
-                </label>
-                <textarea
-                  value={autoReply.message}
-                  onChange={e => setAutoReply(p => ({ ...p, message: e.target.value }))}
-                  rows={3}
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-zinc-900 dark:text-white outline-none focus:border-blue-500"
-                  placeholder="Thank you for your patience! Our support team is currently busy..."
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAutoReplyModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-zinc-600 dark:text-zinc-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveAutoReplySettings}
-                  disabled={savingAutoReply}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition"
-                >
-                  {savingAutoReply ? 'Saving...' : 'Save Settings'}
-                </button>
-              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
