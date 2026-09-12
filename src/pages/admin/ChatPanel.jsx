@@ -37,6 +37,7 @@ import {
   Trash2,
   Eraser,
   ImagePlus,
+  Smile,
   ArrowLeft,
   ArrowDown,
   Zap,
@@ -58,6 +59,16 @@ import toast from '../../utils/toast';
 import { connectSocket, onSocketEvent } from '../../services/socketService';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import EmojiPickerPopover from '../../components/chat/EmojiPickerPopover';
+
+// Helper to detect if a message is only 1-3 emojis (WhatsApp style)
+function isOnlyEmoji(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 12) return false;
+  const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji_Modifier_Base}|\u200d|\ufe0f|\s)+$/u;
+  return emojiRegex.test(trimmed);
+}
 
 // ── Shared class fragments ──
 const FOCUS = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-900';
@@ -271,7 +282,11 @@ function MessageBody({ msg }) {
     );
   }
 
-  return <div className="whitespace-pre-line">{msg.content}</div>;
+  return (
+    <div className={`whitespace-pre-line ${isOnlyEmoji(msg.content) ? 'text-2xl leading-tight' : ''}`}>
+      {msg.content}
+    </div>
+  );
 }
 
 // ── Memoized conversation card ──
@@ -509,6 +524,7 @@ export default function ChatPanel() {
   const [showCustomerDrawer, setShowCustomerDrawer] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [autoReply, setAutoReply] = useState({ enabled: true, timeout: 120, message: '' });
   const [showAutoReplyModal, setShowAutoReplyModal] = useState(false);
   const [savingAutoReply, setSavingAutoReply] = useState(false);
@@ -759,11 +775,29 @@ export default function ChatPanel() {
     }
   }, [loadConversations]);
 
+  const handleInsertEmoji = useCallback((emoji) => {
+    const textarea = inputRef.current;
+    if (!textarea) {
+      setInputValue((prev) => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart ?? inputValue.length;
+    const end = textarea.selectionEnd ?? inputValue.length;
+    const updated = inputValue.substring(0, start) + emoji + inputValue.substring(end);
+    setInputValue(updated);
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + emoji.length;
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [inputValue]);
+
   const handleSend = async (customText = null) => {
     const textToSend = typeof customText === 'string' ? customText : inputValue;
     if (!textToSend.trim() || !selectedChat) return;
     const content = textToSend.trim();
     setInputValue('');
+    setShowEmojiPicker(false);
     setSending(true);
 
     const tempId = `admin-temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -1622,8 +1656,24 @@ export default function ChatPanel() {
 
                   {/* Composer */}
                   {!imagePreview && (
-                    <div className="px-2.5 md:px-3 py-2.5 bg-white border-t border-stone-200 flex-shrink-0">
+                    <div className="px-2.5 md:px-3 py-2.5 bg-white border-t border-stone-200 flex-shrink-0 relative">
+                      {showEmojiPicker && (
+                        <EmojiPickerPopover
+                          onSelect={handleInsertEmoji}
+                          onClose={() => setShowEmojiPicker(false)}
+                          align="left"
+                        />
+                      )}
                       <div className="flex items-end gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 transition focus-within:border-stone-400 focus-within:bg-white">
+                        {/* WhatsApp-style Emoji button */}
+                        <IconButton
+                          label="Insert emoji"
+                          variant="ghost"
+                          onClick={() => setShowEmojiPicker((prev) => !prev)}
+                          className={`h-11 w-11 md:h-9 md:w-9 ${showEmojiPicker ? 'text-stone-900 bg-stone-200/70' : ''}`}
+                        >
+                          <Smile size={18} />
+                        </IconButton>
                         <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
                         <IconButton
                           label="Attach an image"

@@ -4,7 +4,7 @@
  * Uses existing support ticket system for persistence and Socket.io for real-time messaging.
  */
 
-import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus, Bell, BellRing } from 'lucide-react';
+import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus, Bell, BellRing, Smile } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { formatTime } from '../../utils/formatters';
@@ -13,6 +13,7 @@ import usePushNotifications from '../../hooks/usePushNotifications';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
 import { chatAPI } from '../../api/tickets';
 import toast from '../../utils/toast';
+import EmojiPickerPopover from './EmojiPickerPopover';
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -32,6 +33,14 @@ function getDateLabel(dateStr) {
   if (dateStr === today) return 'Today';
   if (dateStr === yesterday) return 'Yesterday';
   return dateStr;
+}
+
+function isOnlyEmoji(text) {
+  if (!text || typeof text !== 'string') return false;
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 12) return false;
+  const emojiRegex = /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Emoji_Modifier_Base}|\u200d|\ufe0f|\s)+$/u;
+  return emojiRegex.test(trimmed);
 }
 
 // ─── Main Component ───────────────────────────────────────
@@ -62,6 +71,7 @@ export default function LiveChatWidget() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState(null); // { file, url, name }
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -293,6 +303,24 @@ export default function LiveChatWidget() {
     initChat().finally(() => setChatLoading(false));
   }, [chat, initChat]);
 
+  // Insert emoji at cursor position
+  const handleInsertEmoji = useCallback((emoji) => {
+    const textarea = inputRef.current;
+    if (!textarea) {
+      setInputValue((prev) => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart ?? inputValue.length;
+    const end = textarea.selectionEnd ?? inputValue.length;
+    const updated = inputValue.substring(0, start) + emoji + inputValue.substring(end);
+    setInputValue(updated);
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + emoji.length;
+      textarea.setSelectionRange(newPos, newPos);
+    }, 0);
+  }, [inputValue]);
+
   // Send a message — refs handle chatId, so deps are minimal
   const handleSend = useCallback(async (text) => {
     const msg = text || inputValue.trim();
@@ -300,6 +328,7 @@ export default function LiveChatWidget() {
 
     setInputValue('');
     setSuggestions([]);
+    setShowEmojiPicker(false);
 
     // Optimistic: show message instantly
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -835,10 +864,16 @@ export default function LiveChatWidget() {
                               {parsed.imageUrl ? (
                                 <div style={{ margin: parsed.text ? '0 0 4px' : 0 }}>
                                   <img src={parsed.imageUrl} alt="Shared image" style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} loading="lazy" onClick={() => window.open(parsed.imageUrl, '_blank')} />
-                                  {parsed.text && <div style={{ whiteSpace: 'pre-line', marginTop: '4px' }}>{parsed.text}</div>}
+                                  {parsed.text && <div style={{ whiteSpace: 'pre-line', marginTop: '4px', fontSize: isOnlyEmoji(parsed.text) ? '26px' : '14px' }}>{parsed.text}</div>}
                                 </div>
                               ) : (
-                                <div style={{ whiteSpace: 'pre-line' }}>{parsed.text}</div>
+                                <div style={{
+                                  whiteSpace: 'pre-line',
+                                  fontSize: isOnlyEmoji(parsed.text) ? '26px' : '14px',
+                                  lineHeight: isOnlyEmoji(parsed.text) ? 1.2 : 1.4,
+                                }}>
+                                  {parsed.text}
+                                </div>
                               )}
                               <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
                                 {formatTime(msg.createdAt)}
@@ -992,9 +1027,41 @@ export default function LiveChatWidget() {
               display: 'flex',
               gap: '6px',
               alignItems: 'flex-end',
+              position: 'relative',
             }}>
+              {showEmojiPicker && (
+                <EmojiPickerPopover
+                  onSelect={handleInsertEmoji}
+                  onClose={() => setShowEmojiPicker(false)}
+                />
+              )}
+              {/* WhatsApp-style Emoji button */}
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(prev => !prev)}
+                disabled={uploading}
+                style={{
+                  width: '36px', height: '36px', borderRadius: '10px',
+                  border: showEmojiPicker ? '1px solid #1a1a1a' : '1px solid #ddd',
+                  background: showEmojiPicker ? '#f3f4f6' : 'white', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  color: showEmojiPicker ? '#1a1a1a' : '#6b7280', transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#1a1a1a'; e.currentTarget.style.color = '#1a1a1a'; }}
+                onMouseLeave={e => {
+                  if (!showEmojiPicker) {
+                    e.currentTarget.style.borderColor = '#ddd';
+                    e.currentTarget.style.color = '#6b7280';
+                  }
+                }}
+                title="Insert emoji"
+                aria-label="Insert emoji"
+              >
+                <Smile size={18} />
+              </button>
               <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" style={{ display: 'none' }} />
               <button
+                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 style={{
@@ -1006,6 +1073,7 @@ export default function LiveChatWidget() {
                 onMouseEnter={e => { if (!uploading) { e.currentTarget.style.borderColor = '#1a1a1a'; e.currentTarget.style.color = '#1a1a1a'; } }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#ddd'; e.currentTarget.style.color = '#6b7280'; }}
                 aria-label="Upload image"
+                title="Attach image"
               >
                 {uploading ? <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <ImagePlus size={16} />}
               </button>
