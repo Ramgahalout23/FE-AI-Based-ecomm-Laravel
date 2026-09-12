@@ -82,14 +82,39 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      // Show system notification
-      await self.registration.showNotification(title, notificationOptions);
+      const matchedClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
-      // Broadcast to any active open window clients so the UI can update immediately
-      const matchedClients = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
+      // If user is currently focused on the live chat tab, they already see messages via Socket.IO.
+      // Suppress duplicate OS lockscreen banner while in-focus, but always show if screen is locked or app is in background.
+      const isFocusedOnLiveChat = matchedClients.some((c) => {
+        if (!c.focused || c.visibilityState !== 'visible') return false;
+        if (isChat) {
+          const url = c.url || '';
+          const hasTicketMatch = Boolean(payload.data?.ticketId && url.includes(payload.data.ticketId));
+          return url.includes('/admin/chat') || url.includes('/support') || hasTicketMatch;
+        }
+        return false;
       });
+
+      if (!isFocusedOnLiveChat) {
+        try {
+          await self.registration.showNotification(title, notificationOptions);
+        } catch (err) {
+          // iOS Safari fallback: iOS rejects complex actions and vibrate arrays
+          try {
+            await self.registration.showNotification(title, {
+              body: notificationOptions.body,
+              icon: notificationOptions.icon || '/logo.png',
+              badge: notificationOptions.badge || '/logo.png',
+              tag: notificationOptions.tag,
+              data: notificationOptions.data,
+              renotify: true,
+            });
+          } catch (fallbackErr) {
+            console.warn('[SW] Push showNotification failed:', fallbackErr);
+          }
+        }
+      }
 
       for (const client of matchedClients) {
         client.postMessage({
@@ -99,6 +124,7 @@ self.addEventListener('push', (event) => {
             body: notificationOptions.body,
             url: targetUrl,
             data: notificationOptions.data,
+            inFocus: isFocusedOnLiveChat,
           },
         });
       }

@@ -23,10 +23,11 @@ let lastChimeTime = 0;
 /**
  * Play a notification chime synthesized via Web Audio API.
  * Clean, pleasant melodic chime (C5 -> E5 -> G5).
+ * Debounced to 1500ms to avoid double-chime when multiple events fire in same second.
  */
 export function playNotificationChime() {
   const now = Date.now();
-  if (now - lastChimeTime < 800) return; // Debounce rapid triggers
+  if (now - lastChimeTime < 1500) return; // Strict debounce against rapid double-triggers
   lastChimeTime = now;
 
   try {
@@ -72,17 +73,35 @@ export function playNotificationChime() {
 }
 
 /**
- * Trigger browser system notification (useful when tab is in background)
+ * Trigger browser system notification ONLY when Web Push is NOT active.
+ * When Web Push is active, the Service Worker (sw.js) handles OS alerts to prevent duplicate banners.
  */
 async function showBrowserNotification(title, options = {}) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return;
   }
 
+  // If Service Worker + Web Push is active, the Service Worker (sw.js) handles OS alerts.
+  // Suppress foreground duplicate to avoid showing 2 notifications on Windows/macOS/mobile.
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription();
+      if (sub) {
+        // Active Web Push subscription exists; SW will display the native OS banner!
+        return;
+      }
+    } catch {
+      // Fall through to local notification if push check fails
+    }
+  }
+
   const defaultOptions = {
     icon: '/logo.png',
     badge: '/logo.png',
     vibrate: [200, 100, 200, 100, 200],
+    tag: options.tag || (options.data?.ticketId ? `chat-${options.data.ticketId}` : options.data?.orderId ? `order-${options.data.orderId}` : 'threvolt-notification'),
+    renotify: true,
     ...options,
   };
 
@@ -267,6 +286,13 @@ export default function useForegroundNotifications() {
       const msg = data.message;
       const isFromAdmin = msg.isFromAdmin;
 
+      // Filter out messages sent by myself (prevents self-notification echo when testing on same device)
+      const mySessionId = typeof window !== 'undefined' ? localStorage.getItem('chatSessionId') : null;
+      const isMyOwnMessage =
+        (currentUserId && msg.senderId === currentUserId) ||
+        (mySessionId && (msg.sessionId === mySessionId || data.sessionId === mySessionId));
+      if (isMyOwnMessage) return;
+
       // When admin receives message from customer
       if (isAdmin && !isFromAdmin) {
         const isViewingAdminChat =
@@ -306,11 +332,13 @@ export default function useForegroundNotifications() {
           { duration: 5000 },
         );
 
-        // Show browser OS notification ONLY when tab is in background or unfocused
+        // Web Push Service Worker (sw.js) handles OS lockscreen/desktop banners.
+        // Foreground fallback ONLY if Web Push is not active and tab is hidden/unfocused.
         if (document.hidden || !document.hasFocus()) {
           showBrowserNotification(`💬 Support: ${sender}`, {
             body: preview,
-            data: { url: '/admin/chat' },
+            tag: data.ticketId ? `chat-${data.ticketId}` : 'threvolt-chat',
+            data: { ticketId: data.ticketId, url: '/admin/chat' },
           });
         }
       }
@@ -359,12 +387,13 @@ export default function useForegroundNotifications() {
         if (document.hidden || !document.hasFocus()) {
           showBrowserNotification(`💬 ${sender} Replied`, {
             body: preview,
-            data: { url: '/' },
+            tag: data.ticketId ? `chat-${data.ticketId}` : 'threvolt-chat',
+            data: { ticketId: data.ticketId, url: '/' },
           });
         }
       }
     },
-    [isAdmin],
+    [isAdmin, currentUserId],
   );
 
   const handleNewNotification = useCallback(
@@ -378,6 +407,7 @@ export default function useForegroundNotifications() {
 
       showBrowserNotification(title, {
         body: message,
+        tag: data.notificationId ? `notify-${data.notificationId}` : 'threvolt-notification',
         data: { url: isAdmin ? '/admin/notifications' : '/notifications' },
       });
     },
@@ -420,9 +450,15 @@ export default function useForegroundNotifications() {
 
     const handleSWMessage = (event) => {
       if (event.data?.type === 'PUSH_NOTIFICATION_RECEIVED') {
-        const { title, body, url, inFocus } = event.data.payload || {};
+        const payload = event.data.payload || {};
+        const { title, body, url, inFocus, data } = payload;
         // If client was already focused on the active live chat, suppress duplicate chime and toast
         if (inFocus) return;
+
+        // Skip chat messages from Service Worker postMessage — live chat events are already handled
+        // in real-time by Socket.IO (handleChatMessage). Suppressing here avoids 2x chimes and 2x toasts!
+        const isChat = data?.type === 'chat' || data?.type === 'new_chat' || Boolean(data?.ticketId);
+        if (isChat) return;
 
         playNotificationChime();
         if (title) {
