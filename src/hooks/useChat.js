@@ -12,6 +12,8 @@ function normalizeMsg(msg) {
   return {
     ...msg,
     isFromAdmin: msg.isFromAdmin !== undefined ? msg.isFromAdmin : !!msg.is_from_admin,
+    isRead: msg.isRead !== undefined ? msg.isRead : !!msg.is_read,
+    isInternal: msg.isInternal !== undefined ? msg.isInternal : !!msg.is_internal,
     createdAt: msg.createdAt || msg.created_at,
   };
 }
@@ -211,6 +213,18 @@ export default function useChat() {
       }
     });
 
+    // Delivery receipt from the agent's side — flip our own ticks to ✓✓ without
+    // refetching the thread.
+    const unsubRead = onSocketEvent('chat:read', (data) => {
+      if (!data || data.ticketId !== chatRef.current?.id) return;
+      if (data.reader !== 'admin') return;
+      setMessages((prev) =>
+        prev.some((m) => !m.isFromAdmin && !m.isRead)
+          ? prev.map((m) => (!m.isFromAdmin ? { ...m, isRead: true } : m))
+          : prev,
+      );
+    });
+
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -218,6 +232,7 @@ export default function useChat() {
       unsubTyping();
       unsubAdminTyping();
       unsubChatMode();
+      unsubRead();
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, []);
@@ -268,6 +283,18 @@ export default function useChat() {
     setError(null);
   }, []);
 
+  /**
+   * Tell the server the customer has seen the agent's replies, so the agent's
+   * console can show a real ✓✓ instead of guessing. The server no-ops when there
+   * is nothing unread, so calling it on every render-ish tick is cheap.
+   */
+  const markAllRead = useCallback(() => {
+    const chatId = chatRef.current?.id;
+    if (!chatId) return Promise.resolve();
+    if (!messagesRef.current.some((m) => m.isFromAdmin && !m.isRead)) return Promise.resolve();
+    return chatAPI.markRead(chatId, sessionIdRef.current).catch(() => {});
+  }, []);
+
   /** Add an optimistic message to the list */
   const addMessage = useCallback((msg) => {
     setMessages(prev => [...prev, msg]);
@@ -300,6 +327,7 @@ export default function useChat() {
     addMessage,
     replaceMessage,
     removeMessage,
+    markAllRead,
     isSocketConnected: socketConnected,
   };
 }

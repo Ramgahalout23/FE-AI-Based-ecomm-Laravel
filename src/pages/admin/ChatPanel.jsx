@@ -41,7 +41,6 @@ import {
   ArrowLeft,
   ArrowDown,
   Zap,
-  CheckCheck,
   User,
   Clock,
   Tag,
@@ -52,14 +51,22 @@ import {
   Package,
   Truck,
   RotateCcw,
+  StickyNote,
+  Bookmark,
+  ShoppingBag,
+  Wallet,
 } from 'lucide-react';
 import { chatAPI } from '../../api/tickets';
-import { formatTime } from '../../utils/formatters';
+import { formatCurrency, formatTime, getImageUrl } from '../../utils/formatters';
 import toast from '../../utils/toast';
 import { connectSocket, onSocketEvent } from '../../services/socketService';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import EmojiPickerPopover from '../../components/chat/EmojiPickerPopover';
+import CannedReplyMenu from '../../components/chat/CannedReplyMenu';
+import MessageText from '../../components/chat/MessageText';
+import ReadTicks from '../../components/chat/ReadTicks';
+import ImageLightbox from '../../components/chat/ImageLightbox';
 
 // Helper to detect if a message is only 1-3 emojis (WhatsApp style)
 function isOnlyEmoji(text) {
@@ -244,36 +251,49 @@ function parsePayload(raw) {
   }
 }
 
-function MessageBody({ msg }) {
+function MessageBody({ msg, variant = 'light', onOpenImage }) {
   const d = parsePayload(msg.content);
 
   if (d?.type === 'image' && d.url) {
+    const alt = msg.isFromAdmin ? 'Attachment sent by support' : 'Attachment sent by the customer';
     return (
-      <a href={d.url} target="_blank" rel="noopener noreferrer" className={`block rounded-lg ${FOCUS}`}>
+      <button
+        type="button"
+        onClick={() => onOpenImage?.({ src: getImageUrl(d.url), alt })}
+        aria-label={`Open attachment: ${alt}`}
+        title="Open full size"
+        className={`block rounded-lg cursor-zoom-in ${FOCUS}`}
+      >
         <img
-          src={d.url}
-          alt={msg.isFromAdmin ? 'Attachment sent by support' : 'Attachment sent by the customer'}
+          src={getImageUrl(d.url)}
+          alt={alt}
           className="max-w-full max-h-56 md:max-h-64 rounded-lg object-contain"
           loading="lazy"
         />
-      </a>
+      </button>
     );
   }
 
   if (d?.message) {
     return (
       <div className="space-y-2">
-        <div className="whitespace-pre-line">{d.message}</div>
+        <MessageText text={d.message} variant={variant} />
         {Array.isArray(d.products) && d.products.length > 0 && (
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-stone-200">
-            {d.products.slice(0, 3).map((p, pIdx) => (
+          <div className={`flex flex-wrap gap-2 pt-2 border-t ${variant === 'dark' ? 'border-white/15' : 'border-stone-200'}`}>
+            {d.products.slice(0, 4).map((p, pIdx) => (
               <div
                 key={pIdx}
-                className="text-[11px] font-medium bg-white px-2 py-1 rounded-md border border-stone-200 flex items-center gap-1.5 min-w-0"
+                className={`text-[11px] font-medium px-2 py-1 rounded-md border flex items-center gap-1.5 min-w-0 ${
+                  variant === 'dark' ? 'bg-white/10 border-white/20 text-white' : 'bg-white border-stone-200 text-stone-800'
+                }`}
               >
-                <Package size={12} className="text-stone-400" />
+                <Package size={12} className={variant === 'dark' ? 'text-white/60' : 'text-stone-400'} />
                 <span className="truncate max-w-[9rem]">{p.name || p.title}</span>
-                {p.price && <span className="font-bold text-emerald-700">₹{p.price}</span>}
+                {p.price ? (
+                  <span className={`font-bold ${variant === 'dark' ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                    ₹{p.price}
+                  </span>
+                ) : null}
               </div>
             ))}
           </div>
@@ -283,9 +303,11 @@ function MessageBody({ msg }) {
   }
 
   return (
-    <div className={`whitespace-pre-line ${isOnlyEmoji(msg.content) ? 'text-2xl leading-tight' : ''}`}>
-      {msg.content}
-    </div>
+    <MessageText
+      text={msg.content}
+      variant={variant}
+      className={isOnlyEmoji(msg.content) ? 'text-2xl leading-tight' : ''}
+    />
   );
 }
 
@@ -412,9 +434,30 @@ const ConversationCard = memo(function ConversationCard({
 });
 
 // ── Customer details body (shared by the docked desktop pane and the mobile slide-over) ──
-function CustomerDetailsBody({ selectedChat, customerName, onResolve, onDelete, onClose }) {
+/** Compact metric tile used by the customer-value summary. */
+function StatTile({ icon: Icon, label, value, tone = 'default' }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 min-w-0">
+      <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+        <Icon size={10} className="flex-shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      <div
+        className={`text-[13px] font-bold truncate ${
+          tone === 'positive' ? 'text-emerald-700' : tone === 'accent' ? 'text-gold-dark' : 'text-stone-900'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function CustomerDetailsBody({ selectedChat, customerName, insight, insightLoading, onResolve, onDelete, onClose }) {
   const u = selectedChat.user || selectedChat.customer;
   const guest = isGuestConversation(selectedChat);
+  const lastOrder = insight?.orders?.last;
+  const cartItems = insight?.cart?.items || [];
 
   return (
     <>
@@ -440,6 +483,83 @@ function CustomerDetailsBody({ selectedChat, customerName, onResolve, onDelete, 
             <div className="text-xs text-stone-500 truncate">{u?.email || 'No email attached'}</div>
           </div>
         </div>
+
+        {/* Customer value — aggregated server-side so an agent knows who they are
+            talking to (repeat buyer? live cart?) before they reply. */}
+        <section aria-label="Customer value" className="rounded-xl border border-stone-200 bg-stone-50/70 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-stone-500">Customer value</h4>
+            {insightLoading && (
+              <RefreshCw size={12} className="motion-safe:animate-spin text-stone-400" aria-label="Loading customer history" />
+            )}
+          </div>
+
+          {insightLoading && !insight ? (
+            <div className="grid grid-cols-3 gap-2" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-[3.25rem] rounded-lg bg-stone-200/70 motion-safe:animate-pulse" />
+              ))}
+            </div>
+          ) : insight ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <StatTile icon={Package} label="Orders" value={insight.orders.count} />
+                <StatTile icon={Wallet} label="Spent" value={formatCurrency(insight.orders.totalSpent)} tone="positive" />
+                <StatTile icon={ShoppingBag} label="In cart" value={insight.cart.itemCount} tone="accent" />
+              </div>
+
+              {lastOrder ? (
+                <div className="rounded-lg border border-stone-200 bg-white px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Last order</span>
+                    <StatusPill
+                      status={
+                        lastOrder.status === 'DELIVERED'
+                          ? 'RESOLVED'
+                          : lastOrder.status === 'CANCELLED'
+                          ? 'CLOSED'
+                          : 'IN_PROGRESS'
+                      }
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[12px]">
+                    <span className="font-mono font-semibold text-stone-800 truncate">#{lastOrder.orderNumber}</span>
+                    <span className="font-bold text-stone-900 flex-shrink-0">{formatCurrency(lastOrder.total)}</span>
+                  </div>
+                  <div className="text-[10px] text-stone-500 mt-0.5">
+                    {formatTime(lastOrder.createdAt)} · {String(lastOrder.status).replace(/_/g, ' ').toLowerCase()}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-stone-500">No orders yet — first-time visitor.</p>
+              )}
+
+              {cartItems.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+                      <ShoppingBag size={10} /> Live cart
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">{formatCurrency(insight.cart.value)}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {cartItems.slice(0, 3).map((item, idx) => (
+                      <li key={idx} className="flex items-start justify-between gap-2 text-[11px] text-amber-900">
+                        <span className="truncate min-w-0">
+                          {item.product?.name || 'Item'}
+                          {item.size ? <span className="text-amber-700/80"> · {item.size}</span> : null}
+                        </span>
+                        <span className="flex-shrink-0 font-semibold">×{item.quantity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-[11px] text-stone-500">History unavailable for this conversation.</p>
+          )}
+        </section>
 
         <dl className="space-y-3.5">
           <div>
@@ -532,6 +652,20 @@ export default function ChatPanel() {
   const [panelHeight, setPanelHeight] = useState(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
+  // ── Agent accelerator state ──
+  // `/` saved replies, private notes, the attachment lightbox and the customer
+  // value summary. Kept separate from the thread state so a composer keystroke
+  // never re-renders the message list more than it already does.
+  const [savedReplies, setSavedReplies] = useState([]);
+  const [cannedOpen, setCannedOpen] = useState(false);
+  const [cannedIndex, setCannedIndex] = useState(0);
+  const [cannedQuery, setCannedQuery] = useState('');
+  const [savingReply, setSavingReply] = useState(false);
+  const [internalNote, setInternalNote] = useState(false);
+  const [lightbox, setLightbox] = useState(null);
+  const [insight, setInsight] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+
   const panelRef = useRef(null);
   const threadRef = useRef(null);
   const inputRef = useRef(null);
@@ -584,11 +718,15 @@ export default function ChatPanel() {
       // Remaining viewport room from panel top to viewport bottom when scrolled to top
       const room = Math.round(window.innerHeight - docTop - gutter);
 
-      // Support agents on desktop need generous height (at least 780px) for messages & conversation list.
-      // On wide screens (1080p/1440p), expand up to 960px or room. On mobile, keep min 480px.
-      const minHeight = isDesktop ? 780 : 480;
+      // Support agents on desktop want a generous console (~780px), but the panel must
+      // NEVER be taller than the space it actually has: on short laptop viewports
+      // (e.g. 1366×640) a hard 780px floor pushes the page into scroll and drags the
+      // composer below the fold. So the comfortable height is bounded by `room`, and
+      // only collapses to a 360px floor when the viewport is genuinely tiny.
+      const comfortHeight = isDesktop ? 780 : 480;
+      const floor = Math.min(comfortHeight, Math.max(360, room));
       const maxHeight = isDesktop ? 960 : undefined;
-      let next = Math.max(minHeight, room);
+      let next = Math.max(floor, room);
       if (maxHeight && next > maxHeight) {
         next = maxHeight;
       }
@@ -810,31 +948,146 @@ export default function ChatPanel() {
     }, 0);
   }, [inputValue]);
 
+  // ── Saved replies (`/` palette) ──
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await chatAPI.getCannedResponses();
+        const data = res.data?.data;
+        if (alive && Array.isArray(data)) setSavedReplies(data);
+      } catch {
+        /* the palette simply stays empty if the endpoint is unreachable */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** Replies matching what the agent has typed after `/`. */
+  const filteredReplies = useMemo(() => {
+    const q = cannedQuery.trim().toLowerCase();
+    if (!q) return savedReplies;
+    return savedReplies.filter(
+      (r) =>
+        r.shortcut?.toLowerCase().includes(q) ||
+        r.label?.toLowerCase().includes(q) ||
+        r.text?.toLowerCase().includes(q),
+    );
+  }, [savedReplies, cannedQuery]);
+
+  /** Reset the highlight whenever the result set changes so Enter is never ambiguous. */
+  useEffect(() => {
+    setCannedIndex(0);
+  }, [cannedQuery, savedReplies.length]);
+
+  /** Keep the highlighted row visible while arrowing through a long list. */
+  useEffect(() => {
+    if (!cannedOpen) return;
+    const el = document.querySelector(`[data-canned-index="${cannedIndex}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [cannedIndex, cannedOpen]);
+
+  const closeCannedMenu = useCallback(() => {
+    setCannedOpen(false);
+    setCannedQuery('');
+    setCannedIndex(0);
+  }, []);
+
+  const insertSavedReply = useCallback((item) => {
+    if (!item) return;
+    setInputValue(item.text);
+    closeCannedMenu();
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [closeCannedMenu]);
+
+  /** Store whatever is in the composer as a reusable reply, keyed by its first word. */
+  const saveCurrentAsReply = useCallback(async () => {
+    const text = inputValue.trim();
+    if (!text) return;
+    const shortcut = (text.split(/\s+/)[0] || 'reply').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) || 'reply';
+    const label = text.length > 40 ? `${text.slice(0, 40)}…` : text;
+    const next = [...savedReplies.filter((r) => r.shortcut !== shortcut), { shortcut, label, text }];
+    setSavingReply(true);
+    try {
+      const res = await chatAPI.updateCannedResponses(next);
+      const data = res.data?.data;
+      setSavedReplies(Array.isArray(data) ? data : next);
+      closeCannedMenu();
+      toast.success(`Saved as /${shortcut}`);
+    } catch {
+      toast.error('Could not save that reply');
+    } finally {
+      setSavingReply(false);
+    }
+  }, [inputValue, savedReplies, closeCannedMenu]);
+
+  // ── Customer value summary (one request per conversation) ──
+
+  useEffect(() => {
+    const id = selectedChat?.id;
+    if (!id || !showCustomerDrawer) {
+      setInsight(null);
+      return undefined;
+    }
+    let alive = true;
+    setInsightLoading(true);
+    (async () => {
+      try {
+        const res = await chatAPI.getCustomerInsight(id);
+        if (alive) setInsight(res.data?.data || null);
+      } catch {
+        if (alive) setInsight(null);
+      } finally {
+        if (alive) setInsightLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [selectedChat?.id, showCustomerDrawer]);
+
   const handleSend = async (customText = null) => {
     const textToSend = typeof customText === 'string' ? customText : inputValue;
     if (!textToSend.trim() || !selectedChat) return;
     const content = textToSend.trim();
+    const isNote = internalNote;
     setInputValue('');
     setShowEmojiPicker(false);
+    closeCannedMenu();
     setSending(true);
 
     const tempId = `admin-temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setMessages((p) => [
       ...p,
-      { id: tempId, content, isFromAdmin: true, senderId: 'admin', senderName: 'You', createdAt: new Date().toISOString() },
+      {
+        id: tempId,
+        content,
+        isFromAdmin: true,
+        isInternal: isNote,
+        senderId: 'admin',
+        senderName: 'You',
+        createdAt: new Date().toISOString(),
+      },
     ]);
 
     try {
-      const res = await chatAPI.adminSendMessage(selectedChat.id, content);
+      const res = await chatAPI.adminSendMessage(selectedChat.id, content, { internal: isNote });
       const d = res.data?.data;
       if (d) {
-        setMessages((p) => p.map((m) => (m.id === tempId ? { ...d, isFromAdmin: true } : m)));
-        setLastMessages((prev) => ({ ...prev, [selectedChat.id]: content }));
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === selectedChat.id ? { ...c, status: 'IN_PROGRESS', updatedAt: new Date().toISOString() } : c
-          )
-        );
+        setMessages((p) => p.map((m) => (m.id === tempId ? { ...d, isFromAdmin: true, isInternal: isNote } : m)));
+        // A private note is not part of the customer-visible conversation, so it must
+        // not become the list preview or move the ticket to "in progress".
+        if (!isNote) {
+          setLastMessages((prev) => ({ ...prev, [selectedChat.id]: content }));
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === selectedChat.id ? { ...c, status: 'IN_PROGRESS', updatedAt: new Date().toISOString() } : c
+            )
+          );
+        }
       } else {
         setMessages((p) => p.filter((m) => m.id !== tempId));
         setInputValue(content);
@@ -850,9 +1103,48 @@ export default function ChatPanel() {
   };
 
   const handleKeyDown = (e) => {
+    // The saved-reply palette owns the keyboard while it is open, so Enter inserts
+    // a reply instead of sending half a command to the customer.
+    if (cannedOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setCannedIndex((i) => (filteredReplies.length ? (i + 1) % filteredReplies.length : 0));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setCannedIndex((i) => (filteredReplies.length ? (i - 1 + filteredReplies.length) % filteredReplies.length : 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        if (filteredReplies.length > 0) {
+          e.preventDefault();
+          insertSavedReply(filteredReplies[cannedIndex]);
+          return;
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCannedMenu();
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  /** `/` at the start of the composer opens the palette; typing after it filters. */
+  const handleComposerChange = (value) => {
+    setInputValue(value);
+    const slash = /^\/([^\s/]*)$/.exec(value);
+    if (slash) {
+      setCannedQuery(slash[1]);
+      setCannedOpen(true);
+    } else if (cannedOpen) {
+      closeCannedMenu();
     }
   };
 
@@ -934,7 +1226,17 @@ export default function ChatPanel() {
         setUnreadCounts((p) => ({ ...p, [data.ticketId]: (p[data.ticketId] || 0) + 1 }));
       }
 
-      setLastMessages((prev) => ({ ...prev, [data.ticketId]: incoming.content }));
+      // The agent is looking at this exact thread, so the customer's message is
+      // already read — say so, otherwise their widget stays on "sent" forever
+      // until someone reopens the conversation.
+      if (!incoming.isFromAdmin && cur && data.ticketId === cur.id && !document.hidden) {
+        chatAPI.adminMarkRead(cur.id).catch(() => {});
+      }
+
+      setLastMessages((prev) => ({
+        ...prev,
+        [data.ticketId]: incoming.isInternal ? `Note: ${incoming.content}` : incoming.content,
+      }));
 
       setConversations((prev) => {
         const index = prev.findIndex((c) => c.id === data.ticketId);
@@ -971,6 +1273,27 @@ export default function ChatPanel() {
       });
     };
 
+    // Delivery/read receipt from the other side — flip our ticks in place
+    // instead of refetching the whole thread.
+    const onChatRead = (data) => {
+      const cur = selectedChatRef.current;
+      if (!data?.ticketId || !cur || data.ticketId !== cur.id) return;
+
+      if (data.reader === 'customer') {
+        setMessages((p) =>
+          p.some((m) => m.isFromAdmin && !m.isInternal && !m.isRead)
+            ? p.map((m) => (m.isFromAdmin && !m.isInternal ? { ...m, isRead: true } : m))
+            : p
+        );
+      } else {
+        setMessages((p) =>
+          p.some((m) => !m.isFromAdmin && !m.isRead)
+            ? p.map((m) => (!m.isFromAdmin ? { ...m, isRead: true } : m))
+            : p
+        );
+      }
+    };
+
     const onTyping = (d) => {
       if (d.isAdmin) return;
       setTypingUsers((p) => {
@@ -989,6 +1312,7 @@ export default function ChatPanel() {
       const mode = d?.mode || d?.chatMode;
       if (mode) setChatMode(mode);
     });
+    const unsubChatRead = onSocketEvent('chat:read', onChatRead);
     if (socket.connected) onConnect();
 
     return () => {
@@ -997,6 +1321,7 @@ export default function ChatPanel() {
       unsubChatMessage();
       unsubTyping();
       unsubChatMode();
+      unsubChatRead();
     };
   }, []);
 
@@ -1493,9 +1818,29 @@ export default function ChatPanel() {
                       <>
                         {visibleMessages.map((msg, idx) => {
                           const isAI = msg.senderId === 'ai-chatbot' || msg.senderName === 'AI Assistant';
-                          const isMe = msg.isFromAdmin && !isAI;
+                          const isNote = !!msg.isInternal;
+                          const isMe = msg.isFromAdmin && !isAI && !isNote;
                           const prev = visibleMessages[idx - 1];
                           const showDay = !prev || dayKey(prev.createdAt) !== dayKey(msg.createdAt);
+
+                          // Consecutive messages from the same author share a welded corner
+                          // (WhatsApp grouping), so a burst of replies reads as one block.
+                          const next = visibleMessages[idx + 1];
+                          const sameAuthorBefore =
+                            !!prev &&
+                            !showDay &&
+                            !!prev.isFromAdmin === !!msg.isFromAdmin &&
+                            !!prev.isInternal === isNote &&
+                            (prev.senderId === 'ai-chatbot') === isAI;
+                          const sameAuthorAfter =
+                            !!next &&
+                            dayKey(next.createdAt) === dayKey(msg.createdAt) &&
+                            !!next.isFromAdmin === !!msg.isFromAdmin &&
+                            !!next.isInternal === isNote &&
+                            (next.senderId === 'ai-chatbot') === isAI;
+
+                          const tail = isMe ? 'rounded-br-md' : 'rounded-bl-md';
+                          const grouped = sameAuthorAfter ? 'rounded-br-md' : '';
 
                           return (
                             <div key={msg.id || idx}>
@@ -1507,12 +1852,16 @@ export default function ChatPanel() {
                                 </div>
                               )}
 
-                              <div className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                {!isMe && (
+                              <div
+                                className={`flex items-end gap-2 ${
+                                  isNote ? 'justify-end' : isMe ? 'justify-end' : 'justify-start'
+                                } ${sameAuthorBefore ? 'mt-0.5' : 'mt-2.5'}`}
+                              >
+                                {!isMe && !isNote && (
                                   <div
                                     className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 ${
                                       isAI ? 'bg-gold' : ''
-                                    }`}
+                                    } ${sameAuthorAfter ? 'opacity-0' : ''}`}
                                     style={isAI ? undefined : { backgroundColor: activeCustomerBg }}
                                     aria-hidden="true"
                                   >
@@ -1520,8 +1869,8 @@ export default function ChatPanel() {
                                   </div>
                                 )}
 
-                                <div className="max-w-[85%] md:max-w-[70%]">
-                                  {isAI && (
+                                <div className={`max-w-[85%] md:max-w-[70%] ${isNote ? 'w-full md:w-auto md:min-w-[16rem]' : ''}`}>
+                                  {isAI && !sameAuthorBefore && (
                                     <div className="text-[11px] font-bold text-gold-dark mb-1 pl-1 flex items-center gap-1">
                                       <Bot size={13} /> AI assistant
                                     </div>
@@ -1533,26 +1882,39 @@ export default function ChatPanel() {
                                   <div
                                     className={`text-sm leading-relaxed [overflow-wrap:anywhere] rounded-2xl border ${
                                       isImageBubble(msg)
-                                        ? `p-1 bg-white border-stone-200 ${isMe ? 'rounded-br-md' : 'rounded-bl-md'}`
+                                        ? `p-1 bg-white border-stone-200 ${tail} ${grouped}`
+                                        : isNote
+                                        ? `px-3.5 py-2.5 bg-amber-50 border-amber-300 border-dashed text-amber-950 ${tail} ${grouped}`
                                         : `px-3.5 py-2.5 ${
                                             isMe
-                                              ? 'bg-stone-900 text-white border-stone-900 rounded-br-md'
+                                              ? `bg-stone-900 text-white border-stone-900 ${tail} ${grouped}`
                                               : isAI
-                                              ? 'bg-gold/10 text-stone-900 border-gold/30 rounded-bl-md'
-                                              : 'bg-white text-stone-900 border-stone-200 rounded-bl-md'
+                                              ? `bg-gold/10 text-stone-900 border-gold/30 ${tail} ${grouped}`
+                                              : `bg-white text-stone-900 border-stone-200 ${tail} ${grouped}`
                                           }`
                                     }`}
                                   >
-                                    <MessageBody msg={msg} />
+                                    {isNote && (
+                                      <div className="flex items-center gap-1 mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                                        <StickyNote size={11} /> Private note · team only
+                                      </div>
+                                    )}
+                                    <MessageBody
+                                      msg={msg}
+                                      variant={isMe ? 'dark' : 'light'}
+                                      onOpenImage={setLightbox}
+                                    />
                                   </div>
 
                                   <div
                                     className={`flex items-center gap-1 mt-1 text-[11px] font-medium text-stone-500 ${
                                       isMe ? 'justify-end pr-1' : 'justify-start pl-1'
-                                    }`}
+                                    } ${sameAuthorBefore && !isNote ? 'opacity-70' : ''}`}
                                   >
                                     <span>{formatTime(msg.createdAt)}</span>
-                                    {isMe && <CheckCheck size={13} className="text-emerald-600" />}
+                                    {/* Only a real outbound message can be read by the
+                                        customer — notes and AI replies get no ticks. */}
+                                    {isMe && <ReadTicks read={!!msg.isRead} variant="dark" />}
                                   </div>
                                 </div>
                               </div>
@@ -1682,7 +2044,61 @@ export default function ChatPanel() {
                           align="left"
                         />
                       )}
-                      <div className="flex items-end gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 transition focus-within:border-stone-400 focus-within:bg-white">
+
+                      {cannedOpen && (
+                        <CannedReplyMenu
+                          items={filteredReplies}
+                          activeIndex={cannedIndex}
+                          onPick={(item, opts) => (opts?.hover ? setCannedIndex(filteredReplies.indexOf(item)) : insertSavedReply(item))}
+                          onSaveCurrent={saveCurrentAsReply}
+                          canSave={!!inputValue.trim() && !savingReply}
+                          query={cannedQuery}
+                        />
+                      )}
+
+                      {internalNote && (
+                        <div className="flex items-center gap-1.5 mb-1.5 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200">
+                          <StickyNote size={12} className="text-amber-700 flex-shrink-0" />
+                          <p className="text-[11px] font-semibold text-amber-800 min-w-0 truncate">
+                            Private note — saved to the ticket, never sent to {activeCustomerName}
+                          </p>
+                        </div>
+                      )}
+
+                      <div
+                        className={`flex items-end gap-1 rounded-xl border p-1 transition ${
+                          internalNote
+                            ? 'border-amber-300 bg-amber-50/70 focus-within:border-amber-500'
+                            : 'border-stone-200 bg-stone-50 focus-within:border-stone-400 focus-within:bg-white'
+                        }`}
+                      >
+                        <IconButton
+                          label={internalNote ? 'Private note mode on — switch back to replying' : 'Leave a private note for your team'}
+                          variant="ghost"
+                          aria-pressed={internalNote}
+                          onClick={() => {
+                            setInternalNote((v) => !v);
+                            inputRef.current?.focus();
+                          }}
+                          className={`h-11 w-11 md:h-9 md:w-9 ${internalNote ? 'text-amber-700 bg-amber-100/80' : ''}`}
+                        >
+                          <StickyNote size={18} />
+                        </IconButton>
+
+                        <IconButton
+                          label="Saved replies (type / in the message box)"
+                          variant="ghost"
+                          aria-pressed={cannedOpen}
+                          aria-haspopup="listbox"
+                          onClick={() => {
+                            setCannedOpen((v) => !v);
+                            setCannedQuery('');
+                            inputRef.current?.focus();
+                          }}
+                          className={`hidden md:inline-flex h-11 w-11 md:h-9 md:w-9 ${cannedOpen ? 'text-stone-900 bg-stone-200/70' : ''}`}
+                        >
+                          <Bookmark size={17} />
+                        </IconButton>
                         {/* WhatsApp-style Emoji button */}
                         <IconButton
                           label="Insert emoji"
@@ -1710,10 +2126,11 @@ export default function ChatPanel() {
                           id="chat-composer"
                           ref={inputRef}
                           value={inputValue}
-                          onChange={(e) => setInputValue(e.target.value)}
+                          onChange={(e) => handleComposerChange(e.target.value)}
                           onKeyDown={handleKeyDown}
-                          placeholder="Write a reply…"
+                          placeholder={internalNote ? 'Write a note only your team can see…' : `Reply to ${activeCustomerName}…  (/ for saved replies)`}
                           rows={1}
+                          aria-describedby="chat-composer-hint"
                           className="flex-1 bg-transparent text-sm text-stone-900 placeholder-stone-400 resize-none outline-none py-2.5 px-1 max-h-40 leading-relaxed"
                         />
 
@@ -1732,8 +2149,9 @@ export default function ChatPanel() {
                           {sending ? <RefreshCw size={17} className="animate-spin" /> : <Send size={17} />}
                         </button>
                       </div>
-                      <p className="hidden md:block text-[11px] text-stone-400 mt-1.5 pl-1">
-                        Enter sends · Shift + Enter adds a line break
+                      <p id="chat-composer-hint" className="hidden md:block text-[11px] text-stone-400 mt-1.5 pl-1">
+                        Enter sends · Shift + Enter adds a line break · <span className="font-semibold text-stone-500">/</span>{' '}
+                        opens saved replies
                       </p>
                     </div>
                   )}
@@ -1745,6 +2163,8 @@ export default function ChatPanel() {
                     <CustomerDetailsBody
                       selectedChat={selectedChat}
                       customerName={activeCustomerName}
+                      insight={insight}
+                      insightLoading={insightLoading}
                       onResolve={handleResolve}
                       onDelete={handleDeleteChat}
                       onClose={() => setShowCustomerDrawer(false)}
@@ -1756,6 +2176,17 @@ export default function ChatPanel() {
           )}
         </section>
       </div>
+
+      {/* ── Attachment preview — portalled so the panel's overflow-hidden and
+             the sticky navbar can never clip or cover it ── */}
+      {lightbox && (
+        <ImageLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          caption={`${activeCustomerName} · ${formatTime(selectedChat?.createdAt)}`}
+          onClose={() => setLightbox(null)}
+        />
+      )}
 
       {/* ── Customer details — mobile slide-over (portalled so the panel's
              overflow-hidden and the route transition cannot clip it) ── */}
@@ -1777,6 +2208,8 @@ export default function ChatPanel() {
               <CustomerDetailsBody
                 selectedChat={selectedChat}
                 customerName={activeCustomerName}
+                insight={insight}
+                insightLoading={insightLoading}
                 onResolve={handleResolve}
                 onDelete={handleDeleteChat}
                 onClose={() => setShowCustomerDrawer(false)}

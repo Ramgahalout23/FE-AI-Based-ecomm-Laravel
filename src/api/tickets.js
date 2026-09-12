@@ -25,7 +25,7 @@ export const ticketsAPI = {
 
 export const chatAPI = {
   /** Init or return an existing chat ticket */
-  initChat: (sessionId) => client.post('/chat/init', {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
+  initChat: (sessionId) => client.post('/chat/init', undefined, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
 
   /** Start a new conversation (close current, create fresh) */
   startNewConversation: (sessionId) => client.post('/chat/new', {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
@@ -78,9 +78,29 @@ export const chatAPI = {
   setChatMode: (mode) =>
     adminClient.put('/admin/chat/mode', { mode }),
 
-  /** Admin: send message in a conversation */
-  adminSendMessage: (ticketId, content) =>
-    adminClient.post(`/admin/chat/${ticketId}/messages`, { content }),
+  /** Admin: send message in a conversation. Pass internal:true for a private agent note. */
+  adminSendMessage: (ticketId, content, { internal = false } = {}) =>
+    adminClient.post(`/admin/chat/${ticketId}/messages`, { content, isInternal: internal }),
+
+  /** Customer: record a read receipt for the agent's messages */
+  markRead: (ticketId, sessionId) =>
+    client.post(`/chat/${ticketId}/read`, {}, { headers: sessionId ? { 'X-Session-ID': sessionId } : {} }),
+
+  /** Admin: record a read receipt for the customer's messages */
+  adminMarkRead: (ticketId) =>
+    adminClient.post(`/admin/chat/${ticketId}/read`, {}),
+
+  /** Admin: identity, lifetime value, last order and live cart for a conversation */
+  getCustomerInsight: (ticketId) =>
+    adminClient.get(`/admin/chat/${ticketId}/insight`),
+
+  /** Admin: saved replies used by the `/` command menu */
+  getCannedResponses: () =>
+    adminClient.get('/admin/chat/canned-responses'),
+
+  /** Admin: replace the saved replies */
+  updateCannedResponses: (items) =>
+    adminClient.put('/admin/chat/canned-responses', { items }),
 
   /** Admin: get messages for a conversation */
   adminGetMessages: (ticketId) =>

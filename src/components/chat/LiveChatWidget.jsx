@@ -4,16 +4,19 @@
  * Uses existing support ticket system for persistence and Socket.io for real-time messaging.
  */
 
-import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus, Bell, BellRing, Smile } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { formatTime } from '../../utils/formatters';
+import { X, Send, RefreshCw, Minus, MessageCircle, AlertCircle, Bot, Headphones, ImagePlus, Bell, BellRing, Smile, Volume2, VolumeX, ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { formatTime, getImageUrl } from '../../utils/formatters';
 import useChat from '../../hooks/useChat';
 import usePushNotifications from '../../hooks/usePushNotifications';
 import { playNotificationChime } from '../../hooks/useForegroundNotifications';
-import { chatAPI } from '../../api/tickets';
 import toast from '../../utils/toast';
 import EmojiPickerPopover from './EmojiPickerPopover';
+import MessageText from './MessageText';
+import ReadTicks from './ReadTicks';
+import ImageLightbox from './ImageLightbox';
+import OrderTrackingCard from './OrderTrackingCard';
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -45,10 +48,17 @@ function isOnlyEmoji(text) {
 
 // ─── Main Component ───────────────────────────────────────
 
+/** One-character initials for the agent avatar stack. */
+function initialsOf(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'S';
+  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : parts[0][0]).toUpperCase();
+}
+
 export default function LiveChatWidget() {
   const {
-    chat, messages, error, isTyping, isAiTyping, typingName, chatMode,
-    initChat, newConversation, sendMessage, isSocketConnected,
+    chat, messages, markAllRead, error, isTyping, isAiTyping, typingName, chatMode,
+    initChat, newConversation, sendMessage,
     addMessage, replaceMessage, removeMessage,
   } = useChat();
 
@@ -72,6 +82,16 @@ export default function LiveChatWidget() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [imagePreview, setImagePreview] = useState(null); // { file, url, name }
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Chat sounds are nice once and unbearable on the tenth ping — remembered per device.
+  const [soundOn, setSoundOn] = useState(() => {
+    try {
+      return localStorage.getItem('chatSound') !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const [lightbox, setLightbox] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -79,7 +99,54 @@ export default function LiveChatWidget() {
   const lastMessageCountRef = useRef(0);
   const unreadCountRef = useRef(0);
 
+  /**
+   * Private agent notes never reach this component — the API filters them out and
+   * the socket keeps them out of the ticket room. Filtering again here is a cheap
+   * belt-and-braces guard: a note leaking to a customer is the one bug in this
+   * feature that cannot be undone, and ruling it out costs one array pass.
+   */
+  const visibleMessages = useMemo(() => messages.filter((m) => !m.isInternal), [messages]);
 
+  /**
+   * Who the customer is actually talking to. Derived from real replies rather than
+   * invented avatars: until an agent has written, the only identity we can honestly
+   * show is the AI assistant (or the support desk in live mode).
+   */
+  const agentName = useMemo(() => {
+    for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
+      const m = visibleMessages[i];
+      if (m.isFromAdmin && m.senderId !== 'ai-chatbot' && m.senderName) return m.senderName;
+    }
+    return null;
+  }, [visibleMessages]);
+
+  const hasHumanAgent = !!agentName;
+  const isLiveMode = chatMode === 'live';
+
+  const toggleSound = useCallback(() => {
+    setSoundOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('chatSound', next ? 'on' : 'off');
+      } catch {
+        /* storage unavailable (private mode) — the toggle still works this session */
+      }
+      if (next) playNotificationChime();
+      return next;
+    });
+  }, []);
+
+  // Reading the agent's replies is what generates their ✓✓ — report it whenever the
+  // thread is on screen with unread agent messages, and again when the tab returns.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    markAllRead();
+    const onVisible = () => {
+      if (!document.hidden) markAllRead();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [isOpen, messages, markAllRead]);
 
   // Auto-scroll to bottom on new messages (safe for mobile keyboard)
   useEffect(() => {
@@ -87,7 +154,9 @@ export default function LiveChatWidget() {
       requestAnimationFrame(() => {
         try {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } catch {}
+        } catch {
+          /* ignore scroll errors */
+        }
       });
     }
   }, [messages, isOpen]);
@@ -151,7 +220,7 @@ export default function LiveChatWidget() {
         if (!isOpen) {
           unreadCountRef.current += newUnread;
           setHasUnread(true);
-          playNotificationChime();
+          if (soundOn) playNotificationChime();
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
             navigator.vibrate([200, 100, 200]);
           }
@@ -159,7 +228,7 @@ export default function LiveChatWidget() {
       }
     }
     lastMessageCountRef.current = newCount;
-  }, [messages, isOpen]);
+  }, [messages, isOpen, soundOn]);
 
   // Hide the chat icon while the fullscreen reel player is open
   useEffect(() => {
@@ -369,21 +438,26 @@ export default function LiveChatWidget() {
     try {
       const data = JSON.parse(msg.content);
       if (data.type === 'image' && data.url) {
-        return { text: '', suggestions: [], products: [], imageUrl: data.url };
+        return { text: '', suggestions: [], products: [], order: null, imageUrl: data.url };
       }
-    } catch {}
+    } catch {
+      /* not JSON image */
+    }
     // Handle AI structured messages
-    if (msg.senderId !== 'ai-chatbot') return { text: msg.content, suggestions: [], products: [], imageUrl: null };
+    if (msg.senderId !== 'ai-chatbot') return { text: msg.content, suggestions: [], products: [], order: null, imageUrl: null };
     try {
       const data = JSON.parse(msg.content);
       return {
         text: data.message || msg.content,
         suggestions: data.suggestions || [],
         products: data.products || [],
+        // Present when the bot answered an order lookup — rendered as a visual
+        // tracker instead of the text summary.
+        order: data.order || null,
         imageUrl: null,
       };
     } catch {
-      return { text: msg.content, suggestions: [], products: [], imageUrl: null };
+      return { text: msg.content, suggestions: [], products: [], order: null, imageUrl: null };
     }
   };
 
@@ -402,13 +476,11 @@ export default function LiveChatWidget() {
 
   // Cleanup typing timer
   useEffect(() => {
+    const timer = typingTimerRef.current;
     return () => {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (timer) clearTimeout(timer);
     };
   }, []);
-
-  // Chat works for everyone — auth is optional (for order tracking)
-  const showLoginPrompt = false;
 
   return (
     <>
@@ -563,33 +635,98 @@ export default function LiveChatWidget() {
 
           {/* ── Header ── */}
           <div style={{
-            background: 'linear-gradient(135deg, #1a1a1a, #2d2d2d)',
+            // Layered ink gradient with a warm gold thread along the bottom edge — reads
+            // as a brand surface rather than a plain black bar.
+            background: 'linear-gradient(150deg, #151312 0%, #262321 55%, #1c1a18 100%)',
             color: 'white',
-            padding: '16px 20px',
+            padding: '14px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '10px',
             flexShrink: 0,
+            borderBottom: '1px solid rgba(176, 141, 79, 0.35)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: chatMode === 'ai' ? '#6366f1' : '#22c55e',
-                boxShadow: chatMode === 'ai' ? '0 0 8px rgba(99, 102, 241, 0.5)' : '0 0 8px rgba(34, 197, 94, 0.5)',
-                animation: 'chatPulse 2s ease-in-out infinite',
-              }} />
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {chatMode === 'ai' ? <><Bot size={14} /> AI Assistant</> : <><Headphones size={14} /> Live Support</>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 }}>
+              {/* Overlapping identity chips. The human agent moves to the front only
+                  once they have actually introduced themselves — we never invent a
+                  face for someone who has not spoken. */}
+              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                <span
+                  style={{
+                    width: '34px', height: '34px', borderRadius: '50%',
+                    background: hasHumanAgent ? 'linear-gradient(135deg, #4b4741, #2c2926)' : 'rgba(255,255,255,0.10)',
+                    border: '1.5px solid rgba(255,255,255,0.30)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                    fontSize: '12px', fontWeight: 700, letterSpacing: '0.2px',
+                  }}
+                >
+                  {hasHumanAgent ? initialsOf(agentName) : <Bot size={16} />}
+                </span>
+                <span
+                  style={{
+                    width: '30px', height: '30px', borderRadius: '50%', marginLeft: '-10px',
+                    background: 'linear-gradient(135deg, #B08D4F, #8B6914)',
+                    border: '1.5px solid rgba(20,19,18,0.6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+                  }}
+                  aria-hidden="true"
+                >
+                  {isLiveMode ? <Headphones size={14} /> : <Bot size={14} />}
+                </span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '9px', height: '9px', marginLeft: '-6px', borderRadius: '50%', zIndex: 3,
+                    background: isLiveMode ? '#22c55e' : '#818cf8',
+                    boxShadow: '0 0 0 2px #1f1d1b',
+                  }}
+                />
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {hasHumanAgent ? agentName : isLiveMode ? 'Live Support' : 'THREVOLT Assistant'}
+                  </span>
+                  <ShieldCheck size={13} style={{ color: '#C9A96E', flexShrink: 0 }} aria-label="Verified support channel" />
                 </div>
-                <div style={{ fontSize: '11px', opacity: 0.7 }}>
-                  {chatMode === 'ai' ? 'Instant replies 24/7' : 'We typically reply in minutes'}
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', flexShrink: 0,
+                      animation: 'chatPulse 2.4s ease-in-out infinite',
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isLiveMode ? 'Online now · usually replies in under 2 minutes' : 'Instant answers · a human can take over any time'}
+                  </span>
                 </div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={toggleSound}
+                aria-pressed={soundOn}
+                title={soundOn ? 'Mute chat sounds' : 'Unmute chat sounds'}
+                aria-label={soundOn ? 'Mute chat sounds' : 'Unmute chat sounds'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: soundOn ? '#C9A96E' : 'rgba(255,255,255,0.55)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  borderRadius: '6px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
               {pushSupported && (
                 <button
                   onClick={async () => {
@@ -705,15 +842,61 @@ export default function LiveChatWidget() {
           )}
 
           {/* ── Messages Area ── */}
-          <div style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '16px',
-            background: '#f8f9fa',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-          }}>
+          <div
+            // Dropping a screenshot anywhere in the thread attaches it — the fastest
+            // path for "this is what arrived damaged".
+            onDragOver={(e) => {
+              if (!e.dataTransfer?.types?.includes('Files')) return;
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget)) return;
+              setDragActive(false);
+            }}
+            onDrop={(e) => {
+              if (!e.dataTransfer?.files?.length) return;
+              e.preventDefault();
+              setDragActive(false);
+              const file = e.dataTransfer.files[0];
+              if (!file.type.startsWith('image/')) {
+                toast.error('Only images can be attached');
+                return;
+              }
+              if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image must be under 5 MB');
+                return;
+              }
+              setImagePreview({ file, url: URL.createObjectURL(file), name: file.name });
+            }}
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '16px',
+              background: dragActive ? '#f1efe9' : '#f8f9fa',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              position: 'relative',
+              transition: 'background 0.15s ease',
+              outline: dragActive ? '2px dashed #B08D4F' : '2px dashed transparent',
+              outlineOffset: '-8px',
+            }}
+          >
+            {dragActive && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'sticky', top: 0, zIndex: 5, alignSelf: 'center',
+                  background: '#1a1a1a', color: 'white', borderRadius: '999px',
+                  padding: '5px 14px', fontSize: '11px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.22)',
+                }}
+              >
+                <ImagePlus size={13} /> Drop to attach the image
+              </div>
+            )}
             {!chat && !error ? (
               <div style={{
                 display: 'flex',
@@ -834,52 +1017,107 @@ export default function LiveChatWidget() {
               </div>
             ) : (
               <>
-                {/* Date groups */}                {Object.entries(groupMessagesByDate(messages)).map(([dateStr, msgs]) => (
+                {/* Date groups */}                {Object.entries(groupMessagesByDate(visibleMessages)).map(([dateStr, msgs]) => (
                   <div key={dateStr}>
                     <div style={{ textAlign: 'center', fontSize: '11px', color: '#999', margin: '8px 0', fontWeight: 600 }}>
                       {getDateLabel(dateStr)}
                     </div>
-                    {msgs.map((msg) => {
+                    {msgs.map((msg, mi) => {
                       const parsed = parseAiMessage(msg);
+                      const isAI = msg.senderId === 'ai-chatbot';
+                      const inbound = !!msg.isFromAdmin;
+
+                      // WhatsApp-style grouping: consecutive messages from the same
+                      // author weld their adjacent corners and only the last one in a
+                      // run carries the timestamp, so a burst reads as one block.
+                      const prevMsg = msgs[mi - 1];
+                      const nextMsg = msgs[mi + 1];
+                      const sameAsPrev =
+                        !!prevMsg &&
+                        !!prevMsg.isFromAdmin === inbound &&
+                        (prevMsg.senderId === 'ai-chatbot') === isAI;
+                      const sameAsNext =
+                        !!nextMsg &&
+                        !!nextMsg.isFromAdmin === inbound &&
+                        (nextMsg.senderId === 'ai-chatbot') === isAI;
+
+                      const radius = inbound
+                        ? `4px 16px 16px ${sameAsNext ? '4px' : '16px'}`
+                        : `16px 4px ${sameAsNext ? '4px' : '16px'} 16px`;
+
                       return (
-                        <div key={msg.id} style={{ marginBottom: '8px' }}>
-                          <div style={{ display: 'flex', justifyContent: msg.isFromAdmin ? 'flex-start' : 'flex-end' }}>
+                        <div key={msg.id} style={{ marginBottom: sameAsNext ? '3px' : '10px' }}>
+                          <div style={{ display: 'flex', justifyContent: inbound ? 'flex-start' : 'flex-end', alignItems: 'flex-end', gap: '7px' }}>
+                            {/* Agent identity chip — shown once per run, not on every line. */}
+                            {inbound && !sameAsNext && (
+                              <span
+                                aria-hidden="true"
+                                style={{
+                                  width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
+                                  background: isAI ? 'linear-gradient(135deg, #B08D4F, #8B6914)' : 'linear-gradient(135deg, #4b4741, #2c2926)',
+                                  color: 'white', fontSize: '10px', fontWeight: 700,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                              >
+                                {isAI ? <Bot size={13} /> : initialsOf(msg.senderName || agentName)}
+                              </span>
+                            )}
+                            {inbound && sameAsNext && <span style={{ width: '26px', flexShrink: 0 }} aria-hidden="true" />}
+
                             <div style={{
-                              maxWidth: '80%', padding: '8px 14px', borderRadius: msg.isFromAdmin ? '4px 16px 16px 16px' : '16px 4px 16px 16px',
-                              background: msg.isFromAdmin ? '#e8e8e8' : '#1a1a1a',
-                              color: msg.isFromAdmin ? '#1a1a1a' : 'white',
-                              fontSize: '14px', lineHeight: 1.4, wordBreak: 'break-word',
+                              maxWidth: '80%', padding: '8px 13px', borderRadius: radius,
+                              background: inbound ? (isAI ? '#faf6ec' : '#eceae6') : '#1a1a1a',
+                              color: inbound ? '#1a1a1a' : 'white',
+                              border: inbound ? (isAI ? '1px solid rgba(176,141,79,0.28)' : '1px solid #e2e0dc') : '1px solid #1a1a1a',
+                              fontSize: '14px', lineHeight: 1.45, wordBreak: 'break-word', overflowWrap: 'anywhere',
                             }}>
-                              {msg.senderId === 'ai-chatbot' ? (
-                                <div style={{ fontSize: '10px', color: '#6366f1', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  🤖 AI Assistant
-                                </div>
-                              ) : msg.isFromAdmin ? (
-                                <div style={{ fontSize: '10px', color: '#059669', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-                                  🎧 Support Agent
-                                </div>
-                              ) : null}
-                              {/* Image message */}
-                              {parsed.imageUrl ? (
-                                <div style={{ margin: parsed.text ? '0 0 4px' : 0 }}>
-                                  <img src={parsed.imageUrl} alt="Shared image" style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'pointer' }} loading="lazy" onClick={() => window.open(parsed.imageUrl, '_blank')} />
-                                  {parsed.text && <div style={{ whiteSpace: 'pre-line', marginTop: '4px', fontSize: isOnlyEmoji(parsed.text) ? '26px' : '14px' }}>{parsed.text}</div>}
-                                </div>
-                              ) : (
-                                <div style={{
-                                  whiteSpace: 'pre-line',
-                                  fontSize: isOnlyEmoji(parsed.text) ? '26px' : '14px',
-                                  lineHeight: isOnlyEmoji(parsed.text) ? 1.2 : 1.4,
-                                }}>
-                                  {parsed.text}
+                              {!sameAsPrev && isAI && (
+                                <div style={{ fontSize: '10px', color: '#8B6914', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Bot size={11} /> AI Assistant
                                 </div>
                               )}
-                              <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
-                                {formatTime(msg.createdAt)}
-                              </div>
+                              {!sameAsPrev && inbound && !isAI && (
+                                <div style={{ fontSize: '10px', color: '#2f6b52', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                                  {msg.senderName || agentName || 'Support'} · Support
+                                </div>
+                              )}
+                              {/* Image message — opens in an in-chat lightbox, not a new tab */}
+                              {parsed.imageUrl ? (
+                                <div style={{ margin: parsed.text ? '0 0 4px' : 0 }}>
+                                  <img
+                                    src={getImageUrl(parsed.imageUrl)}
+                                    alt="Image shared in this chat"
+                                    style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
+                                    loading="lazy"
+                                    onClick={() => setLightbox({ src: getImageUrl(parsed.imageUrl), alt: 'Image shared in this chat' })}
+                                  />
+                                  {parsed.text && (
+                                    <MessageText text={parsed.text} variant={inbound ? 'light' : 'dark'} className={isOnlyEmoji(parsed.text) ? 'text-[26px] leading-tight' : 'mt-1 text-sm'} />
+                                  )}
+                                </div>
+                              ) : (
+                                <MessageText
+                                  text={parsed.text}
+                                  variant={inbound ? 'light' : 'dark'}
+                                  className={isOnlyEmoji(parsed.text) ? 'text-[26px] leading-tight' : 'text-sm'}
+                                />
+                              )}
+                              {!sameAsNext && (
+                                <div style={{ fontSize: '10px', opacity: 0.65, marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                  <span>{formatTime(msg.createdAt)}</span>
+                                  {!inbound && <ReadTicks read={!!msg.isRead} variant="dark" />}
+                                </div>
+                              )}
                             </div>
                           </div>
+
+                          {/* Visual order tracker for bot order lookups */}
+                          {parsed.order && (
+                            <div style={{ marginTop: '6px', maxWidth: '88%' }}>
+                              <OrderTrackingCard order={parsed.order} />
+                            </div>
+                          )}
                           {/* Product Cards */}
                           {parsed.products.length > 0 && (
                             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', padding: '6px 0', marginTop: '6px' }}>
@@ -938,18 +1176,32 @@ export default function LiveChatWidget() {
                   </div>
                 ))}
 
-                {/* Typing indicator */}
+                {/* Typing indicator — names the person doing the typing, WhatsApp-style */}
                 {(isTyping || isAiTyping) && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '4px' }}>
-                    <div style={{
-                      padding: '10px 14px', borderRadius: '4px 16px 16px 16px', background: '#e8e8e8',
-                      display: 'flex', gap: '4px', alignItems: 'center',
-                    }}>
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
-                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#6366f1' : '#888' }} />
-                      <span style={{ fontSize: '10px', color: isAiTyping ? '#6366f1' : '#888', marginLeft: '4px', fontWeight: 600 }}>
-                        {isAiTyping ? 'AI is typing...' : (typingName || 'Support')}
+                  <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '4px', gap: '7px', alignItems: 'flex-end' }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0,
+                        background: isAiTyping ? 'linear-gradient(135deg, #B08D4F, #8B6914)' : 'linear-gradient(135deg, #4b4741, #2c2926)',
+                        color: 'white', fontSize: '10px', fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      {isAiTyping ? <Bot size={13} /> : initialsOf(typingName || agentName)}
+                    </span>
+                    <div
+                      aria-live="polite"
+                      style={{
+                        padding: '9px 13px', borderRadius: '4px 16px 16px 16px', background: '#eceae6',
+                        border: '1px solid #e2e0dc', display: 'flex', gap: '4px', alignItems: 'center',
+                      }}
+                    >
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#B08D4F' : '#888' }} />
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#B08D4F' : '#888' }} />
+                      <span className="chat-dot-pulse" style={{ width: '6px', height: '6px', borderRadius: '50%', background: isAiTyping ? '#B08D4F' : '#888' }} />
+                      <span style={{ fontSize: '11px', color: isAiTyping ? '#8B6914' : '#555', marginLeft: '4px', fontWeight: 600 }}>
+                        {isAiTyping ? 'AI Assistant is typing…' : `${typingName || agentName || 'Support'} is typing…`}
                       </span>
                     </div>
                   </div>
@@ -1172,6 +1424,16 @@ export default function LiveChatWidget() {
           }
         }
       `}</style>
+
+      {/* Attachment preview stays inside the chat instead of hijacking a new tab */}
+      {lightbox && (
+        <ImageLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          caption="Shared in this chat"
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </>
   );
 }
