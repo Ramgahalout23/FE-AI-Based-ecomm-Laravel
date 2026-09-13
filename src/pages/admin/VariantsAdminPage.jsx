@@ -1,6 +1,5 @@
 import { Search, X, Download } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-;
 import Pagination from '../../components/admin/Pagination';
 import { adminAPI } from '../../api/admin';
 import { aiAPI } from '../../api/ai';
@@ -380,12 +379,17 @@ export default function VariantsAdminPage() {
 
   // Reset to page 1 when search, product filter, or page size changes
   useEffect(() => {
-    setCurrentPage(1);
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      load(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentPage/load intentionally excluded: load is recreated each render
   }, [debouncedSearch, productFilter, pageSize]);
 
   useEffect(() => {
     load(currentPage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is recreated each render; page changes are the only intended trigger
   }, [currentPage]);
 
   const openEdit = (v) => {
