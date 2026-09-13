@@ -26,13 +26,13 @@ export default function PaymentsAdminPage() {
       setPaymentLoading(true);
       try {
         const r = await paymentsAPI.getAll({ page, limit });
-        // Laravel returns raw paginator: { success: true, data: { data: [...items], current_page, ... } }
         const raw = r.data?.data || r.data || {};
-        const list = raw?.data || raw?.payments || raw || [];
+        const list = Array.isArray(raw) ? raw : (raw?.data || raw?.payments || []);
         setPayments(Array.isArray(list) ? list : []);
-        setCurrentPage(raw.current_page || raw.page || page);
-        setTotalPages(raw.last_page || raw.pages || raw.totalPages || Math.ceil((raw.total || list.length) / limit) || 1);
-        setTotalItems(raw.total || list.length);
+        const pag = r.data?.pagination || raw?.pagination || {};
+        setCurrentPage(pag.page || raw.current_page || page);
+        setTotalPages(pag.totalPages || pag.pages || raw.last_page || Math.ceil((pag.total || raw.total || list.length) / limit) || 1);
+        setTotalItems(pag.total !== undefined ? pag.total : (raw.total || list.length));
       } catch (e) { setError('Failed to load payments'); console.warn('Failed to load payments:', e); }
       try { const r = await paymentsAPI.getStats(); if (r.data) setStats(r.data?.data || r.data || {}); } catch (e2) { setError(prev => prev || 'Failed to load payment stats'); console.warn('Failed to load payment stats:', e2); }
       setLoading(false);

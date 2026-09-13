@@ -10,7 +10,7 @@ export const paymentsAPI = {
   requestRefund: (id, data) => client.post(`/payments/${id}/refund`, data),
   getUserRefunds: () => client.get('/payments/refunds/list'),
   // Admin
-  getAll: () => adminClient.get('/admin/payments/all'),
+  getAll: (params) => adminClient.get('/admin/payments/all', { params }),
   getStats: () => adminClient.get('/admin/payments/stats'),
   approveRefund: (id) => adminClient.post(`/admin/refunds/${id}/approve`),
   rejectRefund: (id) => adminClient.post(`/admin/refunds/${id}/reject`),

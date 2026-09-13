@@ -310,7 +310,7 @@ export default function CustomDesignsAdminPage() {
                               <div className="flex justify-between"><span className="text-gray-400">Customer</span><span className="font-medium">{design.customer_name || 'Guest'}</span></div>
                               <div className="flex justify-between"><span className="text-gray-400">Email</span><span className="font-medium">{design.customer_email || '-'}</span></div>
                               <div className="flex justify-between"><span className="text-gray-400">Date</span><span className="font-medium">{formatDate(design.created_at)}</span></div>
-                              <div className="flex justify-between"><span className="text-gray-400">Total</span><span className="font-bold">{formatCurrency(order.total || order.totalAmount || design.price || 0)}</span></div>
+                              <div className="flex justify-between"><span className="text-gray-400">Total</span><span className="font-bold">{formatCurrency(design.order?.total || design.total || design.price || 0)}</span></div>
                             </div>
                           </div>
 
