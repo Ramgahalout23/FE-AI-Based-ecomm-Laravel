@@ -116,13 +116,31 @@ export default function AbandonedCartsAdminPage() {
     }
   };
 
+  const [sendingBulk, setSendingBulk] = useState(false);
+
+  const handleBulkReminders = async () => {
+    setSendingBulk(true);
+    try {
+      const res = await adminAPI.sendBulkCartReminders();
+      const count = res.data?.data?.sentCount || 0;
+      toast.success(count > 0 ? `Sent ${count} bulk reminder email${count !== 1 ? 's' : ''}` : 'No unreminded carts found');
+      await load(currentPage);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to send bulk reminders');
+    } finally {
+      setSendingBulk(false);
+    }
+  };
+
   return (
     <div>
       <div className="admin-header admin-header-row">
         <div><h2>Abandoned Carts</h2><p>Track and recover incomplete checkouts</p></div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn-dark btn-sm" onClick={() => setShowExportModal(true)}>📥 Export CSV</button>
-          <button className="btn-dark btn-sm" onClick={() => toast.success('Bulk reminders sent')}>Send Bulk Reminders</button>
+          <button className="btn-dark btn-sm" onClick={handleBulkReminders} disabled={sendingBulk}>
+            {sendingBulk ? 'Sending...' : 'Send Bulk Reminders'}
+          </button>
         </div>
       </div>
 

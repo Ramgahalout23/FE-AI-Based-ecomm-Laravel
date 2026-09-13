@@ -4,6 +4,7 @@ import AdminPageShell from '../../components/admin/AdminPageShell';
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import { PAYMENT_STATUSES } from '../../utils/constants';
 import toast from '../../utils/toast';
+import Pagination from '../../components/admin/Pagination';
 
 export default function PaymentsAdminPage() {
   const [payments, setPayments] = useState([]);
@@ -16,22 +17,23 @@ export default function PaymentsAdminPage() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [, setTotalPages] = useState(1);
-  const [, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const pageSizeOptions = [10, 25, 50, 100];
   const [, setPaymentLoading] = useState(false);
-  const limit = 10;
 
   useEffect(() => {
     const load = async (page = 1) => {
       setPaymentLoading(true);
       try {
-        const r = await paymentsAPI.getAll({ page, limit });
+        const r = await paymentsAPI.getAll({ page, limit: pageSize });
         const raw = r.data?.data || r.data || {};
         const list = Array.isArray(raw) ? raw : (raw?.data || raw?.payments || []);
         setPayments(Array.isArray(list) ? list : []);
         const pag = r.data?.pagination || raw?.pagination || {};
         setCurrentPage(pag.page || raw.current_page || page);
-        setTotalPages(pag.totalPages || pag.pages || raw.last_page || Math.ceil((pag.total || raw.total || list.length) / limit) || 1);
+        setTotalPages(pag.totalPages || pag.pages || raw.last_page || Math.ceil((pag.total || raw.total || list.length) / pageSize) || 1);
         setTotalItems(pag.total !== undefined ? pag.total : (raw.total || list.length));
       } catch (e) { setError('Failed to load payments'); console.warn('Failed to load payments:', e); }
       try { const r = await paymentsAPI.getStats(); if (r.data) setStats(r.data?.data || r.data || {}); } catch (e2) { setError(prev => prev || 'Failed to load payment stats'); console.warn('Failed to load payment stats:', e2); }
@@ -39,7 +41,7 @@ export default function PaymentsAdminPage() {
       setPaymentLoading(false);
     };
     load(currentPage);
-  }, [currentPage]);
+  }, [currentPage, pageSize]);
 
   const loadRefunds = async () => {
     try {
@@ -121,6 +123,17 @@ export default function PaymentsAdminPage() {
               ))}
             </tbody>
           </table>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={pageSizeOptions}
+            itemLabel="payment"
+          />
         </div>
       ) : (
         <div className="table-card">

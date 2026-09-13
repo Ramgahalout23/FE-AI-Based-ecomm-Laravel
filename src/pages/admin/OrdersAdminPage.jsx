@@ -45,7 +45,7 @@ export default function OrdersAdminPage() {
     DELIVERED: ['RETURNED', 'RETURN_REQUESTED'],
     CANCELLED: [],
     RETURNED: [],
-    RETURN_REQUESTED: [],
+    RETURN_REQUESTED: ['RETURNED', 'CANCELLED'],
   };
 
   const statusOptionsFor = (current) => [
@@ -260,7 +260,7 @@ export default function OrdersAdminPage() {
             ) : orders.map(o => (
               <tr key={o.id}>
                 <td><strong style={{ fontFamily: 'monospace' }}>#{o.order_number || o.orderNumber || o.id?.slice(0, 8)}</strong></td>
-                <td>{o.customerName || o.userId || '\u2014'}</td>
+                <td>{o.customerName || o.customer_name || (o.user ? `${o.user.firstName || ''} ${o.user.lastName || ''}`.trim() : null) || o.userId || '\u2014'}</td>
                 <td><strong>{formatCurrency(o.total || o.totalAmount)}</strong></td>
                 <td><span className={`status-badge ${ORDER_STATUSES[o.status]?.class || 'status-pending'}`}>{ORDER_STATUSES[o.status]?.label || o.status}</span></td>
                 <td>{formatDate(o.createdAt)}</td>

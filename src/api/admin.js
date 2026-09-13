@@ -197,6 +197,7 @@ export const adminAPI = {
   getAbandonedCarts: (params) => adminClient.get('/admin/abandoned-carts', { params }),
   getAbandonedCartStats: () => adminClient.get('/admin/abandoned-carts/stats'),
   sendCartReminder: (id) => adminClient.post(`/admin/abandoned-carts/${id}/remind`),
+  sendBulkCartReminders: () => adminClient.post('/admin/abandoned-carts/bulk-remind'),
   aiCartSuggestion: (id) => adminClient.post(`/admin/abandoned-carts/${id}/ai-suggest`),
   deleteAbandonedCart: (id) => adminClient.delete(`/admin/abandoned-carts/${id}`),
   // Support Tickets

@@ -309,18 +309,18 @@ export default function ReturnsAdminPage() {
                 </td>
                 <td>
                   <span style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>
-                    {r.order ? `#${r.order.order_number || r.order.id?.slice(0, 8)}` : `#${r.order_id?.slice(0, 8)}`}
+                    {r.order ? `#${r.order.order_number || r.order.orderNumber || r.order.id?.slice(0, 8)}` : `#${(r.order_id || r.orderId)?.slice(0, 8)}`}
                   </span>
                 </td>
                 <td>
-                  {r.return_type ? (
+                  {(r.return_type || r.returnType) ? (
                     <span className={`status-badge ${
-                      r.return_type === 'refund' ? 'status-warning' :
-                      r.return_type === 'exchange' ? 'status-info' :
-                      r.return_type === 'replacement' ? 'status-active' :
+                      (r.return_type || r.returnType) === 'refund' ? 'status-warning' :
+                      (r.return_type || r.returnType) === 'exchange' ? 'status-info' :
+                      (r.return_type || r.returnType) === 'replacement' ? 'status-active' :
                       'status-pending'
                     }`} style={{ fontSize: '0.7rem' }}>
-                      {RETURN_TYPE_LABELS[r.return_type] || r.return_type}
+                      {RETURN_TYPE_LABELS[r.return_type || r.returnType] || r.return_type || r.returnType}
                     </span>
                   ) : (
                     <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
@@ -341,12 +341,11 @@ export default function ReturnsAdminPage() {
                   )}
                 </td>
                 <td>
-                  {r.refund_amount ? (
-                    <strong>{formatCurrency(r.refund_amount)}</strong>
+                  {(r.refund_amount != null || r.refundAmount != null) ? (
+                    <strong>{formatCurrency(r.refund_amount ?? r.refundAmount)}</strong>
                   ) : (
                     <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
                   )}
-
                 </td>
                 <td>
                   {r.resolution ? (
@@ -361,9 +360,9 @@ export default function ReturnsAdminPage() {
                   <span className={`status-badge ${RETURN_REQUEST_STATUSES[r.status]?.class || 'status-pending'}`}>
                     {RETURN_REQUEST_STATUSES[r.status]?.label || r.status}
                   </span>
-                  {r.admin_response && (
+                  {(r.admin_response || r.adminResponse) && (
                     <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 2 }}>
-                      Admin: {r.admin_response}
+                      Admin: {r.admin_response || r.adminResponse}
                     </div>
                   )}
                 </td>
@@ -381,7 +380,7 @@ export default function ReturnsAdminPage() {
                     <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>—</span>
                   )}
                 </td>
-                <td style={{ fontSize: '0.82rem' }}>{r.created_at ? formatDate(r.created_at) : '—'}</td>
+                <td style={{ fontSize: '0.82rem' }}>{(r.created_at || r.createdAt) ? formatDate(r.created_at || r.createdAt) : '—'}</td>
                 <td>
                   <div className="row-actions" style={{ flexWrap: 'wrap', gap: '0.25rem' }}>
                     <button className="btn-view" onClick={() => openDetailModal(r)}>View</button>
@@ -451,7 +450,7 @@ export default function ReturnsAdminPage() {
                   )}
                 </h3>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#999', fontFamily: 'monospace' }}>
-                  ID: {detailModal.data?.id} · Created {detailModal.data?.created_at ? formatDateTime(detailModal.data.created_at) : '—'}
+                  ID: {detailModal.data?.id} · Created {(detailModal.data?.created_at || detailModal.data?.createdAt) ? formatDateTime(detailModal.data.created_at || detailModal.data.createdAt) : '—'}
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -482,12 +481,12 @@ export default function ReturnsAdminPage() {
                     <DetailGrid items={[
                       { label: 'Request ID', value: <span style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>{detailModal.data.id}</span> },
                       { label: 'Status', value: <span className={`status-badge ${RETURN_REQUEST_STATUSES[detailModal.data.status]?.class || 'status-pending'}`} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>{RETURN_REQUEST_STATUSES[detailModal.data.status]?.label || detailModal.data.status}</span> },
-                      { label: 'Return Type', value: RETURN_TYPE_LABELS[detailModal.data.return_type] || detailModal.data.return_type || '—' },
+                      { label: 'Return Type', value: RETURN_TYPE_LABELS[detailModal.data.return_type || detailModal.data.returnType] || detailModal.data.return_type || detailModal.data.returnType || '—' },
                       { label: 'Reason', value: returnReasonLabel(detailModal.data.reason) },
-                      { label: 'Created', value: detailModal.data.created_at ? formatDateTime(detailModal.data.created_at) : '—' },
-                      { label: 'Processed', value: detailModal.data.processed_at ? formatDateTime(detailModal.data.processed_at) : '—' },
+                      { label: 'Created', value: (detailModal.data.created_at || detailModal.data.createdAt) ? formatDateTime(detailModal.data.created_at || detailModal.data.createdAt) : '—' },
+                      { label: 'Processed', value: (detailModal.data.processed_at || detailModal.data.processedAt) ? formatDateTime(detailModal.data.processed_at || detailModal.data.processedAt) : '—' },
                       { label: 'Reviewed By', value: detailModal.data.reviewer ? `${getUserFullName(detailModal.data.reviewer) || detailModal.data.reviewer.email || '—'} (${detailModal.data.reviewer.email || '—'})` : '—' },
-                      { label: 'Refund Amount', value: detailModal.data.refund_amount ? <strong>{formatCurrency(detailModal.data.refund_amount)}</strong> : '—' },
+                      { label: 'Refund Amount', value: (detailModal.data.refund_amount != null || detailModal.data.refundAmount != null) ? <strong>{formatCurrency(detailModal.data.refund_amount ?? detailModal.data.refundAmount)}</strong> : '—' },
                       { label: 'Resolution', value: detailModal.data.resolution ? (RETURN_TYPE_LABELS[detailModal.data.resolution] || detailModal.data.resolution) : '—' },
                     ]} />
                     {detailModal.data.description && (

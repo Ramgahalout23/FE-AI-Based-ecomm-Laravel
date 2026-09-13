@@ -37,14 +37,26 @@ function computeCounts(designs) {
   return counts;
 }
 
-/* ═══════════ EXTRACT BACK DESIGN URL FROM DESIGN_NOTES JSON ═══════════ */
+/* ═══════════ EXTRACT BACK DESIGN URL & CUSTOMER NOTES FROM JSON ═══════════ */
 function getBackDesignUrl(design) {
-  if (!design?.design_notes) return null;
+  const notes = design?.design_notes || design?.designNotes;
+  if (!notes) return null;
   try {
-    const parsed = JSON.parse(design.design_notes);
+    const parsed = JSON.parse(notes);
     return parsed?.backDesignUrl || null;
   } catch {
     return null;
+  }
+}
+
+function getCustomerNotes(design) {
+  const notes = design?.design_notes || design?.designNotes;
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed?.customerNotes || parsed?.notes || (parsed?.backDesignUrl || parsed?.adminNotes ? null : notes);
+  } catch {
+    return notes;
   }
 }
 
@@ -211,8 +223,8 @@ export default function CustomDesignsAdminPage() {
                     <div className="flex -space-x-2 shrink-0">
                       {/* Front design thumbnail */}
                       <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-100 border-2 border-amber-400 flex items-center justify-center relative z-10 ring-1 ring-white">
-                        {design.design_file_url ? (
-                          <img src={design.design_file_url} alt="Front design" className="w-full h-full object-cover"
+                        {(design.design_file_url || design.designFileUrl) ? (
+                          <img src={design.design_file_url || design.designFileUrl} alt="Front design" className="w-full h-full object-cover"
                             onError={(e) => { e.target.style.display = 'none'; }} />
                         ) : (
                           <ImageIcon size={20} className="text-gray-300" />
@@ -232,12 +244,12 @@ export default function CustomDesignsAdminPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-mono font-bold text-gray-800">#{design.order_id?.slice(0, 8)}</span>
+                        <span className="text-xs font-mono font-bold text-gray-800">#{(design.order_id || design.orderId)?.slice(0, 8)}</span>
                         <span className="text-[10px] text-gray-400">·</span>
-                        <span className="text-xs font-medium text-gray-600 truncate">{design.customer_name || 'Guest'}</span>
+                        <span className="text-xs font-medium text-gray-600 truncate">{design.customer_name || design.user?.name || 'Guest'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                        <span>{design.design_filename || 'Uploaded design'}</span>
+                        <span>{design.design_filename || design.designFilename || 'Uploaded design'}</span>
                         <span>·</span>
                         <span>{design.color || '-'} / {design.size || '-'}</span>
                         <span>·</span>
@@ -274,8 +286,8 @@ export default function CustomDesignsAdminPage() {
                             {/* Front design */}
                             <div className="relative">
                               <div className="aspect-square rounded-xl overflow-hidden border-2 border-amber-400 bg-white flex items-center justify-center w-[160px]">
-                                {design.design_file_url ? (
-                                  <img src={design.design_file_url} alt="Front design" className="w-full h-full object-contain p-2" />
+                                {(design.design_file_url || design.designFileUrl) ? (
+                                  <img src={design.design_file_url || design.designFileUrl} alt="Front design" className="w-full h-full object-contain p-2" />
                                 ) : (
                                   <div className="text-center text-gray-300 p-4">
                                     <ImageIcon size={32} className="mx-auto mb-2" />
@@ -327,12 +339,12 @@ export default function CustomDesignsAdminPage() {
                           </div>
 
                           {/* Customer Notes */}
-                          {design.design_notes && (
+                          {getCustomerNotes(design) && (
                             <div>
                               <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                                 <MessageSquare size={12} /> Customer Notes
                               </h4>
-                              <p className="text-xs text-gray-600 bg-white rounded-lg p-3 border border-gray-200">{design.design_notes}</p>
+                              <p className="text-xs text-gray-600 bg-white rounded-lg p-3 border border-gray-200">{getCustomerNotes(design)}</p>
                             </div>
                           )}
                         </div>
