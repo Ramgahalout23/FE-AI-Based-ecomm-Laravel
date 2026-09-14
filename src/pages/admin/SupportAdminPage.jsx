@@ -352,11 +352,12 @@ export default function SupportAdminPage() {
 
   const applyAiPriority = async (ticket, suggestion) => {
     try {
-      await adminAPI.updateSupportTicket(ticket.id, { priority: suggestion.priority });
-      setTickets(tickets.map(t => t.id === ticket.id ? { ...t, priority: suggestion.priority } : t));
-      setChatTicket(prev => prev && prev.id === ticket.id ? { ...prev, priority: suggestion.priority } : prev);
+      const priority = (suggestion.priority || '').toUpperCase();
+      await adminAPI.updateSupportTicket(ticket.id, { priority });
+      setTickets(tickets.map(t => t.id === ticket.id ? { ...t, priority } : t));
+      setChatTicket(prev => prev && prev.id === ticket.id ? { ...prev, priority } : prev);
       setAiPriority(prev => ({ ...prev, [ticket.id]: null }));
-      toast.success(`Priority set to ${suggestion.priority}`);
+      toast.success(`Priority set to ${priority}`);
     } catch {
       toast.error('Failed to apply priority');
     }

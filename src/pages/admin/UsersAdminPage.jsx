@@ -162,9 +162,10 @@ export default function UsersAdminPage() {
 
   const handleManage = async (id, action) => {
     try {
-      await adminAPI.manageUser(id, { action });
-      setUsers(users.map(u => u.id === id ? { ...u, blocked: action === 'block' } : u));
-      if (detail?.id === id) setDetail({ ...detail, blocked: action === 'block' });
+      await adminAPI.manageUser(id, { action: action.toUpperCase() });
+      const isBlockAction = action.toLowerCase() === 'block';
+      setUsers(users.map(u => u.id === id ? { ...u, blocked: isBlockAction } : u));
+      if (detail?.id === id) setDetail({ ...detail, blocked: isBlockAction });
       toast.success(`User ${action}ed successfully`);
       await load(currentPage);
     } catch { toast.error(`Failed to ${action} user`); }
