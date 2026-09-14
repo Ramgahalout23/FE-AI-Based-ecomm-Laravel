@@ -331,4 +331,8 @@ export const adminAPI = {
   updateSecurityPolicies: (data) => adminClient.put('/admin/security/policies', data),
   verifyMasterPin: (pin) => adminClient.post('/admin/security/master-pin/verify', { pin }),
   updateMasterPin: (data) => adminClient.post('/admin/security/master-pin/update', data),
+
+  // ── Database Cleanup Scheduler ──
+  getCleanupStatus: () => adminClient.get('/admin/scheduler/cleanup/status'),
+  triggerCleanup: (data) => adminClient.post('/admin/scheduler/cleanup', data),
 };
