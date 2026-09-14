@@ -86,6 +86,13 @@ const FOCUS_ON_DARK = 'focus-visible:outline focus-visible:outline-2 focus-visib
 /** Friendly customer label — never shows the raw "Guest 1234" seed or an empty string. */
 function getDisplayName(conv) {
   if (!conv) return 'Guest customer';
+  if (conv.guestName) return conv.guestName;
+  if (!conv.user && conv.guestSessionId) {
+    const s = conv.guestSessionId.replace(/^anon-/, '');
+    const parts = s.split('-');
+    const tag = parts[parts.length - 1] || s.slice(-6);
+    return `Guest #${tag}`;
+  }
   const u = conv.user || conv.customer;
   const first = u?.firstName || u?.first_name || '';
   const last = u?.lastName || u?.last_name || '';
@@ -480,7 +487,7 @@ function CustomerDetailsBody({ selectedChat, customerName, insight, insightLoadi
           </div>
           <div className="min-w-0">
             <div className="text-sm font-bold text-stone-900 truncate">{customerName}</div>
-            <div className="text-xs text-stone-500 truncate">{u?.email || 'No email attached'}</div>
+            <div className="text-xs text-stone-500 truncate">{u?.email || selectedChat.guestEmail || (selectedChat.guestSessionId ? 'Guest session · No account' : 'No email attached')}</div>
           </div>
         </div>
 
@@ -1704,7 +1711,7 @@ export default function ChatPanel() {
                         #{selectedChat.ticketNumber || selectedChat.id?.slice(0, 8)}
                       </span>
                       <span aria-hidden="true">·</span>
-                      <span className="truncate">{selectedChat.user?.email || 'Anonymous visitor'}</span>
+                      <span className="truncate">{selectedChat.user?.email || selectedChat.guestEmail || (selectedChat.guestSessionId ? 'Guest session' : 'Anonymous visitor')}</span>
                     </div>
                   </div>
                 </div>

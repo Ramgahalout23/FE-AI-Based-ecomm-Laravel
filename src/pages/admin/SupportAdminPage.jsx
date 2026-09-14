@@ -224,8 +224,20 @@ export default function SupportAdminPage() {
     return () => { unsub(); if (badgeTimer) clearTimeout(badgeTimer); };
   }, [refreshChatBadge, scrollThreadToBottom]);
 
-  const customerName = (t) =>
-    [t.user?.firstName || t.user?.first_name, t.user?.lastName || t.user?.last_name].filter(Boolean).join(' ') || t.name || 'Guest';
+  const customerName = (t) => {
+    if (!t) return 'Guest';
+    const userName = [t.user?.firstName || t.user?.first_name, t.user?.lastName || t.user?.last_name].filter(Boolean).join(' ');
+    if (userName) return userName;
+    if (t.guestName) return t.guestName;
+    if (t.name && t.name !== 'Guest') return t.name;
+    if (t.guestSessionId) {
+      const s = t.guestSessionId.replace(/^anon-/, '');
+      const parts = s.split('-');
+      const tag = parts[parts.length - 1] || s.slice(-6);
+      return `Guest #${tag}`;
+    }
+    return t.name || 'Guest Visitor';
+  };
 
   const chatTime = (iso) => {
     if (!iso) return '';
