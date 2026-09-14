@@ -66,6 +66,7 @@ export default function CampaignListTab({
   const [compareCampaign, setCompareCampaign] = useState(null);
   const [whatsappModal, setWhatsappModal] = useState(null);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [loadingSubscribers, setLoadingSubscribers] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const handlePushToPlatform = async (campaign) => {
@@ -92,6 +93,27 @@ export default function CampaignListTab({
       toast.error(err?.response?.data?.message || `Failed to push to ${campaign.platform}`);
     }
     setPushingCampaigns(prev => ({ ...prev, [campaign.id]: false }));
+  };
+
+  const handleImportWhatsAppSubscribers = async () => {
+    setLoadingSubscribers(true);
+    try {
+      const r = await adsAPI.getWhatsAppRecipients({ limit: 100 });
+      const data = r.data?.data || r.data || [];
+      const list = Array.isArray(data) ? data : (data.items || []);
+      const phones = list.map(s => s.phone).filter(Boolean);
+      if (phones.length === 0) {
+        toast.info('No subscribers with phone numbers found. Add phone numbers to subscribers first.');
+      } else {
+        const existing = whatsappModal?.recipients ? whatsappModal.recipients.split(/[\n,]+/).map(s => s.trim()).filter(Boolean) : [];
+        const combined = Array.from(new Set([...existing, ...phones]));
+        setWhatsappModal(prev => ({ ...prev, recipients: combined.join('\n') }));
+        toast.success(`Loaded ${phones.length} subscriber phone number(s)`);
+      }
+    } catch {
+      toast.error('Failed to load subscriber phone numbers');
+    }
+    setLoadingSubscribers(false);
   };
 
   const handleSendWhatsAppBroadcast = async () => {
@@ -451,7 +473,17 @@ export default function CampaignListTab({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-text-muted block mb-1">Recipients (Phone numbers with country code) *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-text-muted">Recipients (Phone numbers with country code) *</label>
+                <button
+                  type="button"
+                  disabled={loadingSubscribers}
+                  onClick={handleImportWhatsAppSubscribers}
+                  className="text-xs font-semibold text-brand-black hover:underline disabled:opacity-50"
+                >
+                  {loadingSubscribers ? 'Loading…' : '+ Import from Subscribers'}
+                </button>
+              </div>
               <textarea
                 rows={4}
                 value={whatsappModal.recipients}

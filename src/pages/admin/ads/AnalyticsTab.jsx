@@ -72,10 +72,10 @@ export default function AnalyticsTab({ stats, adsAPI }) {
             <h4 className="font-bold text-text-primary mb-4 flex items-center gap-2"><Activity size={16} /> Performance Summary</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: 'Avg CTR', value: `${performanceReport.summary.average_ctr ?? performanceReport.summary.averageCTR ?? 0}%`, trend: (performanceReport.summary.average_ctr ?? performanceReport.summary.averageCTR ?? 0) > 2 },
-                { label: 'Avg CPC', value: `₹${performanceReport.summary.average_cpc ?? performanceReport.summary.averageCPC ?? 0}`, trend: (performanceReport.summary.average_cpc ?? performanceReport.summary.averageCPC ?? 999) < 10 },
-                { label: 'ROAS', value: `${performanceReport.summary.overall_roas ?? performanceReport.summary.overallROAS ?? 0}x`, trend: (performanceReport.summary.overall_roas ?? performanceReport.summary.overallROAS ?? 0) > 1 },
-                { label: 'Conv. Rate', value: `${performanceReport.summary.conversion_rate ?? performanceReport.summary.conversionRate ?? 0}%`, trend: (performanceReport.summary.conversion_rate ?? performanceReport.summary.conversionRate ?? 0) > 2 },
+                { label: 'Avg CTR', value: `${performanceReport.summary?.average_ctr ?? performanceReport.summary?.averageCTR ?? 0}%`, trend: (performanceReport.summary?.average_ctr ?? performanceReport.summary?.averageCTR ?? 0) > 2 },
+                { label: 'Avg CPC', value: `₹${performanceReport.summary?.average_cpc ?? performanceReport.summary?.averageCPC ?? 0}`, trend: (performanceReport.summary?.average_cpc ?? performanceReport.summary?.averageCPC ?? 999) < 10 },
+                { label: 'ROAS', value: `${performanceReport.summary?.overall_roas ?? performanceReport.summary?.overallROAS ?? 0}x`, trend: (performanceReport.summary?.overall_roas ?? performanceReport.summary?.overallROAS ?? 0) > 1 },
+                { label: 'Conv. Rate', value: `${performanceReport.summary?.conversion_rate ?? performanceReport.summary?.conversionRate ?? 0}%`, trend: (performanceReport.summary?.conversion_rate ?? performanceReport.summary?.conversionRate ?? 0) > 2 },
               ].map((m, i) => (
                 <div key={i} className="p-3 rounded-xl bg-gray-50 border border-border">
                   <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{m.label}</div>

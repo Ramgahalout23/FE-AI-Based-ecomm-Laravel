@@ -49,14 +49,16 @@ export default function useAdCampaigns(search) {
       if (platform && platform !== 'all') params.platform = platform;
       if (search) params.search = search;
       const r = await adsAPI.getCampaigns(params);
-      // New format: { success, data: { data: [...items], current_page, last_page, total } }
-      const responseData = r.data?.data || r.data || {};
-      const list = responseData?.data || responseData?.items || [];
+      const responseData = r.data?.data !== undefined ? r.data.data : r.data;
+      const list = Array.isArray(responseData)
+        ? responseData
+        : (responseData?.data || responseData?.items || []);
+      const pagination = r.data?.pagination || responseData?.pagination || {};
       setCampaigns(Array.isArray(list) ? list : []);
       setPagination({
-        page: responseData.current_page || page,
-        total: responseData.total || 0,
-        totalPages: responseData.last_page || 1,
+        page: pagination.page || responseData?.current_page || page,
+        total: pagination.total !== undefined ? pagination.total : (responseData?.total || (Array.isArray(list) ? list.length : 0)),
+        totalPages: pagination.pages || pagination.totalPages || responseData?.last_page || 1,
       });
 
       // Detect stale campaigns (not synced in 24h)

@@ -1,4 +1,4 @@
-import { X, Upload, Check, Image, Video, Target, Wallet, CalendarDays, PenLine, MousePointerClick, Gauge } from 'lucide-react';
+import { X, Upload, Check, Image as ImageIcon, Video, Target, Wallet, CalendarDays, PenLine, MousePointerClick, Gauge } from 'lucide-react';
 import { useState, useRef } from 'react';
 
 ;
@@ -47,7 +47,7 @@ const PLATFORM_DIMS = {
 /** Load an image file in the browser and get its natural dimensions. */
 function getImageDimensions(file) {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const img = new window.Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
@@ -342,7 +342,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
             /* ── Carousel Multi-Upload ── */
             <div className="form-group form-full">
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Image size={14} />
+                <ImageIcon size={14} />
                 Carousel Images {(form.carouselUrls?.length || 0) > 0 && (
                   <span className="text-[10px] text-green-600 font-semibold">({form.carouselUrls.length}/10)</span>
                 )}
@@ -365,7 +365,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                     >
                       {carouselImgErrors[idx] ? (
                           <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                            <Image size={18} />
+                            <ImageIcon size={18} />
                           </div>
                         ) : (
                           <img src={item.url} alt={`Card ${idx + 1}`} className="w-full h-full object-cover"
@@ -424,7 +424,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                   ) : (
                     <div>
                       <div className="upload-dropzone-icon-box">
-                        <Image size={20} />
+                        <ImageIcon size={20} />
                       </div>
                       <p className="text-sm font-semibold">Drop images here or click to add carousel cards</p>
                       <p className="text-xs text-text-muted mt-0.5">
@@ -432,7 +432,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                       </p>
                       <div className="flex items-center justify-center gap-2 mt-2">
                         <button className="btn-dark btn-sm" onClick={(e) => { e.stopPropagation(); carouselInputRef.current?.click(); }}>
-                          <Image size={12} /> Add Images
+                          <ImageIcon size={12} /> Add Images
                         </button>
                       </div>
                     </div>
@@ -457,7 +457,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
             /* ── Single Image/Video Upload ── */
             <div className="form-group form-full">
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {isVideo ? <Video size={14} /> : <Image size={14} />}
+                {isVideo ? <Video size={14} /> : <ImageIcon size={14} />}
                 Creative Asset {form.creativeUrl ? <span className="text-[10px] text-green-600 font-semibold">(Uploaded)</span> : ''}
               </label>
 
@@ -503,7 +503,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                         <video src={form.creativeUrl} className="w-full h-full object-cover" controls />
                       ) : previewImgError ? (
                         <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-[11px] font-semibold">
-                          <Image size={22} />
+                          <ImageIcon size={22} />
                           <span>No preview</span>
                         </div>
                       ) : (
@@ -519,7 +519,7 @@ export default function CampaignModal({ show, onClose, editing, form, setForm, l
                       <p className="text-xs text-text-muted mt-1 break-all">{form.creativeUrl}</p>
                       <div className="flex items-center gap-3 mt-2 text-[10px] text-text-muted">
                         <span className="flex items-center gap-1">
-                          {isVideo ? <Video size={12} /> : <Image size={12} />}
+                          {isVideo ? <Video size={12} /> : <ImageIcon size={12} />}
                           {form.creativeType}
                         </span>
                         {form.creativeFileSize && (

@@ -79,9 +79,10 @@ export default function MarketingAdminPage() {
   const [recipientPagination, setRecipientPagination] = useState({ page: 1, total: 0, totalPages: 1 });
   const [recipientsLoading, setRecipientsLoading] = useState(false);
 
-  // Subscriber add modal
+  // Subscriber add/edit modal
   const [showSubscriberModal, setShowSubscriberModal] = useState(false);
-  const [subscriberForm, setSubscriberForm] = useState({ email: '', name: '' });
+  const [editingSubscriber, setEditingSubscriber] = useState(null);
+  const [subscriberForm, setSubscriberForm] = useState({ email: '', name: '', phone: '', status: 'SUBSCRIBED', tags: '' });
 
   const [chartsReady, setChartsReady] = useState(false);
 
@@ -393,20 +394,49 @@ export default function MarketingAdminPage() {
   };
 
   // ── Subscriber CRUD ──
-  const handleAddSubscriber = async () => {
+  const openNewSubscriber = () => {
+    setEditingSubscriber(null);
+    setSubscriberForm({ email: '', name: '', phone: '', status: 'SUBSCRIBED', tags: '' });
+    setShowSubscriberModal(true);
+  };
+
+  const openEditSubscriber = (sub) => {
+    setEditingSubscriber(sub);
+    setSubscriberForm({
+      email: sub.email || '',
+      name: sub.name || '',
+      phone: sub.phone || '',
+      status: sub.status || 'SUBSCRIBED',
+      tags: sub.tags || '',
+    });
+    setShowSubscriberModal(true);
+  };
+
+  const handleSaveSubscriber = async () => {
     if (!subscriberForm.email) {
       toast.error('Email is required');
       return;
     }
     try {
-      await marketingAPI.createSubscriber(subscriberForm);
-      toast.success('Subscriber added');
+      if (editingSubscriber) {
+        await marketingAPI.updateSubscriber(editingSubscriber.id, {
+          name: subscriberForm.name || null,
+          phone: subscriberForm.phone || null,
+          status: subscriberForm.status,
+          tags: subscriberForm.tags || null,
+        });
+        toast.success('Subscriber updated');
+      } else {
+        await marketingAPI.createSubscriber(subscriberForm);
+        toast.success('Subscriber added');
+      }
       setShowSubscriberModal(false);
-      setSubscriberForm({ email: '', name: '' });
+      setEditingSubscriber(null);
+      setSubscriberForm({ email: '', name: '', phone: '', status: 'SUBSCRIBED', tags: '' });
       loadSubscribers(subscriberPagination.page, subscriberSearch, subscriberFilter);
       loadDashboard();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to add subscriber';
+      const msg = err.response?.data?.message || (editingSubscriber ? 'Failed to update subscriber' : 'Failed to add subscriber');
       toast.error(msg);
     }
   };
@@ -607,7 +637,7 @@ export default function MarketingAdminPage() {
               </button>
               <button
                 className="flex items-center gap-2 px-4 py-2.5 bg-white border border-border rounded-xl text-sm font-semibold hover:border-brand-black/30 transition-colors"
-                onClick={() => { setShowSubscriberModal(true); }}
+                onClick={openNewSubscriber}
               >
                 <Users size={16} />
                 Add Subscriber
@@ -879,7 +909,7 @@ export default function MarketingAdminPage() {
             </button>
             <button
               className="flex items-center gap-2 px-4 py-2.5 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors ml-3"
-              onClick={() => setShowSubscriberModal(true)}
+              onClick={openNewSubscriber}
             >
               <Plus size={16} />
               Add Subscriber
@@ -904,6 +934,7 @@ export default function MarketingAdminPage() {
                     <tr className="border-b border-border bg-surface/50">
                       <th className="text-left p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Email</th>
                       <th className="text-left p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Name</th>
+                      <th className="text-left p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Phone</th>
                       <th className="text-center p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Status</th>
                       <th className="text-center p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Source</th>
                       <th className="text-right p-4 text-xs font-semibold text-text-muted uppercase tracking-wider">Joined</th>
@@ -915,6 +946,7 @@ export default function MarketingAdminPage() {
                       <tr key={s.id} className="border-b border-border/50 hover:bg-surface/50 transition-colors">
                         <td className="p-4 text-sm font-medium text-text-primary">{s.email}</td>
                         <td className="p-4 text-sm text-text-muted">{s.name || '—'}</td>
+                        <td className="p-4 text-sm text-text-muted font-mono text-xs">{s.phone || '—'}</td>
                         <td className="p-4 text-center">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${SUBSCRIBER_STATUS_COLORS[s.status] || 'bg-gray-100 text-gray-500'}`}>
                             {s.status}
@@ -925,13 +957,22 @@ export default function MarketingAdminPage() {
                           {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}
                         </td>
                         <td className="p-4 text-right">
-                          <button
-                            className="p-2 text-red-500 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
-                            onClick={() => handleDeleteSubscriber(s.id)}
-                            title="Delete"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              className="p-2 text-text-muted hover:text-brand-black transition-colors rounded-lg hover:bg-surface"
+                              onClick={() => openEditSubscriber(s)}
+                              title="Edit Subscriber"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              className="p-2 text-red-500 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50"
+                              onClick={() => handleDeleteSubscriber(s.id)}
+                              title="Delete"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1566,11 +1607,13 @@ export default function MarketingAdminPage() {
 
       {/* ── Subscriber Modal ── */}
       {showSubscriberModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowSubscriberModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setShowSubscriberModal(false); setEditingSubscriber(null); }}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl m-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-border">
-              <h3 className="font-display font-bold text-lg text-text-primary">Add Subscriber</h3>
-              <button className="p-2 hover:bg-surface rounded-lg transition-colors" onClick={() => setShowSubscriberModal(false)}>
+              <h3 className="font-display font-bold text-lg text-text-primary">
+                {editingSubscriber ? 'Edit Subscriber' : 'Add Subscriber'}
+              </h3>
+              <button className="p-2 hover:bg-surface rounded-lg transition-colors" onClick={() => { setShowSubscriberModal(false); setEditingSubscriber(null); }}>
                 <X size={18} />
               </button>
             </div>
@@ -1579,13 +1622,18 @@ export default function MarketingAdminPage() {
               <div className="form-group">
                 <label className="text-sm font-semibold text-text-primary block mb-1.5">Email *</label>
                 <input
-                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black disabled:bg-surface/50 disabled:text-text-muted"
                   placeholder="customer@example.com"
                   type="email"
+                  disabled={!!editingSubscriber}
                   value={subscriberForm.email}
                   onChange={(e) => setSubscriberForm({ ...subscriberForm, email: e.target.value })}
                 />
+                {editingSubscriber && (
+                  <p className="text-[11px] text-text-muted mt-1">Email cannot be changed once subscribed.</p>
+                )}
               </div>
+
               <div className="form-group">
                 <label className="text-sm font-semibold text-text-primary block mb-1.5">Name (optional)</label>
                 <input
@@ -1595,20 +1643,57 @@ export default function MarketingAdminPage() {
                   onChange={(e) => setSubscriberForm({ ...subscriberForm, name: e.target.value })}
                 />
               </div>
+
+              <div className="form-group">
+                <label className="text-sm font-semibold text-text-primary block mb-1.5">Phone (optional, for WhatsApp)</label>
+                <input
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black font-mono"
+                  placeholder="+919876543210"
+                  value={subscriberForm.phone}
+                  onChange={(e) => setSubscriberForm({ ...subscriberForm, phone: e.target.value })}
+                />
+                <p className="text-[11px] text-text-muted mt-1">Include country code (e.g. +91, +1) for WhatsApp campaigns.</p>
+              </div>
+
+              {editingSubscriber && (
+                <div className="form-group">
+                  <label className="text-sm font-semibold text-text-primary block mb-1.5">Status</label>
+                  <select
+                    className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black bg-white"
+                    value={subscriberForm.status}
+                    onChange={(e) => setSubscriberForm({ ...subscriberForm, status: e.target.value })}
+                  >
+                    <option value="SUBSCRIBED">Subscribed</option>
+                    <option value="UNSUBSCRIBED">Unsubscribed</option>
+                    <option value="BOUNCED">Bounced</option>
+                    <option value="COMPLAINED">Complained</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="text-sm font-semibold text-text-primary block mb-1.5">Tags (optional)</label>
+                <input
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-brand-black"
+                  placeholder="vip, newsletter, sale-2025"
+                  value={subscriberForm.tags}
+                  onChange={(e) => setSubscriberForm({ ...subscriberForm, tags: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-surface/50">
               <button
                 className="px-4 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-surface transition-colors"
-                onClick={() => setShowSubscriberModal(false)}
+                onClick={() => { setShowSubscriberModal(false); setEditingSubscriber(null); }}
               >
                 Cancel
               </button>
               <button
                 className="px-6 py-2.5 bg-brand-black text-white rounded-xl text-sm font-semibold hover:bg-black transition-colors"
-                onClick={handleAddSubscriber}
+                onClick={handleSaveSubscriber}
               >
-                Add Subscriber
+                {editingSubscriber ? 'Save Changes' : 'Add Subscriber'}
               </button>
             </div>
           </div>
