@@ -9,10 +9,10 @@ export const trackingAPI = {
   endSession: (sessionId) => client.patch(`/tracking/session/${sessionId}/end`),
 
   // Admin endpoints (auth required)
-  getTrackingDashboard: () => adminClient.get('/admin/tracking/dashboard'),
+  getTrackingDashboard: (params) => adminClient.get('/admin/tracking/dashboard', { params }),
   getPageViews: (params) => adminClient.get('/admin/tracking/pageviews', { params }),
   getPageViewStats: (params) => adminClient.get('/admin/tracking/pageviews/stats', { params }),
-  getActiveSessions: () => adminClient.get('/admin/tracking/sessions/active'),
+  getActiveSessions: (params) => adminClient.get('/admin/tracking/sessions/active', { params }),
   getSessionStats: (params) => adminClient.get('/admin/tracking/sessions/stats', { params }),
   getEvents: (params) => adminClient.get('/admin/tracking/events', { params }),
   getEventStats: (params) => adminClient.get('/admin/tracking/events/stats', { params }),

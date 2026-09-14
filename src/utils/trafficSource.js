@@ -54,9 +54,9 @@ export function getUtmParams(urlString) {
  * Returns 'direct' if no referrer, or the matched source name.
  */
 export function categorizeReferrer(referrer) {
-  if (!referrer) return 'direct';
+  if (!referrer || referrer === 'Direct' || referrer === 'direct' || referrer === '(direct)' || referrer.trim() === '') return 'direct';
 
-  const lower = referrer.toLowerCase();
+  const lower = referrer.toLowerCase().trim();
 
   // Check social media patterns
   for (const { source, patterns } of SOURCE_PATTERNS) {
@@ -87,6 +87,7 @@ export function categorizeReferrer(referrer) {
  * Get display label for a traffic source.
  */
 export function getSourceLabel(source) {
+  const key = String(source || '').toLowerCase().trim();
   const labels = {
     facebook:   'Facebook',
     instagram:  'Instagram',
@@ -105,13 +106,14 @@ export function getSourceLabel(source) {
     internal:   'Internal Link',
     other:      'Other',
   };
-  return labels[source] || source || 'Unknown';
+  return labels[key] || source || 'Unknown';
 }
 
 /**
  * Get a color for a traffic source (for charts).
  */
 export function getSourceColor(source) {
+  const key = String(source || '').toLowerCase().trim();
   const colors = {
     facebook:   '#1877F2',
     instagram:  '#E4405F',
@@ -130,13 +132,14 @@ export function getSourceColor(source) {
     internal:   '#9AA0A6',
     other:      '#80868B',
   };
-  return colors[source] || '#80868B';
+  return colors[key] || '#80868B';
 }
 
 /**
  * Get icon emoji for a traffic source (for UI display).
  */
 export function getSourceIcon(source) {
+  const key = String(source || '').toLowerCase().trim();
   const icons = {
     facebook:   '📘',
     instagram:  '📷',
@@ -155,7 +158,7 @@ export function getSourceIcon(source) {
     internal:   '🔄',
     other:      '🌍',
   };
-  return icons[source] || '🌍';
+  return icons[key] || '🌍';
 }
 
 /**
