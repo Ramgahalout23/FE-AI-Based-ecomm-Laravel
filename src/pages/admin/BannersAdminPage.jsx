@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminAPI } from '../../api/admin';
 import AdminPageShell from '../../components/admin/AdminPageShell';
 import AdminFormField from '../../components/admin/AdminFormField';
@@ -25,7 +25,17 @@ const DISPLAY_MODES = [
   { value: 'TITLE_ONLY', label: 'Title Only', icon: <FileText size={14} /> },
 ];
 
-const EMPTY = { title: '', imageUrl: '', videoUrl: '', type: 'HERO', link: '', description: '', displayMode: 'DEFAULT' };
+const EMPTY = {
+  title: '',
+  imageUrl: '',
+  videoUrl: '',
+  type: 'HERO',
+  link: '',
+  description: '',
+  displayMode: 'DEFAULT',
+  showOnMobile: true,
+  showOnDesktop: true,
+};
 
 export default function BannersAdminPage() {
   // ── Inline form validation ──
@@ -117,6 +127,57 @@ export default function BannersAdminPage() {
   const [pageSize, setPageSize] = useState(10);
   const pageSizeOptions = [10, 25, 50, 100];
 
+  // ── Drag Reorder ──
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+
+  const handleDragStart = useCallback((index) => {
+    setDragIdx(index);
+    setDragOverIdx(null);
+  }, []);
+
+  const handleDragEnter = useCallback((index) => {
+    setDragOverIdx(index);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    const fromIdx = dragIdx;
+    const toIdx = dragOverIdx;
+    if (fromIdx === null || toIdx === null || fromIdx === toIdx) {
+      setDragIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+
+    setBanners((prevBanners) => {
+      const reordered = [...prevBanners];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      return reordered.map((b, i) => ({ ...b, position: i }));
+    });
+
+    setOrderChanged(true);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  }, [dragIdx, dragOverIdx]);
+
+  const handleSaveOrder = useCallback(async () => {
+    setSavingOrder(true);
+    try {
+      const bannerIds = banners.map((b) => b.id);
+      await adminAPI.reorderBanners({ bannerIds });
+      toast.success('Banner order saved');
+      setOrderChanged(false);
+    } catch {
+      toast.error('Failed to save order');
+      await load(currentPage);
+    } finally {
+      setSavingOrder(false);
+    }
+  }, [banners, currentPage]);
+
   const load = async (page = 1) => {
     setLoading(true);
     try {
@@ -192,6 +253,8 @@ export default function BannersAdminPage() {
       link: b.linkUrl || b.link || '',
       description: b.description || '',
       displayMode: b.displayMode || 'DEFAULT',
+      showOnMobile: b.showOnMobile !== false,
+      showOnDesktop: b.showOnDesktop !== false,
     });
     validation.reset();
     setShowModal(true);
@@ -208,6 +271,8 @@ export default function BannersAdminPage() {
         linkUrl: form.link,
         description: form.description,
         displayMode: form.displayMode,
+        showOnMobile: form.showOnMobile !== false,
+        showOnDesktop: form.showOnDesktop !== false,
       };
       if (editing) {
         await adminAPI.updateBanner(editing.id, payload);
@@ -412,14 +477,99 @@ export default function BannersAdminPage() {
             ariaLabel="Filter banners by type"
           />
           <span className="table-count">{totalItems} banners</span>
+
+          {orderChanged && (
+            <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', marginLeft: 'auto' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                Order changed
+              </span>
+              <button
+                className="btn-primary btn-sm"
+                onClick={handleSaveOrder}
+                disabled={savingOrder}
+                style={{ fontSize: '0.72rem', padding: '0.25rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+              >
+                {savingOrder ? <span className="spinner" style={{ width: 12, height: 12 }} /> : <Save size={12} />}
+                {savingOrder ? 'Saving...' : 'Save Order'}
+              </button>
+            </div>
+          )}
         </div>
         <table className="admin-table">
-          <thead><tr><th>Title</th><th>Type</th><th>Display Mode</th><th>Image</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: 32 }}></th>
+              <th>Banner</th>
+              <th>Type</th>
+              <th>Display Mode</th>
+              <th>Device</th>
+              <th>Preview</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
-            {banners.length === 0 ? <tr><td colSpan={6}><div className="empty-state">            <div className="empty-state-icon"><Image size={40} /></div><h3>No banners yet</h3></div></td></tr> :
-            banners.map(b => (
-              <tr key={b.id}>
-                <td>              {b.title ? <strong>{b.title}</strong> : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}><Image size={14} /> Image Only</span>}{b.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{b.description}</div>}</td>
+            {banners.length === 0 ? (
+              <tr>
+                <td colSpan={8}>
+                  <div className="empty-state">
+                    <div className="empty-state-icon"><Image size={40} /></div>
+                    <h3>No banners yet</h3>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+            banners.map((b, idx) => (
+              <tr
+                key={b.id}
+                draggable
+                onDragStart={() => handleDragStart(idx)}
+                onDragEnter={() => handleDragEnter(idx)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => e.preventDefault()}
+                style={{
+                  cursor: 'default',
+                  opacity: dragIdx === idx ? 0.4 : dragOverIdx === idx ? 0.8 : 1,
+                  background:
+                    dragIdx === idx
+                      ? 'var(--bg-muted, #f0f0f0)'
+                      : dragOverIdx === idx
+                      ? '#fafafa'
+                      : undefined,
+                  borderTop: dragOverIdx === idx ? '2px solid var(--primary)' : undefined,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <td style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.4rem 0.25rem' }}>
+                  <span
+                    title="Drag to reorder"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'grab',
+                      color: dragIdx === idx ? 'var(--primary)' : '#bbb',
+                      transition: 'color 0.15s',
+                      lineHeight: 1,
+                      userSelect: 'none',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = dragIdx === idx ? 'var(--primary)' : '#bbb'; }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <circle cx="5" cy="3" r="1.5" />
+                      <circle cx="11" cy="3" r="1.5" />
+                      <circle cx="5" cy="8" r="1.5" />
+                      <circle cx="11" cy="8" r="1.5" />
+                      <circle cx="5" cy="13" r="1.5" />
+                      <circle cx="11" cy="13" r="1.5" />
+                    </svg>
+                  </span>
+                </td>
+                <td>
+                  {b.title ? <strong>{b.title}</strong> : <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}><Image size={14} /> Image Only</span>}
+                  {b.description && <div style={{ fontSize: '0.72rem', color: 'var(--muted)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.description}</div>}
+                </td>
                 <td><span className="status-badge status-info">{b.type}</span></td>
                 <td>
                   <span className={`status-badge ${
@@ -428,12 +578,35 @@ export default function BannersAdminPage() {
                     b.displayMode === 'TITLE_ONLY' ? 'status-info' :
                     'status-success'
                   }`} style={{ fontSize: '0.68rem' }}>
-                    {                    b.displayMode === 'IMAGE_ONLY' ? 'Image Only' :
+                    {b.displayMode === 'IMAGE_ONLY' ? 'Image Only' :
+                     b.displayMode === 'VIDEO' ? 'Video' :
                      b.displayMode === 'TITLE_ONLY' ? 'Title Only' :
                      'Default'}
                   </span>
                 </td>
-                <td>{getBannerImage(b) ? <img loading="lazy" src={getImageUrl(getBannerImage(b))} alt={b.title} style={{ width: 60, height: 30, objectFit: 'cover', borderRadius: 4 }} /> : <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>None</span>}</td>
+                <td>
+                  {b.showOnMobile !== false && b.showOnDesktop !== false ? (
+                    <span className="status-badge status-info" style={{ fontSize: '0.68rem' }}>🌐 All</span>
+                  ) : b.showOnMobile !== false ? (
+                    <span className="status-badge status-warning" style={{ fontSize: '0.68rem' }}>📱 Mobile</span>
+                  ) : b.showOnDesktop !== false ? (
+                    <span className="status-badge status-info" style={{ fontSize: '0.68rem' }}>💻 Desktop</span>
+                  ) : (
+                    <span className="status-badge status-inactive" style={{ fontSize: '0.68rem' }}>Hidden</span>
+                  )}
+                </td>
+                <td>
+                  {b.videoUrl && b.displayMode === 'VIDEO' ? (
+                    <div style={{ width: 84, height: 38, borderRadius: 6, overflow: 'hidden', background: '#000', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <video src={b.videoUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <span style={{ position: 'absolute', color: '#fff', fontSize: '0.75rem', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>▶</span>
+                    </div>
+                  ) : getBannerImage(b) ? (
+                    <img loading="lazy" src={getImageUrl(getBannerImage(b))} alt={b.title} style={{ width: 84, height: 38, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                  ) : (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>None</span>
+                  )}
+                </td>
                 <td><span className={`status-badge ${b.isActive ? 'status-active' : 'status-inactive'}`}>{b.isActive ? 'Active' : 'Inactive'}</span></td>
                 <td>
                   <div className="row-actions">
@@ -443,7 +616,8 @@ export default function BannersAdminPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
 
@@ -614,6 +788,30 @@ export default function BannersAdminPage() {
                       ℹ️ Title-only banners show the text content without an image background. Text will appear over a dark gradient background.
                     </div>
                   )}
+                </div>
+
+                <div className="form-group form-full" style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Device Visibility</label>
+                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.showOnDesktop}
+                        onChange={e => setForm({ ...form, showOnDesktop: e.target.checked })}
+                        style={{ width: 16, height: 16, accentColor: 'var(--primary)' }}
+                      />
+                      💻 Show on Desktop
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={form.showOnMobile}
+                        onChange={e => setForm({ ...form, showOnMobile: e.target.checked })}
+                        style={{ width: 16, height: 16, accentColor: 'var(--primary)' }}
+                      />
+                      📱 Show on Mobile
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

@@ -227,18 +227,32 @@ export default function CuratedLooksAdminPage() {
     setShowModal(true);
   };
 
-  const openEdit = (look) => {
+  const openEdit = async (look) => {
     setEditing(look);
+    const initialImageUrl = look.imageUrl || look.image_url || '';
+    const initialIsActive = look.isActive !== undefined ? look.isActive : (look.is_active !== undefined ? look.is_active : true);
     setForm({
       name: look.name || '',
-      imageUrl: look.image_url || '',
+      imageUrl: initialImageUrl,
       description: look.description || '',
-      isActive: look.is_active !== undefined ? look.is_active : true,
+      isActive: initialIsActive,
     });
-    setSelectedProductIds((look.products || []).map((p) => p.id));
+    const initialProductIds = (look.products || []).map((p) => p.productId || p.product?.id || p.id).filter(Boolean);
+    setSelectedProductIds(initialProductIds);
     setProductSearch('');
     loadProducts();
     setShowModal(true);
+
+    try {
+      const res = await curatedLooksAPI.getById(look.id);
+      const data = res.data?.data || res.data;
+      if (data?.products) {
+        const fullProductIds = data.products.map((p) => p.productId || p.product?.id || p.id).filter(Boolean);
+        setSelectedProductIds(fullProductIds);
+      }
+    } catch {
+      // keep fallback
+    }
   };
 
   const handleToggleProduct = (productId) => {
@@ -275,7 +289,7 @@ export default function CuratedLooksAdminPage() {
       }
 
       // Sync selected products
-      if (savedId && selectedProductIds.length > 0) {
+      if (savedId) {
         await curatedLooksAPI.syncProducts(savedId, selectedProductIds);
       }
 
@@ -291,13 +305,15 @@ export default function CuratedLooksAdminPage() {
     try {
       const look = looks.find((l) => l.id === id);
       if (!look) return;
+      const currentActive = look.isActive !== undefined ? look.isActive : (look.is_active !== undefined ? look.is_active : true);
+      const nextActive = !currentActive;
       await curatedLooksAPI.update(id, {
         name: look.name,
-        imageUrl: look.image_url,
+        imageUrl: look.imageUrl || look.image_url || '',
         description: look.description,
-        isActive: !look.is_active,
+        isActive: nextActive,
       });
-      toast.success(look.is_active ? 'Disabled' : 'Enabled');
+      toast.success(nextActive ? 'Look enabled' : 'Look disabled');
       await load(currentPage);
     } catch {
       toast.error('Failed to toggle status');
@@ -509,17 +525,19 @@ export default function CuratedLooksAdminPage() {
                     </span>
                   </td>
                   <td>
-                    {look.image_url ? (
+                    {(look.imageUrl || look.image_url) ? (
                       <img
                         loading="lazy"
-                        src={getImageUrl(look.image_url)}
+                        src={getImageUrl(look.imageUrl || look.image_url)}
                         alt={look.name}
                         style={{
-                          width: 60,
-                          height: 60,
+                          width: 52,
+                          height: 70,
                           objectFit: 'cover',
                           borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.08)',
                           background: '#f5f5f5',
+                          display: 'block',
                         }}
                       />
                     ) : (
@@ -530,20 +548,21 @@ export default function CuratedLooksAdminPage() {
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: 60,
-                          height: 60,
+                          width: 52,
+                          height: 70,
                           borderRadius: 8,
-                          background: '#f5f5f5',
+                          border: '1px solid var(--border)',
+                          background: '#f9f9f9',
                         }}
                       >
-                        <ImageIcon size={24} />
+                        <ImageIcon size={22} />
                       </span>
                     )}
                   </td>
                   <td>
                     <strong>{look.name}</strong>
                     {look.slug && (
-                      <div style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>{look.slug}</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>/{look.slug}</div>
                     )}
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: '0.82rem', maxWidth: 280 }}>
@@ -551,33 +570,39 @@ export default function CuratedLooksAdminPage() {
                   </td>
                   <td>
                     <span className="status-badge status-info" style={{ fontSize: '0.72rem' }}>
-                      #{look.display_order ?? idx}
+                      #{look.displayOrder ?? look.display_order ?? idx}
                     </span>
                   </td>
                   <td>
-                    <span
-                      className={`status-badge ${
-                        look.is_active !== false ? 'status-active' : 'status-inactive'
-                      }`}
-                    >
-                      {look.is_active !== false ? 'Active' : 'Inactive'}
-                    </span>
+                    {(() => {
+                      const isActive = look.isActive !== undefined ? look.isActive : (look.is_active !== undefined ? look.is_active : true);
+                      return (
+                        <span className={`status-badge ${isActive ? 'status-active' : 'status-inactive'}`}>
+                          {isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
-                    <div className="row-actions">
-                      <button className="btn-edit" onClick={() => openEdit(look)}>
-                        Edit
-                      </button>
-                      <button
-                        className={look.is_active !== false ? 'btn-del' : 'btn-approve'}
-                        onClick={() => handleToggle(look.id)}
-                      >
-                        {look.is_active !== false ? 'Disable' : 'Enable'}
-                      </button>
-                      <button className="btn-del" onClick={() => handleDelete(look.id)}>
-                        Delete
-                      </button>
-                    </div>
+                    {(() => {
+                      const isActive = look.isActive !== undefined ? look.isActive : (look.is_active !== undefined ? look.is_active : true);
+                      return (
+                        <div className="row-actions">
+                          <button className="btn-edit" onClick={() => openEdit(look)}>
+                            Edit
+                          </button>
+                          <button
+                            className={isActive ? 'btn-del' : 'btn-approve'}
+                            onClick={() => handleToggle(look.id)}
+                          >
+                            {isActive ? 'Disable' : 'Enable'}
+                          </button>
+                          <button className="btn-del" onClick={() => handleDelete(look.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))
@@ -724,6 +749,39 @@ export default function CuratedLooksAdminPage() {
                       ({selectedProductIds.length} selected)
                     </span>
                   </label>
+                  {selectedProductIds.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.5rem', maxHeight: 88, overflowY: 'auto', padding: '6px', background: '#fafafa', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      {selectedProductIds.map((pid) => {
+                        const prod = availableProducts.find((p) => p.id === pid);
+                        return (
+                          <span
+                            key={pid}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              background: 'var(--white)',
+                              border: '1px solid var(--border)',
+                              fontSize: '0.72rem',
+                              fontWeight: 500,
+                            }}
+                          >
+                            {prod?.name || pid.slice(0, 8)}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleProduct(pid)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#ef4444', lineHeight: 1, fontSize: '0.8rem' }}
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   <input
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}

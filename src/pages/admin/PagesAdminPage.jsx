@@ -14,6 +14,7 @@ import toast from '../../utils/toast';
 import ContentBlocks from '../../components/storefront/ContentBlocks';
 import ContentProse from '../../components/storefront/ContentProse';
 import ContentPageHero, { buildHeroCtas } from '../../components/storefront/ContentPageHero';
+import { ExternalLink } from 'lucide-react';
 const AdvancedPageEditor = lazy(() => import('../../components/common/AdvancedPageEditor'));
 
 /**
@@ -143,7 +144,7 @@ export default function PagesAdminPage() {
     return next;
   });
   const toggleSelectAll = () => setSelected(prev =>
-    prev.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id))
+    prev.size === paginatedPages.length ? new Set() : new Set(paginatedPages.map(p => p.id))
   );
   const clearSelection = () => setSelected(new Set());
 
@@ -328,6 +329,19 @@ export default function PagesAdminPage() {
     return true;
   }), [pages, search, filter]);
 
+  const paginatedPages = useMemo(() => {
+    return filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [filtered, currentPage, pageSize]);
+
+  useEffect(() => {
+    const computedTotalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    setTotalPages(computedTotalPages);
+    setTotalItems(filtered.length);
+    if (currentPage > computedTotalPages) {
+      setCurrentPage(1);
+    }
+  }, [filtered.length, pageSize, currentPage]);
+
   const stats = useMemo(() => {
     const published = pages.filter(isPublished).length;
     const drafts = pages.length - published;
@@ -432,7 +446,7 @@ export default function PagesAdminPage() {
         )}
 
         <table className="admin-table">
-          <thead><tr><th style={{ width: 34 }}><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} title="Select all shown pages" aria-label="Select all shown pages" /></th><th>Title</th><th>Slug (URL)</th><th>Status</th><th>Last Modified</th><th>Actions</th></tr></thead>
+          <thead><tr><th style={{ width: 34 }}><input type="checkbox" checked={paginatedPages.length > 0 && selected.size === paginatedPages.length} onChange={toggleSelectAll} title="Select all shown pages" aria-label="Select all shown pages" /></th><th>Title</th><th>Slug (URL)</th><th>Status</th><th>Last Modified</th><th>Actions</th></tr></thead>
           <tbody>
             {loading ? (
               <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
@@ -445,7 +459,7 @@ export default function PagesAdminPage() {
                   <button className="btn-dark btn-sm" style={{ marginTop: 14 }} onClick={openCreate}>+ Create your first page</button>
                 )}
               </div></td></tr>
-            ) : filtered.map(p => {
+            ) : paginatedPages.map(p => {
               const sectionCount = parseBlocks(p.content).length;
               return (
                 <tr key={p.id} style={selected.has(p.id) ? { background: 'rgba(37,99,235,0.05)' } : undefined}>
@@ -475,10 +489,10 @@ export default function PagesAdminPage() {
                         href={`/pages/${p.slug}`}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', borderBottom: '1px dashed #c7d4f0' }}
+                        style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#2563eb', textDecoration: 'none', borderBottom: '1px dashed #c7d4f0', display: 'inline-flex', alignItems: 'center', gap: 3 }}
                         title="Open on storefront"
                       >
-                        /{p.slug}
+                        /{p.slug} <ExternalLink size={12} />
                       </a>
                       <button
                         onClick={() => copyLink(p.slug)}
@@ -648,6 +662,26 @@ export default function PagesAdminPage() {
                       />
                     </div>
                   ))}
+                </div>
+
+                {/* ── Live Hero CTA Preview ── */}
+                <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 8, background: '#141416', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>Live Storefront Hero Preview</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>{form.title || 'Page Title'}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {form.settings?.hero?.primary?.enabled && (
+                      <span style={{ padding: '6px 14px', borderRadius: 999, background: '#ffffff', color: '#1a1a1a', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {form.settings?.hero?.primary?.label || 'Explore Collection'}
+                      </span>
+                    )}
+                    {form.settings?.hero?.secondary?.enabled && (
+                      <span style={{ padding: '6px 14px', borderRadius: 999, border: '1px solid rgba(255,255,255,0.4)', color: '#ffffff', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {form.settings?.hero?.secondary?.label || 'Contact Us'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

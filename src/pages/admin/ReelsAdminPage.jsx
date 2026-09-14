@@ -11,6 +11,7 @@ import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
 import { requiredField } from '../../hooks/validationRules';
 import ExportCSVModal from '../../components/admin/ExportCSVModal';
 import { downloadBlob } from '../../utils/download';
+import { Film, Eye, EyeOff, Play, Video as VideoIcon } from 'lucide-react';
 
 /* ── Video URL Helpers ── */
 function isYouTubeUrl(url) {
@@ -316,7 +317,7 @@ export default function ReelsAdminPage() {
     <div>
       <div className="admin-header admin-header-row">
         <div>
-          <h2>🎬 Reels</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Film size={22} /> Reels</h2>
           <p>Manage video reels shown on the homepage slider</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -343,9 +344,9 @@ export default function ReelsAdminPage() {
             {togglingSection ? (
               <span className="spinner" style={{ width: 12, height: 12, borderColor: reelsEnabled ? '#ef4444' : '#fff', borderTopColor: 'transparent' }} />
             ) : reelsEnabled ? (
-              <span style={{ fontSize: '1rem' }}>👁️</span>
+              <Eye size={15} />
             ) : (
-              <span style={{ fontSize: '1rem' }}>🚫</span>
+              <EyeOff size={15} />
             )}
             {reelsEnabled ? 'Disable Section' : 'Enable Section'}
           </button>
@@ -447,7 +448,7 @@ export default function ReelsAdminPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <div className="loading-page" style={{ padding: '2rem' }}>
                     <div className="spinner" />
                   </div>
@@ -455,7 +456,7 @@ export default function ReelsAdminPage() {
               </tr>
             ) : reels.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <div className="empty-state">
                     <div className="empty-state-icon">🎬</div>
                     <h3>No reels yet</h3>
@@ -466,7 +467,14 @@ export default function ReelsAdminPage() {
                 </td>
               </tr>
             ) : (
-              reels.map((reel, idx) => (
+              reels.map((reel, idx) => {
+                const vUrl = reel.videoUrl || reel.video_url;
+                const ytMatch = vUrl ? vUrl.match(/(?:youtube\.com\/(?:shorts\/|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]+)/) : null;
+                const ytId = ytMatch ? ytMatch[1] : null;
+                const isEmbed = isEmbedPlatform(vUrl);
+                const thumbImg = reel.imageUrl || reel.image_url || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null);
+
+                return (
                 <tr
                   key={reel.id}
                   draggable
@@ -514,7 +522,7 @@ export default function ReelsAdminPage() {
                     </span>
                   </td>
                   <td>
-                    {reel.videoUrl || reel.video_url ? (
+                    {vUrl && !isEmbed ? (
                       <div style={{
                         width: 60,
                         height: 80,
@@ -527,7 +535,7 @@ export default function ReelsAdminPage() {
                         position: 'relative',
                       }}>
                         <video
-                          src={reel.videoUrl || reel.video_url}
+                          src={vUrl}
                           muted
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onMouseEnter={(e) => e.currentTarget.play()}
@@ -535,25 +543,51 @@ export default function ReelsAdminPage() {
                         />
                         <span style={{
                           position: 'absolute',
-                          fontSize: '1.2rem',
+                          fontSize: '1.1rem',
                           color: 'white',
-                          opacity: 0.7,
+                          opacity: 0.8,
                           pointerEvents: 'none',
                         }}>▶</span>
                       </div>
-                    ) : (reel.imageUrl || reel.image_url) ? (
-                      <img
-                        loading="lazy"
-                        src={getImageUrl(reel.imageUrl || reel.image_url)}
-                        alt={reel.title}
-                        style={{
-                          width: 60,
-                          height: 80,
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                          background: '#f5f5f5',
-                        }}
-                      />
+                    ) : thumbImg ? (
+                      <div style={{
+                        width: 60,
+                        height: 80,
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        background: '#111',
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <img
+                          loading="lazy"
+                          src={getImageUrl(thumbImg)}
+                          alt={reel.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                        {vUrl && (
+                          <span style={{
+                            position: 'absolute',
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: isYouTubeUrl(vUrl) ? 'rgba(255,0,0,0.85)' : 'rgba(0,0,0,0.65)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                          }}>▶</span>
+                        )}
+                      </div>
                     ) : (
                       <span
                         style={{
@@ -644,7 +678,8 @@ export default function ReelsAdminPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
