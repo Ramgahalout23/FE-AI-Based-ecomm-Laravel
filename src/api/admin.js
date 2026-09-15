@@ -283,9 +283,14 @@ export const adminAPI = {
 
   // ── Currency Management (Admin) ──
   getCurrencies: (params) => adminClient.get('/admin/currencies', { params }),
+  getCurrency: (id) => adminClient.get(`/admin/currencies/${id}`),
   createCurrency: (data) => adminClient.post('/admin/currencies', data),
+  updateCurrency: (id, data) => adminClient.put(`/admin/currencies/${id}`, data),
   deleteCurrency: (id) => adminClient.delete(`/admin/currencies/${id}`),
+  setDefaultCurrency: (id) => adminClient.patch(`/admin/currencies/${id}/default`),
+  toggleCurrencyActive: (id, isActive) => adminClient.patch(`/admin/currencies/${id}/toggle`, { is_active: isActive }),
   syncCurrencies: () => adminClient.post('/admin/currencies/sync'),
+  resetCurrencies: () => adminClient.post('/admin/currencies/reset'),
 
   // ── Translation / Language Management ──
   getAdminLanguages: () => adminClient.get('/admin/languages'),

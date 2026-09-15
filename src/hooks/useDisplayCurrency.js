@@ -39,7 +39,7 @@ export function useDisplayCurrency() {
     if (!loading && currencies.length > 0) {
       const exists = currencies.some((c) => c.code === displayCurrency);
       if (!exists) {
-        const fallback = currencies.find((c) => c.is_default) || currencies[0];
+        const fallback = currencies.find((c) => c.is_default || c.isDefault) || currencies[0];
         if (fallback) {
           setCode(fallback.code);
           setDefaultCurrency(fallback.code);
