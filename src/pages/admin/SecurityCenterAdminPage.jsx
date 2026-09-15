@@ -20,6 +20,7 @@ import {
   Clock,
   X,
   Smartphone,
+  Eye,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from '../../utils/toast';
@@ -34,7 +35,8 @@ export default function SecurityCenterAdminPage() {
 
   // Tab 1: Brute Force & Lockouts State
   const [lockoutData, setLockoutData] = useState({ lockedTargets: [], recentAttempts: [], policies: {} });
-  const [lockoutSearch, setLockoutSearch] = useState('');
+  const [lockedAccountsSearch, setLockedAccountsSearch] = useState('');
+  const [failedAttemptsSearch, setFailedAttemptsSearch] = useState('');
 
   // Tab 2: IP Firewall State
   const [firewallRules, setFirewallRules] = useState([]);
@@ -44,6 +46,7 @@ export default function SecurityCenterAdminPage() {
   const [newRule, setNewRule] = useState({ ip: '', type: 'BLACKLIST', reason: '', expiresHours: '0' });
   const [testIpInput, setTestIpInput] = useState('');
   const [testIpResult, setTestIpResult] = useState(null);
+  const [myIp, setMyIp] = useState('');
 
   // Tab 3: Active Sessions State
   const [sessions, setSessions] = useState([]);
@@ -51,6 +54,8 @@ export default function SecurityCenterAdminPage() {
   // Tab 4: E-Commerce Threat Radar State
   const [anomalies, setAnomalies] = useState([]);
   const [anomalyFilter, setAnomalyFilter] = useState('ALL');
+  const [scanningThreats, setScanningThreats] = useState(false);
+  const [selectedAnomaly, setSelectedAnomaly] = useState(null);
 
   // Tab 5: Security Policies & Master PIN State
   const [policies, setPolicies] = useState({
@@ -70,6 +75,14 @@ export default function SecurityCenterAdminPage() {
   const [pinPromptError, setPinPromptError] = useState('');
   const [copiedIp, setCopiedIp] = useState(null);
 
+  const copyToClipboard = (text) => {
+    if (!text) return;
+    navigator.clipboard?.writeText(text);
+    setCopiedIp(text);
+    setTimeout(() => setCopiedIp(null), 2000);
+    toast.success(`Copied ${text}`);
+  };
+
   // Fetch overview metrics
   const fetchMetrics = useCallback(async () => {
     try {
@@ -86,6 +99,16 @@ export default function SecurityCenterAdminPage() {
     setRefreshing(true);
     try {
       await fetchMetrics();
+
+      if ((activeTab === 'firewall' || activeTab === 'bruteForce') && !myIp) {
+        try {
+          const ipRes = await securityAPI.getMyIp();
+          const ipData = ipRes.data?.data?.ip || ipRes.data?.ip;
+          if (ipData) setMyIp(ipData);
+        } catch {
+          // ignore
+        }
+      }
 
       if (activeTab === 'bruteForce') {
         const res = await securityAPI.getLockoutData();
@@ -114,7 +137,7 @@ export default function SecurityCenterAdminPage() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [activeTab, fetchMetrics]);
+  }, [activeTab, fetchMetrics, myIp]);
 
   useEffect(() => {
     fetchTabData();
@@ -128,7 +151,7 @@ export default function SecurityCenterAdminPage() {
       setPinPromptError('');
       setShowPinModal(true);
     } else {
-      callback();
+      callback('');
     }
   };
 
@@ -143,7 +166,8 @@ export default function SecurityCenterAdminPage() {
       await securityAPI.verifyMasterPin(pinPromptValue);
       setShowPinModal(false);
       if (pendingPinAction) {
-        pendingPinAction();
+        const pinToPass = pinPromptValue;
+        pendingPinAction(pinToPass);
         setPendingPinAction(null);
       }
       toast.success('PIN confirmed');
@@ -164,13 +188,13 @@ export default function SecurityCenterAdminPage() {
   };
 
   const handleClearAllLockouts = () => {
-    executeWithPinProtection('clear_all_lockouts', async () => {
+    executeWithPinProtection('clear_all_lockouts', async (pin) => {
       try {
-        const res = await securityAPI.clearAllLockouts();
+        const res = await securityAPI.clearAllLockouts(pin);
         toast.success(res.data?.message || 'All lockouts cleared');
         fetchTabData();
-      } catch {
-        toast.error('Failed to clear lockouts');
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to clear lockouts');
       }
     });
   };
@@ -208,14 +232,40 @@ export default function SecurityCenterAdminPage() {
     }
   };
 
-  const handleDeleteRule = (id, ip) => {
-    executeWithPinProtection('flush_firewall_rules', async () => {
+  const handleWhitelistMyIp = async () => {
+    let ip = myIp;
+    if (!ip) {
       try {
-        await securityAPI.deleteFirewallRule(id);
+        const ipRes = await securityAPI.getMyIp();
+        ip = ipRes.data?.data?.ip || ipRes.data?.ip;
+        if (ip) setMyIp(ip);
+      } catch {
+        toast.error('Unable to detect current IP');
+        return;
+      }
+    }
+    if (!ip) return;
+    try {
+      await securityAPI.addFirewallRule({
+        ip,
+        type: 'WHITELIST',
+        reason: 'Current Administrator IP (Auto-Whitelisted)',
+      });
+      toast.success(`Current IP (${ip}) whitelisted successfully`);
+      fetchTabData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to whitelist IP');
+    }
+  };
+
+  const handleDeleteRule = (id, ip) => {
+    executeWithPinProtection('flush_firewall_rules', async (pin) => {
+      try {
+        await securityAPI.deleteFirewallRule(id, pin);
         toast.success(`Deleted rule for ${ip}`);
         fetchTabData();
-      } catch {
-        toast.error('Failed to delete rule');
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to delete rule');
       }
     });
   };
@@ -254,13 +304,13 @@ export default function SecurityCenterAdminPage() {
   };
 
   const handleTerminateAllOther = () => {
-    executeWithPinProtection('terminate_all_sessions', async () => {
+    executeWithPinProtection('terminate_all_sessions', async (pin) => {
       try {
-        const res = await securityAPI.terminateAllOtherSessions();
+        const res = await securityAPI.terminateAllOtherSessions(pin);
         toast.success(res.data?.message || 'Terminated other sessions');
         fetchTabData();
-      } catch {
-        toast.error('Failed to terminate sessions');
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to terminate sessions');
       }
     });
   };
@@ -276,15 +326,34 @@ export default function SecurityCenterAdminPage() {
     }
   };
 
+  const handleRunThreatScan = async () => {
+    setScanningThreats(true);
+    try {
+      const res = await securityAPI.scanThreats();
+      const data = res.data?.data || res.data;
+      toast.success(
+        `Threat Scan complete: ${data?.scannedOrders || 0} orders & ${data?.scannedPayments || 0} payments analyzed. ${data?.anomaliesDetected || 0} new anomalies flagged.`
+      );
+      if (data?.anomalies) {
+        setAnomalies(data.anomalies);
+      }
+      fetchMetrics();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Threat scan failed');
+    } finally {
+      setScanningThreats(false);
+    }
+  };
+
   // ── Tab 5 Actions: Policies & PIN ──
   const handleSavePolicies = async () => {
-    executeWithPinProtection('change_security_policy', async () => {
+    executeWithPinProtection('change_security_policy', async (pin) => {
       try {
-        await securityAPI.updatePolicies(policies);
+        await securityAPI.updatePolicies(policies, pin);
         toast.success('Security policies updated successfully');
         fetchTabData();
-      } catch {
-        toast.error('Failed to save security policies');
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to save security policies');
       }
     });
   };
@@ -312,33 +381,27 @@ export default function SecurityCenterAdminPage() {
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIp(text);
-    setTimeout(() => setCopiedIp(null), 2000);
-  };
-
   // Filtered lists
   const filteredLockouts = useMemo(() => {
     const targets = lockoutData.lockedTargets || [];
-    if (!lockoutSearch.trim()) return targets;
-    const q = lockoutSearch.toLowerCase();
+    if (!lockedAccountsSearch.trim()) return targets;
+    const q = lockedAccountsSearch.toLowerCase();
     return targets.filter(
       (t) => t.identifier?.toLowerCase().includes(q) || t.originIp?.toLowerCase().includes(q),
     );
-  }, [lockoutData.lockedTargets, lockoutSearch]);
+  }, [lockoutData.lockedTargets, lockedAccountsSearch]);
 
   const filteredAttempts = useMemo(() => {
     const attempts = lockoutData.recentAttempts || [];
-    if (!lockoutSearch.trim()) return attempts;
-    const q = lockoutSearch.toLowerCase();
+    if (!failedAttemptsSearch.trim()) return attempts;
+    const q = failedAttemptsSearch.toLowerCase();
     return attempts.filter(
       (a) =>
         a.targetIdentifier?.toLowerCase().includes(q) ||
         a.ipAddress?.toLowerCase().includes(q) ||
         a.reason?.toLowerCase().includes(q),
     );
-  }, [lockoutData.recentAttempts, lockoutSearch]);
+  }, [lockoutData.recentAttempts, failedAttemptsSearch]);
 
   const filteredRules = useMemo(() => {
     let list = firewallRules;
@@ -578,7 +641,7 @@ export default function SecurityCenterAdminPage() {
 
             {/* Currently Locked Targets Card */}
             <div className="table-card">
-              <div className="table-toolbar">
+              <div className="table-toolbar flex-wrap">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                     <Lock size={16} /> Currently Locked Targets
@@ -587,9 +650,20 @@ export default function SecurityCenterAdminPage() {
                     Target emails or IP addresses currently under automatic cooldown lock
                   </p>
                 </div>
-                <span className="table-count font-bold">
-                  {filteredLockouts.length} Locked
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="search-input" style={{ width: 220 }}>
+                    <span className="search-icon"><Search size={13} /></span>
+                    <input
+                      type="text"
+                      placeholder="Search locked target..."
+                      value={lockedAccountsSearch}
+                      onChange={(e) => setLockedAccountsSearch(e.target.value)}
+                    />
+                  </div>
+                  <span className="table-count font-bold">
+                    {filteredLockouts.length} Locked
+                  </span>
+                </div>
               </div>
 
               {filteredLockouts.length === 0 ? (
@@ -671,8 +745,8 @@ export default function SecurityCenterAdminPage() {
                   <input
                     type="text"
                     placeholder="Search IP, email, device..."
-                    value={lockoutSearch}
-                    onChange={(e) => setLockoutSearch(e.target.value)}
+                    value={failedAttemptsSearch}
+                    onChange={(e) => setFailedAttemptsSearch(e.target.value)}
                   />
                 </div>
               </div>
@@ -789,12 +863,26 @@ export default function SecurityCenterAdminPage() {
                       Active blacklists and whitelists checked in $O(1)$ memory without database lag.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowAddRuleModal(true)}
-                    className="btn-dark btn-sm flex items-center gap-1.5 shrink-0"
-                  >
-                    <Plus size={15} /> Add Firewall Rule
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {myIp && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gray-100 text-gray-800 text-xs font-mono font-medium border border-gray-200">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        My IP: {myIp}
+                      </span>
+                    )}
+                    <button
+                      onClick={handleWhitelistMyIp}
+                      className="btn-ghost btn-sm bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex items-center gap-1.5"
+                    >
+                      <ShieldCheck size={14} /> Whitelist My Current IP
+                    </button>
+                    <button
+                      onClick={() => setShowAddRuleModal(true)}
+                      className="btn-dark btn-sm flex items-center gap-1.5 shrink-0"
+                    >
+                      <Plus size={15} /> Add Firewall Rule
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100">
@@ -995,18 +1083,28 @@ export default function SecurityCenterAdminPage() {
                   Algorithmic scanner detecting checkout velocity, card-testing bots, and credential stuffing.
                 </p>
               </div>
-              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
-                {['ALL', 'OPEN', 'INVESTIGATING', 'RESOLVED'].map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setAnomalyFilter(f)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      anomalyFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleRunThreatScan}
+                  disabled={scanningThreats}
+                  className="btn-dark btn-sm flex items-center gap-1.5"
+                >
+                  <RefreshCw size={14} className={scanningThreats ? 'animate-spin' : ''} />
+                  {scanningThreats ? 'Scanning Transactions...' : 'Run Live Threat Scan'}
+                </button>
+                <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                  {['ALL', 'OPEN', 'INVESTIGATING', 'RESOLVED'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setAnomalyFilter(f)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        anomalyFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1065,6 +1163,13 @@ export default function SecurityCenterAdminPage() {
                         </td>
                         <td data-label="Actions" style={{ textAlign: 'right' }}>
                           <div className="inline-flex gap-1.5">
+                            <button
+                              onClick={() => setSelectedAnomaly(anom)}
+                              className="btn-ghost btn-sm text-gray-700 hover:bg-gray-100 border border-gray-200 flex items-center gap-1"
+                              title="Investigate Details"
+                            >
+                              <Eye size={12} /> Investigate
+                            </button>
                             {anom.status !== 'RESOLVED' && (
                               <button
                                 onClick={() => handleUpdateAnomalyStatus(anom.id, 'RESOLVED')}
@@ -1429,6 +1534,112 @@ export default function SecurityCenterAdminPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: ANOMALY INVESTIGATION DETAILS ── */}
+      <AnimatePresence>
+        {selectedAnomaly && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`status-badge ${
+                      selectedAnomaly.severity === 'CRITICAL' || selectedAnomaly.severity === 'HIGH'
+                        ? 'status-danger'
+                        : 'status-warning'
+                    }`}
+                  >
+                    {selectedAnomaly.severity}
+                  </span>
+                  <h3 className="text-sm font-bold text-gray-900 font-mono">{selectedAnomaly.type}</h3>
+                </div>
+                <button
+                  onClick={() => setSelectedAnomaly(null)}
+                  className="text-gray-400 hover:text-gray-900 p-1"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-gray-500 font-semibold block mb-0.5">Target / Entity</label>
+                  <div className="font-mono font-bold text-gray-900 bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    {selectedAnomaly.target}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-gray-500 font-semibold block mb-0.5">Threat Description</label>
+                  <div className="text-gray-800 bg-gray-50 p-3 rounded-xl border border-gray-200 leading-relaxed">
+                    {selectedAnomaly.description}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <label className="text-gray-500 font-semibold block mb-0.5">Risk Score</label>
+                    <div className="font-bold text-red-600 font-mono text-base">
+                      {selectedAnomaly.riskScore} / 100
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                    <label className="text-gray-500 font-semibold block mb-0.5">Detection Time</label>
+                    <div className="text-gray-700 font-mono text-[11px] mt-1">
+                      {new Date(selectedAnomaly.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-200">
+                  <label className="text-gray-500 font-semibold">Current Lifecycle Status</label>
+                  <span className="status-badge status-info">{selectedAnomaly.status}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100 gap-2">
+                {selectedAnomaly.target && (
+                  <button
+                    onClick={() => {
+                      const ipMatch = selectedAnomaly.target.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+                      const ipToBlock = ipMatch ? ipMatch[0] : selectedAnomaly.target;
+                      handleQuickBlacklist(ipToBlock, `Threat Radar Anomaly: ${selectedAnomaly.type}`);
+                      setSelectedAnomaly(null);
+                    }}
+                    className="btn-danger btn-sm"
+                  >
+                    Blacklist Target IP
+                  </button>
+                )}
+                <div className="flex items-center gap-2 ml-auto">
+                  {selectedAnomaly.status !== 'RESOLVED' && (
+                    <button
+                      onClick={() => {
+                        handleUpdateAnomalyStatus(selectedAnomaly.id, 'RESOLVED');
+                        setSelectedAnomaly(null);
+                      }}
+                      className="btn-dark btn-sm"
+                    >
+                      Mark Resolved
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedAnomaly(null)}
+                    className="btn-ghost btn-sm"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
