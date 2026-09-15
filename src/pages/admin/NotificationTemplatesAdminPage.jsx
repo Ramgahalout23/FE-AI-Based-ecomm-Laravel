@@ -21,6 +21,8 @@ export default function NotificationTemplatesAdminPage() {
   const [aiSmsLoading, setAiSmsLoading] = useState(false);
   const [aiSmsTone, setAiSmsTone] = useState('friendly');
 
+  const selected = templates.find((t) => t.id === selectedId);
+
   // Animated inline validation for the custom content fields (channel-aware:
   // SMS templates use `template`, in-app use `title` + `message`).
   const editValidation = useAdminFormValidation({
@@ -54,7 +56,7 @@ export default function NotificationTemplatesAdminPage() {
       setPreviewData(null);
       editValidation.reset();
       const vars = {};
-      t.variables.forEach((v) => {
+      (t.variables || []).forEach((v) => {
         vars[v] = `{${v}}`;
       });
       setPreviewSample(JSON.stringify(vars, null, 2));
@@ -81,11 +83,13 @@ export default function NotificationTemplatesAdminPage() {
   const handleSave = async () => {
     if (!selectedId) return;
     // In CUSTOM mode the edited fields must be non-empty before saving.
-    const selected = templates.find((t) => t.id === selectedId);
-    const fields = selected?.channel === 'sms'
-      ? { template: editData.template }
-      : { title: editData.title, message: editData.message };
-    if (!editValidation.validateForm(fields)) return;
+    const isCustom = editData.mode === 'CUSTOM';
+    if (isCustom) {
+      const fields = selected?.channel === 'sms'
+        ? { template: editData.template }
+        : { title: editData.title, message: editData.message };
+      if (!editValidation.validateForm(fields)) return;
+    }
     setSaving(true);
     try {
       await adminAPI.updateNotificationTemplate(selectedId, editData);
@@ -170,7 +174,6 @@ export default function NotificationTemplatesAdminPage() {
 
   const channels = ['sms', 'in_app'];
   const filteredTemplates = (channel) => templates.filter((t) => t.channel === channel);
-  const selected = templates.find((t) => t.id === selectedId);
 
   if (loading) {
     return (
@@ -274,7 +277,7 @@ export default function NotificationTemplatesAdminPage() {
                     Available Variables
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {selected.variables.map((v) => (
+                    {(selected.variables || []).map((v) => (
                       <code
                         key={v}
                         className="text-xs bg-white border px-2 py-0.5 rounded text-gold font-mono"
@@ -434,7 +437,7 @@ export default function NotificationTemplatesAdminPage() {
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t">
                   <button
                     onClick={handleSave}
-                    disabled={saving || editData.mode !== 'CUSTOM'}
+                    disabled={saving || (editData.mode === 'DEFAULT' && selected?.mode === 'DEFAULT')}
                     className="flex items-center gap-1.5 px-4 py-2 bg-gold text-white rounded-lg text-sm font-medium hover:bg-gold-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? (
