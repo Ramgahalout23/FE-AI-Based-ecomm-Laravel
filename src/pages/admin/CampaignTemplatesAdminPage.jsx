@@ -75,7 +75,7 @@ export default function CampaignTemplatesAdminPage() {
       name: tpl.name || '',
       description: tpl.description || '',
       category: tpl.category || 'CUSTOM',
-      content_html: tpl.content_html || '',
+      content_html: tpl.content_html || tpl.contentHtml || '',
       variables: typeof tpl.variables === 'object' ? JSON.stringify(tpl.variables, null, 2) : (tpl.variables || ''),
       status: tpl.status || 'DRAFT',
     });
@@ -84,13 +84,28 @@ export default function CampaignTemplatesAdminPage() {
   };
 
   const handlePreview = async () => {
-    if (!editing && !form.name) {
-      toast.error('Save the template first to preview');
+    if (!editing && !form.content_html) {
+      toast.error('Add HTML content to preview');
       return;
     }
     setPreviewLoading(true);
     try {
-      const r = await campaignTemplatesAPI.renderTemplate({ template_id: editing.id, variables: {} });
+      let customVars = {};
+      try {
+        if (form.variables) {
+          const parsed = JSON.parse(form.variables);
+          if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+            customVars = parsed;
+          }
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+      const r = await campaignTemplatesAPI.renderTemplate({
+        template_id: editing?.id,
+        content_html: form.content_html,
+        variables: customVars,
+      });
       const data = r.data?.data || r.data;
       setPreviewHtml(data?.html || form.content_html || '<p>No content</p>');
     } catch {
@@ -242,7 +257,7 @@ export default function CampaignTemplatesAdminPage() {
                         <Layout size={36} />
                       </div>
                     )}
-                    {tpl.is_default && (
+                    {(tpl.is_default || tpl.isDefault) && (
                       <span style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(201,169,110,0.9)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px' }}>
                         DEFAULT
                       </span>
@@ -278,9 +293,9 @@ export default function CampaignTemplatesAdminPage() {
                         try {
                           const r = await campaignTemplatesAPI.renderTemplate({ template_id: tpl.id });
                           const data = r.data?.data || r.data;
-                          setPreviewHtml(data?.html || tpl.content_html);
+                          setPreviewHtml(data?.html || tpl.content_html || tpl.contentHtml);
                         } catch {
-                          setPreviewHtml(tpl.content_html);
+                          setPreviewHtml(tpl.content_html || tpl.contentHtml);
                         }
                       }}>
                         <Eye size={14} />
@@ -369,16 +384,35 @@ export default function CampaignTemplatesAdminPage() {
                   </select>
                 </div>
                 <div className="form-group form-full">
-                  <label>
-                    <div className="flex items-center gap-2">
-                      <Code2 size={14} />
-                      HTML Content
+                  <div className="flex items-center justify-between mb-1">
+                    <label style={{ margin: 0 }}>
+                      <div className="flex items-center gap-2">
+                        <Code2 size={14} />
+                        HTML Content
+                      </div>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>Insert Tag:</span>
+                      {['userName', 'storeName', 'discountCode', 'discountPercent', 'storeUrl'].map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          className="btn-ghost btn-xs"
+                          style={{ fontSize: '0.65rem', padding: '2px 6px', fontFamily: 'monospace' }}
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, content_html: prev.content_html + `{{${v}}}` }));
+                            toast.success(`{{${v}}} inserted`);
+                          }}
+                        >
+                          +{v}
+                        </button>
+                      ))}
                     </div>
-                  </label>
+                  </div>
                   <textarea
                     value={form.content_html}
                     onChange={(e) => setForm({ ...form, content_html: e.target.value })}
-                    placeholder="<h1>Welcome!</h1><p>{{userName}}, thank you for joining.</p>"
+                    placeholder="<h1>Welcome!</h1><p>{{userName}}, thank you for joining {{storeName}}.</p>"
                     rows={10}
                     style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
                   />
@@ -388,12 +422,12 @@ export default function CampaignTemplatesAdminPage() {
                   <textarea
                     value={form.variables}
                     onChange={(e) => setForm({ ...form, variables: e.target.value })}
-                    placeholder='{"userName": "Customer", "storeName": "My Store"}'
+                    placeholder='{"userName": "Customer", "storeName": "THREVOLT", "discountCode": "WELCOME20"}'
                     rows={3}
                     style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
                   />
                   <span style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem', display: 'block' }}>
-                    Define variables that can be replaced in the template content.
+                    Define variable names and sample values for preview replacement.
                   </span>
                 </div>
               </div>
