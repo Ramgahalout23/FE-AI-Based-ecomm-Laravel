@@ -6,6 +6,7 @@ import AdminFormField from '../../components/admin/AdminFormField';
 import { useAdminFormValidation } from '../../hooks/useAdminFormValidation';
 import { requiredField, languageCode } from '../../hooks/validationRules';
 import toast from '../../utils/toast';
+import { clearTranslationCache } from '../../utils/i18n';
 
 ;
 
@@ -15,7 +16,7 @@ const GROUPS = [
   { value: 'email', label: 'Email Templates' },
 ];
 
-const EMPTY_LANGUAGE = { code: '', name: '', native_name: '', is_default: false, is_active: true };
+const EMPTY_LANGUAGE = { code: '', name: '', native_name: '', is_default: false, is_active: true, direction: 'ltr', sort_order: 0 };
 
 /** Parse a single CSV line respecting double-quoted values */
 function parseCSVLine(line) {
@@ -53,6 +54,39 @@ function parseCSVLine(line) {
 
 export default function TranslationsAdminPage() {
   const [activeTab, setActiveTab] = useState('languages');
+  const [languages, setLanguages] = useState([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadLanguages = useCallback(async () => {
+    setLoadingLanguages(true);
+    try {
+      const r = await adminAPI.getAdminLanguages();
+      const data = r.data?.data || r.data || [];
+      setLanguages(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch {
+      setError('Failed to load languages');
+    } finally {
+      setLoadingLanguages(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLanguages();
+  }, [loadLanguages]);
+
+  const activeCount = useMemo(() => {
+    return languages.filter(l => l.is_active !== false && l.isActive !== false).length;
+  }, [languages]);
+
+  const defaultLang = useMemo(() => {
+    return languages.find(l => l.is_default || l.isDefault) || languages[0];
+  }, [languages]);
+
+  const catalogueSize = useMemo(() => {
+    return languages.reduce((max, l) => Math.max(max, l.catalogueSize || l.keyCount || 0), 0);
+  }, [languages]);
 
   return (
     <div>
@@ -60,6 +94,60 @@ export default function TranslationsAdminPage() {
         <div>
           <h2>🌐 Translations & Languages</h2>
           <p>Manage supported languages and translate your store content</p>
+        </div>
+      </div>
+
+      {/* KPI Stats Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '1rem',
+        marginBottom: '1.5rem',
+      }}>
+        <div className="table-card" style={{ padding: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Globe size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Languages</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>{loadingLanguages ? '—' : languages.length}</div>
+          </div>
+        </div>
+
+        <div className="table-card" style={{ padding: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Check size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active in Store</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>{loadingLanguages ? '—' : activeCount}</div>
+          </div>
+        </div>
+
+        <div className="table-card" style={{ padding: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '1.3rem' }}>👑</span>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Default Language</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
+              {defaultLang ? `${defaultLang.name} (${(defaultLang.code || '').toUpperCase()})` : '—'}
+            </div>
+            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+              Direction: {(defaultLang?.direction || 'ltr').toUpperCase()}
+            </span>
+          </div>
+        </div>
+
+        <div className="table-card" style={{ padding: '1.2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#ede9fe', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catalogue Size</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>{catalogueSize || '—'}</div>
+            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Distinct Translation Keys</span>
+          </div>
         </div>
       </div>
 
@@ -107,7 +195,20 @@ export default function TranslationsAdminPage() {
         </button>
       </div>
 
-      {activeTab === 'languages' ? <LanguagesTab /> : <TranslationsTab />}
+      {activeTab === 'languages' ? (
+        <LanguagesTab
+          languages={languages}
+          loading={loadingLanguages}
+          error={error}
+          reloadLanguages={loadLanguages}
+        />
+      ) : (
+        <TranslationsTab
+          languages={languages}
+          loadingLanguages={loadingLanguages}
+          reloadLanguages={loadLanguages}
+        />
+      )}
     </div>
   );
 }
@@ -115,29 +216,11 @@ export default function TranslationsAdminPage() {
 /* ════════════════════════════════════════
    LANGUAGES TAB
    ════════════════════════════════════════ */
-function LanguagesTab() {
-  const [languages, setLanguages] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+function LanguagesTab({ languages, loading, error, reloadLanguages }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_LANGUAGE);
   const [togglingId, setTogglingId] = useState(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await adminAPI.getAdminLanguages();
-      const data = r.data?.data || r.data || [];
-      setLanguages(Array.isArray(data) ? data : []);
-    } catch {
-      setError('Failed to load languages');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const openCreate = () => {
     setEditing(null);
@@ -150,9 +233,11 @@ function LanguagesTab() {
     setForm({
       code: lang.code || '',
       name: lang.name || '',
-      native_name: lang.native_name || '',
-      is_default: lang.is_default || false,
-      is_active: lang.is_active !== false,
+      native_name: lang.native_name || lang.nativeName || '',
+      is_default: Boolean(lang.is_default || lang.isDefault),
+      is_active: lang.is_active !== false && lang.isActive !== false,
+      direction: lang.direction || 'ltr',
+      sort_order: lang.sort_order ?? lang.sortOrder ?? 0,
     });
     setShowModal(true);
   };
@@ -167,27 +252,43 @@ function LanguagesTab() {
       return;
     }
     try {
-      await adminAPI.createLanguage(form);
-      toast.success(editing ? 'Language updated' : 'Language created');
-      await load();
+      if (editing) {
+        await adminAPI.updateLanguage(editing.id, form);
+        toast.success('Language updated');
+      } else {
+        await adminAPI.createLanguage(form);
+        toast.success('Language created');
+      }
+      clearTranslationCache();
+      await reloadLanguages();
       setShowModal(false);
     } catch {
       toast.error('Failed to save language');
     }
   };
 
+  const handleSetDefault = async (lang) => {
+    if (!confirm(`Set "${lang.name} (${lang.code})" as the default store language?`)) return;
+    try {
+      await adminAPI.setDefaultLanguage(lang.id);
+      toast.success(`"${lang.name}" is now the default language`);
+      clearTranslationCache();
+      await reloadLanguages();
+    } catch {
+      toast.error('Failed to set default language');
+    }
+  };
+
   const handleToggleActive = async (lang) => {
     setTogglingId(lang.id);
+    const newActive = !(lang.is_active !== false && lang.isActive !== false);
     try {
-      await adminAPI.createLanguage({
-        code: lang.code,
-        name: lang.name,
-        native_name: lang.native_name || '',
-        is_default: lang.is_default || false,
-        is_active: !(lang.is_active !== false),
+      await adminAPI.updateLanguage(lang.id, {
+        is_active: newActive,
       });
-      toast.success(lang.is_active !== false ? `Language "${lang.code}" deactivated` : `Language "${lang.code}" activated`);
-      await load();
+      toast.success(newActive ? `Language "${lang.code}" activated` : `Language "${lang.code}" deactivated`);
+      clearTranslationCache();
+      await reloadLanguages();
     } catch {
       toast.error('Failed to toggle language status');
     } finally {
@@ -200,7 +301,8 @@ function LanguagesTab() {
     try {
       await adminAPI.deleteLanguage(id);
       toast.success(`Language "${code}" deleted`);
-      await load();
+      clearTranslationCache();
+      await reloadLanguages();
     } catch {
       toast.error('Failed to delete language');
     }
@@ -233,6 +335,8 @@ function LanguagesTab() {
               <th>Code</th>
               <th>Name</th>
               <th>Native Name</th>
+              <th>Direction</th>
+              <th>Progress</th>
               <th>Status</th>
               <th>Default</th>
               <th>Actions</th>
@@ -240,50 +344,91 @@ function LanguagesTab() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
+              <tr><td colSpan={8}><div className="loading-page" style={{ padding: '2rem' }}><div className="spinner" /></div></td></tr>
             ) : languages.length === 0 ? (
-              <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon">🌐</div><h3>No languages yet</h3><p>Add your first language to start translating your store.</p></div></td></tr>
+              <tr><td colSpan={8}><div className="empty-state"><div className="empty-state-icon">🌐</div><h3>No languages yet</h3><p>Add your first language to start translating your store.</p></div></td></tr>
             ) : (
-              languages.map((lang) => (
-                <tr key={lang.id} style={{ opacity: lang.is_active !== false ? 1 : 0.55 }}>
-                  <td><code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, fontSize: '0.82rem' }}>{lang.code}</code></td>
-                  <td><strong>{lang.name}</strong></td>
-                  <td style={{ color: 'var(--muted)' }}>{lang.native_name || '—'}</td>
-                  <td>
-                    <button
-                      onClick={() => handleToggleActive(lang)}
-                      disabled={togglingId === lang.id}
-                      className={`status-badge ${lang.is_active !== false ? 'status-active' : 'status-inactive'}`}
-                      style={{ border: 'none', cursor: 'pointer', opacity: togglingId === lang.id ? 0.6 : 1 }}
-                    >
-                      {togglingId === lang.id ? (
-                        <><span className="spinner" style={{ width: 10, height: 10, display: 'inline-block', marginRight: 4 }} /> Toggling...</>
-                      ) : (
-                        lang.is_active !== false ? 'Active' : 'Inactive'
-                      )}
-                    </button>
-                  </td>
-                  <td>
-                    {lang.is_default ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>
-                        <Check size={14} Circle /> Default
+              languages.map((lang) => {
+                const isAct = lang.is_active !== false && lang.isActive !== false;
+                const isDef = Boolean(lang.is_default || lang.isDefault);
+                const translated = lang.translatedCount || 0;
+                const total = lang.catalogueSize || lang.keyCount || (lang.code === 'en' ? translated : 0);
+                const pct = total > 0 ? Math.min(Math.round((translated / total) * 100), 100) : (lang.code === 'en' ? 100 : 0);
+
+                return (
+                  <tr key={lang.id || lang.code} style={{ opacity: isAct ? 1 : 0.55 }}>
+                    <td><code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, fontSize: '0.82rem' }}>{lang.code}</code></td>
+                    <td><strong>{lang.name}</strong></td>
+                    <td style={{ color: 'var(--muted)' }}>{lang.native_name || lang.nativeName || '—'}</td>
+                    <td>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        background: lang.direction === 'rtl' ? '#f3e8ff' : '#e0f2fe',
+                        color: lang.direction === 'rtl' ? '#7e22ce' : '#0369a1',
+                      }}>
+                        {(lang.direction || 'ltr').toUpperCase()}
                       </span>
-                    ) : (
-                      <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      <button className="btn-edit" onClick={() => openEdit(lang)}>Edit</button>
-                      {!lang.is_default && (
-                        <button className="btn-del" onClick={() => handleDelete(lang.id, lang.code)} disabled={lang.is_default}>
-                          <Trash2 size={13} style={{ marginRight: 2 }} /> Delete
-                        </button>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '130px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748b' }}>
+                          <span>{translated} / {total || '—'}</span>
+                          <span style={{ fontWeight: 600, color: pct >= 80 ? '#16a34a' : pct >= 40 ? '#d97706' : '#64748b' }}>{pct}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: pct >= 80 ? '#16a34a' : pct >= 40 ? '#f59e0b' : '#6366f1', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleToggleActive(lang)}
+                        disabled={togglingId === lang.id}
+                        className={`status-badge ${isAct ? 'status-active' : 'status-inactive'}`}
+                        style={{ border: 'none', cursor: 'pointer', opacity: togglingId === lang.id ? 0.6 : 1 }}
+                      >
+                        {togglingId === lang.id ? (
+                          <><span className="spinner" style={{ width: 10, height: 10, display: 'inline-block', marginRight: 4 }} /> Toggling...</>
+                        ) : (
+                          isAct ? 'Active' : 'Inactive'
+                        )}
+                      </button>
+                    </td>
+                    <td>
+                      {isDef ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#16a34a', fontWeight: 600, fontSize: '0.78rem' }}>
+                          <Check size={14} /> Default
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>—</span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        {!isDef && isAct && (
+                          <button
+                            className="btn-ghost btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem', color: '#16a34a' }}
+                            onClick={() => handleSetDefault(lang)}
+                            title="Set as default store language"
+                          >
+                            <Check size={12} style={{ marginRight: 2 }} /> Set Default
+                          </button>
+                        )}
+                        <button className="btn-edit" onClick={() => openEdit(lang)}>Edit</button>
+                        {!isDef && (
+                          <button className="btn-del" onClick={() => handleDelete(lang.id, lang.code)} disabled={isDef}>
+                            <Trash2 size={13} style={{ marginRight: 2 }} /> Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -314,6 +459,27 @@ function LanguagesTab() {
                 <div className="form-group">
                   <label>Native Name</label>
                   <input value={form.native_name} onChange={e => setForm({ ...form, native_name: e.target.value })} placeholder="e.g. English, Français, हिन्दी" />
+                </div>
+                <div className="form-group">
+                  <label>Text Direction</label>
+                  <select
+                    value={form.direction || 'ltr'}
+                    onChange={e => setForm({ ...form, direction: e.target.value })}
+                    style={{ width: '100%', padding: '0.45rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}
+                  >
+                    <option value="ltr">LTR (Left-to-Right)</option>
+                    <option value="rtl">RTL (Right-to-Left, e.g. Arabic, Hebrew)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Sort Order</label>
+                  <input
+                    type="number"
+                    value={form.sort_order ?? 0}
+                    onChange={e => setForm({ ...form, sort_order: parseInt(e.target.value, 10) || 0 })}
+                    placeholder="e.g. 1, 2, 3"
+                    min={0}
+                  />
                 </div>
                 <div className="form-group form-full" style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.5rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -353,9 +519,11 @@ function LanguagesTab() {
 /* ════════════════════════════════════════
    TRANSLATIONS TAB
    ════════════════════════════════════════ */
-function TranslationsTab() {
-  const [languages, setLanguages] = useState([]);
-  const [loadingLanguages, setLoadingLanguages] = useState(true);
+function TranslationsTab({ languages: propLanguages, loadingLanguages: propLoading, reloadLanguages }) {
+  const [localLanguages, setLocalLanguages] = useState([]);
+  const [localLoading, setLocalLoading] = useState(false);
+  const languages = propLanguages && propLanguages.length > 0 ? propLanguages : localLanguages;
+  const loadingLanguages = propLoading !== undefined ? propLoading : localLoading;
   const [selectedLang, setSelectedLang] = useState('en');
   const [selectedGroup, setSelectedGroup] = useState('frontend');
   const [translations, setTranslations] = useState({});
@@ -367,6 +535,8 @@ function TranslationsTab() {
   const [editedValues, setEditedValues] = useState({});
   const [expandedSections, setExpandedSections] = useState({});
   const [saveStatus, setSaveStatus] = useState(null); // null | 'saving' | 'success' | 'error'
+  const [filterTab, setFilterTab] = useState('all'); // 'all' | 'missing' | 'changed'
+  const [flushing, setFlushing] = useState(false);
 
   // ── AI Translate state ──
   const [showAIModal, setShowAIModal] = useState(false);
@@ -395,7 +565,9 @@ function TranslationsTab() {
     setSaveStatus(null);
     setEditedValues({});
     try {
-      const r = await adminAPI.getAdminTranslations(lang, group);
+      // A whole language scope is loaded at once (the storefront uses ~1000 keys),
+      // so the editor can group and filter client-side without extra round trips.
+      const r = await adminAPI.getAdminTranslations(lang, group, { limit: 2000 });
       let data = r.data?.data || r.data || {};
       // If data is an array (key-value pairs), convert to object
       if (Array.isArray(data)) {
@@ -406,6 +578,14 @@ function TranslationsTab() {
         data = map;
       }
       setTranslations(data);
+
+      // Never let an editor believe a truncated list is the whole scope.
+      const pagination = r.data?.pagination;
+      if (pagination && pagination.total > Object.keys(data).length) {
+        toast.error(
+          `Showing ${Object.keys(data).length} of ${pagination.total} strings — narrow the search or export to see the rest.`
+        );
+      }
     } catch {
       setTranslations({});
       toast.error('Failed to load translations');
@@ -486,6 +666,10 @@ function TranslationsTab() {
         group: selectedGroup,
         translations: aiResult.translations,
       });
+
+      // Drop the storefront's cached copy so the new strings are live immediately
+      // instead of up to 24 hours later.
+      clearTranslationCache();
 
       toast.success(`${aiResult.translated_count} AI translations saved!`);
       setShowAIModal(false);
@@ -600,6 +784,8 @@ function TranslationsTab() {
         translations: translationsPayload,
       });
 
+      clearTranslationCache();
+
       // Reload translations
       setShowImportModal(false);
       setImportData(null);
@@ -621,25 +807,35 @@ function TranslationsTab() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Load languages
+  // Load languages fallback if not passed as prop
   useEffect(() => {
+    if (propLanguages && propLanguages.length > 0) return;
     let mounted = true;
-    setLoadingLanguages(true);
+    setLocalLoading(true);
     adminAPI.getAdminLanguages()
       .then(r => {
         if (!mounted) return;
         const data = r.data?.data || r.data || [];
-        setLanguages(Array.isArray(data) ? data : []);
-        // Set default to first language or 'en'
-        if (Array.isArray(data) && data.length > 0) {
-          const defaultLang = data.find(l => l.is_default) || data[0];
-          setSelectedLang(defaultLang.code);
-        }
+        setLocalLanguages(Array.isArray(data) ? data : []);
       })
       .catch(() => {})
-      .finally(() => { if (mounted) setLoadingLanguages(false); });
+      .finally(() => { if (mounted) setLocalLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [propLanguages]);
+
+  // Keep selectedLang valid
+  useEffect(() => {
+    if (languages.length > 0 && (!selectedLang || !languages.some(l => l.code === selectedLang))) {
+      const defaultLang = languages.find(l => l.is_default || l.isDefault) || languages[0];
+      if (defaultLang?.code) setSelectedLang(defaultLang.code);
+    }
+  }, [languages, selectedLang]);
+
+  const activeLangObj = useMemo(() => {
+    return languages.find(l => l.code === selectedLang);
+  }, [languages, selectedLang]);
+
+  const isRTL = activeLangObj?.direction === 'rtl';
 
   // Load English translations for AI reference (when viewing non-English)
   useEffect(() => {
@@ -685,22 +881,55 @@ function TranslationsTab() {
       }));
   }, [translations]);
 
-  // Filtered sections based on search
+  const missingCount = useMemo(() => {
+    return Object.keys(translations).filter(k => {
+      const v = editedValues[k] !== undefined ? editedValues[k] : translations[k];
+      return !v || String(v).trim() === '';
+    }).length;
+  }, [translations, editedValues]);
+
+  // Filtered sections based on search and filterTab
   const filteredSections = useMemo(() => {
-    if (!debouncedSearch) return sections;
     const q = debouncedSearch.toLowerCase();
     return sections
-      .map(({ section, keys }) => ({
-        section,
-        keys: keys.filter(([key, value]) =>
-          key.toLowerCase().includes(q) || value.toLowerCase().includes(q)
-        ),
-      }))
+      .map(({ section, keys }) => {
+        let matched = keys;
+        if (q) {
+          matched = matched.filter(([key, value]) =>
+            key.toLowerCase().includes(q) || (value && value.toLowerCase().includes(q))
+          );
+        }
+        if (filterTab === 'missing') {
+          matched = matched.filter(([key, value]) => {
+            const v = editedValues[key] !== undefined ? editedValues[key] : value;
+            return !v || String(v).trim() === '';
+          });
+        } else if (filterTab === 'changed') {
+          matched = matched.filter(([key, value]) => {
+            return editedValues[key] !== undefined && editedValues[key] !== value;
+          });
+        }
+        return { section, keys: matched };
+      })
       .filter(({ keys }) => keys.length > 0);
-  }, [sections, debouncedSearch]);
+  }, [sections, debouncedSearch, filterTab, editedValues]);
 
   const handleValueChange = (key, value) => {
     setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleFlushCache = async () => {
+    setFlushing(true);
+    try {
+      await adminAPI.flushTranslationCache();
+      clearTranslationCache();
+      toast.success('Translation server & local caches flushed!');
+      await loadTranslations(selectedLang, selectedGroup);
+    } catch {
+      toast.error('Failed to flush translation cache');
+    } finally {
+      setFlushing(false);
+    }
   };
 
   const handleSave = async () => {
@@ -723,6 +952,8 @@ function TranslationsTab() {
       };
 
       await adminAPI.bulkUpdateTranslations(payload);
+      clearTranslationCache();
+      if (reloadLanguages) reloadLanguages();
 
       // Update local translations with edited values
       setTranslations(prev => ({
@@ -872,6 +1103,18 @@ function TranslationsTab() {
             <Sparkles size={13} style={{ marginRight: 4 }} /> Translate AI
           </button>
 
+          <button
+            type="button"
+            onClick={handleFlushCache}
+            disabled={flushing}
+            className="btn-ghost btn-sm"
+            style={{ fontSize: '0.72rem', padding: '0.35rem 0.65rem' }}
+            title="Flush translations server & local cache"
+          >
+            <RotateCcw size={13} style={{ marginRight: 4 }} className={flushing ? 'spinner' : ''} />
+            {flushing ? 'Flushing...' : 'Flush Cache'}
+          </button>
+
           {editedCount > 0 && (
             <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
               <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600, whiteSpace: 'nowrap' }}>
@@ -913,6 +1156,64 @@ function TranslationsTab() {
               </button>
             </div>
           )}
+
+          {/* Quick Filter Tabs */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Filter:</span>
+            <button
+              type="button"
+              onClick={() => setFilterTab('all')}
+              style={{
+                padding: '0.25rem 0.65rem',
+                borderRadius: '6px',
+                border: filterTab === 'all' ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                background: filterTab === 'all' ? '#eef2ff' : '#fff',
+                color: filterTab === 'all' ? '#4f46e5' : '#64748b',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              All Keys ({totalKeys})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('missing')}
+              style={{
+                padding: '0.25rem 0.65rem',
+                borderRadius: '6px',
+                border: filterTab === 'missing' ? '1px solid #f59e0b' : '1px solid #e2e8f0',
+                background: filterTab === 'missing' ? '#fef3c7' : '#fff',
+                color: filterTab === 'missing' ? '#b45309' : '#64748b',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Missing Only ({missingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterTab('changed')}
+              style={{
+                padding: '0.25rem 0.65rem',
+                borderRadius: '6px',
+                border: filterTab === 'changed' ? '1px solid #10b981' : '1px solid #e2e8f0',
+                background: filterTab === 'changed' ? '#ecfdf5' : '#fff',
+                color: filterTab === 'changed' ? '#047857' : '#64748b',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Modified ({editedCount})
+            </button>
+            {isRTL && (
+              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#7c3aed', background: '#f5f3ff', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                RTL Script Active
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1021,6 +1322,7 @@ function TranslationsTab() {
                                   <input
                                     value={editedValue}
                                     onChange={e => handleValueChange(key, e.target.value)}
+                                    dir={isRTL ? 'rtl' : 'ltr'}
                                     style={{
                                       width: '100%',
                                       padding: '0.4rem 0.6rem',
@@ -1030,6 +1332,7 @@ function TranslationsTab() {
                                       background: hasChanged ? '#fffbeb' : '#fff',
                                       outline: 'none',
                                       transition: 'border 0.15s',
+                                      textAlign: isRTL ? 'right' : 'left',
                                     }}
                                     onFocus={e => { e.target.style.borderColor = '#6366f1'; }}
                                     onBlur={e => { e.target.style.borderColor = hasChanged ? '#f59e0b' : '#e2e8f0'; }}

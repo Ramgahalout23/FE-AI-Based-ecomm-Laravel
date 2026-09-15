@@ -1,29 +1,48 @@
 import { ChevronDown, Globe } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-;
 import { useAppInit } from '../../contexts/AppInitContext';
 import { switchLanguage } from '../../utils/i18n';
 import { useTranslation } from 'react-i18next';
 
 /**
- * LanguageSwitcher — a dropdown that lets users switch the site language.
- * Languages are read from the AppInitContext (already fetched by app-init endpoint).
+ * LanguageSwitcher — dropdown that lets users change the site language.
+ *
+ * Languages come from AppInitContext (already fetched by the app-init endpoint),
+ * so opening the switcher costs no extra request.
+ *
+ * Behaviour that matters here:
+ *  - the trigger keeps its footprint while languages load (no navbar layout shift)
+ *  - full keyboard support: ArrowUp/Down, Home/End, Escape, Enter/Space
+ *  - proper listbox semantics for screen readers
  */
 export default function LanguageSwitcher({ variant = 'navbar' }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const ref = useRef(null);
+  const triggerRef = useRef(null);
+  const optionRefs = useRef([]);
+  const listboxId = useId();
   const { i18n } = useTranslation();
 
-  // Read languages from app-init (already fetched, no separate API call needed)
   const { data: appInitData, loading: appInitLoading } = useAppInit();
-  const languages = appInitData?.languages || [];
-  const loading = appInitLoading;
+  const rawLanguages = appInitData?.languages || [];
+  const languages = rawLanguages.map((l) =>
+    typeof l === 'string'
+      ? { code: l, name: l.toUpperCase(), nativeName: l.toUpperCase(), direction: 'ltr' }
+      : l
+  );
+
+  // Label for a language, tolerating both nativeName (API) and native_name (legacy payloads).
+  const labelFor = (lang) => lang?.nativeName || lang?.native_name || lang?.name || lang?.code || '';
+
+  const active = languages.find((l) => l.code === i18n.language) || languages[0];
+  const activeIndex = Math.max(
+    languages.findIndex((l) => l.code === (active?.code || '')),
+    0
+  );
 
   // On mount, sync the displayed language with the persisted preference in localStorage.
-  // This ensures the component reflects the language even if i18next's internal state
-  // is out of sync (e.g. after a full page reload or language change from another tab).
   useEffect(() => {
     const storedLang = localStorage.getItem('luxe_language');
     if (storedLang && storedLang !== i18n.language) {
@@ -32,8 +51,7 @@ export default function LanguageSwitcher({ variant = 'navbar' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only: applying the stored language once
   }, []);
 
-  // Listen for storage events from other tabs to keep the switcher in sync
-  // when the language is changed in a different browser tab.
+  // Keep multiple tabs in sync.
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === 'luxe_language' && e.newValue && e.newValue !== i18n.language) {
@@ -44,48 +62,107 @@ export default function LanguageSwitcher({ variant = 'navbar' }) {
     return () => window.removeEventListener('storage', handleStorage);
   }, [i18n.language]);
 
-  // Close on click outside
+  // Close on click outside and on Escape.
   useEffect(() => {
+    if (!open) return undefined;
+
     const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
         setOpen(false);
+        triggerRef.current?.focus();
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
-  const handleSwitch = useCallback(async (code) => {
-    if (switching) return;
-    setSwitching(true);
-    try {
-      await switchLanguage(code);
-      setOpen(false);
-    } catch {
-      // If loading translations fails, language remains unchanged
-    } finally {
-      setSwitching(false);
+  // Move focus onto the current language when the menu opens.
+  useEffect(() => {
+    if (open) {
+      const target = optionRefs.current[activeIndex] || optionRefs.current[0];
+      target?.focus();
     }
-  }, [switching]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focus only on open/active change
+  }, [open]);
 
-  // Don't render while loading or if no languages are available
-  if (loading || languages.length === 0) return null;
+  const handleSwitch = useCallback(
+    async (code) => {
+      if (switching || code === i18n.language) {
+        setOpen(false);
+        return;
+      }
+      setSwitching(true);
+      try {
+        await switchLanguage(code);
+        setOpen(false);
+      } catch {
+        // Loading translations failed — stay on the current language.
+      } finally {
+        setSwitching(false);
+      }
+    },
+    [switching, i18n.language]
+  );
 
-  const active = languages.find((l) => l.code === i18n.language) || languages[0];
+  const moveFocus = (from, delta) => {
+    if (languages.length === 0) return;
+    const next = (from + delta + languages.length) % languages.length;
+    optionRefs.current[next]?.focus();
+  };
 
-  // If only one language is active, show a static language pill instead of a dropdown
-  // so users can always see that the site supports multiple languages.
+  const handleOptionKeyDown = (event, index) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      moveFocus(index, 1);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveFocus(index, -1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      optionRefs.current[0]?.focus();
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      optionRefs.current[languages.length - 1]?.focus();
+    }
+  };
+
+  const triggerClasses =
+    variant === 'navbar'
+      ? 'px-2.5 py-1.5 text-white/70 hover:text-white hover:bg-white/10'
+      : variant === 'mobile'
+      ? 'px-2.5 py-1.5 text-white/60 hover:text-white hover:bg-white/10'
+      : 'px-3 py-2 text-gray-700 hover:text-black hover:bg-gray-100';
+
+  // Keep the same footprint while loading so the navbar does not reflow.
+  if (appInitLoading || languages.length === 0) {
+    if (appInitLoading) {
+      return (
+        <div
+          className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold ${triggerClasses} opacity-60`}
+          aria-hidden="true"
+        >
+          <Globe size={14} />
+          <span className="w-10 h-3 rounded bg-current opacity-20" />
+        </div>
+      );
+    }
+    return null;
+  }
+
+  // A single language still deserves a visible pill, but no dropdown.
   if (languages.length === 1) {
     return (
-      <div className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold ${
-        variant === 'navbar'
-          ? 'px-2.5 py-1.5 text-white/70'
-          : variant === 'mobile'
-          ? 'px-2.5 py-1.5 text-white/60'
-          : 'px-3 py-2 text-gray-700'
-      }`}>
-        <Globe size={14} />
-        <span>{active.native_name || active.name || active.code}</span>
+      <div className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold ${triggerClasses}`}>
+        <Globe size={14} aria-hidden="true" />
+        <span lang={active?.code}>{labelFor(active)}</span>
       </div>
     );
   }
@@ -93,23 +170,36 @@ export default function LanguageSwitcher({ variant = 'navbar' }) {
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold transition-colors ${
-          variant === 'navbar'
-            ? 'px-2.5 py-1.5 text-white/70 hover:text-white hover:bg-white/10'
-            : variant === 'mobile'
-            ? 'px-2.5 py-1.5 text-white/60 hover:text-white hover:bg-white/10'
-            : 'px-3 py-2 text-gray-700 hover:text-black hover:bg-gray-100'
-        }`}
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        aria-label={`${labelFor(active)} — change language`}
+        className={`flex items-center gap-1.5 rounded-lg text-xs font-semibold transition-colors ${triggerClasses}`}
       >
-        <Globe size={14} />
-        <span>{active.native_name || active.name || active.code}</span>
-        <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <Globe size={14} aria-hidden="true" />
+        <span lang={active?.code}>{labelFor(active)}</span>
+        <ChevronDown
+          size={12}
+          aria-hidden="true"
+          className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       <AnimatePresence>
         {open && (
           <motion.div
+            id={listboxId}
+            role="listbox"
+            aria-label="Language"
             initial={{ opacity: 0, y: -4, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
@@ -118,24 +208,28 @@ export default function LanguageSwitcher({ variant = 'navbar' }) {
               variant === 'mobile' ? 'left-0 right-auto' : variant === 'navbar' ? '' : 'left-0 right-auto'
             }`}
           >
-            {languages.map((lang) => {
+            {languages.map((lang, index) => {
               const isActive = lang.code === i18n.language;
               return (
                 <button
                   key={lang.code}
+                  ref={(el) => {
+                    optionRefs.current[index] = el;
+                  }}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
                   onClick={() => handleSwitch(lang.code)}
+                  onKeyDown={(e) => handleOptionKeyDown(e, index)}
                   disabled={switching}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-gray-100 text-black font-bold'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-black'
+                  lang={lang.code}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-black/20 ${
+                    isActive ? 'bg-gray-100 text-black font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-black'
                   } ${switching ? 'opacity-50 cursor-wait' : ''}`}
                 >
-                  <span className="flex-1 text-left">{lang.native_name || lang.name}</span>
+                  <span className="flex-1 text-left">{labelFor(lang)}</span>
                   <span className="text-xs text-gray-400 uppercase">{lang.code}</span>
-                  {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-black" />
-                  )}
+                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-black" aria-hidden="true" />}
                 </button>
               );
             })}

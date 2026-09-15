@@ -4,8 +4,18 @@ import client from '../api/client';
 
 const STORAGE_KEY = 'luxe_language';
 const TRANSLATIONS_CACHE_PREFIX = 'luxe_translations_';
-const TRANSLATIONS_CACHE_VERSION = 1;
-const TRANSLATIONS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const TRANSLATIONS_CACHE_VERSION = 2;
+const TRANSLATIONS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours (revalidated against /translations/version on boot)
+
+// Languages the UI ships copy for. i18next would otherwise treat 'en-US' as a
+// language of its own and render raw keys.
+const SUPPORTED_LANGUAGES = ['en', 'hi'];
+
+const RTL_LANGUAGES = ['ar', 'he', 'fa', 'ur', 'yi', 'dv', 'ps', 'sd'];
+
+// i18next option: strip region so 'en-GB' resolves to the 'en' bundle. Kept in a
+// constant so the init call and the runtime checks cannot drift apart.
+const LANGUAGE_ONLY = true;
 
 /**
  * Read cached translations from localStorage for a given language.
@@ -24,7 +34,7 @@ function getCachedTranslations(lang) {
       localStorage.removeItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`);
       return null;
     }
-    return cached.data;
+    return { map: cached.data, apiVersion: cached.apiVersion || null };
   } catch {
     return null;
   }
@@ -33,11 +43,12 @@ function getCachedTranslations(lang) {
 /**
  * Store translations in localStorage cache for a given language.
  */
-function setCachedTranslations(lang, data) {
+function setCachedTranslations(lang, data, apiVersion = null) {
   try {
     localStorage.setItem(`${TRANSLATIONS_CACHE_PREFIX}${lang}`, JSON.stringify({
       version: TRANSLATIONS_CACHE_VERSION,
       timestamp: Date.now(),
+      apiVersion,
       data,
     }));
   } catch {
@@ -50,37 +61,108 @@ function setCachedTranslations(lang, data) {
  * Checks localStorage cache first; falls back to the backend API.
  * Returns a flat { key: value } map.
  */
-async function loadTranslations(lang) {
-  // Check localStorage cache first (eliminates flash on return visits)
-  const cached = getCachedTranslations(lang);
-  if (cached) return cached;
-
+async function fetchTranslations(lang) {
   try {
     const res = await client.get('/translations', {
       params: { lang, group: 'frontend' },
       timeout: 10000,
     });
-    const data = res?.data?.data || [];
+    const data = res?.data?.data || {};
     let map = {};
+
     if (Array.isArray(data)) {
       data.forEach((t) => {
         if (t.key && t.value) map[t.key] = t.value;
       });
-    } else if (typeof data === 'object' && !Array.isArray(data)) {
-      // If data is already a key-value object
+    } else if (typeof data === 'object' && data !== null) {
       map = data;
     }
 
     // Cache the result so subsequent page loads skip the API call
     if (Object.keys(map).length > 0) {
-      setCachedTranslations(lang, map);
+      setCachedTranslations(lang, map, res?.data?.version || null);
     }
 
     return map;
   } catch {
-    // Fall back to empty translations
+    // Network hiccup or offline — the bundled defaults still render.
   }
+
   return {};
+}
+
+/**
+ * Load translations for a language code. Serves the cached copy instantly (no
+ * flash on return visits) and only calls the API when there is nothing cached.
+ *
+ * Returns a flat { key: value } map.
+ */
+async function loadTranslations(lang) {
+  const cached = getCachedTranslations(lang);
+  if (cached) return cached.map;
+
+  return fetchTranslations(lang);
+}
+
+/**
+ * Cheap cache-busting probe: the backend exposes a version string per language
+ * that changes the moment an editor saves.
+ */
+async function fetchServerVersion(lang) {
+  try {
+    const res = await client.get('/translations/version', {
+      params: { lang, group: 'frontend' },
+      timeout: 8000,
+    });
+
+    return res?.data?.data?.version || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-check the cached copy against the backend version.
+ *
+ * Without this, an admin edit stayed invisible to shoppers for up to 24 hours
+ * (the cache TTL). Now the change appears on the very next page load.
+ */
+export async function revalidateTranslations(lang) {
+  const code = lang || detectLanguage();
+  const cached = getCachedTranslations(code);
+
+  // Nothing cached, or the entry predates version tracking: the next full load
+  // refreshes it, so there is no point downloading the map twice.
+  if (!cached?.apiVersion) return false;
+
+  const serverVersion = await fetchServerVersion(code);
+  // Version matches (or the probe failed) — the cached copy is good enough.
+  if (!serverVersion || serverVersion === cached.apiVersion) return false;
+
+  const map = await fetchTranslations(code);
+  if (Object.keys(map).length === 0) return false;
+
+  i18n.addResourceBundle(code, 'frontend', map, true, true);
+
+  if (i18n.language === code) {
+    await i18n.changeLanguage(code);
+  }
+
+  return true;
+}
+
+/**
+ * Drop every cached language. The admin translations screen calls this right
+ * after saving so the editor's own view is never stale.
+ */
+export function clearTranslationCache() {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(TRANSLATIONS_CACHE_PREFIX))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // localStorage unavailable — nothing to clear
+  }
 }
 
 /**
@@ -88,10 +170,34 @@ async function loadTranslations(lang) {
  */
 function detectLanguage() {
   try {
-    return localStorage.getItem(STORAGE_KEY) || 'en';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return stored;
   } catch {
-    return 'en';
+    // localStorage blocked (private mode) — fall through to the browser hint
   }
+
+  // First visit: honour the browser's language instead of forcing English.
+  try {
+    const browser = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
+    const base = browser.split('-')[0];
+    if (base && SUPPORTED_LANGUAGES.includes(base)) return base;
+  } catch {
+    // navigator unavailable (SSR / tests)
+  }
+
+  return 'en';
+}
+
+/**
+ * Keep <html lang> and <html dir> honest. RTL languages need dir="rtl" or the
+ * whole layout mirrors incorrectly.
+ */
+export function applyHtmlLanguage(code) {
+  if (typeof document === 'undefined') return;
+
+  const base = (code || 'en').split('-')[0].toLowerCase();
+  document.documentElement.setAttribute('lang', code || 'en');
+  document.documentElement.setAttribute('dir', RTL_LANGUAGES.includes(base) ? 'rtl' : 'ltr');
 }
 
 /**
@@ -1552,6 +1658,8 @@ export function initI18nSync() {
   // Use Hindi defaults if the detected language is Hindi, else use English
   const defaultTranslations = lng === 'hi' ? DEFAULT_HI_TRANSLATIONS : DEFAULT_EN_TRANSLATIONS;
 
+  applyHtmlLanguage(lng);
+
   i18n.use(initReactI18next).init({
     resources: {
       en: { frontend: DEFAULT_EN_TRANSLATIONS },
@@ -1559,6 +1667,9 @@ export function initI18nSync() {
     },
     lng,
     fallbackLng: 'en',
+    supportedLngs: SUPPORTED_LANGUAGES,
+    load: LANGUAGE_ONLY ? 'languageOnly' : 'all',
+    nonExplicitSupportedLngs: true,
     ns: ['frontend'],
     defaultNS: 'frontend',
     interpolation: {
@@ -1590,8 +1701,14 @@ export async function loadApiTranslations() {
   // Merge API translations on top of the default English ones
   i18n.addResourceBundle(lng, 'frontend', translations, true, true);
 
+  applyHtmlLanguage(lng);
+
   // Force a language change to trigger React re-renders with the new strings
   await i18n.changeLanguage(lng);
+
+  // Background revalidation: a cached copy is served instantly, then refreshed if
+  // an editor has changed something on the server since it was stored.
+  revalidateTranslations(lng).catch(() => {});
 
   return i18n;
 }
@@ -1609,11 +1726,18 @@ export async function initI18n() {
  * Switch the active language, loading translations from the backend if needed.
  */
 export async function switchLanguage(code) {
-  if (i18n.language === code) return;
+  if (i18n.language === code) {
+    applyHtmlLanguage(code);
+    return;
+  }
+
+  applyHtmlLanguage(code);
 
   // Check if resources are already loaded
   if (i18n.hasResourceBundle(code, 'frontend')) {
     await i18n.changeLanguage(code);
+    persistLanguage(code);
+    revalidateTranslations(code).catch(() => {});
     return;
   }
 
@@ -1622,7 +1746,10 @@ export async function switchLanguage(code) {
   i18n.addResourceBundle(code, 'frontend', translations, true, true);
   await i18n.changeLanguage(code);
 
-  // Persist to localStorage
+  persistLanguage(code);
+}
+
+function persistLanguage(code) {
   try {
     localStorage.setItem(STORAGE_KEY, code);
   } catch {

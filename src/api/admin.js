@@ -295,9 +295,14 @@ export const adminAPI = {
   // ── Translation / Language Management ──
   getAdminLanguages: () => adminClient.get('/admin/languages'),
   createLanguage: (data) => adminClient.post('/admin/languages', data),
+  updateLanguage: (id, data) => adminClient.put(`/admin/languages/${id}`, data),
+  setDefaultLanguage: (id) => adminClient.patch(`/admin/languages/${id}/default`),
   deleteLanguage: (id) => adminClient.delete(`/admin/languages/${id}`),
-  getAdminTranslations: (lang, group = 'frontend') =>
-    adminClient.get(`/admin/translations/${lang}/${group}`),
+  // Paginated server-side; the admin editor loads a whole language scope at once.
+  getAdminTranslations: (lang, group = 'frontend', params = {}) =>
+    adminClient.get(`/admin/translations/${lang}/${group}`, { params }),
+  getMissingTranslations: (params) => adminClient.get('/admin/translations/missing', { params }),
+  flushTranslationCache: () => adminClient.post('/admin/translations/flush'),
   bulkUpdateTranslations: (data) => adminClient.post('/admin/translations/bulk', data),
 
   // Delivery Partners
